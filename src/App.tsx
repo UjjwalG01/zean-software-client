@@ -32,10 +32,10 @@ const App = () => (
               <Route path="/members/new" element={<AddMember />} />
               <Route path="/members/:id" element={<MemberProfile />} />
               <Route path="/bookings" element={<Bookings />} />
-              <Route path="/transactions" element={<PlaceholderPage title="Transactions" />} />
-              <Route path="/reports" element={<PlaceholderPage title="Reports" />} />
-              <Route path="/setup/plans" element={<PlaceholderPage title="Plans & Services" />} />
-              <Route path="/setup/settings" element={<PlaceholderPage title="Settings" />} />
+              <Route path="/transactions" element={<Transactions />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/setup/plans" element={<PlansServices />} />
+              <Route path="/setup/settings" element={<Settings />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AppLayout>
