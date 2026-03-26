@@ -1,16 +1,133 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { Users, DollarSign, CalendarDays, UserCheck } from "lucide-react";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
+import { StatCard } from "@/components/StatCard";
+import { TierBadge } from "@/components/TierBadge";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { dashboardStats, revenueData, serviceBreakdown, members, expiryAlerts, formatNPR } from "@/lib/mock-data";
+import { useNavigate } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle } from "lucide-react";
 
-// IMPORTANT: Fully REPLACE this with your own code
-const PlaceholderIndex = () => {
-  // PLACEHOLDER: Replace this entire return statement with the user's app.
-  // The inline background color is intentionally not part of the design system.
+const Dashboard = () => {
+  const navigate = useNavigate();
+  const recentMembers = members.slice(0, 5);
+
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#fcfbf8' }}>
-      <img data-lovable-blank-page-placeholder="REMOVE_THIS" src="/placeholder.svg" alt="Your app will live here!" />
+    <div className="space-y-6 animate-fade-in">
+      <div>
+        <h1 className="text-2xl font-bold font-display">Welcome back, Admin 👋</h1>
+        <p className="text-muted-foreground text-sm mt-1">Here's what's happening at VitaFit Club today.</p>
+      </div>
+
+      {/* Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="Total Members" value={dashboardStats.totalMembers.toString()} change={5.2} icon={Users} />
+        <StatCard title="Monthly Revenue" value={formatNPR(dashboardStats.monthlyRevenue)} change={dashboardStats.revenueChange} icon={DollarSign} iconColor="gradient-gold" />
+        <StatCard title="Active Bookings" value={dashboardStats.activeBookings.toString()} change={dashboardStats.bookingsChange} icon={CalendarDays} />
+        <StatCard title="Today's Check-ins" value={dashboardStats.todayCheckins.toString()} change={dashboardStats.checkinsChange} icon={UserCheck} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Revenue Chart */}
+        <div className="lg:col-span-2 glass-card rounded-xl p-5">
+          <h3 className="font-semibold font-display mb-4">Revenue Overview</h3>
+          <ResponsiveContainer width="100%" height={280}>
+            <AreaChart data={revenueData}>
+              <defs>
+                <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(38, 92%, 50%)" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="hsl(38, 92%, 50%)" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="month" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+              <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, color: "hsl(var(--foreground))" }} formatter={(v: number) => [formatNPR(v), "Revenue"]} />
+              <Area type="monotone" dataKey="revenue" stroke="hsl(38, 92%, 50%)" strokeWidth={2} fill="url(#revenueGrad)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Service Breakdown */}
+        <div className="glass-card rounded-xl p-5">
+          <h3 className="font-semibold font-display mb-4">Service Breakdown</h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <PieChart>
+              <Pie data={serviceBreakdown} innerRadius={55} outerRadius={80} paddingAngle={4} dataKey="value" stroke="none">
+                {serviceBreakdown.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+              </Pie>
+              <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, color: "hsl(var(--foreground))" }} formatter={(v: number) => [`${v}%`]} />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            {serviceBreakdown.map((s) => (
+              <div key={s.name} className="flex items-center gap-2 text-xs">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.fill }} />
+                <span className="text-muted-foreground">{s.name}</span>
+                <span className="ml-auto font-medium">{s.value}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Members */}
+        <div className="glass-card rounded-xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold font-display">Recent Members</h3>
+            <Button variant="ghost" size="sm" className="text-primary text-xs" onClick={() => navigate("/members")}>View All</Button>
+          </div>
+          <div className="space-y-3">
+            {recentMembers.map((m) => (
+              <div key={m.id} className="flex items-center gap-3 cursor-pointer hover:bg-muted/30 rounded-lg p-2 -mx-2 transition-colors" onClick={() => navigate(`/members/${m.id}`)}>
+                <Avatar className="h-9 w-9">
+                  <AvatarImage src={m.avatar} alt={m.name} />
+                  <AvatarFallback>{m.name.split(" ").map((n) => n[0]).join("")}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{m.name}</p>
+                  <p className="text-xs text-muted-foreground">{m.services.join(", ")}</p>
+                </div>
+                <TierBadge tier={m.tier} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Expiry Alerts */}
+        <div className="glass-card rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <AlertTriangle className="h-4 w-4 text-warning" />
+            <h3 className="font-semibold font-display">Expiry Alerts</h3>
+            <Badge variant="destructive" className="ml-auto text-[10px]">{expiryAlerts.length}</Badge>
+          </div>
+          {expiryAlerts.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">No upcoming expirations</p>
+          ) : (
+            <div className="space-y-3">
+              {expiryAlerts.map((a) => (
+                <div key={a.memberId} className="flex items-center gap-3 rounded-lg border border-warning/20 bg-warning/5 p-3">
+                  <Avatar className="h-9 w-9">
+                    <AvatarImage src={a.avatar} alt={a.memberName} />
+                    <AvatarFallback>{a.memberName.split(" ").map((n) => n[0]).join("")}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{a.memberName}</p>
+                    <p className="text-xs text-muted-foreground">Expires {a.expiryDate}</p>
+                  </div>
+                  <Badge variant="outline" className="text-warning border-warning/30 text-[10px] whitespace-nowrap">
+                    {a.daysLeft}d left
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
 
-const Index = PlaceholderIndex;
-
-export default Index;
+export default Dashboard;

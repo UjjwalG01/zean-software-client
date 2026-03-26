@@ -1,0 +1,146 @@
+import { useParams, useNavigate } from "react-router-dom";
+import { ArrowLeft, Mail, Phone, MapPin, Calendar, Shield, CreditCard, Activity } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { TierBadge } from "@/components/TierBadge";
+import { StatusBadge } from "@/components/StatusBadge";
+import { Badge } from "@/components/ui/badge";
+import { members, transactions, bookings, formatNPR } from "@/lib/mock-data";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+const MemberProfile = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const member = members.find((m) => m.id === id);
+
+  if (!member) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <p className="text-muted-foreground">Member not found</p>
+        <Button variant="ghost" className="mt-4" onClick={() => navigate("/members")}>Back to Members</Button>
+      </div>
+    );
+  }
+
+  const memberTx = transactions.filter((t) => t.memberId === member.id);
+  const memberBookings = bookings.filter((b) => b.memberId === member.id);
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <Button variant="ghost" size="sm" onClick={() => navigate("/members")} className="text-muted-foreground">
+        <ArrowLeft className="h-4 w-4 mr-1" /> Back to Members
+      </Button>
+
+      {/* Header Card */}
+      <div className="glass-card rounded-xl p-6">
+        <div className="flex flex-col sm:flex-row gap-6">
+          <Avatar className="h-20 w-20 ring-2 ring-primary/30 ring-offset-2 ring-offset-background">
+            <AvatarImage src={member.avatar} alt={member.name} />
+            <AvatarFallback className="text-xl">{member.name.split(" ").map((n) => n[0]).join("")}</AvatarFallback>
+          </Avatar>
+          <div className="flex-1 space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-bold font-display">{member.name}</h1>
+              <TierBadge tier={member.tier} />
+              <StatusBadge status={member.status} />
+              {member.autoRenew && <Badge variant="outline" className="text-[10px] text-success border-success/30">Auto-Renew</Badge>}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm text-muted-foreground">
+              <span className="flex items-center gap-2"><Mail className="h-3.5 w-3.5" />{member.email}</span>
+              <span className="flex items-center gap-2"><Phone className="h-3.5 w-3.5" />{member.phone}</span>
+              <span className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5" />{member.address}</span>
+              <span className="flex items-center gap-2"><Calendar className="h-3.5 w-3.5" />Joined {member.joinDate}</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {member.services.map((s) => <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>)}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Row */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        {[
+          { label: "Plan", value: member.plan },
+          { label: "Years", value: `${member.membershipYears} yrs` },
+          { label: "Discount", value: `${member.discount}%` },
+          { label: "Total Paid", value: formatNPR(member.totalPaid) },
+          { label: "Due", value: formatNPR(member.dueAmount) },
+        ].map((s) => (
+          <div key={s.label} className="glass-card rounded-lg p-4 text-center">
+            <p className="text-xs text-muted-foreground">{s.label}</p>
+            <p className="text-lg font-bold font-display mt-1">{s.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Tabs */}
+      <Tabs defaultValue="payments" className="space-y-4">
+        <TabsList className="bg-muted/50">
+          <TabsTrigger value="payments"><CreditCard className="h-3.5 w-3.5 mr-1" />Payments</TabsTrigger>
+          <TabsTrigger value="bookings"><Calendar className="h-3.5 w-3.5 mr-1" />Bookings</TabsTrigger>
+          <TabsTrigger value="preferences"><Activity className="h-3.5 w-3.5 mr-1" />Preferences</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="payments">
+          <div className="glass-card rounded-xl overflow-hidden">
+            {memberTx.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">No payment records</p>
+            ) : (
+              <Table>
+                <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Description</TableHead><TableHead>Method</TableHead><TableHead className="text-right">Amount</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {memberTx.map((t) => (
+                    <TableRow key={t.id}>
+                      <TableCell className="text-sm">{t.date}</TableCell>
+                      <TableCell className="text-sm">{t.description}</TableCell>
+                      <TableCell><Badge variant="secondary" className="text-[10px]">{t.method}</Badge></TableCell>
+                      <TableCell className="text-right font-medium text-sm">{formatNPR(t.total)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="bookings">
+          <div className="glass-card rounded-xl overflow-hidden">
+            {memberBookings.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">No bookings</p>
+            ) : (
+              <Table>
+                <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Class</TableHead><TableHead>Service</TableHead><TableHead>Time</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {memberBookings.map((b) => (
+                    <TableRow key={b.id}>
+                      <TableCell className="text-sm">{b.date}</TableCell>
+                      <TableCell className="text-sm font-medium">{b.className}</TableCell>
+                      <TableCell><Badge variant="secondary" className="text-[10px]">{b.service}</Badge></TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{b.startTime}–{b.endTime}</TableCell>
+                      <TableCell><Badge variant={b.status === "Confirmed" ? "default" : "secondary"} className="text-[10px]">{b.status}</Badge></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="preferences">
+          <div className="glass-card rounded-xl p-6">
+            <h3 className="font-semibold mb-3">Favorite Activities</h3>
+            <div className="flex flex-wrap gap-2">
+              {member.preferences.map((p) => <Badge key={p} variant="outline" className="text-sm">{p}</Badge>)}
+            </div>
+            <h3 className="font-semibold mt-6 mb-3">Emergency Contact</h3>
+            <p className="text-sm text-muted-foreground">{member.emergencyContact}</p>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
+
+export default MemberProfile;
