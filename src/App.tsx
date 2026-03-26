@@ -10,7 +10,10 @@ import MembersList from "./pages/MembersList";
 import MemberProfile from "./pages/MemberProfile";
 import AddMember from "./pages/AddMember";
 import Bookings from "./pages/Bookings";
-import PlaceholderPage from "./pages/PlaceholderPage";
+import Transactions from "./pages/Transactions";
+import Reports from "./pages/Reports";
+import PlansServices from "./pages/PlansServices";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
