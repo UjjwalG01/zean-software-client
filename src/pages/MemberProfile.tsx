@@ -5,14 +5,28 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { TierBadge } from "@/components/TierBadge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Badge } from "@/components/ui/badge";
-import { members, transactions, bookings, formatNPR } from "@/lib/mock-data";
+import { Skeleton } from "@/components/ui/skeleton";
+import { formatNPR } from "@/lib/mock-data";
+import { useMember, useTransactions, useBookings } from "@/hooks/use-firestore";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const MemberProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const member = members.find((m) => m.id === id);
+  const { data: member, isLoading } = useMember(id);
+  const { data: allTransactions = [] } = useTransactions();
+  const { data: allBookings = [] } = useBookings();
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <Skeleton className="h-8 w-32" />
+        <Skeleton className="h-40 rounded-xl" />
+        <div className="grid grid-cols-5 gap-4">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-lg" />)}</div>
+      </div>
+    );
+  }
 
   if (!member) {
     return (
@@ -23,8 +37,8 @@ const MemberProfile = () => {
     );
   }
 
-  const memberTx = transactions.filter((t) => t.memberId === member.id);
-  const memberBookings = bookings.filter((b) => b.memberId === member.id);
+  const memberTx = allTransactions.filter((t) => t.memberId === member.id);
+  const memberBookings = allBookings.filter((b) => b.memberId === member.id);
 
   return (
     <div className="space-y-6 animate-fade-in">

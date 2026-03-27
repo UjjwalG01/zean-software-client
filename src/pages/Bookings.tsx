@@ -8,7 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { bookings, type Booking, type ServiceType } from "@/lib/mock-data";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useBookings, useAddBooking } from "@/hooks/use-firestore";
+import type { ServiceType } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -27,10 +29,13 @@ const serviceDotMap: Record<ServiceType, string> = {
 };
 
 const Bookings = () => {
-  const [currentMonth, setCurrentMonth] = useState(new Date(2026, 2, 1)); // March 2026
+  const [currentMonth, setCurrentMonth] = useState(new Date(2026, 2, 1));
   const [view, setView] = useState<"calendar" | "list">("calendar");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [serviceFilter, setServiceFilter] = useState<string>("all");
+
+  const { data: bookings = [], isLoading } = useBookings();
+  const addBookingMutation = useAddBooking();
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -41,13 +46,18 @@ const Bookings = () => {
   const filtered = useMemo(() => {
     if (serviceFilter === "all") return bookings;
     return bookings.filter((b) => b.service === serviceFilter);
-  }, [serviceFilter]);
+  }, [bookings, serviceFilter]);
 
   const getBookingsForDay = (day: Date) => filtered.filter((b) => isSameDay(new Date(b.date), day));
 
-  const handleBook = () => {
-    toast.success("Booking created successfully!");
-    setDialogOpen(false);
+  const handleBook = async () => {
+    try {
+      await addBookingMutation.mutateAsync({});
+      toast.success("Booking created successfully!");
+      setDialogOpen(false);
+    } catch {
+      toast.error("Failed to create booking");
+    }
   };
 
   return (
@@ -93,30 +103,29 @@ const Bookings = () => {
                   <div className="space-y-2"><Label>Date</Label><Input type="date" /></div>
                   <div className="space-y-2"><Label>Time</Label><Input type="time" /></div>
                 </div>
-                <Button onClick={handleBook} className="w-full gradient-gold text-primary-foreground">Create Booking</Button>
+                <Button onClick={handleBook} disabled={addBookingMutation.isPending} className="w-full gradient-gold text-primary-foreground">
+                  {addBookingMutation.isPending ? "Creating..." : "Create Booking"}
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
         </div>
       </div>
 
-      {view === "calendar" ? (
+      {isLoading ? (
+        <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
+      ) : view === "calendar" ? (
         <div className="glass-card rounded-xl p-5">
-          {/* Calendar Header */}
           <div className="flex items-center justify-between mb-4">
             <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}><ChevronLeft className="h-4 w-4" /></Button>
             <h2 className="text-lg font-semibold font-display">{format(currentMonth, "MMMM yyyy")}</h2>
             <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}><ChevronRight className="h-4 w-4" /></Button>
           </div>
-
-          {/* Day Headers */}
           <div className="grid grid-cols-7 gap-px mb-1">
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
               <div key={d} className="text-center text-xs font-medium text-muted-foreground py-2">{d}</div>
             ))}
           </div>
-
-          {/* Calendar Grid */}
           <div className="grid grid-cols-7 gap-px">
             {days.map((day) => {
               const dayBookings = getBookingsForDay(day);
@@ -142,8 +151,6 @@ const Bookings = () => {
               );
             })}
           </div>
-
-          {/* Legend */}
           <div className="flex gap-4 mt-4 pt-4 border-t border-border">
             {(["Gym", "Spa", "Sauna", "Swimming"] as ServiceType[]).map((s) => (
               <div key={s} className="flex items-center gap-1.5 text-xs text-muted-foreground">
