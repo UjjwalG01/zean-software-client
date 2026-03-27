@@ -8,12 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import { useAddMember } from "@/hooks/use-firestore";
 import type { MemberTier, ServiceType, PaymentMethod } from "@/lib/mock-data";
 
 const steps = ["Personal Info", "Membership", "Payment"];
 
 const AddMember = () => {
   const navigate = useNavigate();
+  const addMemberMutation = useAddMember();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     name: "", email: "", phone: "", address: "", emergencyContact: "",
@@ -26,9 +28,24 @@ const AddMember = () => {
     update("services", form.services.includes(s) ? form.services.filter((x) => x !== s) : [...form.services, s]);
   };
 
-  const handleSubmit = () => {
-    toast.success(`Member "${form.name}" registered successfully!`);
-    navigate("/members");
+  const handleSubmit = async () => {
+    try {
+      await addMemberMutation.mutateAsync({
+        name: form.name,
+        email: form.email,
+        phone: form.phone,
+        address: form.address,
+        emergencyContact: form.emergencyContact,
+        tier: form.tier,
+        services: form.services,
+        plan: form.plan,
+        autoRenew: form.autoRenew,
+      });
+      toast.success(`Member "${form.name}" registered successfully!`);
+      navigate("/members");
+    } catch (err) {
+      toast.error("Failed to register member");
+    }
   };
 
   return (
@@ -138,7 +155,9 @@ const AddMember = () => {
           {step < 2 ? (
             <Button onClick={() => setStep(step + 1)}>Next</Button>
           ) : (
-            <Button onClick={handleSubmit} className="gradient-gold text-primary-foreground">Register Member</Button>
+            <Button onClick={handleSubmit} disabled={addMemberMutation.isPending} className="gradient-gold text-primary-foreground">
+              {addMemberMutation.isPending ? "Registering..." : "Register Member"}
+            </Button>
           )}
         </div>
       </div>

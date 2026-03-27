@@ -3,15 +3,22 @@ import { Area, AreaChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, PieC
 import { StatCard } from "@/components/StatCard";
 import { TierBadge } from "@/components/TierBadge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { dashboardStats, revenueData, serviceBreakdown, members, expiryAlerts, formatNPR } from "@/lib/mock-data";
+import { formatNPR } from "@/lib/mock-data";
+import { useDashboardStats, useMembers, useExpiryAlerts, revenueData, serviceBreakdown } from "@/hooks/use-firestore";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { data: stats, isLoading: statsLoading } = useDashboardStats();
+  const { data: members = [], isLoading: membersLoading } = useMembers();
+  const { data: expiryAlerts = [], isLoading: alertsLoading } = useExpiryAlerts();
+
   const recentMembers = members.slice(0, 5);
+  const dashboardStats = stats || { totalMembers: 0, activeMembers: 0, monthlyRevenue: 0, revenueChange: 0, activeBookings: 0, bookingsChange: 0, todayCheckins: 0, checkinsChange: 0 };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -22,10 +29,16 @@ const Dashboard = () => {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total Members" value={dashboardStats.totalMembers.toString()} change={5.2} icon={Users} />
-        <StatCard title="Monthly Revenue" value={formatNPR(dashboardStats.monthlyRevenue)} change={dashboardStats.revenueChange} icon={DollarSign} iconColor="gradient-gold" />
-        <StatCard title="Active Bookings" value={dashboardStats.activeBookings.toString()} change={dashboardStats.bookingsChange} icon={CalendarDays} />
-        <StatCard title="Today's Check-ins" value={dashboardStats.todayCheckins.toString()} change={dashboardStats.checkinsChange} icon={UserCheck} />
+        {statsLoading ? (
+          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)
+        ) : (
+          <>
+            <StatCard title="Total Members" value={dashboardStats.totalMembers.toString()} change={5.2} icon={Users} />
+            <StatCard title="Monthly Revenue" value={formatNPR(dashboardStats.monthlyRevenue)} change={dashboardStats.revenueChange} icon={DollarSign} iconColor="gradient-gold" />
+            <StatCard title="Active Bookings" value={dashboardStats.activeBookings.toString()} change={dashboardStats.bookingsChange} icon={CalendarDays} />
+            <StatCard title="Today's Check-ins" value={dashboardStats.todayCheckins.toString()} change={dashboardStats.checkinsChange} icon={UserCheck} />
+          </>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -79,21 +92,25 @@ const Dashboard = () => {
             <h3 className="font-semibold font-display">Recent Members</h3>
             <Button variant="ghost" size="sm" className="text-primary text-xs" onClick={() => navigate("/members")}>View All</Button>
           </div>
-          <div className="space-y-3">
-            {recentMembers.map((m) => (
-              <div key={m.id} className="flex items-center gap-3 cursor-pointer hover:bg-muted/30 rounded-lg p-2 -mx-2 transition-colors" onClick={() => navigate(`/members/${m.id}`)}>
-                <Avatar className="h-9 w-9">
-                  <AvatarImage src={m.avatar} alt={m.name} />
-                  <AvatarFallback>{m.name.split(" ").map((n) => n[0]).join("")}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{m.name}</p>
-                  <p className="text-xs text-muted-foreground">{m.services.join(", ")}</p>
+          {membersLoading ? (
+            <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}</div>
+          ) : (
+            <div className="space-y-3">
+              {recentMembers.map((m) => (
+                <div key={m.id} className="flex items-center gap-3 cursor-pointer hover:bg-muted/30 rounded-lg p-2 -mx-2 transition-colors" onClick={() => navigate(`/members/${m.id}`)}>
+                  <Avatar className="h-9 w-9">
+                    <AvatarImage src={m.avatar} alt={m.name} />
+                    <AvatarFallback>{m.name.split(" ").map((n) => n[0]).join("")}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{m.name}</p>
+                    <p className="text-xs text-muted-foreground">{m.services.join(", ")}</p>
+                  </div>
+                  <TierBadge tier={m.tier} />
                 </div>
-                <TierBadge tier={m.tier} />
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Expiry Alerts */}
@@ -103,7 +120,9 @@ const Dashboard = () => {
             <h3 className="font-semibold font-display">Expiry Alerts</h3>
             <Badge variant="destructive" className="ml-auto text-[10px]">{expiryAlerts.length}</Badge>
           </div>
-          {expiryAlerts.length === 0 ? (
+          {alertsLoading ? (
+            <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14 rounded-lg" />)}</div>
+          ) : expiryAlerts.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">No upcoming expirations</p>
           ) : (
             <div className="space-y-3">

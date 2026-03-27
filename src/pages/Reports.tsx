@@ -1,12 +1,13 @@
-import { useState } from "react";
 import { TrendingUp, Users, DollarSign, ClipboardList, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatCard } from "@/components/StatCard";
-import { formatNPR, members, transactions } from "@/lib/mock-data";
+import { Skeleton } from "@/components/ui/skeleton";
+import { formatNPR } from "@/lib/mock-data";
+import { useMembers } from "@/hooks/use-firestore";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, AreaChart, Area,
+  PieChart, Pie, Cell, AreaChart, Area,
 } from "recharts";
 import { toast } from "sonner";
 
@@ -43,9 +44,10 @@ const tooltipStyle = {
 };
 
 const Reports = () => {
+  const { data: members = [], isLoading } = useMembers();
   const activeMembers = members.filter((m) => m.status === "Active").length;
   const totalRevenue = 42500000;
-  const avgRevenue = Math.round(totalRevenue / activeMembers);
+  const avgRevenue = activeMembers > 0 ? Math.round(totalRevenue / activeMembers) : 0;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -61,10 +63,16 @@ const Reports = () => {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total Revenue (YTD)" value={formatNPR(totalRevenue)} change={15} icon={TrendingUp} />
-        <StatCard title="Active Members" value={activeMembers.toLocaleString()} change={12} icon={Users} />
-        <StatCard title="Avg. Revenue/Member" value={formatNPR(avgRevenue)} change={8} icon={DollarSign} />
-        <StatCard title="Attendance Rate" value="78%" change={5} icon={ClipboardList} />
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)
+        ) : (
+          <>
+            <StatCard title="Total Revenue (YTD)" value={formatNPR(totalRevenue)} change={15} icon={TrendingUp} />
+            <StatCard title="Active Members" value={activeMembers.toLocaleString()} change={12} icon={Users} />
+            <StatCard title="Avg. Revenue/Member" value={formatNPR(avgRevenue)} change={8} icon={DollarSign} />
+            <StatCard title="Attendance Rate" value="78%" change={5} icon={ClipboardList} />
+          </>
+        )}
       </div>
 
       {/* Chart Tabs */}
