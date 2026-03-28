@@ -63,6 +63,22 @@ export async function seedFirestore() {
   }
   console.log(`✅ ${services.length} services seeded`);
 
+  // Seed membership plans
+  const membershipPlans = [
+    { id: "plan-basic", name: "Basic", tier: "Basic", price: 3000, yearlyPrice: 30000, longTermPrice: 350000, includes: "Gym Only", autoRenew: true, durationInMonths: 1 },
+    { id: "plan-silver", name: "Silver", tier: "Silver", price: 5000, yearlyPrice: 50000, longTermPrice: 550000, includes: "Gym + Swimming", autoRenew: true, durationInMonths: 1 },
+    { id: "plan-gold", name: "Gold", tier: "Gold", price: 8000, yearlyPrice: 80000, longTermPrice: 850000, includes: "Gym + Spa + Sauna", autoRenew: false, durationInMonths: 1 },
+    { id: "plan-platinum", name: "Platinum", tier: "Platinum", price: 12000, yearlyPrice: 120000, longTermPrice: 1200000, includes: "Full Access + Personal Trainer", autoRenew: false, durationInMonths: 1 },
+  ];
+  for (const plan of membershipPlans) {
+    await setDoc(doc(db, "membershipPlans", plan.id), {
+      ...plan,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    });
+  }
+  console.log(`✅ ${membershipPlans.length} membership plans seeded`);
+
   // Seed members
   for (const m of members) {
     await setDoc(doc(db, "members", m.id), {

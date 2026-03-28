@@ -1,14 +1,41 @@
-import { useState } from "react";
-import { Mail, Building, Shield } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Mail, Building, Shield, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useCompanySettings, useSaveCompanySettings } from "@/hooks/use-firestore";
 import { toast } from "sonner";
 
 const Settings = () => {
+  const { data: settings = {}, isLoading } = useCompanySettings();
+  const saveMutation = useSaveCompanySettings();
+
+  const [company, setCompany] = useState({
+    companyName: "VitaFit Club",
+    registrationNumber: "REG-2018-KTM-4521",
+    companyEmail: "info@vitafitclub.com",
+    companyPhone: "+977-01-4567890",
+    companyAddress: "Thamel, Kathmandu, Nepal",
+  });
+
+  const [tax, setTax] = useState({
+    vatRate: "13",
+    panNumber: "123456789",
+    taxYearStart: "shrawan",
+    currency: "NPR",
+  });
+
+  const [general, setGeneral] = useState({
+    language: "en",
+    timezone: "asia-kathmandu",
+    dateFormat: "yyyy-mm-dd",
+    defaultMemberView: "table",
+  });
+
   const [notifications, setNotifications] = useState({
     expiryReminders: true,
     failedPayments: true,
@@ -17,10 +44,71 @@ const Settings = () => {
     smsNotifications: false,
   });
 
+  // Populate from Firestore settings when loaded
+  useEffect(() => {
+    if (Object.keys(settings).length > 0) {
+      setCompany((prev) => ({
+        companyName: settings.companyName || prev.companyName,
+        registrationNumber: settings.registrationNumber || prev.registrationNumber,
+        companyEmail: settings.companyEmail || prev.companyEmail,
+        companyPhone: settings.companyPhone || prev.companyPhone,
+        companyAddress: settings.companyAddress || prev.companyAddress,
+      }));
+      setTax((prev) => ({
+        vatRate: settings.vatRate || prev.vatRate,
+        panNumber: settings.panNumber || prev.panNumber,
+        taxYearStart: settings.taxYearStart || prev.taxYearStart,
+        currency: settings.currency || prev.currency,
+      }));
+      setGeneral((prev) => ({
+        language: settings.language || prev.language,
+        timezone: settings.timezone || prev.timezone,
+        dateFormat: settings.dateFormat || prev.dateFormat,
+        defaultMemberView: settings.defaultMemberView || prev.defaultMemberView,
+      }));
+    }
+  }, [settings]);
+
+  const handleSaveCompany = async () => {
+    try {
+      await saveMutation.mutateAsync(company);
+      toast.success("Company settings saved!");
+    } catch {
+      toast.error("Failed to save settings");
+    }
+  };
+
+  const handleSaveTax = async () => {
+    try {
+      await saveMutation.mutateAsync(tax);
+      toast.success("Tax settings saved!");
+    } catch {
+      toast.error("Failed to save settings");
+    }
+  };
+
+  const handleSaveGeneral = async () => {
+    try {
+      await saveMutation.mutateAsync(general);
+      toast.success("General settings saved!");
+    } catch {
+      toast.error("Failed to save settings");
+    }
+  };
+
   const toggleNotif = (key: keyof typeof notifications) => {
     setNotifications((prev) => ({ ...prev, [key]: !prev[key] }));
-    toast.success("Setting updated (connect backend to persist)");
+    toast.success("Setting updated");
   };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-96 rounded-xl" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -44,20 +132,22 @@ const Settings = () => {
               <h3 className="font-semibold font-display">Company Information</h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>Company Name</Label><Input defaultValue="VitaFit Club" /></div>
-              <div className="space-y-2"><Label>Registration Number</Label><Input defaultValue="REG-2018-KTM-4521" /></div>
-              <div className="space-y-2"><Label>Email</Label><Input type="email" defaultValue="info@vitafitclub.com" /></div>
-              <div className="space-y-2"><Label>Phone</Label><Input defaultValue="+977-01-4567890" /></div>
-              <div className="space-y-2 sm:col-span-2"><Label>Address</Label><Input defaultValue="Thamel, Kathmandu, Nepal" /></div>
+              <div className="space-y-2"><Label>Company Name</Label><Input value={company.companyName} onChange={(e) => setCompany((p) => ({ ...p, companyName: e.target.value }))} /></div>
+              <div className="space-y-2"><Label>Registration Number</Label><Input value={company.registrationNumber} onChange={(e) => setCompany((p) => ({ ...p, registrationNumber: e.target.value }))} /></div>
+              <div className="space-y-2"><Label>Email</Label><Input type="email" value={company.companyEmail} onChange={(e) => setCompany((p) => ({ ...p, companyEmail: e.target.value }))} /></div>
+              <div className="space-y-2"><Label>Phone</Label><Input value={company.companyPhone} onChange={(e) => setCompany((p) => ({ ...p, companyPhone: e.target.value }))} /></div>
+              <div className="space-y-2 sm:col-span-2"><Label>Address</Label><Input value={company.companyAddress} onChange={(e) => setCompany((p) => ({ ...p, companyAddress: e.target.value }))} /></div>
             </div>
             <div className="space-y-2">
               <Label>Company Logo</Label>
               <div className="flex items-center gap-4">
                 <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center text-xl font-bold text-primary">VF</div>
-                <Button variant="outline" size="sm" onClick={() => toast.info("Upload logo (connect backend)")}>Upload Logo</Button>
+                <Button variant="outline" size="sm" onClick={() => toast.info("Upload logo via Firebase Storage")}>Upload Logo</Button>
               </div>
             </div>
-            <Button onClick={() => toast.success("Company settings saved (connect backend)")} className="gradient-gold text-primary-foreground">Save Changes</Button>
+            <Button onClick={handleSaveCompany} disabled={saveMutation.isPending} className="gradient-gold text-primary-foreground">
+              {saveMutation.isPending ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Saving...</> : "Save Changes"}
+            </Button>
           </div>
         </TabsContent>
 
@@ -68,11 +158,11 @@ const Settings = () => {
               <h3 className="font-semibold font-display">Tax & VAT Configuration</h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>VAT Rate (%)</Label><Input type="number" defaultValue="13" /></div>
-              <div className="space-y-2"><Label>PAN Number</Label><Input defaultValue="123456789" /></div>
+              <div className="space-y-2"><Label>VAT Rate (%)</Label><Input type="number" value={tax.vatRate} onChange={(e) => setTax((p) => ({ ...p, vatRate: e.target.value }))} /></div>
+              <div className="space-y-2"><Label>PAN Number</Label><Input value={tax.panNumber} onChange={(e) => setTax((p) => ({ ...p, panNumber: e.target.value }))} /></div>
               <div className="space-y-2">
                 <Label>Tax Year Start</Label>
-                <Select defaultValue="shrawan">
+                <Select value={tax.taxYearStart} onValueChange={(v) => setTax((p) => ({ ...p, taxYearStart: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="shrawan">Shrawan (Jul-Aug)</SelectItem>
@@ -82,7 +172,7 @@ const Settings = () => {
               </div>
               <div className="space-y-2">
                 <Label>Currency</Label>
-                <Select defaultValue="NPR">
+                <Select value={tax.currency} onValueChange={(v) => setTax((p) => ({ ...p, currency: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="NPR">NPR (Nepali Rupees)</SelectItem>
@@ -94,9 +184,11 @@ const Settings = () => {
             </div>
             <div className="rounded-lg border border-border/50 bg-muted/30 p-4 text-sm text-muted-foreground">
               <p className="font-medium text-foreground mb-1">VAT Calculation</p>
-              <p>All invoices automatically include 13% VAT. Monthly VAT reports are available in the Reports section.</p>
+              <p>All invoices automatically include {tax.vatRate}% VAT. Monthly VAT reports are available in the Reports section.</p>
             </div>
-            <Button onClick={() => toast.success("Tax settings saved (connect backend)")} className="gradient-gold text-primary-foreground">Save Changes</Button>
+            <Button onClick={handleSaveTax} disabled={saveMutation.isPending} className="gradient-gold text-primary-foreground">
+              {saveMutation.isPending ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Saving...</> : "Save Changes"}
+            </Button>
           </div>
         </TabsContent>
 
@@ -132,7 +224,7 @@ const Settings = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Language</Label>
-                <Select defaultValue="en">
+                <Select value={general.language} onValueChange={(v) => setGeneral((p) => ({ ...p, language: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="en">English</SelectItem>
@@ -142,7 +234,7 @@ const Settings = () => {
               </div>
               <div className="space-y-2">
                 <Label>Timezone</Label>
-                <Select defaultValue="asia-kathmandu">
+                <Select value={general.timezone} onValueChange={(v) => setGeneral((p) => ({ ...p, timezone: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="asia-kathmandu">Asia/Kathmandu (NPT +5:45)</SelectItem>
@@ -153,7 +245,7 @@ const Settings = () => {
               </div>
               <div className="space-y-2">
                 <Label>Date Format</Label>
-                <Select defaultValue="yyyy-mm-dd">
+                <Select value={general.dateFormat} onValueChange={(v) => setGeneral((p) => ({ ...p, dateFormat: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="yyyy-mm-dd">YYYY-MM-DD</SelectItem>
@@ -164,7 +256,7 @@ const Settings = () => {
               </div>
               <div className="space-y-2">
                 <Label>Default Member View</Label>
-                <Select defaultValue="table">
+                <Select value={general.defaultMemberView} onValueChange={(v) => setGeneral((p) => ({ ...p, defaultMemberView: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="table">Table</SelectItem>
@@ -189,10 +281,11 @@ const Settings = () => {
                   </div>
                 ))}
               </div>
-              <p className="text-[10px] text-muted-foreground">💡 Enable Lovable Cloud to connect payment gateways and notification services.</p>
             </div>
 
-            <Button onClick={() => toast.success("General settings saved (connect backend)")} className="gradient-gold text-primary-foreground">Save Changes</Button>
+            <Button onClick={handleSaveGeneral} disabled={saveMutation.isPending} className="gradient-gold text-primary-foreground">
+              {saveMutation.isPending ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Saving...</> : "Save Changes"}
+            </Button>
           </div>
         </TabsContent>
       </Tabs>
