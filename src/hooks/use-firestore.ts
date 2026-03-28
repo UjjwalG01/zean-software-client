@@ -112,6 +112,19 @@ export function useAddBooking() {
   });
 }
 
+export function useDeleteBooking() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!firebaseEnabled) return;
+      return fbServices.deleteBooking(id);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["bookings"] });
+    },
+  });
+}
+
 // ─── Transactions ───────────────────────────────────────────────────
 export function useTransactions() {
   return useQuery({
@@ -139,6 +152,139 @@ export function useAddTransaction() {
   });
 }
 
+// ─── Services ───────────────────────────────────────────────────────
+export function useServices() {
+  return useQuery({
+    queryKey: ["services"],
+    queryFn: async () => {
+      if (!firebaseEnabled) return [];
+      return fbServices.getServices();
+    },
+  });
+}
+
+export function useAddService() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: Partial<fbServices.FirestoreService>) => {
+      if (!firebaseEnabled) {
+        toast.success("Service created (mock mode)");
+        return "mock-id";
+      }
+      return fbServices.addService(data);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["services"] });
+    },
+  });
+}
+
+export function useUpdateService() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Record<string, any>> }) => {
+      if (!firebaseEnabled) return;
+      return fbServices.updateService(id, data);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["services"] });
+    },
+  });
+}
+
+export function useDeleteService() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!firebaseEnabled) return;
+      return fbServices.deleteService(id);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["services"] });
+    },
+  });
+}
+
+// ─── Membership Plans ───────────────────────────────────────────────
+export function useMembershipPlans() {
+  return useQuery({
+    queryKey: ["membershipPlans"],
+    queryFn: async () => {
+      if (!firebaseEnabled) return [];
+      return fbServices.getMembershipPlans();
+    },
+  });
+}
+
+export function useAddMembershipPlan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: Partial<fbServices.FirestoreMembershipPlan>) => {
+      if (!firebaseEnabled) {
+        toast.success("Plan created (mock mode)");
+        return "mock-id";
+      }
+      return fbServices.addMembershipPlan(data);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["membershipPlans"] });
+    },
+  });
+}
+
+export function useUpdateMembershipPlan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Record<string, any>> }) => {
+      if (!firebaseEnabled) return;
+      return fbServices.updateMembershipPlan(id, data);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["membershipPlans"] });
+    },
+  });
+}
+
+export function useDeleteMembershipPlan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!firebaseEnabled) return;
+      return fbServices.deleteMembershipPlan(id);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["membershipPlans"] });
+    },
+  });
+}
+
+// ─── Company Settings ───────────────────────────────────────────────
+export function useCompanySettings() {
+  return useQuery({
+    queryKey: ["companySettings"],
+    queryFn: async () => {
+      if (!firebaseEnabled) return {};
+      return fbServices.getCompanySettings();
+    },
+  });
+}
+
+export function useSaveCompanySettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (settings: Record<string, string>) => {
+      if (!firebaseEnabled) {
+        toast.success("Settings saved (mock mode)");
+        return;
+      }
+      return fbServices.saveCompanySettings(settings);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["companySettings"] });
+    },
+  });
+}
+
 // ─── Dashboard ──────────────────────────────────────────────────────
 export function useDashboardStats() {
   return useQuery({
@@ -155,7 +301,6 @@ export function useExpiryAlerts() {
     queryKey: ["expiryAlerts"],
     queryFn: async () => {
       if (!firebaseEnabled) return mockExpiryAlerts;
-      // With Firebase, compute from members
       const members = await fbServices.getMembers({ status: "Expiring" as MemberStatus });
       const now = new Date();
       return members

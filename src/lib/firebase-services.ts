@@ -112,6 +112,11 @@ export async function updateBooking(id: string, data: Partial<Record<string, any
   await updateDoc(doc(db, "bookings", id), { ...data, updatedAt: Timestamp.now() });
 }
 
+export async function deleteBooking(id: string): Promise<void> {
+  const db = getFirestoreDb();
+  await deleteDoc(doc(db, "bookings", id));
+}
+
 // ─── Transactions / Payments ────────────────────────────────────────
 export async function getTransactions(): Promise<Transaction[]> {
   const db = getFirestoreDb();
@@ -139,6 +144,127 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
     updatedAt: Timestamp.now(),
   });
   return ref.id;
+}
+
+// ─── Services ───────────────────────────────────────────────────────
+export interface FirestoreService {
+  id: string;
+  name: string;
+  type: string;
+  duration: number;
+  price: number;
+  isActive: boolean;
+  description?: string;
+  capacity?: number;
+  instructor?: string;
+}
+
+export async function getServices(): Promise<FirestoreService[]> {
+  const db = getFirestoreDb();
+  const snap = await getDocs(collection(db, "services"));
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: d.id,
+      name: data.name || "",
+      type: data.type || "Gym",
+      duration: data.duration || 0,
+      price: data.price || 0,
+      isActive: data.isActive !== false,
+      description: data.description || "",
+      capacity: data.capacity || 0,
+      instructor: data.instructor || "",
+    };
+  });
+}
+
+export async function addService(data: Partial<FirestoreService>): Promise<string> {
+  const db = getFirestoreDb();
+  const ref = await addDoc(collection(db, "services"), {
+    name: data.name || "",
+    type: data.type || "Gym",
+    duration: data.duration || 60,
+    price: data.price || 0,
+    isActive: data.isActive !== false,
+    description: data.description || "",
+    capacity: data.capacity || 1,
+    instructor: data.instructor || "",
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  });
+  return ref.id;
+}
+
+export async function updateService(id: string, data: Partial<Record<string, any>>): Promise<void> {
+  const db = getFirestoreDb();
+  await updateDoc(doc(db, "services", id), { ...data, updatedAt: Timestamp.now() });
+}
+
+export async function deleteService(id: string): Promise<void> {
+  const db = getFirestoreDb();
+  await deleteDoc(doc(db, "services", id));
+}
+
+// ─── Membership Plans ───────────────────────────────────────────────
+export interface FirestoreMembershipPlan {
+  id: string;
+  name: string;
+  tier: string;
+  price: number;
+  yearlyPrice?: number;
+  longTermPrice?: number;
+  durationInMonths?: number;
+  membershipTypeId?: string;
+  includes?: string;
+  autoRenew?: boolean;
+}
+
+export async function getMembershipPlans(): Promise<FirestoreMembershipPlan[]> {
+  const db = getFirestoreDb();
+  const snap = await getDocs(collection(db, "membershipPlans"));
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: d.id,
+      name: data.name || "",
+      tier: data.tier || "Basic",
+      price: data.price || 0,
+      yearlyPrice: data.yearlyPrice || 0,
+      longTermPrice: data.longTermPrice || 0,
+      durationInMonths: data.durationInMonths || 1,
+      membershipTypeId: data.membershipTypeId || "",
+      includes: data.includes || "",
+      autoRenew: data.autoRenew || false,
+    };
+  });
+}
+
+export async function addMembershipPlan(data: Partial<FirestoreMembershipPlan>): Promise<string> {
+  const db = getFirestoreDb();
+  const ref = await addDoc(collection(db, "membershipPlans"), {
+    name: data.name || "",
+    tier: data.tier || "Basic",
+    price: data.price || 0,
+    yearlyPrice: data.yearlyPrice || 0,
+    longTermPrice: data.longTermPrice || 0,
+    durationInMonths: data.durationInMonths || 1,
+    membershipTypeId: data.membershipTypeId || "",
+    includes: data.includes || "",
+    autoRenew: data.autoRenew || false,
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  });
+  return ref.id;
+}
+
+export async function updateMembershipPlan(id: string, data: Partial<Record<string, any>>): Promise<void> {
+  const db = getFirestoreDb();
+  await updateDoc(doc(db, "membershipPlans", id), { ...data, updatedAt: Timestamp.now() });
+}
+
+export async function deleteMembershipPlan(id: string): Promise<void> {
+  const db = getFirestoreDb();
+  await deleteDoc(doc(db, "membershipPlans", id));
 }
 
 // ─── Dashboard Stats ────────────────────────────────────────────────
@@ -187,6 +313,11 @@ export async function setCompanySetting(key: string, value: string, type = "stri
     key, value, type,
     updatedAt: Timestamp.now(),
   });
+}
+
+export async function saveCompanySettings(settings: Record<string, string>): Promise<void> {
+  const promises = Object.entries(settings).map(([key, value]) => setCompanySetting(key, value));
+  await Promise.all(promises);
 }
 
 // ─── Check-ins ──────────────────────────────────────────────────────
