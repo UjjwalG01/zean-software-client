@@ -314,5 +314,32 @@ export function useExpiryAlerts() {
   });
 }
 
+// ─── Discount Rules ─────────────────────────────────────────────────
+export function useDiscountRules() {
+  return useQuery({
+    queryKey: ["discountRules"],
+    queryFn: async () => {
+      if (!firebaseEnabled) return [];
+      return fbServices.getDiscountRules();
+    },
+  });
+}
+
+export function useSaveDiscountRules() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (rules: fbServices.DiscountRule[]) => {
+      if (!firebaseEnabled) {
+        toast.success("Discount rules saved (mock mode)");
+        return;
+      }
+      return fbServices.saveDiscountRules(rules);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["discountRules"] });
+    },
+  });
+}
+
 // Re-export mock data that doesn't come from Firebase
 export { mockRevenueData as revenueData, mockServiceBreakdown as serviceBreakdown };
