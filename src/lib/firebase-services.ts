@@ -374,15 +374,3 @@ export async function addAuditLog(userId: string | null, action: string, entityT
     timestamp: Timestamp.now(),
   });
 }
-export async function addAuditLog(userId: string | null, action: string, entityType: string, entityId: string, oldValue?: any, newValue?: any): Promise<void> {
-  const db = getFirestoreDb();
-  await addDoc(collection(db, "auditLogs"), {
-    userId,
-    action,
-    entityType,
-    entityId,
-    oldValue: oldValue ? JSON.stringify(oldValue) : null,
-    newValue: newValue ? JSON.stringify(newValue) : null,
-    timestamp: Timestamp.now(),
-  });
-}
