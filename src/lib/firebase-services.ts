@@ -333,6 +333,34 @@ export async function addCheckIn(memberId: string): Promise<string> {
   return ref.id;
 }
 
+// ─── Discount Rules ─────────────────────────────────────────────────
+export interface DiscountRule {
+  years: number;
+  discount: number;
+}
+
+export async function getDiscountRules(): Promise<DiscountRule[]> {
+  const db = getFirestoreDb();
+  const snap = await getDocs(query(collection(db, "companySettings"), where("key", "==", "discountRules")));
+  if (snap.empty) return [];
+  const data = snap.docs[0].data();
+  try {
+    return JSON.parse(data.value) as DiscountRule[];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveDiscountRules(rules: DiscountRule[]): Promise<void> {
+  const db = getFirestoreDb();
+  await setDoc(doc(db, "companySettings", "discountRules"), {
+    key: "discountRules",
+    value: JSON.stringify(rules),
+    type: "json",
+    updatedAt: Timestamp.now(),
+  });
+}
+
 // ─── Audit Log ──────────────────────────────────────────────────────
 export async function addAuditLog(userId: string | null, action: string, entityType: string, entityId: string, oldValue?: any, newValue?: any): Promise<void> {
   const db = getFirestoreDb();

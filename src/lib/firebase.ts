@@ -4,12 +4,13 @@ import { getAuth, type Auth } from "firebase/auth";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCZieVmmzIrTO1y2bFJ3Owvzufrm_Pbjn4",
-  authDomain: "gymcentral-qjnqn.firebaseapp.com",
-  projectId: "gymcentral-qjnqn",
-  storageBucket: "gymcentral-qjnqn.firebasestorage.app",
-  messagingSenderId: "240334244555",
-  appId: "1:240334244555:web:f36e6243c7e4d83523694e",
+  apiKey: "AIzaSyBZpZQ7D_t-rZmJ7PSdQnxelN4T9z_Br8Q",
+  authDomain: "vitafitclub-v1.firebaseapp.com",
+  projectId: "vitafitclub-v1",
+  storageBucket: "vitafitclub-v1.firebasestorage.app",
+  messagingSenderId: "455479727261",
+  appId: "1:455479727261:web:051d6f7d3d2206081af074",
+  measurementId: "G-PE3GJG7HT6",
 };
 
 const app: FirebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
