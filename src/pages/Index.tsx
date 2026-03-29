@@ -4,21 +4,48 @@ import { StatCard } from "@/components/StatCard";
 import { TierBadge } from "@/components/TierBadge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { formatNPR } from "@/lib/mock-data";
-import { useDashboardStats, useMembers, useExpiryAlerts, revenueData, serviceBreakdown } from "@/hooks/use-firestore";
+import { useDashboardStats, useMembers, useExpiryAlerts, useTransactions } from "@/hooks/use-firestore";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useMemo } from "react";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: members = [], isLoading: membersLoading } = useMembers();
   const { data: expiryAlerts = [], isLoading: alertsLoading } = useExpiryAlerts();
+  const { data: transactions = [] } = useTransactions();
 
   const recentMembers = members.slice(0, 5);
   const dashboardStats = stats || { totalMembers: 0, activeMembers: 0, monthlyRevenue: 0, revenueChange: 0, activeBookings: 0, bookingsChange: 0, todayCheckins: 0, checkinsChange: 0 };
+
+  // Build revenue data from real transactions
+  const revenueData = useMemo(() => {
+    const monthMap: Record<string, number> = {};
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    months.forEach((m) => (monthMap[m] = 0));
+    transactions.forEach((t) => {
+      if (t.date) {
+        const month = new Date(t.date).toLocaleString("en", { month: "short" });
+        monthMap[month] = (monthMap[month] || 0) + t.total;
+      }
+    });
+    return months.map((month) => ({ month, revenue: monthMap[month] }));
+  }, [transactions]);
+
+  // Build service breakdown from member services
+  const serviceBreakdown = useMemo(() => {
+    const counts: Record<string, number> = { Gym: 0, Spa: 0, Sauna: 0, Swimming: 0 };
+    members.forEach((m) => m.services.forEach((s) => (counts[s] = (counts[s] || 0) + 1)));
+    const total = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
+    const fills: Record<string, string> = {
+      Gym: "hsl(38, 92%, 50%)", Spa: "hsl(280, 60%, 55%)", Sauna: "hsl(15, 80%, 55%)", Swimming: "hsl(200, 80%, 50%)",
+    };
+    return Object.entries(counts).map(([name, count]) => ({ name, value: Math.round((count / total) * 100), fill: fills[name] }));
+  }, [members]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -27,7 +54,6 @@ const Dashboard = () => {
         <p className="text-muted-foreground text-sm mt-1">Here's what's happening at VitaFit Club today.</p>
       </div>
 
-      {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {statsLoading ? (
           Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)
@@ -42,7 +68,6 @@ const Dashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Revenue Chart */}
         <div className="lg:col-span-2 glass-card rounded-xl p-5">
           <h3 className="font-semibold font-display mb-4">Revenue Overview</h3>
           <ResponsiveContainer width="100%" height={280}>
@@ -62,7 +87,6 @@ const Dashboard = () => {
           </ResponsiveContainer>
         </div>
 
-        {/* Service Breakdown */}
         <div className="glass-card rounded-xl p-5">
           <h3 className="font-semibold font-display mb-4">Service Breakdown</h3>
           <ResponsiveContainer width="100%" height={200}>
@@ -86,7 +110,6 @@ const Dashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Members */}
         <div className="glass-card rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold font-display">Recent Members</h3>
@@ -113,7 +136,6 @@ const Dashboard = () => {
           )}
         </div>
 
-        {/* Expiry Alerts */}
         <div className="glass-card rounded-xl p-5">
           <div className="flex items-center gap-2 mb-4">
             <AlertTriangle className="h-4 w-4 text-warning" />
@@ -127,7 +149,7 @@ const Dashboard = () => {
           ) : (
             <div className="space-y-3">
               {expiryAlerts.map((a) => (
-                <div key={a.memberId} className="flex items-center gap-3 rounded-lg border border-warning/20 bg-warning/5 p-3">
+                <div key={a.memberId} className="flex items-center gap-3 rounded-lg border border-warning/20 bg-warning/5 p-3 cursor-pointer" onClick={() => navigate(`/members/${a.memberId}`)}>
                   <Avatar className="h-9 w-9">
                     <AvatarImage src={a.avatar} alt={a.memberName} />
                     <AvatarFallback>{a.memberName.split(" ").map((n) => n[0]).join("")}</AvatarFallback>
