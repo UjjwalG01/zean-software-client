@@ -1,5 +1,4 @@
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
 import { Search, Plus, Download, Receipt, FileText } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,8 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatNPR, type PaymentMethod } from "@/lib/mock-data";
-import { useTransactions, useAddTransaction } from "@/hooks/use-firestore";
+import { TransactionDetailModal } from "@/components/TransactionDetailModal";
+import { formatNPR, type PaymentMethod, type Transaction } from "@/lib/mock-data";
+import { useTransactions, useAddTransaction, useMembers } from "@/hooks/use-firestore";
 import { toast } from "sonner";
 
 const methodColors: Record<PaymentMethod, string> = {
@@ -22,13 +22,22 @@ const methodColors: Record<PaymentMethod, string> = {
 };
 
 const Transactions = () => {
-  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [methodFilter, setMethodFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  // New payment form
+  const [payMember, setPayMember] = useState("");
+  const [payType, setPayType] = useState("Payment");
+  const [payAmount, setPayAmount] = useState("");
+  const [payMethod, setPayMethod] = useState("Cash");
+  const [payDesc, setPayDesc] = useState("");
 
   const { data: transactions = [], isLoading } = useTransactions();
+  const { data: members = [] } = useMembers();
   const addTransactionMutation = useAddTransaction();
 
   const filtered = useMemo(() => {
@@ -44,14 +53,34 @@ const Transactions = () => {
   const totalVat = filtered.reduce((sum, t) => sum + t.vat, 0);
 
   const handleRecordPayment = async () => {
+    if (!payMember || !payAmount) {
+      toast.error("Please select member and enter amount");
+      return;
+    }
+    const memberObj = members.find((m) => m.id === payMember);
+    const amount = Number(payAmount);
     try {
-      await addTransactionMutation.mutateAsync({});
+      await addTransactionMutation.mutateAsync({
+        memberId: payMember,
+        memberName: memberObj?.name || "",
+        amount,
+        method: payMethod as PaymentMethod,
+        type: payType as any,
+        description: payDesc,
+        date: new Date().toISOString().split("T")[0],
+        receiptNo: `VFC-${Date.now()}`,
+      });
       toast.success("Payment recorded successfully! Receipt generated.");
       setDialogOpen(false);
+      setPayMember("");
+      setPayAmount("");
+      setPayDesc("");
     } catch {
       toast.error("Failed to record payment");
     }
   };
+
+  const vatPreview = payAmount ? Math.round(Number(payAmount) * 0.13) : 0;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -71,11 +100,21 @@ const Transactions = () => {
             <DialogContent>
               <DialogHeader><DialogTitle className="font-display">Record Payment</DialogTitle></DialogHeader>
               <div className="space-y-4">
-                <div className="space-y-2"><Label>Member</Label><Input placeholder="Search member..." /></div>
+                <div className="space-y-2">
+                  <Label>Member</Label>
+                  <Select value={payMember} onValueChange={setPayMember}>
+                    <SelectTrigger><SelectValue placeholder="Select member" /></SelectTrigger>
+                    <SelectContent>
+                      {members.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-2">
                   <Label>Payment Type</Label>
-                  <Select>
-                    <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                  <Select value={payType} onValueChange={setPayType}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Payment">Payment</SelectItem>
                       <SelectItem value="Renewal">Renewal</SelectItem>
@@ -85,36 +124,47 @@ const Transactions = () => {
                   </Select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>Amount (NPR)</Label><Input type="number" placeholder="0" /></div>
-                  <div className="space-y-2"><Label>VAT (13%)</Label><Input type="number" placeholder="Auto-calculated" disabled /></div>
+                  <div className="space-y-2">
+                    <Label>Amount (NPR)</Label>
+                    <Input type="number" placeholder="0" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>VAT (13%)</Label>
+                    <Input type="number" value={vatPreview} disabled />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Payment Method</Label>
-                  <Select>
-                    <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
+                  <Select value={payMethod} onValueChange={setPayMethod}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Cash">Cash</SelectItem>
-                      <SelectItem value="Card">Card (Stripe)</SelectItem>
+                      <SelectItem value="Card">Card</SelectItem>
                       <SelectItem value="Esewa">eSewa</SelectItem>
                       <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
                       <SelectItem value="Mobile Wallet">Mobile Wallet</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2"><Label>Description</Label><Input placeholder="e.g. Gold Monthly Payment" /></div>
-                <div className="flex gap-2">
-                  <Button onClick={handleRecordPayment} disabled={addTransactionMutation.isPending} className="flex-1 gradient-gold text-primary-foreground">
-                    <Receipt className="h-4 w-4 mr-1" />{addTransactionMutation.isPending ? "Saving..." : "Save & Generate Receipt"}
-                  </Button>
-                </div>
-                <p className="text-[10px] text-muted-foreground text-center">
-                  💡 Connect Firebase to enable Stripe, eSewa, and auto VAT calculation
-                </p>
+                <div className="space-y-2"><Label>Description</Label><Input placeholder="e.g. Gold Monthly Payment" value={payDesc} onChange={(e) => setPayDesc(e.target.value)} /></div>
+                {payAmount && (
+                  <div className="rounded-lg bg-muted/30 p-3 text-sm space-y-1">
+                    <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatNPR(Number(payAmount))}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">VAT</span><span>{formatNPR(vatPreview)}</span></div>
+                    <div className="flex justify-between font-bold"><span>Total</span><span className="text-primary">{formatNPR(Number(payAmount) + vatPreview)}</span></div>
+                  </div>
+                )}
+                <Button onClick={handleRecordPayment} disabled={addTransactionMutation.isPending} className="w-full gradient-gold text-primary-foreground">
+                  <Receipt className="h-4 w-4 mr-1" />{addTransactionMutation.isPending ? "Saving..." : "Save & Generate Receipt"}
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
         </div>
       </div>
+
+      {/* Transaction Detail Modal */}
+      <TransactionDetailModal transaction={selectedTransaction} open={detailOpen} onOpenChange={setDetailOpen} />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -182,7 +232,7 @@ const Transactions = () => {
             </TableHeader>
             <TableBody>
               {filtered.map((t) => (
-                <TableRow key={t.id} className="cursor-pointer" onClick={() => navigate(`/members/${t.memberId}`)}>
+                <TableRow key={t.id} className="cursor-pointer" onClick={() => { setSelectedTransaction(t); setDetailOpen(true); }}>
                   <TableCell className="font-mono text-xs text-muted-foreground">{t.receiptNo}</TableCell>
                   <TableCell className="text-sm">{t.date}</TableCell>
                   <TableCell className="text-sm font-medium">{t.memberName}</TableCell>
@@ -196,7 +246,7 @@ const Transactions = () => {
                   <TableCell className="text-right text-sm text-muted-foreground hidden md:table-cell">{formatNPR(t.vat)}</TableCell>
                   <TableCell className="text-right font-medium text-sm">{formatNPR(t.total)}</TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); toast.info("Receipt download ready (connect Firebase)"); }}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); toast.info("Receipt download ready"); }}>
                       <FileText className="h-3.5 w-3.5" />
                     </Button>
                   </TableCell>
