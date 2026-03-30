@@ -105,6 +105,12 @@ const Bookings_Page = () => {
       toast.error("Please fill in all required fields");
       return;
     }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (new Date(bookDate) < today) {
+      toast.error("Cannot create bookings for past dates");
+      return;
+    }
     const memberObj = members.find((m) => m.id === bookMember);
     try {
       await addBookingMutation.mutateAsync({

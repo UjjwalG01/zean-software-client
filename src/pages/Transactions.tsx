@@ -90,7 +90,14 @@ const Transactions = () => {
           <p className="text-muted-foreground text-sm">{filtered.length} transactions • Total: {formatNPR(totalAmount)}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => toast.success("Transactions exported as CSV")}>
+          <Button variant="outline" size="sm" onClick={() => {
+            import("@/lib/print-utils").then(({ exportTableToCSV }) => {
+              const headers = ["Receipt #", "Date", "Member", "Description", "Method", "Type", "VAT", "Total"];
+              const rows = filtered.map((t) => [t.receiptNo, t.date, t.memberName, t.description, t.method, t.type, String(t.vat), String(t.total)]);
+              exportTableToCSV(headers, rows, "transactions-export.csv");
+              toast.success("Transactions exported as CSV!");
+            });
+          }}>
             <Download className="h-4 w-4 mr-1" />Export
           </Button>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

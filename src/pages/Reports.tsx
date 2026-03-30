@@ -82,7 +82,17 @@ const Reports = () => {
           <h1 className="text-2xl font-bold font-display">Reports</h1>
           <p className="text-muted-foreground text-sm">Analytics & financial reports from live data</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => toast.success("Reports exported successfully!")}>
+        <Button variant="outline" size="sm" onClick={() => {
+          import("@/lib/print-utils").then(({ exportTableToCSV }) => {
+            const headers = ["Member", "Status", "Tier", "Total Paid", "Due"];
+            const rows = members.map((m) => [m.name, m.status, m.tier, String(m.totalPaid), String(m.dueAmount)]);
+            exportTableToCSV(headers, rows, "members-report.csv");
+            const txHeaders = ["Receipt", "Date", "Member", "Method", "VAT", "Total"];
+            const txRows = transactions.map((t) => [t.receiptNo, t.date, t.memberName, t.method, String(t.vat), String(t.total)]);
+            exportTableToCSV(txHeaders, txRows, "transactions-report.csv");
+            toast.success("Reports exported as CSV!");
+          });
+        }}>
           <Download className="h-4 w-4 mr-1" />Export All
         </Button>
       </div>
