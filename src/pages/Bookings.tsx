@@ -77,6 +77,12 @@ const Bookings_Page = () => {
   const getBookingsForDay = (day: Date) => filtered.filter((b) => isSameDay(new Date(b.date), day));
 
   const handleDayClick = (day: Date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (day < today) {
+      toast.error("Cannot add bookings for past dates");
+      return;
+    }
     setBookDate(format(day, "yyyy-MM-dd"));
     setDialogOpen(true);
   };
@@ -97,6 +103,12 @@ const Bookings_Page = () => {
   const handleBook = async () => {
     if (!bookMember || !bookClass || !bookDate || !bookTime) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (new Date(bookDate) < today) {
+      toast.error("Cannot create bookings for past dates");
       return;
     }
     const memberObj = members.find((m) => m.id === bookMember);
