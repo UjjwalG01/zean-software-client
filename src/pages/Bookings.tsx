@@ -77,6 +77,12 @@ const Bookings_Page = () => {
   const getBookingsForDay = (day: Date) => filtered.filter((b) => isSameDay(new Date(b.date), day));
 
   const handleDayClick = (day: Date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (day < today) {
+      toast.error("Cannot add bookings for past dates");
+      return;
+    }
     setBookDate(format(day, "yyyy-MM-dd"));
     setDialogOpen(true);
   };
