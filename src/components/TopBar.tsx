@@ -1,11 +1,10 @@
-import { Bell, Search, Sun, Moon, User } from "lucide-react";
+import { Bell, Search, Sun, Moon } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { expiryAlerts } from "@/lib/mock-data";
+import { NotificationPanel } from "@/components/NotificationPanel";
+import { UserProfileMenu } from "@/components/UserProfileMenu";
 
 export function TopBar() {
   const { theme, setTheme } = useTheme();
@@ -25,24 +24,8 @@ export function TopBar() {
           <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
         </Button>
 
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-4 w-4" />
-          {expiryAlerts.length > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-destructive-foreground">
-              {expiryAlerts.length}
-            </span>
-          )}
-        </Button>
-
-        <div className="flex items-center gap-2 pl-2 border-l border-border">
-          <Avatar className="h-8 w-8">
-            <AvatarFallback className="bg-primary/20 text-primary text-xs font-semibold">AD</AvatarFallback>
-          </Avatar>
-          <div className="hidden lg:block">
-            <p className="text-sm font-medium leading-none">Admin</p>
-            <p className="text-xs text-muted-foreground">Super Admin</p>
-          </div>
-        </div>
+        <NotificationPanel />
+        <UserProfileMenu />
       </div>
     </header>
   );

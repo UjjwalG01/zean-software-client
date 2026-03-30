@@ -17,6 +17,8 @@ import Reports from "./pages/Reports";
 import PlansServices from "./pages/PlansServices";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
+import Attendance from "./pages/Attendance";
+import Forecast from "./pages/Forecast";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -62,6 +64,8 @@ const App = () => (
                       <Route path="/members/new" element={<AddMember />} />
                       <Route path="/members/:id" element={<MemberProfile />} />
                       <Route path="/bookings" element={<Bookings />} />
+                      <Route path="/attendance" element={<Attendance />} />
+                      <Route path="/forecast" element={<Forecast />} />
                       <Route path="/transactions" element={<Transactions />} />
                       <Route path="/reports" element={<Reports />} />
                       <Route path="/setup/plans" element={<PlansServices />} />

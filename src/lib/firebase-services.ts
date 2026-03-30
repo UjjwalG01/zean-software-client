@@ -333,6 +333,46 @@ export async function addCheckIn(memberId: string): Promise<string> {
   return ref.id;
 }
 
+export interface CheckInRecord {
+  id: string;
+  memberId: string;
+  memberName: string;
+  date: string;
+  checkInTime: string;
+  checkOutTime?: string;
+}
+
+export async function getCheckIns(): Promise<CheckInRecord[]> {
+  const db = getFirestoreDb();
+  const snap = await getDocs(collection(db, "checkIns"));
+  return snap.docs.map((d) => {
+    const data = d.data();
+    const checkInTs = data.checkInTime?.toDate?.() || new Date();
+    return {
+      id: d.id,
+      memberId: data.memberId || "",
+      memberName: data.memberName || "",
+      date: data.date || checkInTs.toISOString().split("T")[0],
+      checkInTime: checkInTs.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+      checkOutTime: data.checkOutTime?.toDate?.()?.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) || undefined,
+    };
+  });
+}
+
+export async function addCheckInRecord(data: { memberId: string; memberName: string; date: string }): Promise<string> {
+  const db = getFirestoreDb();
+  const ref = await addDoc(collection(db, "checkIns"), {
+    memberId: data.memberId,
+    memberName: data.memberName,
+    date: data.date,
+    checkInTime: Timestamp.now(),
+    checkOutTime: null,
+    manualEntry: false,
+    createdAt: Timestamp.now(),
+  });
+  return ref.id;
+}
+
 // ─── Discount Rules ─────────────────────────────────────────────────
 export interface DiscountRule {
   years: number;

@@ -4,7 +4,8 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Receipt, Download, Printer } from "lucide-react";
 import { formatNPR, type Transaction } from "@/lib/mock-data";
-import { toast } from "sonner";
+import { generateReceiptHTML, printHTML, downloadHTML } from "@/lib/print-utils";
+import { useCompanySettings } from "@/hooks/use-firestore";
 
 interface TransactionDetailModalProps {
   transaction: Transaction | null;
@@ -21,10 +22,22 @@ const methodColors: Record<string, string> = {
 };
 
 export function TransactionDetailModal({ transaction: t, open, onOpenChange }: TransactionDetailModalProps) {
+  const { data: settings = {} } = useCompanySettings();
   if (!t) return null;
 
+  const companyName = settings.companyName || "VitaFit Club";
   const paidAmount = t.total;
-  const balanceAmount = 0; // Could be calculated from member ledger
+  const balanceAmount = 0;
+
+  const handlePrint = () => {
+    const html = generateReceiptHTML(t, companyName);
+    printHTML(html);
+  };
+
+  const handleDownload = () => {
+    const html = generateReceiptHTML(t, companyName);
+    downloadHTML(html, `receipt-${t.receiptNo}.html`);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -37,14 +50,12 @@ export function TransactionDetailModal({ transaction: t, open, onOpenChange }: T
         </DialogHeader>
 
         <div className="space-y-5">
-          {/* Receipt Header */}
           <div className="rounded-lg border border-border/50 bg-muted/30 p-4 text-center">
             <p className="text-xs text-muted-foreground">Receipt No.</p>
             <p className="font-mono text-lg font-bold text-primary">{t.receiptNo}</p>
             <p className="text-xs text-muted-foreground mt-1">{t.date}</p>
           </div>
 
-          {/* Member & Type */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-xs text-muted-foreground mb-1">Member</p>
@@ -58,7 +69,6 @@ export function TransactionDetailModal({ transaction: t, open, onOpenChange }: T
 
           <Separator />
 
-          {/* Amount Breakdown */}
           <div className="space-y-3">
             <p className="font-semibold text-sm font-display">Amount Breakdown</p>
             <div className="space-y-2">
@@ -80,7 +90,6 @@ export function TransactionDetailModal({ transaction: t, open, onOpenChange }: T
 
           <Separator />
 
-          {/* Payment Details */}
           <div className="space-y-3">
             <p className="font-semibold text-sm font-display">Payment Details</p>
             <div className="space-y-2">
@@ -105,7 +114,6 @@ export function TransactionDetailModal({ transaction: t, open, onOpenChange }: T
             </div>
           </div>
 
-          {/* Description */}
           {t.description && (
             <>
               <Separator />
@@ -116,12 +124,11 @@ export function TransactionDetailModal({ transaction: t, open, onOpenChange }: T
             </>
           )}
 
-          {/* Actions */}
           <div className="flex gap-2 pt-2">
-            <Button variant="outline" size="sm" className="flex-1" onClick={() => toast.info("Print receipt coming soon")}>
+            <Button variant="outline" size="sm" className="flex-1" onClick={handlePrint}>
               <Printer className="h-4 w-4 mr-1" />Print
             </Button>
-            <Button variant="outline" size="sm" className="flex-1" onClick={() => toast.info("Download receipt coming soon")}>
+            <Button variant="outline" size="sm" className="flex-1" onClick={handleDownload}>
               <Download className="h-4 w-4 mr-1" />Download PDF
             </Button>
           </div>
