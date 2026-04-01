@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -24,6 +25,7 @@ const serviceColors: Record<string, string> = {
 };
 
 export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDetailModalProps) {
+  const navigate = useNavigate();
   const updateBooking = useUpdateBooking();
   const { data: settings = {} } = useCompanySettings();
   const [localStatus, setLocalStatus] = useState<string | null>(null);
@@ -36,7 +38,18 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
     try {
       await updateBooking.mutateAsync({ id: b.id, data: { status: "Completed" } });
       setLocalStatus("Completed");
-      toast.success("Booking marked as completed!");
+      toast.success("Booking marked as completed! Redirecting to record payment...");
+      onOpenChange(false);
+      // Navigate to transactions with pre-filled booking data
+      const params = new URLSearchParams({
+        newPayment: "true",
+        memberName: b.memberName,
+        memberId: b.memberId,
+        service: b.service,
+        className: b.className,
+        bookingId: b.id,
+      });
+      navigate(`/transactions?${params.toString()}`);
     } catch {
       toast.error("Failed to update booking");
     }
@@ -49,8 +62,7 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
     const companyEmail = settings.companyEmail || "";
     const vatNo = settings.vatNo || "";
 
-    // Estimate amount from service (can be refined with real pricing)
-    const rate = 500; // default
+    const rate = 500;
     const amount = rate;
     const taxableAmount = amount;
     const vatAmount = Math.round(taxableAmount * 0.13);
@@ -129,7 +141,6 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
             </div>
           </div>
 
-          {/* Action buttons */}
           <div className="flex gap-2 pt-2">
             {status !== "Completed" && status !== "Cancelled" && (
               <Button
