@@ -1,0 +1,163 @@
+import { useState, useEffect } from "react";
+import { Plus, Trash2, Save, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { useCompanySettings, useSaveCompanySettings } from "@/hooks/use-firestore";
+import { toast } from "sonner";
+
+// Each setup category is stored as JSON in companySettings
+function useSetupList(key: string, fallback: string[]) {
+  const { data: settings = {} } = useCompanySettings();
+  const saveMutation = useSaveCompanySettings();
+  const [items, setItems] = useState<string[]>(fallback);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (settings[key] && !loaded) {
+      try { setItems(JSON.parse(settings[key])); } catch { /* keep fallback */ }
+      setLoaded(true);
+    }
+  }, [settings, key, loaded]);
+
+  const save = async (newItems: string[]) => {
+    setItems(newItems);
+    await saveMutation.mutateAsync({ [key]: JSON.stringify(newItems) });
+  };
+
+  return { items, save, isPending: saveMutation.isPending };
+}
+
+const GeneralSetup = () => {
+  const classes = useSetupList("setup_classes", [
+    "Morning Power Yoga", "HIIT Blast", "CrossFit WOD", "Strength Training",
+    "Aqua Fitness", "Zumba", "Pilates", "Boxing Basics",
+  ]);
+  const planDurations = useSetupList("setup_planDurations", ["Monthly", "Quarterly", "Half-Yearly", "Yearly", "15-Year"]);
+  const paymentModes = useSetupList("setup_paymentModes", ["Cash", "Card", "Esewa", "Bank Transfer", "Mobile Wallet"]);
+  const paymentTypes = useSetupList("setup_paymentTypes", ["Payment", "Renewal", "Registration", "Advance", "Refund"]);
+  const serviceTypes = useSetupList("setup_serviceTypes", ["Gym", "Spa", "Sauna", "Swimming"]);
+  const preferences = useSetupList("setup_preferences", [
+    "Yoga", "Cardio", "Weight Training", "Swimming Laps", "Steam Bath",
+    "Personal Training", "Dance Fitness", "Meditation", "Boxing",
+  ]);
+
+  const sections = [
+    { key: "classes", label: "Classes / Sessions", hook: classes },
+    { key: "serviceTypes", label: "Service Types", hook: serviceTypes },
+    { key: "planDurations", label: "Plan Durations", hook: planDurations },
+    { key: "paymentModes", label: "Payment Modes", hook: paymentModes },
+    { key: "paymentTypes", label: "Payment Types", hook: paymentTypes },
+    { key: "preferences", label: "Member Preferences", hook: preferences },
+  ];
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div>
+        <h1 className="text-2xl font-bold font-display">General Setup</h1>
+        <p className="text-muted-foreground text-sm">Configure dropdown options used across bookings, members, and transactions</p>
+      </div>
+
+      <Tabs defaultValue="classes" className="space-y-4">
+        <TabsList className="bg-muted/50 flex-wrap h-auto gap-1">
+          {sections.map((s) => (
+            <TabsTrigger key={s.key} value={s.key}>{s.label}</TabsTrigger>
+          ))}
+        </TabsList>
+
+        {sections.map((section) => (
+          <TabsContent key={section.key} value={section.key}>
+            <SetupSection label={section.label} items={section.hook.items} onSave={section.hook.save} isPending={section.hook.isPending} />
+          </TabsContent>
+        ))}
+      </Tabs>
+    </div>
+  );
+};
+
+function SetupSection({ label, items, onSave, isPending }: { label: string; items: string[]; onSave: (items: string[]) => Promise<void>; isPending: boolean }) {
+  const [localItems, setLocalItems] = useState(items);
+  const [newItem, setNewItem] = useState("");
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => { setLocalItems(items); }, [items]);
+
+  const addItem = () => {
+    if (!newItem.trim()) return;
+    if (localItems.includes(newItem.trim())) { toast.error("Already exists"); return; }
+    setLocalItems([...localItems, newItem.trim()]);
+    setNewItem("");
+    setDirty(true);
+  };
+
+  const removeItem = (index: number) => {
+    setLocalItems(localItems.filter((_, i) => i !== index));
+    setDirty(true);
+  };
+
+  const handleSave = async () => {
+    try {
+      await onSave(localItems);
+      toast.success(`${label} saved!`);
+      setDirty(false);
+    } catch {
+      toast.error("Failed to save");
+    }
+  };
+
+  return (
+    <div className="glass-card rounded-xl p-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold font-display">{label}</h3>
+        <Badge variant="secondary" className="text-xs">{localItems.length} items</Badge>
+      </div>
+
+      <div className="flex gap-2">
+        <Input
+          placeholder={`Add new ${label.toLowerCase().replace(/s$/, "")}...`}
+          value={newItem}
+          onChange={(e) => setNewItem(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && addItem()}
+          className="bg-muted/50 border-0"
+        />
+        <Button size="sm" onClick={addItem}><Plus className="h-4 w-4 mr-1" />Add</Button>
+      </div>
+
+      <div className="glass-card rounded-xl overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="w-12">#</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead className="w-16"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {localItems.map((item, i) => (
+              <TableRow key={i}>
+                <TableCell className="text-muted-foreground text-sm">{i + 1}</TableCell>
+                <TableCell className="text-sm font-medium">{item}</TableCell>
+                <TableCell>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => removeItem(i)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      {dirty && (
+        <Button onClick={handleSave} disabled={isPending} className="gradient-gold text-primary-foreground">
+          {isPending ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Saving...</> : <><Save className="h-4 w-4 mr-1" />Save Changes</>}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+export default GeneralSetup;
