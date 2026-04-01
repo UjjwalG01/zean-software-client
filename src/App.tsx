@@ -19,6 +19,7 @@ import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import Attendance from "./pages/Attendance";
 import Forecast from "./pages/Forecast";
+import GeneralSetup from "./pages/GeneralSetup";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -68,6 +69,7 @@ const App = () => (
                       <Route path="/forecast" element={<Forecast />} />
                       <Route path="/transactions" element={<Transactions />} />
                       <Route path="/reports" element={<Reports />} />
+                      <Route path="/setup/general" element={<GeneralSetup />} />
                       <Route path="/setup/plans" element={<PlansServices />} />
                       <Route path="/setup/settings" element={<Settings />} />
                       <Route path="*" element={<NotFound />} />

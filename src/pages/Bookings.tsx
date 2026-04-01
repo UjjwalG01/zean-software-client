@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek, isToday } from "date-fns";
+import { useState, useMemo, useEffect } from "react";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek, isToday, addHours } from "date-fns";
 import { ChevronLeft, ChevronRight, Plus, List, CalendarDays as CalIcon, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { BookingDetailModal } from "@/components/BookingDetailModal";
-import { useBookings, useAddBooking, useMembers, useServices } from "@/hooks/use-firestore";
+import { useBookings, useAddBooking, useMembers, useServices, useCompanySettings } from "@/hooks/use-firestore";
 import type { Booking, ServiceType } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -33,6 +33,20 @@ const colorOptions = [
   { label: "Red", value: "hsl(0,84%,60%)", tw: "bg-destructive" },
 ];
 
+function getNowTime(): string {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+}
+
+function getEndTime(): string {
+  const end = addHours(new Date(), 1);
+  return `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
+}
+
+function parseSetup(settings: Record<string, string>, key: string, fallback: string[]): string[] {
+  try { return settings[key] ? JSON.parse(settings[key]) : fallback; } catch { return fallback; }
+}
+
 const Bookings_Page = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [view, setView] = useState<"calendar" | "list">("calendar");
@@ -46,11 +60,9 @@ const Bookings_Page = () => {
     Swimming: colorOptions[3].value,
   });
 
-  // Booking detail modal
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
-  // New booking form on date click
   const [bookDate, setBookDate] = useState("");
   const [bookMember, setBookMember] = useState("");
   const [bookService, setBookService] = useState<ServiceType>("Gym");
@@ -61,7 +73,11 @@ const Bookings_Page = () => {
   const { data: bookings = [], isLoading } = useBookings();
   const { data: members = [] } = useMembers();
   const { data: services = [] } = useServices();
+  const { data: settings = {} } = useCompanySettings();
   const addBookingMutation = useAddBooking();
+
+  const setupServiceTypes = parseSetup(settings, "setup_serviceTypes", ["Gym", "Spa", "Sauna", "Swimming"]);
+  const setupClasses = parseSetup(settings, "setup_classes", []);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -76,16 +92,21 @@ const Bookings_Page = () => {
 
   const getBookingsForDay = (day: Date) => filtered.filter((b) => isSameDay(new Date(b.date), day));
 
-  const handleDayClick = (day: Date) => {
+  const openNewBookingDialog = (day?: Date) => {
+    const d = day || new Date();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    if (day < today) {
+    if (d < today) {
       toast.error("Cannot add bookings for past dates");
       return;
     }
-    setBookDate(format(day, "yyyy-MM-dd"));
+    setBookDate(format(d, "yyyy-MM-dd"));
+    setBookTime(getNowTime());
+    setBookEndTime(getEndTime());
     setDialogOpen(true);
   };
+
+  const handleDayClick = (day: Date) => openNewBookingDialog(day);
 
   const handleDayDoubleClick = (day: Date) => {
     const dayBookings = getBookingsForDay(day);
@@ -139,6 +160,14 @@ const Bookings_Page = () => {
     return { backgroundColor: color, color: "#fff" };
   };
 
+  // Merge classes from services collection and setup
+  const classOptions = useMemo(() => {
+    const fromServices = services.filter((s) => s.type === bookService).map((s) => s.name);
+    const fromSetup = setupClasses;
+    const merged = Array.from(new Set([...fromServices, ...fromSetup]));
+    return merged.length > 0 ? merged : ["General Session"];
+  }, [services, bookService, setupClasses]);
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -155,21 +184,17 @@ const Bookings_Page = () => {
             <SelectTrigger className="w-[130px] bg-muted/50 border-0"><SelectValue placeholder="Service" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Services</SelectItem>
-              <SelectItem value="Gym">Gym</SelectItem>
-              <SelectItem value="Spa">Spa</SelectItem>
-              <SelectItem value="Sauna">Sauna</SelectItem>
-              <SelectItem value="Swimming">Swimming</SelectItem>
+              {setupServiceTypes.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
 
-          {/* Color Settings */}
           <Popover open={colorSettingsOpen} onOpenChange={setColorSettingsOpen}>
             <PopoverTrigger asChild>
               <Button variant="outline" size="icon"><Settings className="h-4 w-4" /></Button>
             </PopoverTrigger>
             <PopoverContent className="w-64" align="end">
               <p className="font-semibold text-sm mb-3">Calendar Colors</p>
-              {(["Gym", "Spa", "Sauna", "Swimming"] as const).map((svc) => (
+              {setupServiceTypes.map((svc) => (
                 <div key={svc} className="flex items-center justify-between mb-2">
                   <span className="text-sm">{svc}</span>
                   <div className="flex gap-1">
@@ -190,7 +215,7 @@ const Bookings_Page = () => {
             </PopoverContent>
           </Popover>
 
-          <Button size="sm" onClick={() => { setBookDate(format(new Date(), "yyyy-MM-dd")); setDialogOpen(true); }}>
+          <Button size="sm" onClick={() => openNewBookingDialog()}>
             <Plus className="h-4 w-4 mr-1" />New Booking
           </Button>
         </div>
@@ -214,13 +239,10 @@ const Bookings_Page = () => {
             </div>
             <div className="space-y-2">
               <Label>Service</Label>
-              <Select value={bookService} onValueChange={(v) => setBookService(v as ServiceType)}>
+              <Select value={bookService} onValueChange={(v) => { setBookService(v as ServiceType); setBookClass(""); }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Gym">Gym</SelectItem>
-                  <SelectItem value="Spa">Spa</SelectItem>
-                  <SelectItem value="Sauna">Sauna</SelectItem>
-                  <SelectItem value="Swimming">Swimming</SelectItem>
+                  {setupServiceTypes.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -229,12 +251,9 @@ const Bookings_Page = () => {
               <Select value={bookClass} onValueChange={setBookClass}>
                 <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
                 <SelectContent>
-                  {services.filter((s) => s.type === bookService).map((s) => (
-                    <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                  {classOptions.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
                   ))}
-                  {services.filter((s) => s.type === bookService).length === 0 && (
-                    <SelectItem value="General Session">General Session</SelectItem>
-                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -250,7 +269,6 @@ const Bookings_Page = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Booking Detail Modal */}
       <BookingDetailModal booking={selectedBooking} open={detailOpen} onOpenChange={setDetailOpen} />
 
       {isLoading ? (
@@ -316,9 +334,9 @@ const Bookings_Page = () => {
             })}
           </div>
           <div className="flex gap-4 mt-4 pt-4 border-t border-border">
-            {(["Gym", "Spa", "Sauna", "Swimming"] as const).map((s) => (
+            {setupServiceTypes.map((s) => (
               <div key={s} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: serviceColors[s] }} />{s}
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: serviceColors[s] || colorOptions[0].value }} />{s}
               </div>
             ))}
           </div>
@@ -345,7 +363,7 @@ const Bookings_Page = () => {
                   <TableCell><Badge variant="secondary" className="text-[10px]">{b.service}</Badge></TableCell>
                   <TableCell className="text-sm text-muted-foreground">{b.startTime}–{b.endTime}</TableCell>
                   <TableCell>
-                    <Badge variant={b.status === "Confirmed" ? "default" : b.status === "Pending" ? "secondary" : "destructive"} className="text-[10px]">
+                    <Badge variant={b.status === "Confirmed" ? "default" : b.status === "Pending" ? "secondary" : b.status === "Completed" ? "default" : "destructive"} className={`text-[10px] ${b.status === "Completed" ? "bg-success/20 text-success border-0" : ""}`}>
                       {b.status}
                     </Badge>
                   </TableCell>

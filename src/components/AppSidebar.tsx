@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, Users, CalendarDays, Receipt, BarChart3, Settings, Dumbbell, Crown, UserCheck, TrendingUp,
+  LayoutDashboard, Users, CalendarDays, Receipt, BarChart3, Settings, Dumbbell, Crown, UserCheck, TrendingUp, Wrench,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -19,6 +19,7 @@ const mainItems = [
 ];
 
 const setupItems = [
+  { title: "General Setup", url: "/setup/general", icon: Wrench },
   { title: "Plans & Services", url: "/setup/plans", icon: Dumbbell },
   { title: "Settings", url: "/setup/settings", icon: Settings },
 ];
