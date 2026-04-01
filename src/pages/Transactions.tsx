@@ -1,5 +1,6 @@
-import { useState, useMemo } from "react";
-import { Search, Plus, Download, Receipt, FileText } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Search, Plus, Download, Receipt, FileText, Printer } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,8 +11,10 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TransactionDetailModal } from "@/components/TransactionDetailModal";
 import { formatNPR, type PaymentMethod, type Transaction } from "@/lib/mock-data";
-import { useTransactions, useAddTransaction, useMembers } from "@/hooks/use-firestore";
+import { useTransactions, useAddTransaction, useMembers, useCompanySettings } from "@/hooks/use-firestore";
+import { generateA5BillHTML, printHTML, exportTableToCSV } from "@/lib/print-utils";
 import { toast } from "sonner";
+import { format } from "date-fns";
 
 const methodColors: Record<PaymentMethod, string> = {
   Cash: "bg-success/20 text-success",
@@ -21,7 +24,12 @@ const methodColors: Record<PaymentMethod, string> = {
   "Mobile Wallet": "bg-purple-500/20 text-purple-400",
 };
 
+function parseSetup(settings: Record<string, string>, key: string, fallback: string[]): string[] {
+  try { return settings[key] ? JSON.parse(settings[key]) : fallback; } catch { return fallback; }
+}
+
 const Transactions = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [methodFilter, setMethodFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -29,7 +37,6 @@ const Transactions = () => {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
-  // New payment form
   const [payMember, setPayMember] = useState("");
   const [payType, setPayType] = useState("Payment");
   const [payAmount, setPayAmount] = useState("");
@@ -38,7 +45,31 @@ const Transactions = () => {
 
   const { data: transactions = [], isLoading } = useTransactions();
   const { data: members = [] } = useMembers();
+  const { data: settings = {} } = useCompanySettings();
   const addTransactionMutation = useAddTransaction();
+
+  const paymentModes = parseSetup(settings, "setup_paymentModes", ["Cash", "Card", "Esewa", "Bank Transfer", "Mobile Wallet"]);
+  const paymentTypes = parseSetup(settings, "setup_paymentTypes", ["Payment", "Renewal", "Registration", "Advance", "Refund"]);
+
+  // Auto-open payment dialog when coming from booking completion
+  useEffect(() => {
+    if (searchParams.get("newPayment") === "true" && members.length > 0) {
+      const memberName = searchParams.get("memberName") || "";
+      const memberId = searchParams.get("memberId") || "";
+      const service = searchParams.get("service") || "";
+      const className = searchParams.get("className") || "";
+
+      // Find member by id or name
+      const member = members.find((m) => m.id === memberId) || members.find((m) => m.name === memberName);
+      if (member) setPayMember(member.id);
+      setPayDesc(`${service} — ${className}`);
+      setPayType("Payment");
+      setDialogOpen(true);
+
+      // Clear URL params
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, members, setSearchParams]);
 
   const filtered = useMemo(() => {
     return transactions.filter((t) => {
@@ -59,6 +90,7 @@ const Transactions = () => {
     }
     const memberObj = members.find((m) => m.id === payMember);
     const amount = Number(payAmount);
+    const receiptNo = `VFC-${Date.now()}`;
     try {
       await addTransactionMutation.mutateAsync({
         memberId: payMember,
@@ -68,10 +100,33 @@ const Transactions = () => {
         type: payType as any,
         description: payDesc,
         date: new Date().toISOString().split("T")[0],
-        receiptNo: `VFC-${Date.now()}`,
+        receiptNo,
       });
-      toast.success("Payment recorded successfully! Receipt generated.");
+      toast.success("Payment recorded! Generating invoice...");
       setDialogOpen(false);
+
+      // Auto-print bill
+      const companyName = settings.companyName || "VitaFit Club";
+      const vat = Math.round(amount * 0.13);
+      const html = generateA5BillHTML({
+        companyName,
+        companyAddress: settings.companyAddress || "",
+        companyPhone: settings.companyPhone || "",
+        companyEmail: settings.companyEmail || "",
+        vatNo: settings.vatNo || settings.panNumber || "",
+        guestName: memberObj?.name || "",
+        billNo: receiptNo,
+        billDate: format(new Date(), "dd/MM/yyyy"),
+        billForMonth: format(new Date(), "MMMM yyyy"),
+        items: [{ description: payDesc || "Membership Payment", quantity: 1, rate: amount, amount }],
+        subtotal: amount,
+        taxableAmount: amount,
+        vatAmount: vat,
+        grandTotal: amount + vat,
+        attendant: "admin",
+      });
+      printHTML(html);
+
       setPayMember("");
       setPayAmount("");
       setPayDesc("");
@@ -91,12 +146,10 @@ const Transactions = () => {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => {
-            import("@/lib/print-utils").then(({ exportTableToCSV }) => {
-              const headers = ["Receipt #", "Date", "Member", "Description", "Method", "Type", "VAT", "Total"];
-              const rows = filtered.map((t) => [t.receiptNo, t.date, t.memberName, t.description, t.method, t.type, String(t.vat), String(t.total)]);
-              exportTableToCSV(headers, rows, "transactions-export.csv");
-              toast.success("Transactions exported as CSV!");
-            });
+            const headers = ["Receipt #", "Date", "Member", "Description", "Method", "Type", "VAT", "Total"];
+            const rows = filtered.map((t) => [t.receiptNo, t.date, t.memberName, t.description, t.method, t.type, String(t.vat), String(t.total)]);
+            exportTableToCSV(headers, rows, "transactions-export.csv");
+            toast.success("Transactions exported as CSV!");
           }}>
             <Download className="h-4 w-4 mr-1" />Export
           </Button>
@@ -123,10 +176,7 @@ const Transactions = () => {
                   <Select value={payType} onValueChange={setPayType}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Payment">Payment</SelectItem>
-                      <SelectItem value="Renewal">Renewal</SelectItem>
-                      <SelectItem value="Registration">Registration</SelectItem>
-                      <SelectItem value="Advance">Advance Payment</SelectItem>
+                      {paymentTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -145,11 +195,7 @@ const Transactions = () => {
                   <Select value={payMethod} onValueChange={setPayMethod}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Cash">Cash</SelectItem>
-                      <SelectItem value="Card">Card</SelectItem>
-                      <SelectItem value="Esewa">eSewa</SelectItem>
-                      <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                      <SelectItem value="Mobile Wallet">Mobile Wallet</SelectItem>
+                      {paymentModes.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -162,7 +208,7 @@ const Transactions = () => {
                   </div>
                 )}
                 <Button onClick={handleRecordPayment} disabled={addTransactionMutation.isPending} className="w-full gradient-gold text-primary-foreground">
-                  <Receipt className="h-4 w-4 mr-1" />{addTransactionMutation.isPending ? "Saving..." : "Save & Generate Receipt"}
+                  <Receipt className="h-4 w-4 mr-1" />{addTransactionMutation.isPending ? "Saving..." : "Save & Print Invoice"}
                 </Button>
               </div>
             </DialogContent>
@@ -170,10 +216,8 @@ const Transactions = () => {
         </div>
       </div>
 
-      {/* Transaction Detail Modal */}
       <TransactionDetailModal transaction={selectedTransaction} open={detailOpen} onOpenChange={setDetailOpen} />
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="glass-card rounded-xl p-4">
           <p className="text-xs text-muted-foreground">Total Collections</p>
@@ -189,7 +233,6 @@ const Transactions = () => {
         </div>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -199,26 +242,18 @@ const Transactions = () => {
           <SelectTrigger className="w-[150px] bg-muted/50 border-0"><SelectValue placeholder="Method" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Methods</SelectItem>
-            <SelectItem value="Cash">Cash</SelectItem>
-            <SelectItem value="Card">Card</SelectItem>
-            <SelectItem value="Esewa">eSewa</SelectItem>
-            <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-            <SelectItem value="Mobile Wallet">Mobile Wallet</SelectItem>
+            {paymentModes.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={typeFilter} onValueChange={setTypeFilter}>
           <SelectTrigger className="w-[140px] bg-muted/50 border-0"><SelectValue placeholder="Type" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="Payment">Payment</SelectItem>
-            <SelectItem value="Renewal">Renewal</SelectItem>
-            <SelectItem value="Registration">Registration</SelectItem>
-            <SelectItem value="Advance">Advance</SelectItem>
+            {paymentTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
 
-      {/* Table */}
       <div className="glass-card rounded-xl overflow-hidden">
         {isLoading ? (
           <div className="p-4 space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}</div>
@@ -234,7 +269,7 @@ const Transactions = () => {
                 <TableHead className="hidden lg:table-cell">Type</TableHead>
                 <TableHead className="text-right hidden md:table-cell">VAT</TableHead>
                 <TableHead className="text-right">Total</TableHead>
-                <TableHead className="w-10"></TableHead>
+                <TableHead className="w-20"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -245,7 +280,7 @@ const Transactions = () => {
                   <TableCell className="text-sm font-medium">{t.memberName}</TableCell>
                   <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{t.description}</TableCell>
                   <TableCell>
-                    <Badge className={`text-[10px] border-0 ${methodColors[t.method]}`}>{t.method}</Badge>
+                    <Badge className={`text-[10px] border-0 ${methodColors[t.method] || "bg-muted text-muted-foreground"}`}>{t.method}</Badge>
                   </TableCell>
                   <TableCell className="hidden lg:table-cell">
                     <Badge variant="outline" className="text-[10px]">{t.type}</Badge>
@@ -253,8 +288,29 @@ const Transactions = () => {
                   <TableCell className="text-right text-sm text-muted-foreground hidden md:table-cell">{formatNPR(t.vat)}</TableCell>
                   <TableCell className="text-right font-medium text-sm">{formatNPR(t.total)}</TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); toast.info("Receipt download ready"); }}>
-                      <FileText className="h-3.5 w-3.5" />
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {
+                      e.stopPropagation();
+                      const companyName = settings.companyName || "VitaFit Club";
+                      const html = generateA5BillHTML({
+                        companyName,
+                        companyAddress: settings.companyAddress || "",
+                        companyPhone: settings.companyPhone || "",
+                        companyEmail: settings.companyEmail || "",
+                        vatNo: settings.vatNo || settings.panNumber || "",
+                        guestName: t.memberName,
+                        billNo: t.receiptNo,
+                        billDate: t.date,
+                        billForMonth: format(new Date(t.date), "MMMM yyyy"),
+                        items: [{ description: t.description, quantity: 1, rate: t.amount, amount: t.amount }],
+                        subtotal: t.amount,
+                        taxableAmount: t.amount,
+                        vatAmount: t.vat,
+                        grandTotal: t.total,
+                        attendant: "admin",
+                      });
+                      printHTML(html);
+                    }}>
+                      <Printer className="h-3.5 w-3.5" />
                     </Button>
                   </TableCell>
                 </TableRow>
