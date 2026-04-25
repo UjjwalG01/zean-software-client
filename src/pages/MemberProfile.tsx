@@ -1,15 +1,20 @@
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Mail, Phone, MapPin, Calendar, Shield, CreditCard, Activity } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MapPin, Calendar, CreditCard, Activity, Edit, Power, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { TierBadge } from "@/components/TierBadge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { formatNPR } from "@/lib/mock-data";
-import { useMember, useTransactions, useBookings } from "@/hooks/use-firestore";
+import { useMember, useTransactions, useBookings, useUpdateMember } from "@/hooks/use-firestore";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
 
 const MemberProfile = () => {
   const { id } = useParams();
@@ -17,6 +22,56 @@ const MemberProfile = () => {
   const { data: member, isLoading } = useMember(id);
   const { data: allTransactions = [] } = useTransactions();
   const { data: allBookings = [] } = useBookings();
+  const updateMember = useUpdateMember();
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [deactivateOpen, setDeactivateOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: "", email: "", phone: "", address: "", emergencyContact: "",
+  });
+
+  useEffect(() => {
+    if (member) {
+      setEditForm({
+        name: member.name, email: member.email, phone: member.phone,
+        address: member.address, emergencyContact: member.emergencyContact,
+      });
+    }
+  }, [member]);
+
+  const handleSaveEdit = async () => {
+    if (!id) return;
+    if (!editForm.name.trim() || !editForm.email.trim() || !editForm.phone.trim()) {
+      toast.error("Name, email and phone are required");
+      return;
+    }
+    const [firstName, ...rest] = editForm.name.trim().split(" ");
+    try {
+      await updateMember.mutateAsync({
+        id,
+        data: {
+          firstName,
+          lastName: rest.join(" "),
+          email: editForm.email,
+          phone: editForm.phone,
+          address: editForm.address,
+          emergencyContactNum: editForm.emergencyContact,
+        },
+      });
+      toast.success("Member profile updated");
+      setEditOpen(false);
+    } catch { toast.error("Failed to update member"); }
+  };
+
+  const handleToggleActive = async () => {
+    if (!id || !member) return;
+    const next = member.status === "Active" ? "Expired" : "Active";
+    try {
+      await updateMember.mutateAsync({ id, data: { status: next } });
+      toast.success(next === "Active" ? "Member reactivated" : "Member deactivated");
+      setDeactivateOpen(false);
+    } catch { toast.error("Failed to update status"); }
+  };
 
   if (isLoading) {
     return (

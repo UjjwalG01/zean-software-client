@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Loader2, Lock, Mail, Dumbbell } from "lucide-react";
 import { toast } from "sonner";
+import { LicensedFooter } from "@/components/LicensedFooter";
+import { getDoc, doc } from "firebase/firestore";
+import { getFirestoreDb } from "@/lib/firebase";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -109,7 +112,7 @@ const Login = () => {
 
           <div className="mt-6 pt-5 border-t border-border/30 text-center">
             <p className="text-xs text-muted-foreground">
-              Admin access only • Contact system administrator for credentials
+              Contact system administrator for credentials
             </p>
           </div>
         </div>
@@ -117,6 +120,11 @@ const Login = () => {
         <p className="text-center text-xs text-muted-foreground/60 mt-6">
           © 2026 VitaFit Club. All rights reserved.
         </p>
+      </div>
+
+      {/* Licensed-to footer */}
+      <div className="absolute bottom-3 right-4 z-20">
+        <LicensedFooter variant="muted" />
       </div>
     </div>
   );
