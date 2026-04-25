@@ -1,5 +1,16 @@
 import { formatNPR, type Transaction, type Booking } from "./mock-data";
 
+// HTML escape helper to prevent XSS when interpolating user-supplied data
+function escHtml(s: unknown): string {
+  if (s === null || s === undefined) return "";
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 // Number to words for NPR
 function numberToWords(n: number): string {
   const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
@@ -42,7 +53,7 @@ export function generateA5BillHTML(options: {
   const inWords = numberToWords(Math.round(o.grandTotal)) + " Rupees only.";
 
   return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Invoice ${o.billNo}</title>
+<html><head><meta charset="utf-8"><title>Invoice ${escHtml(o.billNo)}</title>
 <style>
 @page { size: A5; margin: 12mm; }
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -66,28 +77,28 @@ td.right, th.right { text-align: right; }
 .sig-line { border-top: 1px solid #000; width: 100px; text-align: center; padding-top: 4px; }
 .thank-you { text-align: center; margin-top: 15px; font-size: 10px; font-weight: bold; }
 </style></head><body>
-<div class="vat-no">${o.vatNo ? `VAT: ${o.vatNo}` : ""}</div>
+<div class="vat-no">${o.vatNo ? `VAT: ${escHtml(o.vatNo)}` : ""}</div>
 <div class="header">
-  <h1>${o.companyName}</h1>
-  ${o.companyAddress ? `<p>${o.companyAddress}</p>` : ""}
-  ${o.companyPhone ? `<p>Phone: ${o.companyPhone}</p>` : ""}
-  ${o.companyEmail ? `<p>Email: ${o.companyEmail}</p>` : ""}
+  <h1>${escHtml(o.companyName)}</h1>
+  ${o.companyAddress ? `<p>${escHtml(o.companyAddress)}</p>` : ""}
+  ${o.companyPhone ? `<p>Phone: ${escHtml(o.companyPhone)}</p>` : ""}
+  ${o.companyEmail ? `<p>Email: ${escHtml(o.companyEmail)}</p>` : ""}
 </div>
 <div class="title">INVOICE</div>
 <div class="info-grid">
   <div class="info-left">
-    <div>Guest Name: <strong>${o.guestName}</strong></div>
-    <div>Bill For: <strong>${o.billForMonth}</strong></div>
+    <div>Guest Name: <strong>${escHtml(o.guestName)}</strong></div>
+    <div>Bill For: <strong>${escHtml(o.billForMonth)}</strong></div>
   </div>
   <div class="info-right">
-    <div>Bill No: <strong>${o.billNo}</strong></div>
-    <div>Bill Date: <strong>${o.billDate}</strong></div>
+    <div>Bill No: <strong>${escHtml(o.billNo)}</strong></div>
+    <div>Bill Date: <strong>${escHtml(o.billDate)}</strong></div>
   </div>
 </div>
 <table>
   <thead><tr><th>SN</th><th>Description</th><th class="right">Qty</th><th class="right">Rate</th><th class="right">Amount</th></tr></thead>
   <tbody>
-    ${o.items.map((item, i) => `<tr><td>${i + 1}</td><td>${item.description}</td><td class="right">${item.quantity.toFixed(2)}</td><td class="right">${item.rate.toFixed(2)}</td><td class="right">${item.amount.toFixed(2)}</td></tr>`).join("")}
+    ${o.items.map((item, i) => `<tr><td>${i + 1}</td><td>${escHtml(item.description)}</td><td class="right">${item.quantity.toFixed(2)}</td><td class="right">${item.rate.toFixed(2)}</td><td class="right">${item.amount.toFixed(2)}</td></tr>`).join("")}
   </tbody>
 </table>
 <table class="totals">
@@ -97,11 +108,11 @@ td.right, th.right { text-align: right; }
   <tr><td class="right">13% VAT</td><td class="right">${o.vatAmount.toFixed(2)}</td></tr>
   <tr class="grand"><td class="right"><strong>Grand Total (NPR)</strong></td><td class="right"><strong>${o.grandTotal.toFixed(2)}</strong></td></tr>
 </table>
-<div class="in-words"><strong>In Words:</strong> ${inWords}</div>
+<div class="in-words"><strong>In Words:</strong> ${escHtml(inWords)}</div>
 <div class="footer">
   <div>
-    <div class="sig-line">${o.attendant || "admin"}</div>
-    <div style="font-size:9px;margin-top:4px">TIME: ${new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true })}</div>
+    <div class="sig-line">${escHtml(o.attendant || "admin")}</div>
+    <div style="font-size:9px;margin-top:4px">TIME: ${escHtml(new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }))}</div>
   </div>
   <div><div class="sig-line">Guest Signature</div></div>
 </div>

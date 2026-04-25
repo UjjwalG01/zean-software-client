@@ -169,7 +169,7 @@ export async function seedFirestore() {
   console.log("🎉 Firestore seeding complete!");
 }
 
-// Make it available globally for console usage
-if (typeof window !== "undefined") {
+// Make it available globally for console usage in development only
+if (import.meta.env.DEV && typeof window !== "undefined") {
   (window as any).seedFirestore = seedFirestore;
 }
