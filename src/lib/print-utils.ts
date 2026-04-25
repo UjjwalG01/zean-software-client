@@ -1,5 +1,16 @@
 import { formatNPR, type Transaction, type Booking } from "./mock-data";
 
+// HTML escape helper to prevent XSS when interpolating user-supplied data
+function escHtml(s: unknown): string {
+  if (s === null || s === undefined) return "";
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 // Number to words for NPR
 function numberToWords(n: number): string {
   const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
