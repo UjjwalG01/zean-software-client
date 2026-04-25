@@ -139,9 +139,48 @@ export function downloadHTML(html: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export function exportTableToCSV(headers: string[], rows: string[][], filename: string) {
-  const csv = [headers.join(","), ...rows.map((r) => r.map((c) => `"${c}"`).join(","))].join("\n");
-  const blob = new Blob([csv], { type: "text/csv" });
+function csvEscape(v: unknown): string {
+  const s = v === null || v === undefined ? "" : String(v);
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
+export interface CSVExportMeta {
+  /** Property/Company name (e.g. "VitaFit Club") */
+  propertyName?: string;
+  /** Title of the report */
+  reportTitle?: string;
+  /** Date or date range string */
+  dateRange?: string;
+  /** Generated-on timestamp (defaults to now) */
+  generatedAt?: string;
+  /** Filters as { Label: Value } */
+  filters?: Record<string, string>;
+}
+
+export function exportTableToCSV(
+  headers: string[],
+  rows: string[][],
+  filename: string,
+  meta?: CSVExportMeta
+) {
+  const lines: string[] = [];
+  if (meta) {
+    if (meta.propertyName) lines.push(csvEscape(meta.propertyName));
+    if (meta.reportTitle) lines.push(csvEscape(meta.reportTitle));
+    if (meta.dateRange) lines.push(csvEscape(`Date: ${meta.dateRange}`));
+    lines.push(csvEscape(`Generated: ${meta.generatedAt || new Date().toLocaleString()}`));
+    if (meta.filters && Object.keys(meta.filters).length > 0) {
+      lines.push(csvEscape("Filters:"));
+      Object.entries(meta.filters).forEach(([k, v]) => {
+        lines.push(`${csvEscape(k)},${csvEscape(v)}`);
+      });
+    }
+    lines.push(""); // blank separator row
+  }
+  lines.push(headers.map(csvEscape).join(","));
+  rows.forEach((r) => lines.push(r.map(csvEscape).join(",")));
+  const csv = lines.join("\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
