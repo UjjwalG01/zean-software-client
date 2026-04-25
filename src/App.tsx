@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { AppLayout } from "@/components/AppLayout";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ForcePasswordChangeModal } from "@/components/ForcePasswordChangeModal";
 import Index from "./pages/Index";
 import MembersList from "./pages/MembersList";
 import MemberProfile from "./pages/MemberProfile";
@@ -20,6 +21,8 @@ import Login from "./pages/Login";
 import Attendance from "./pages/Attendance";
 import Forecast from "./pages/Forecast";
 import GeneralSetup from "./pages/GeneralSetup";
+import Users from "./pages/Users";
+import EmailTemplates from "./pages/EmailTemplates";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,7 +45,12 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <ForcePasswordChangeModal />
+      {children}
+    </>
+  );
 }
 
 const App = () => (
@@ -71,6 +79,8 @@ const App = () => (
                       <Route path="/reports" element={<Reports />} />
                       <Route path="/setup/general" element={<GeneralSetup />} />
                       <Route path="/setup/plans" element={<PlansServices />} />
+                      <Route path="/setup/users" element={<Users />} />
+                      <Route path="/setup/email-templates" element={<EmailTemplates />} />
                       <Route path="/setup/settings" element={<Settings />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
