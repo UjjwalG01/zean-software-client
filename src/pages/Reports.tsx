@@ -4,13 +4,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatCard } from "@/components/StatCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNPR } from "@/lib/mock-data";
-import { useMembers, useTransactions, useBookings } from "@/hooks/use-firestore";
+import { useMembers, useTransactions, useBookings, useCompanySettings } from "@/hooks/use-firestore";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, AreaChart, Area,
 } from "recharts";
 import { toast } from "sonner";
-import { useMemo } from "react";
+import { useMemo, lazy, Suspense } from "react";
+import { format } from "date-fns";
+
+// Lazy-load the heavier ledger view so the Reports route stays fast on first paint
+const LedgerReport = lazy(() => import("@/components/LedgerReport"));
 
 const tooltipStyle = {
   background: "hsl(224, 20%, 12%)",
