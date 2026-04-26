@@ -1,26 +1,36 @@
-import { Users, DollarSign, CalendarDays, UserCheck } from "lucide-react";
+import { Users, DollarSign, CalendarDays, UserCheck, Plus, Activity, Clock } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
 import { StatCard } from "@/components/StatCard";
 import { TierBadge } from "@/components/TierBadge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { formatNPR } from "@/lib/mock-data";
-import { useDashboardStats, useMembers, useExpiryAlerts, useTransactions } from "@/hooks/use-firestore";
+import { useDashboardStats, useMembers, useExpiryAlerts, useTransactions, useBookings } from "@/hooks/use-firestore";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMemo } from "react";
+import { format, isSameDay } from "date-fns";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { appUser } = useAuthContext();
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: members = [], isLoading: membersLoading } = useMembers();
   const { data: expiryAlerts = [], isLoading: alertsLoading } = useExpiryAlerts();
   const { data: transactions = [] } = useTransactions();
+  const { data: bookings = [] } = useBookings();
 
   const recentMembers = members.slice(0, 5);
   const dashboardStats = stats || { totalMembers: 0, activeMembers: 0, monthlyRevenue: 0, revenueChange: 0, activeBookings: 0, bookingsChange: 0, todayCheckins: 0, checkinsChange: 0 };
+  const today = useMemo(() => new Date(), []);
+
+  const todaysBookings = useMemo(
+    () => bookings.filter((b) => b.date && isSameDay(new Date(b.date), today)).slice(0, 6),
+    [bookings, today]
+  );
 
   // Build revenue data from real transactions
   const revenueData = useMemo(() => {
@@ -47,11 +57,28 @@ const Dashboard = () => {
     return Object.entries(counts).map(([name, count]) => ({ name, value: Math.round((count / total) * 100), fill: fills[name] }));
   }, [members]);
 
+  const greeting = useMemo(() => {
+    const h = new Date().getHours();
+    if (h < 12) return "Good morning";
+    if (h < 18) return "Good afternoon";
+    return "Good evening";
+  }, []);
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold font-display">Welcome back, Admin 👋</h1>
-        <p className="text-muted-foreground text-sm mt-1">Here's what's happening at VitaFit Club today.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold font-display">{greeting}, {appUser?.fullName?.split(" ")[0] || "Admin"} 👋</h1>
+          <p className="text-muted-foreground text-sm mt-1">{format(today, "EEEE, MMMM d, yyyy")} · Here's what's happening at VitaFit Club today.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => navigate("/attendance")}>
+            <Activity className="h-4 w-4 mr-1" /> Check-in
+          </Button>
+          <Button size="sm" className="gradient-gold text-primary-foreground" onClick={() => navigate("/members/add")}>
+            <Plus className="h-4 w-4 mr-1" /> New Member
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -59,10 +86,18 @@ const Dashboard = () => {
           Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)
         ) : (
           <>
-            <StatCard title="Total Members" value={dashboardStats.totalMembers.toString()} change={5.2} icon={Users} />
-            <StatCard title="Monthly Revenue" value={formatNPR(dashboardStats.monthlyRevenue)} change={dashboardStats.revenueChange} icon={DollarSign} iconColor="gradient-gold" />
-            <StatCard title="Active Bookings" value={dashboardStats.activeBookings.toString()} change={dashboardStats.bookingsChange} icon={CalendarDays} />
-            <StatCard title="Today's Check-ins" value={dashboardStats.todayCheckins.toString()} change={dashboardStats.checkinsChange} icon={UserCheck} />
+            <button onClick={() => navigate("/members")} className="text-left transition-transform hover:-translate-y-0.5">
+              <StatCard title="Total Members" value={dashboardStats.totalMembers.toString()} change={5.2} icon={Users} />
+            </button>
+            <button onClick={() => navigate("/transactions")} className="text-left transition-transform hover:-translate-y-0.5">
+              <StatCard title="Monthly Revenue" value={formatNPR(dashboardStats.monthlyRevenue)} change={dashboardStats.revenueChange} icon={DollarSign} iconColor="gradient-gold" />
+            </button>
+            <button onClick={() => navigate("/bookings")} className="text-left transition-transform hover:-translate-y-0.5">
+              <StatCard title="Active Bookings" value={dashboardStats.activeBookings.toString()} change={dashboardStats.bookingsChange} icon={CalendarDays} />
+            </button>
+            <button onClick={() => navigate("/attendance")} className="text-left transition-transform hover:-translate-y-0.5">
+              <StatCard title="Today's Check-ins" value={dashboardStats.todayCheckins.toString()} change={dashboardStats.checkinsChange} icon={UserCheck} />
+            </button>
           </>
         )}
       </div>
@@ -107,6 +142,40 @@ const Dashboard = () => {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Today's Bookings */}
+      <div className="glass-card rounded-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-primary" />
+            <h3 className="font-semibold font-display">Today's Bookings</h3>
+            <Badge variant="secondary" className="text-[10px]">{todaysBookings.length}</Badge>
+          </div>
+          <Button variant="ghost" size="sm" className="text-primary text-xs" onClick={() => navigate("/bookings")}>View Calendar</Button>
+        </div>
+        {todaysBookings.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-6">No bookings scheduled for today</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {todaysBookings.map((b) => (
+              <div
+                key={b.id}
+                onClick={() => navigate("/bookings")}
+                className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 p-3 cursor-pointer hover:bg-muted/40 transition-colors"
+              >
+                <div className="h-9 w-9 rounded-lg bg-primary/15 flex items-center justify-center text-primary text-xs font-semibold shrink-0">
+                  {b.startTime}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{b.memberName}</p>
+                  <p className="text-xs text-muted-foreground truncate">{b.className} · {b.service}</p>
+                </div>
+                <Badge variant="outline" className="text-[10px] whitespace-nowrap">{b.status}</Badge>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
