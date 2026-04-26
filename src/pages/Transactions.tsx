@@ -148,8 +148,20 @@ const Transactions = () => {
           <Button variant="outline" size="sm" onClick={() => {
             const headers = ["Receipt #", "Date", "Member", "Description", "Method", "Type", "VAT", "Total"];
             const rows = filtered.map((t) => [t.receiptNo, t.date, t.memberName, t.description, t.method, t.type, String(t.vat), String(t.total)]);
-            exportTableToCSV(headers, rows, "transactions-export.csv");
-            toast.success("Transactions exported as CSV!");
+            exportTableToCSV(headers, rows, `transactions-${format(new Date(), "yyyyMMdd")}.csv`, {
+              propertyName: settings.companyName || "VitaFit Club",
+              reportTitle: "Transactions Report",
+              dateRange: format(new Date(), "PPP"),
+              filters: {
+                Search: search || "—",
+                Method: methodFilter === "all" ? "All" : methodFilter,
+                Type: typeFilter === "all" ? "All" : typeFilter,
+                "Total Records": String(filtered.length),
+                "Total Amount (NPR)": String(totalAmount),
+                "Total VAT (NPR)": String(totalVat),
+              },
+            });
+            toast.success(`Exported ${filtered.length} transactions to CSV`);
           }}>
             <Download className="h-4 w-4 mr-1" />Export
           </Button>

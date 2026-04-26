@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useMembers, useCheckIns, useAddCheckIn } from "@/hooks/use-firestore";
+import { useMembers, useCheckIns, useAddCheckIn, useCompanySettings } from "@/hooks/use-firestore";
 import { toast } from "sonner";
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns";
 import { exportTableToCSV } from "@/lib/print-utils";
@@ -15,6 +15,7 @@ import { exportTableToCSV } from "@/lib/print-utils";
 const Attendance = () => {
   const { data: members = [], isLoading: membersLoading } = useMembers();
   const { data: checkIns = [], isLoading: checkInsLoading } = useCheckIns();
+  const { data: settings = {} } = useCompanySettings();
   const addCheckInMutation = useAddCheckIn();
 
   const [search, setSearch] = useState("");
@@ -83,8 +84,18 @@ const Attendance = () => {
   const handleExportReport = () => {
     const headers = ["Member", "Present Days", "Absent Days", "Total Days", "Attendance %"];
     const rows = reportData.map((r) => [r.member.name, String(r.presentDays), String(r.absentDays), String(r.totalDays), `${r.rate}%`]);
-    exportTableToCSV(headers, rows, `attendance-report-${filterMonth}.csv`);
-    toast.success("Report exported!");
+    const memberFilterLabel = filterMember === "all" ? "All Members" : (activeMembers.find((m) => m.id === filterMember)?.name || filterMember);
+    exportTableToCSV(headers, rows, `attendance-${filterMonth}.csv`, {
+      propertyName: settings.companyName || "VitaFit Club",
+      reportTitle: "Attendance Report",
+      dateRange: format(reportMonth.start, "MMMM yyyy"),
+      filters: {
+        Month: filterMonth,
+        Member: memberFilterLabel,
+        "Total Records": String(reportData.length),
+      },
+    });
+    toast.success("Attendance report exported!");
   };
 
   return (

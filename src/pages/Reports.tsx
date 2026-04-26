@@ -4,13 +4,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatCard } from "@/components/StatCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNPR } from "@/lib/mock-data";
-import { useMembers, useTransactions, useBookings } from "@/hooks/use-firestore";
+import { useMembers, useTransactions, useBookings, useCompanySettings } from "@/hooks/use-firestore";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, AreaChart, Area,
 } from "recharts";
 import { toast } from "sonner";
-import { useMemo } from "react";
+import { useMemo, lazy, Suspense } from "react";
+import { format } from "date-fns";
+
+// Lazy-load the heavier ledger view so the Reports route stays fast on first paint
+const LedgerReport = lazy(() => import("@/components/LedgerReport"));
 
 const tooltipStyle = {
   background: "hsl(224, 20%, 12%)",
@@ -23,6 +27,7 @@ const Reports = () => {
   const { data: members = [], isLoading: membersLoading } = useMembers();
   const { data: transactions = [], isLoading: txLoading } = useTransactions();
   const { data: bookings = [] } = useBookings();
+  const { data: settings = {} } = useCompanySettings();
 
   const isLoading = membersLoading || txLoading;
   const activeMembers = members.filter((m) => m.status === "Active").length;
@@ -84,12 +89,20 @@ const Reports = () => {
         </div>
         <Button variant="outline" size="sm" onClick={() => {
           import("@/lib/print-utils").then(({ exportTableToCSV }) => {
+            const propertyName = settings.companyName || "VitaFit Club";
+            const dateRange = format(new Date(), "PPP");
             const headers = ["Member", "Status", "Tier", "Total Paid", "Due"];
             const rows = members.map((m) => [m.name, m.status, m.tier, String(m.totalPaid), String(m.dueAmount)]);
-            exportTableToCSV(headers, rows, "members-report.csv");
+            exportTableToCSV(headers, rows, `members-report-${format(new Date(), "yyyyMMdd")}.csv`, {
+              propertyName, reportTitle: "Members Report", dateRange,
+              filters: { "Total Members": String(members.length), "Active Members": String(activeMembers) },
+            });
             const txHeaders = ["Receipt", "Date", "Member", "Method", "VAT", "Total"];
             const txRows = transactions.map((t) => [t.receiptNo, t.date, t.memberName, t.method, String(t.vat), String(t.total)]);
-            exportTableToCSV(txHeaders, txRows, "transactions-report.csv");
+            exportTableToCSV(txHeaders, txRows, `transactions-report-${format(new Date(), "yyyyMMdd")}.csv`, {
+              propertyName, reportTitle: "Transactions Report", dateRange,
+              filters: { "Total Transactions": String(transactions.length), "Total Revenue (NPR)": String(totalRevenue) },
+            });
             toast.success("Reports exported as CSV!");
           });
         }}>
@@ -110,12 +123,19 @@ const Reports = () => {
         )}
       </div>
 
-      <Tabs defaultValue="revenue" className="space-y-4">
-        <TabsList className="bg-muted/50">
+      <Tabs defaultValue="ledger" className="space-y-4">
+        <TabsList className="bg-muted/50 flex-wrap h-auto">
+          <TabsTrigger value="ledger">Member Ledger</TabsTrigger>
           <TabsTrigger value="revenue">Revenue by Service</TabsTrigger>
           <TabsTrigger value="growth">Member Growth</TabsTrigger>
           <TabsTrigger value="payments">Payment Methods</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="ledger">
+          <Suspense fallback={<Skeleton className="h-96 rounded-xl" />}>
+            <LedgerReport />
+          </Suspense>
+        </TabsContent>
 
         <TabsContent value="revenue">
           <div className="glass-card rounded-xl p-5">

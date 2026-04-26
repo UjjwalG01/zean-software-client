@@ -9,9 +9,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { TierBadge } from "@/components/TierBadge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useMembers } from "@/hooks/use-firestore";
+import { useMembers, useCompanySettings } from "@/hooks/use-firestore";
+import { exportTableToCSV } from "@/lib/print-utils";
 import type { ServiceType } from "@/lib/mock-data";
 import { toast } from "sonner";
+import { format } from "date-fns";
 
 const MembersList = () => {
   const navigate = useNavigate();
@@ -23,6 +25,7 @@ const MembersList = () => {
   const perPage = 10;
 
   const { data: members = [], isLoading } = useMembers();
+  const { data: settings = {} } = useCompanySettings();
 
   const filtered = useMemo(() => {
     return members.filter((m) => {
@@ -38,7 +41,24 @@ const MembersList = () => {
   const totalPages = Math.ceil(filtered.length / perPage);
 
   const handleExport = () => {
-    toast.success("Member list exported as CSV");
+    const headers = ["Name", "Email", "Phone", "Tier", "Status", "Services", "Plan", "Total Paid", "Due", "Expiry"];
+    const rows = filtered.map((m) => [
+      m.name, m.email, m.phone, m.tier, m.status,
+      m.services.join("; "), m.plan, String(m.totalPaid), String(m.dueAmount), m.expiryDate,
+    ]);
+    exportTableToCSV(headers, rows, `members-${format(new Date(), "yyyyMMdd")}.csv`, {
+      propertyName: settings.companyName || "VitaFit Club",
+      reportTitle: "Members Report",
+      dateRange: format(new Date(), "PPP"),
+      filters: {
+        Search: search || "—",
+        Tier: tierFilter === "all" ? "All" : tierFilter,
+        Status: statusFilter === "all" ? "All" : statusFilter,
+        Service: serviceFilter === "all" ? "All" : serviceFilter,
+        "Total Records": String(filtered.length),
+      },
+    });
+    toast.success(`Exported ${filtered.length} members to CSV`);
   };
 
   return (
