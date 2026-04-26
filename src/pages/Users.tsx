@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Trash2, UserCog, Mail, Phone, Shield, Eye, EyeOff } from "lucide-react";
+import { Plus, Trash2, UserCog, Eye, EyeOff, KeyRound, CheckCircle2, Copy, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,11 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppUsers, useCreateAppUser, useUpdateAppUser, useDeleteAppUser } from "@/hooks/use-app-users";
+import { sendResetPasswordEmail } from "@/lib/firebase-auth";
 import { toast } from "sonner";
-import type { UserRole } from "@/lib/firebase-users";
+import type { UserRole, AppUser } from "@/lib/firebase-users";
 
 const roleColors: Record<UserRole, string> = {
   admin: "bg-primary/20 text-primary",
@@ -20,23 +21,25 @@ const roleColors: Record<UserRole, string> = {
   viewer: "bg-muted text-muted-foreground",
 };
 
+const DEFAULT_TEMP_PASSWORD = "12345678";
+
 const UsersPage = () => {
-  const { data: users = [], isLoading } = useAppUsers();
+  const { data: users = [], isLoading, refetch } = useAppUsers();
   const createMutation = useCreateAppUser();
   const updateMutation = useUpdateAppUser();
   const deleteMutation = useDeleteAppUser();
 
   const [open, setOpen] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
-  const [form, setForm] = useState({
-    username: "", email: "", password: "", confirmPassword: "",
+  const [successUser, setSuccessUser] = useState<{ email: string; password: string; fullName: string } | null>(null);
+  const [resetTarget, setResetTarget] = useState<AppUser | null>(null);
+
+  const initialForm = () => ({
+    username: "", email: "", password: DEFAULT_TEMP_PASSWORD, confirmPassword: DEFAULT_TEMP_PASSWORD,
     fullName: "", phone: "", address: "", role: "staff" as UserRole,
   });
-
-  const reset = () => setForm({
-    username: "", email: "", password: "", confirmPassword: "",
-    fullName: "", phone: "", address: "", role: "staff",
-  });
+  const [form, setForm] = useState(initialForm());
+  const reset = () => setForm(initialForm());
 
   const validate = (): string | null => {
     if (!form.username.trim()) return "Username is required";
@@ -61,12 +64,15 @@ const UsersPage = () => {
         address: form.address,
         role: form.role,
       });
-      toast.success(`User "${form.fullName}" created. They will be prompted to change password on first login.`);
+      const created = { email: form.email, password: form.password, fullName: form.fullName };
       setOpen(false);
       reset();
+      await refetch();
+      setSuccessUser(created);
+      toast.success(`User "${created.fullName}" created successfully`);
     } catch (e: any) {
       const msg = e?.code === "auth/email-already-in-use"
-        ? "A user with this email already exists"
+        ? "A user with this email already exists in Firebase Auth"
         : e?.message || "Failed to create user";
       toast.error(msg);
     }
@@ -94,6 +100,32 @@ const UsersPage = () => {
     } catch { toast.error("Failed"); }
   };
 
+  const handleSendResetEmail = async (email: string) => {
+    try {
+      await sendResetPasswordEmail(email);
+      toast.success(`Password reset email sent to ${email}`);
+      setResetTarget(null);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to send reset email");
+    }
+  };
+
+  const handleForceTempPassword = async (user: AppUser) => {
+    try {
+      await updateMutation.mutateAsync({ id: user.id, data: { mustChangePassword: true } });
+      await sendResetPasswordEmail(user.email);
+      toast.success(`Reset email sent. User will set a new password and be prompted again on next login.`);
+      setResetTarget(null);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to reset");
+    }
+  };
+
+  const copyCreds = (creds: { email: string; password: string }) => {
+    navigator.clipboard.writeText(`Email: ${creds.email}\nPassword: ${creds.password}`);
+    toast.success("Credentials copied to clipboard");
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -105,15 +137,15 @@ const UsersPage = () => {
           <DialogTrigger asChild>
             <Button size="sm"><Plus className="h-4 w-4 mr-1" />Create User</Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[520px]">
+          <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="font-display">Create New User</DialogTitle>
               <DialogDescription>
-                The new user will be required to change this temporary password on first login.
+                Default password is <strong>{DEFAULT_TEMP_PASSWORD}</strong>. The user will be forced to change it on first login.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>Username *</Label>
                   <Input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder="rajesh.k" />
@@ -127,7 +159,7 @@ const UsersPage = () => {
                 <Label>Email *</Label>
                 <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="rajesh@vitafitclub.com" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>Phone</Label>
                   <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+977-984XXXXXXX" />
@@ -149,7 +181,7 @@ const UsersPage = () => {
                 <Label>Address</Label>
                 <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Kathmandu, Nepal" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>Temporary Password *</Label>
                   <div className="relative">
@@ -171,7 +203,7 @@ const UsersPage = () => {
                 </div>
               </div>
               <div className="rounded-lg bg-muted/30 p-3 text-xs text-muted-foreground">
-                <strong className="text-foreground">Security:</strong> The user will sign in with this temporary password and will be forced to change it before they can access the app.
+                <strong className="text-foreground">Security:</strong> Username & password are pre-filled with the email and the default temp password ({DEFAULT_TEMP_PASSWORD}). The user must change their password on first login.
               </div>
               <Button onClick={handleCreate} disabled={createMutation.isPending} className="w-full gradient-gold text-primary-foreground">
                 {createMutation.isPending ? "Creating..." : "Create User"}
@@ -180,6 +212,79 @@ const UsersPage = () => {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* SUCCESS POPUP */}
+      <Dialog open={!!successUser} onOpenChange={(o) => !o && setSuccessUser(null)}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-full bg-success/20 flex items-center justify-center">
+                <CheckCircle2 className="h-6 w-6 text-success" />
+              </div>
+              <div>
+                <DialogTitle className="font-display">User Created!</DialogTitle>
+                <DialogDescription>Share these credentials with the user.</DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          {successUser && (
+            <div className="space-y-3">
+              <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Full name</span>
+                  <span className="font-medium">{successUser.fullName}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Email / username</span>
+                  <span className="font-medium font-mono text-xs">{successUser.email}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Temp password</span>
+                  <span className="font-medium font-mono text-xs">{successUser.password}</span>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                On first login, the user will be required to change this password.
+              </p>
+            </div>
+          )}
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => successUser && copyCreds(successUser)}>
+              <Copy className="h-4 w-4 mr-1" /> Copy
+            </Button>
+            <Button onClick={() => setSuccessUser(null)} className="gradient-gold text-primary-foreground">Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* RESET PASSWORD POPUP */}
+      <Dialog open={!!resetTarget} onOpenChange={(o) => !o && setResetTarget(null)}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle className="font-display">Reset Password</DialogTitle>
+            <DialogDescription>
+              For security, Firebase requires the user to set their own password via a secure email link. Choose how to reset:
+            </DialogDescription>
+          </DialogHeader>
+          {resetTarget && (
+            <div className="space-y-3">
+              <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
+                <p className="font-medium">{resetTarget.fullName}</p>
+                <p className="text-xs text-muted-foreground font-mono">{resetTarget.email}</p>
+              </div>
+              <Button onClick={() => handleSendResetEmail(resetTarget.email)} className="w-full" variant="outline">
+                <Mail className="h-4 w-4 mr-2" /> Send password reset email
+              </Button>
+              <Button onClick={() => handleForceTempPassword(resetTarget)} className="w-full gradient-gold text-primary-foreground">
+                <KeyRound className="h-4 w-4 mr-2" /> Force change on next login
+              </Button>
+              <p className="text-[11px] text-muted-foreground text-center">
+                Both options are secure: the user sets their own new password.
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <div className="glass-card rounded-xl overflow-hidden">
         {isLoading ? (
@@ -200,7 +305,7 @@ const UsersPage = () => {
                   <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Active</TableHead>
-                  <TableHead className="w-12"></TableHead>
+                  <TableHead className="w-24 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -235,10 +340,15 @@ const UsersPage = () => {
                     <TableCell>
                       <Switch checked={u.isActive} onCheckedChange={() => toggleActive(u.id, u.isActive)} />
                     </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => handleDelete(u.id, u.fullName)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/10" title="Reset password" onClick={() => setResetTarget(u)}>
+                          <KeyRound className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" title="Remove user" onClick={() => handleDelete(u.id, u.fullName)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
