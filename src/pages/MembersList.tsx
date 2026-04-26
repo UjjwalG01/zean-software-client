@@ -25,6 +25,7 @@ const MembersList = () => {
   const perPage = 10;
 
   const { data: members = [], isLoading } = useMembers();
+  const { data: settings = {} } = useCompanySettings();
 
   const filtered = useMemo(() => {
     return members.filter((m) => {
@@ -40,7 +41,24 @@ const MembersList = () => {
   const totalPages = Math.ceil(filtered.length / perPage);
 
   const handleExport = () => {
-    toast.success("Member list exported as CSV");
+    const headers = ["Name", "Email", "Phone", "Tier", "Status", "Services", "Plan", "Total Paid", "Due", "Expiry"];
+    const rows = filtered.map((m) => [
+      m.name, m.email, m.phone, m.tier, m.status,
+      m.services.join("; "), m.plan, String(m.totalPaid), String(m.dueAmount), m.expiryDate,
+    ]);
+    exportTableToCSV(headers, rows, `members-${format(new Date(), "yyyyMMdd")}.csv`, {
+      propertyName: settings.companyName || "VitaFit Club",
+      reportTitle: "Members Report",
+      dateRange: format(new Date(), "PPP"),
+      filters: {
+        Search: search || "—",
+        Tier: tierFilter === "all" ? "All" : tierFilter,
+        Status: statusFilter === "all" ? "All" : statusFilter,
+        Service: serviceFilter === "all" ? "All" : serviceFilter,
+        "Total Records": String(filtered.length),
+      },
+    });
+    toast.success(`Exported ${filtered.length} members to CSV`);
   };
 
   return (
