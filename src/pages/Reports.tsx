@@ -89,12 +89,20 @@ const Reports = () => {
         </div>
         <Button variant="outline" size="sm" onClick={() => {
           import("@/lib/print-utils").then(({ exportTableToCSV }) => {
+            const propertyName = settings.companyName || "VitaFit Club";
+            const dateRange = format(new Date(), "PPP");
             const headers = ["Member", "Status", "Tier", "Total Paid", "Due"];
             const rows = members.map((m) => [m.name, m.status, m.tier, String(m.totalPaid), String(m.dueAmount)]);
-            exportTableToCSV(headers, rows, "members-report.csv");
+            exportTableToCSV(headers, rows, `members-report-${format(new Date(), "yyyyMMdd")}.csv`, {
+              propertyName, reportTitle: "Members Report", dateRange,
+              filters: { "Total Members": String(members.length), "Active Members": String(activeMembers) },
+            });
             const txHeaders = ["Receipt", "Date", "Member", "Method", "VAT", "Total"];
             const txRows = transactions.map((t) => [t.receiptNo, t.date, t.memberName, t.method, String(t.vat), String(t.total)]);
-            exportTableToCSV(txHeaders, txRows, "transactions-report.csv");
+            exportTableToCSV(txHeaders, txRows, `transactions-report-${format(new Date(), "yyyyMMdd")}.csv`, {
+              propertyName, reportTitle: "Transactions Report", dateRange,
+              filters: { "Total Transactions": String(transactions.length), "Total Revenue (NPR)": String(totalRevenue) },
+            });
             toast.success("Reports exported as CSV!");
           });
         }}>
