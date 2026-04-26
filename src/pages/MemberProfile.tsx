@@ -97,9 +97,24 @@ const MemberProfile = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <Button variant="ghost" size="sm" onClick={() => navigate("/members")} className="text-muted-foreground">
-        <ArrowLeft className="h-4 w-4 mr-1" /> Back to Members
-      </Button>
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" size="sm" onClick={() => navigate("/members")} className="text-muted-foreground">
+          <ArrowLeft className="h-4 w-4 mr-1" /> Back to Members
+        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+            <Edit className="h-4 w-4 mr-1" /> Edit
+          </Button>
+          <Button
+            variant={member.status === "Active" ? "destructive" : "default"}
+            size="sm"
+            onClick={() => setDeactivateOpen(true)}
+          >
+            <Power className="h-4 w-4 mr-1" />
+            {member.status === "Active" ? "Deactivate" : "Reactivate"}
+          </Button>
+        </div>
+      </div>
 
       {/* Header Card */}
       <div className="glass-card rounded-xl p-6">
