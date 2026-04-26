@@ -8,6 +8,7 @@ import {
   updatePassword,
   EmailAuthProvider,
   reauthenticateWithCredential,
+  sendPasswordResetEmail,
   type User,
 } from "firebase/auth";
 import { initializeApp, deleteApp } from "firebase/app";
@@ -58,6 +59,11 @@ export async function createFirebaseAuthUser(email: string, password: string): P
   } finally {
     await deleteApp(secondary);
   }
+}
+
+export async function sendResetPasswordEmail(email: string): Promise<void> {
+  const auth = getFirebaseAuth();
+  await sendPasswordResetEmail(auth, email);
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
