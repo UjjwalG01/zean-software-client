@@ -27,6 +27,7 @@ const Reports = () => {
   const { data: members = [], isLoading: membersLoading } = useMembers();
   const { data: transactions = [], isLoading: txLoading } = useTransactions();
   const { data: bookings = [] } = useBookings();
+  const { data: settings = {} } = useCompanySettings();
 
   const isLoading = membersLoading || txLoading;
   const activeMembers = members.filter((m) => m.status === "Active").length;
