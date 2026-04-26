@@ -223,6 +223,76 @@ const MemberProfile = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Member Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="font-display flex items-center gap-2">
+              <Edit className="h-4 w-4 text-primary" /> Edit Member
+            </DialogTitle>
+            <DialogDescription>Update the member's contact details.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <div className="space-y-1.5">
+              <Label>Full Name</Label>
+              <Input value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Email</Label>
+                <Input type="email" value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Phone</Label>
+                <Input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Address</Label>
+              <Input value={editForm.address} onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Emergency Contact</Label>
+              <Input value={editForm.emergencyContact} onChange={(e) => setEditForm((p) => ({ ...p, emergencyContact: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}><X className="h-4 w-4 mr-1" />Cancel</Button>
+            <Button onClick={handleSaveEdit} disabled={updateMember.isPending} className="gradient-gold text-primary-foreground">
+              <Save className="h-4 w-4 mr-1" />
+              {updateMember.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Deactivate Confirm Dialog */}
+      <Dialog open={deactivateOpen} onOpenChange={setDeactivateOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="font-display flex items-center gap-2">
+              <Power className="h-4 w-4 text-destructive" />
+              {member.status === "Active" ? "Deactivate Member?" : "Reactivate Member?"}
+            </DialogTitle>
+            <DialogDescription>
+              {member.status === "Active"
+                ? `${member.name} will lose access until reactivated. Bookings & payment history are preserved.`
+                : `${member.name} will regain Active status.`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeactivateOpen(false)}>Cancel</Button>
+            <Button
+              variant={member.status === "Active" ? "destructive" : "default"}
+              onClick={handleToggleActive}
+              disabled={updateMember.isPending}
+            >
+              {updateMember.isPending ? "Updating..." : member.status === "Active" ? "Deactivate" : "Reactivate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
