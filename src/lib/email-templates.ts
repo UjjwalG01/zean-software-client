@@ -141,7 +141,7 @@ export interface ReminderLogEntry {
   body: string;
   sentAt: string;
   status: "sent" | "queued" | "failed";
-  channel: "mailto" | "smtp" | "manual";
+  channel: "mailto" | "smtp" | "resend" | "manual";
   errorMessage?: string;
 }
 
@@ -191,4 +191,63 @@ export function openMailtoReminder(opts: {
   // Use ? then replace + with %20 for proper line-break handling in body
   const url = `mailto:${encodeURIComponent(opts.to)}?${params.toString().replace(/\+/g, "%20")}`;
   window.location.href = url;
+}
+
+/**
+ * Send an email through a Resend-backed Firebase Cloud Function.
+ *
+ * Configure the endpoint URL in companySettings.resendEndpoint
+ * (e.g. https://us-central1-PROJECT.cloudfunctions.net/sendEmail).
+ * The function should accept { to, subject, html, text, from } and call
+ * Resend's API server-side using a private RESEND_API_KEY.
+ *
+ * Falls back to mailto: when no endpoint is configured so the app
+ * always provides a way to reach the recipient.
+ */
+export async function sendEmailViaResend(opts: {
+  endpoint?: string;
+  to: string;
+  subject: string;
+  body: string;
+  fromEmail?: string;
+  fromName?: string;
+}): Promise<{ ok: boolean; channel: "resend" | "mailto"; error?: string }> {
+  const { endpoint, to, subject, body, fromEmail, fromName } = opts;
+  if (!endpoint) {
+    openMailtoReminder({ to, subject, body });
+    return { ok: true, channel: "mailto" };
+  }
+  try {
+    const html = body
+      .split("\n")
+      .map((l) => l.length === 0 ? "<br/>" : `<p style="margin:0 0 8px">${escapeHtml(l)}</p>`)
+      .join("");
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        to,
+        subject,
+        html,
+        text: body,
+        from: fromEmail ? (fromName ? `${fromName} <${fromEmail}>` : fromEmail) : undefined,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.text().catch(() => res.statusText);
+      return { ok: false, channel: "resend", error: err };
+    }
+    return { ok: true, channel: "resend" };
+  } catch (e: any) {
+    return { ok: false, channel: "resend", error: e?.message || String(e) };
+  }
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
