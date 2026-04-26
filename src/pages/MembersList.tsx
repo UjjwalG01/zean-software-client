@@ -9,9 +9,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { TierBadge } from "@/components/TierBadge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useMembers } from "@/hooks/use-firestore";
+import { useMembers, useCompanySettings } from "@/hooks/use-firestore";
+import { exportTableToCSV } from "@/lib/print-utils";
 import type { ServiceType } from "@/lib/mock-data";
 import { toast } from "sonner";
+import { format } from "date-fns";
 
 const MembersList = () => {
   const navigate = useNavigate();
