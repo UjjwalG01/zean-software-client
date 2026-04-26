@@ -81,10 +81,10 @@ export default function EmailTemplatesPage() {
 
       <div className="rounded-lg border border-border/50 bg-muted/30 p-4 text-sm flex items-start gap-3">
         <Variable className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-        <div>
-          <p className="font-medium mb-1">How sending works</p>
+        <div className="space-y-1">
+          <p className="font-medium">How sending works</p>
           <p className="text-muted-foreground text-xs leading-relaxed">
-            Templates are stored in your <strong>emailTemplates</strong> Firestore collection. Click "Send Reminder" anywhere in the app to open your default mail client with the rendered template, and a record is logged to <strong>emailReminders</strong>. To send fully automated emails, connect an SMTP provider via Cloud Functions.
+            Templates are stored in the <strong>emailTemplates</strong> collection. The app sends through <strong>Resend</strong> when you set <code className="text-primary">companySettings.resendEndpoint</code> to your Cloud Function URL (which must hold the private <code>RESEND_API_KEY</code>). Without it, the app falls back to opening your default mail client. Every send is logged to the <strong>emailReminders</strong> collection.
           </p>
         </div>
       </div>
