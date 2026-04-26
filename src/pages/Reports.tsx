@@ -123,12 +123,19 @@ const Reports = () => {
         )}
       </div>
 
-      <Tabs defaultValue="revenue" className="space-y-4">
-        <TabsList className="bg-muted/50">
+      <Tabs defaultValue="ledger" className="space-y-4">
+        <TabsList className="bg-muted/50 flex-wrap h-auto">
+          <TabsTrigger value="ledger">Member Ledger</TabsTrigger>
           <TabsTrigger value="revenue">Revenue by Service</TabsTrigger>
           <TabsTrigger value="growth">Member Growth</TabsTrigger>
           <TabsTrigger value="payments">Payment Methods</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="ledger">
+          <Suspense fallback={<Skeleton className="h-96 rounded-xl" />}>
+            <LedgerReport />
+          </Suspense>
+        </TabsContent>
 
         <TabsContent value="revenue">
           <div className="glass-card rounded-xl p-5">
