@@ -179,7 +179,9 @@ const Dashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
+        <div className="glass-card rounded-xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold font-display">Recent Members</h3>
             <Button variant="ghost" size="sm" className="text-primary text-xs" onClick={() => navigate("/members")}>View All</Button>
           </div>
           {membersLoading ? (
