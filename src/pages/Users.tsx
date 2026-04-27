@@ -236,7 +236,48 @@ const UsersPage = () => {
         </Dialog>
       </div>
 
-      {/* SUCCESS POPUP */}
+      {/* STATS + ROLES LEGEND */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { label: "Total users", value: counts.total, icon: UsersIcon, color: "text-primary" },
+          { label: "Admins", value: counts.admin, icon: ShieldCheck, color: "text-amber-400" },
+          { label: "Active", value: counts.active, icon: ShieldQuestion, color: "text-emerald-400" },
+          { label: "Pending password", value: counts.pending, icon: ShieldAlert, color: "text-warning" },
+        ].map((s) => (
+          <div key={s.label} className="glass-card rounded-xl p-4 flex items-center gap-3">
+            <div className={`h-10 w-10 rounded-lg bg-muted/40 flex items-center justify-center ${s.color}`}>
+              <s.icon className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold font-display leading-none">{s.value}</p>
+              <p className="text-xs text-muted-foreground mt-1">{s.label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="glass-card rounded-xl p-4">
+        <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">Role permissions</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+          <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+            <p className="font-semibold text-primary mb-1">Admin</p>
+            <p className="text-muted-foreground">Full access · manage users, settings, billing, and all records.</p>
+          </div>
+          <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-3">
+            <p className="font-semibold text-blue-400 mb-1">Manager</p>
+            <p className="text-muted-foreground">Manage members, bookings, payments, reports. No user management.</p>
+          </div>
+          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
+            <p className="font-semibold text-emerald-400 mb-1">Staff</p>
+            <p className="text-muted-foreground">Day-to-day operations: check-ins, bookings, payments.</p>
+          </div>
+          <div className="rounded-lg border border-muted-foreground/30 bg-muted/10 p-3">
+            <p className="font-semibold mb-1">Viewer</p>
+            <p className="text-muted-foreground">Read-only access to dashboards and reports.</p>
+          </div>
+        </div>
+      </div>
+
       <Dialog open={!!successUser} onOpenChange={(o) => !o && setSuccessUser(null)}>
         <DialogContent className="sm:max-w-[440px]">
           <DialogHeader>
