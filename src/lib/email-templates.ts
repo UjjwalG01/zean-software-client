@@ -14,7 +14,9 @@ export type ReminderTemplateKey =
 export interface EmailTemplate {
   key: ReminderTemplateKey;
   subject: string;
-  body: string;
+  body: string;          // plain-text fallback / source
+  html?: string;         // rendered HTML from Unlayer
+  design?: any;          // Unlayer JSON design (for re-editing)
   enabled: boolean;
 }
 
@@ -108,6 +110,8 @@ export async function getEmailTemplates(): Promise<Record<ReminderTemplateKey, E
         key: data.key,
         subject: data.subject || "",
         body: data.body || "",
+        html: data.html || "",
+        design: data.design || null,
         enabled: data.enabled !== false,
       };
     }
