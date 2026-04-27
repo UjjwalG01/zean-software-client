@@ -424,6 +424,62 @@ const UsersPage = () => {
           </div>
         )}
       </div>
+
+      {/* EDIT USER */}
+      <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle className="font-display">Edit User</DialogTitle>
+            <DialogDescription>Update profile details and role. Email cannot be changed.</DialogDescription>
+          </DialogHeader>
+          {editTarget && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Full name</Label>
+                  <Input value={editForm.fullName || ""} onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Username</Label>
+                  <Input value={editForm.username || ""} onChange={(e) => setEditForm({ ...editForm, username: e.target.value })} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Email (read-only)</Label>
+                <Input value={editTarget.email} disabled />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Phone</Label>
+                  <Input value={editForm.phone || ""} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Role</Label>
+                  <Select value={editForm.role as string} onValueChange={(v) => setEditForm({ ...editForm, role: v as UserRole })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="manager">Manager</SelectItem>
+                      <SelectItem value="staff">Staff</SelectItem>
+                      <SelectItem value="viewer">Viewer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Address</Label>
+                <Input value={editForm.address || ""} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} />
+              </div>
+              <DialogFooter className="gap-2">
+                <Button variant="outline" onClick={() => setEditTarget(null)}>Cancel</Button>
+                <Button onClick={handleSaveEdit} disabled={updateMutation.isPending} className="gradient-gold text-primary-foreground">
+                  {updateMutation.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
