@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Mail, Save, Eye, Loader2, Send, Variable } from "lucide-react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { Mail, Save, Loader2, Code2, Eye, Variable } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,9 @@ import {
 } from "@/lib/email-templates";
 import { useCompanySettings } from "@/hooks/use-firestore";
 import { toast } from "sonner";
+import type { UnlayerEditorHandle } from "@/components/UnlayerEditor";
+
+const UnlayerEditor = lazy(() => import("@/components/UnlayerEditor"));
 
 const templateMeta: Record<ReminderTemplateKey, { label: string; description: string; sample: Record<string, string> }> = {
   membership_expiring: {
@@ -63,29 +66,31 @@ export default function EmailTemplatesPage() {
 
   const keys: ReminderTemplateKey[] = ["membership_expiring", "membership_expired", "booking_reminder", "payment_due", "welcome"];
 
-  if (isLoading || !templates) {
-    return <Skeleton className="h-96 rounded-xl" />;
-  }
+  if (isLoading || !templates) return <Skeleton className="h-96 rounded-xl" />;
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold font-display flex items-center gap-2">
-            <Mail className="h-5 w-5 text-primary" />
-            Email Templates
-          </h1>
-          <p className="text-muted-foreground text-sm">Customize the emails sent to members. Use <code className="text-primary">{"{{variableName}}"}</code> placeholders.</p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold font-display flex items-center gap-2">
+          <Mail className="h-5 w-5 text-primary" />
+          Email Templates
+        </h1>
+        <p className="text-muted-foreground text-sm">
+          Design beautiful emails with the drag-and-drop editor (Unlayer) or edit the plain-text version.
+          Use <code className="text-primary">{"{{variableName}}"}</code> placeholders.
+        </p>
       </div>
 
       <div className="rounded-lg border border-border/50 bg-muted/30 p-4 text-sm flex items-start gap-3">
         <Variable className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-        <div className="space-y-1">
-          <p className="font-medium">How sending works</p>
-          <p className="text-muted-foreground text-xs leading-relaxed">
-            Templates are stored in the <strong>emailTemplates</strong> collection. The app sends through <strong>Resend</strong> when you set <code className="text-primary">companySettings.resendEndpoint</code> to your Cloud Function URL (which must hold the private <code>RESEND_API_KEY</code>). Without it, the app falls back to opening your default mail client. Every send is logged to the <strong>emailReminders</strong> collection.
-          </p>
+        <div className="space-y-1 text-xs leading-relaxed">
+          <p className="font-medium text-sm">Setup checklist</p>
+          <ul className="text-muted-foreground space-y-1 list-disc pl-4">
+            <li>Get a free <strong>Project ID</strong> at <a href="https://unlayer.com" target="_blank" rel="noreferrer" className="text-primary underline">unlayer.com</a> and set <code className="text-primary">VITE_UNLAYER_PROJECT_ID</code> to remove the demo banner.</li>
+            <li>Templates (subject, HTML, design JSON) are stored in the <strong>emailTemplates</strong> Firestore collection.</li>
+            <li>Sends go through <strong>Resend</strong> via your Cloud Function URL set in <code className="text-primary">companySettings.resendEndpoint</code>. Without it, the app falls back to the user's mail client.</li>
+            <li>Every send is logged to the <strong>emailReminders</strong> collection.</li>
+          </ul>
         </div>
       </div>
 
@@ -125,90 +130,131 @@ function TemplateEditor({ template, meta, companyName, companyPhone, companyEmai
 }) {
   const [subject, setSubject] = useState(template.subject);
   const [body, setBody] = useState(template.body);
+  const [html, setHtml] = useState(template.html || "");
+  const [design, setDesign] = useState<any>(template.design || null);
   const [enabled, setEnabled] = useState(template.enabled);
+  const [mode, setMode] = useState<"visual" | "text">(template.design ? "visual" : "text");
+  const editorRef = useRef<UnlayerEditorHandle | null>(null);
 
   useEffect(() => {
     setSubject(template.subject);
     setBody(template.body);
+    setHtml(template.html || "");
+    setDesign(template.design || null);
     setEnabled(template.enabled);
+    setMode(template.design ? "visual" : "text");
   }, [template]);
 
   const sampleData = { ...meta.sample, companyName, companyPhone, companyEmail };
   const previewSubject = renderTemplate(subject, sampleData);
   const previewBody = renderTemplate(body, sampleData);
 
+  const mergeTags = Object.fromEntries(
+    Object.keys(sampleData).map((k) => [k, { name: k, value: `{{${k}}}`, sample: String(sampleData[k] ?? "") }])
+  );
+
   const handleReset = () => {
     const def = DEFAULT_TEMPLATES[template.key];
     setSubject(def.subject);
     setBody(def.body);
+    setHtml("");
+    setDesign(null);
+    toast.message("Reset to default — remember to save.");
   };
 
-  const handleSave = () => onSave({ key: template.key, subject, body, enabled });
-
-  const variableHints = Object.keys(sampleData);
+  const handleSave = async () => {
+    let nextHtml = html;
+    let nextDesign = design;
+    if (mode === "visual" && editorRef.current) {
+      const out = await editorRef.current.exportHtml();
+      nextHtml = out.html;
+      nextDesign = out.design;
+      setHtml(nextHtml);
+      setDesign(nextDesign);
+    }
+    onSave({ key: template.key, subject, body, html: nextHtml, design: nextDesign, enabled });
+  };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div className="space-y-4">
       <div className="glass-card rounded-xl p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold font-display">{meta.label}</h3>
-          <div className="flex items-center gap-2">
-            <Label className="text-xs text-muted-foreground">Enabled</Label>
-            <Switch checked={enabled} onCheckedChange={setEnabled} />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-semibold font-display">{meta.label}</h3>
+            <p className="text-xs text-muted-foreground">{meta.description}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Label className="text-xs text-muted-foreground">Enabled</Label>
+              <Switch checked={enabled} onCheckedChange={setEnabled} />
+            </div>
+            <div className="flex rounded-md border border-border overflow-hidden text-xs">
+              <button onClick={() => setMode("visual")} className={`px-3 py-1.5 flex items-center gap-1 ${mode === "visual" ? "bg-primary text-primary-foreground" : "bg-muted/40"}`}>
+                <Eye className="h-3 w-3" /> Visual
+              </button>
+              <button onClick={() => setMode("text")} className={`px-3 py-1.5 flex items-center gap-1 ${mode === "text" ? "bg-primary text-primary-foreground" : "bg-muted/40"}`}>
+                <Code2 className="h-3 w-3" /> Plain text
+              </button>
+            </div>
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">{meta.description}</p>
 
         <div className="space-y-2">
           <Label>Subject</Label>
           <Input value={subject} onChange={(e) => setSubject(e.target.value)} className="bg-muted/50 border-0" />
         </div>
-        <div className="space-y-2">
-          <Label>Body</Label>
-          <Textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            rows={14}
-            className="bg-muted/50 border-0 font-mono text-xs"
-          />
-        </div>
-        <div>
-          <p className="text-[10px] text-muted-foreground mb-2 uppercase tracking-wider">Available variables</p>
-          <div className="flex flex-wrap gap-1">
-            {variableHints.map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setBody((prev) => prev + `{{${v}}}`)}
-                className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors"
-              >{`{{${v}}}`}</button>
-            ))}
+
+        {mode === "visual" ? (
+          <div className="space-y-2">
+            <Label>Email body (drag-and-drop)</Label>
+            <Suspense fallback={<Skeleton className="h-[600px] rounded-lg" />}>
+              <UnlayerEditor
+                ref={editorRef as any}
+                initialDesign={design}
+                mergeTags={mergeTags}
+                height={600}
+              />
+            </Suspense>
+            <p className="text-[11px] text-muted-foreground">
+              Tip: use the <strong>Merge Tags</strong> menu inside the editor to insert dynamic values like the member name.
+            </p>
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="space-y-2">
+              <Label>Body (plain text)</Label>
+              <Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={14} className="bg-muted/50 border-0 font-mono text-xs" />
+            </div>
+            <div>
+              <p className="text-[10px] text-muted-foreground mb-2 uppercase tracking-wider">Available variables</p>
+              <div className="flex flex-wrap gap-1">
+                {Object.keys(sampleData).map((v) => (
+                  <button key={v} type="button" onClick={() => setBody((p) => p + `{{${v}}}`)}
+                    className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors">
+                    {`{{${v}}}`}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-lg border border-border/50 bg-background/60 p-4 space-y-3">
+              <Badge variant="outline" className="text-[10px]">Preview · sample data</Badge>
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Subject</p>
+                <p className="text-sm font-medium">{previewSubject}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Body</p>
+                <pre className="text-xs whitespace-pre-wrap font-sans leading-relaxed text-foreground/90">{previewBody}</pre>
+              </div>
+            </div>
+          </>
+        )}
 
         <div className="flex gap-2 pt-2">
           <Button variant="outline" size="sm" onClick={handleReset}>Reset to default</Button>
           <Button size="sm" onClick={handleSave} disabled={saving} className="ml-auto gradient-gold text-primary-foreground">
             {saving ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />Saving...</> : <><Save className="h-3.5 w-3.5 mr-1" />Save Template</>}
           </Button>
-        </div>
-      </div>
-
-      <div className="glass-card rounded-xl p-5 space-y-3 bg-muted/10">
-        <div className="flex items-center gap-2">
-          <Eye className="h-4 w-4 text-muted-foreground" />
-          <h3 className="font-semibold font-display text-sm">Live Preview</h3>
-          <Badge variant="outline" className="text-[10px]">Sample data</Badge>
-        </div>
-        <div className="rounded-lg border border-border/50 bg-background/60 p-4 space-y-3">
-          <div>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Subject</p>
-            <p className="text-sm font-medium">{previewSubject}</p>
-          </div>
-          <div>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Body</p>
-            <pre className="text-xs whitespace-pre-wrap font-sans leading-relaxed text-foreground/90">{previewBody}</pre>
-          </div>
         </div>
       </div>
     </div>
