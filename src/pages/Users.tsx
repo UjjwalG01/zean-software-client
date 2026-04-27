@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Trash2, UserCog, Eye, EyeOff, KeyRound, CheckCircle2, Copy, Mail } from "lucide-react";
+import { Plus, Trash2, UserCog, Eye, EyeOff, KeyRound, CheckCircle2, Copy, Mail, Pencil, ShieldCheck, Users as UsersIcon, ShieldAlert, ShieldQuestion } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +33,8 @@ const UsersPage = () => {
   const [showPwd, setShowPwd] = useState(false);
   const [successUser, setSuccessUser] = useState<{ email: string; password: string; fullName: string } | null>(null);
   const [resetTarget, setResetTarget] = useState<AppUser | null>(null);
+  const [editTarget, setEditTarget] = useState<AppUser | null>(null);
+  const [editForm, setEditForm] = useState<Partial<AppUser>>({});
 
   const initialForm = () => ({
     username: "", email: "", password: DEFAULT_TEMP_PASSWORD, confirmPassword: DEFAULT_TEMP_PASSWORD,
@@ -124,6 +126,27 @@ const UsersPage = () => {
   const copyCreds = (creds: { email: string; password: string }) => {
     navigator.clipboard.writeText(`Email: ${creds.email}\nPassword: ${creds.password}`);
     toast.success("Credentials copied to clipboard");
+  };
+
+  const openEdit = (u: AppUser) => {
+    setEditTarget(u);
+    setEditForm({ fullName: u.fullName, username: u.username, phone: u.phone, address: u.address, role: u.role });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editTarget) return;
+    try {
+      await updateMutation.mutateAsync({ id: editTarget.id, data: editForm });
+      toast.success("User updated");
+      setEditTarget(null);
+    } catch { toast.error("Update failed"); }
+  };
+
+  const counts = {
+    total: users.length,
+    admin: users.filter((u) => u.role === "admin").length,
+    active: users.filter((u) => u.isActive).length,
+    pending: users.filter((u) => u.mustChangePassword).length,
   };
 
   return (
