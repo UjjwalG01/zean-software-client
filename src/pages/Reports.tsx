@@ -35,18 +35,21 @@ const Reports = () => {
   const avgRevenue = activeMembers > 0 ? Math.round(totalRevenue / activeMembers) : 0;
   const attendanceRate = members.length > 0 ? Math.round((activeMembers / members.length) * 100) : 0;
 
-  // Build revenue by service from transactions
+  // Build revenue by service from transactions (prefers serviceType field, falls back to description keywords)
   const revenueByService = useMemo(() => {
     const monthMap: Record<string, Record<string, number>> = {};
     transactions.forEach((t) => {
       const month = t.date ? new Date(t.date).toLocaleString("en", { month: "short" }) : "Unknown";
       if (!monthMap[month]) monthMap[month] = { Gym: 0, Spa: 0, Sauna: 0, Swimming: 0 };
-      // Distribute by description keywords
-      const desc = t.description.toLowerCase();
-      if (desc.includes("spa")) monthMap[month].Spa += t.total;
-      else if (desc.includes("sauna")) monthMap[month].Sauna += t.total;
-      else if (desc.includes("swim")) monthMap[month].Swimming += t.total;
-      else monthMap[month].Gym += t.total;
+      let bucket: string | null = t.serviceType || null;
+      if (!bucket) {
+        const desc = (t.description || "").toLowerCase();
+        if (desc.includes("spa")) bucket = "Spa";
+        else if (desc.includes("sauna")) bucket = "Sauna";
+        else if (desc.includes("swim")) bucket = "Swimming";
+        else bucket = "Gym";
+      }
+      monthMap[month][bucket] = (monthMap[month][bucket] || 0) + t.total;
     });
     return Object.entries(monthMap).map(([month, data]) => ({ month, ...data }));
   }, [transactions]);

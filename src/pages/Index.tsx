@@ -87,7 +87,7 @@ const Dashboard = () => {
         ) : (
           <>
             <button onClick={() => navigate("/members")} className="text-left transition-transform hover:-translate-y-0.5">
-              <StatCard title="Total Members" value={dashboardStats.totalMembers.toString()} change={5.2} icon={Users} />
+              <StatCard title="Total Members" value={dashboardStats.totalMembers.toString()} change={(dashboardStats as any).membersChange ?? 0} icon={Users} />
             </button>
             <button onClick={() => navigate("/transactions")} className="text-left transition-transform hover:-translate-y-0.5">
               <StatCard title="Monthly Revenue" value={formatNPR(dashboardStats.monthlyRevenue)} change={dashboardStats.revenueChange} icon={DollarSign} iconColor="gradient-gold" />
