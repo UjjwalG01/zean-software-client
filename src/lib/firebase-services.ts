@@ -154,6 +154,7 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   });
+  await addAuditLog(currentUid(), "create", "payment", ref.id, null, { memberId: data.memberId, total: amount + vat, method: data.method });
   return ref.id;
 }
 
