@@ -3,9 +3,13 @@ import {
   query, where, orderBy, limit, type QueryConstraint, setDoc,
   Timestamp,
 } from "firebase/firestore";
-import { getFirestoreDb } from "./firebase";
+import { getFirestoreDb, getFirebaseAuth } from "./firebase";
 import { firestoreMemberToMember, firestoreBookingToBooking, firestoreTransactionToTransaction } from "./firebase-converters";
 import type { Member, Booking, Transaction, MemberTier, MemberStatus, ServiceType } from "./mock-data";
+
+const currentUid = () => {
+  try { return getFirebaseAuth().currentUser?.uid || null; } catch { return null; }
+};
 
 // ─── Members ────────────────────────────────────────────────────────
 export async function getMembers(filters?: {
