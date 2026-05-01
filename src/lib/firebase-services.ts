@@ -66,17 +66,20 @@ export async function addMember(data: Partial<Member>): Promise<string> {
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   });
+  await addAuditLog(currentUid(), "create", "member", ref.id, null, { name: data.name, email: data.email });
   return ref.id;
 }
 
 export async function updateMember(id: string, data: Partial<Record<string, any>>): Promise<void> {
   const db = getFirestoreDb();
   await updateDoc(doc(db, "members", id), { ...data, updatedAt: Timestamp.now() });
+  await addAuditLog(currentUid(), "update", "member", id, null, data);
 }
 
 export async function deleteMember(id: string): Promise<void> {
   const db = getFirestoreDb();
   await deleteDoc(doc(db, "members", id));
+  await addAuditLog(currentUid(), "delete", "member", id, null, null);
 }
 
 // ─── Bookings ───────────────────────────────────────────────────────
@@ -108,17 +111,20 @@ export async function addBooking(data: Partial<Booking>): Promise<string> {
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   });
+  await addAuditLog(currentUid(), "create", "booking", ref.id, null, { memberId: data.memberId, date: data.date });
   return ref.id;
 }
 
 export async function updateBooking(id: string, data: Partial<Record<string, any>>): Promise<void> {
   const db = getFirestoreDb();
   await updateDoc(doc(db, "bookings", id), { ...data, updatedAt: Timestamp.now() });
+  await addAuditLog(currentUid(), "update", "booking", id, null, data);
 }
 
 export async function deleteBooking(id: string): Promise<void> {
   const db = getFirestoreDb();
   await deleteDoc(doc(db, "bookings", id));
+  await addAuditLog(currentUid(), "delete", "booking", id, null, null);
 }
 
 // ─── Transactions / Payments ────────────────────────────────────────
