@@ -1,8 +1,7 @@
 rules_version = '2';
 
 // VitaFit Club Firestore rules
-// Authenticated users can read/write business data; appUsers + auditLogs are read-restricted
-// to admins through helper checks. Deploy with: firebase deploy --only firestore:rules
+// Deploy: firebase deploy --only firestore:rules
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -23,21 +22,40 @@ service cloud.firestore {
     match /transactions/{id}       { allow read, write: if isSignedIn(); }
     match /services/{id}           { allow read, write: if isSignedIn(); }
     match /membershipPlans/{id}    { allow read, write: if isSignedIn(); }
-    match /companySettings/{id}    { allow read: if isSignedIn(); allow write: if isAdmin(); }
-    match /checkIns/{id}           { allow read, write: if isSignedIn(); }
-    match /emailTemplates/{id}     { allow read: if isSignedIn(); allow write: if isAdmin(); }
-    match /emailReminders/{id}     { allow read, write: if isSignedIn(); }
 
-    // App users — self read, admin manage
-    match /appUsers/{uid} {
-      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
-      allow create: if isSignedIn(); // self-signup creates own doc
+    // companySettings — readable by all signed-in users (incl. discountRules doc).
+    // Only admins can mutate.
+    match /companySettings/{id}    {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // checkIns — signed-in users can read/write attendance
+    match /checkIns/{id}           { allow read, write: if isSignedIn(); }
+
+    // Email templates — readable by all signed-in users; admins manage
+    match /emailTemplates/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Email reminder log — readable by all signed-in users; create by anyone signed-in
+    match /emailReminders/{id} {
+      allow read, create: if isSignedIn();
       allow update, delete: if isAdmin();
     }
 
-    // Audit logs — append-only, admin read
+    // App users — any signed-in user can read the directory; admins manage
+    match /appUsers/{uid} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn(); // self-signup creates own doc
+      allow update: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Audit logs — readable by all signed-in users; append-only; never mutated
     match /auditLogs/{id} {
-      allow read: if isAdmin();
+      allow read: if isSignedIn();
       allow create: if isSignedIn();
       allow update, delete: if false;
     }
