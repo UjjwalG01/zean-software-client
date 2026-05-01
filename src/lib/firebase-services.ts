@@ -269,29 +269,67 @@ export async function deleteMembershipPlan(id: string): Promise<void> {
 
 // ─── Dashboard Stats ────────────────────────────────────────────────
 export async function getDashboardStats() {
-  const [membersSnap, bookingsSnap, paymentsSnap] = await Promise.all([
-    getDocs(collection(getFirestoreDb(), "members")),
-    getDocs(collection(getFirestoreDb(), "bookings")),
-    getDocs(collection(getFirestoreDb(), "payments")),
+  const db = getFirestoreDb();
+  const [membersSnap, bookingsSnap, paymentsSnap, checkInsSnap] = await Promise.all([
+    getDocs(collection(db, "members")),
+    getDocs(collection(db, "bookings")),
+    getDocs(collection(db, "payments")),
+    getDocs(collection(db, "checkIns")),
   ]);
 
   const allMembers = membersSnap.docs.map(firestoreMemberToMember);
   const allBookings = bookingsSnap.docs.map(firestoreBookingToBooking);
   const allTransactions = paymentsSnap.docs.map(firestoreTransactionToTransaction);
 
-  const activeMembers = allMembers.filter((m) => m.status === "Active").length;
-  const monthlyRevenue = allTransactions.reduce((sum, t) => sum + t.total, 0);
-  const activeBookings = allBookings.filter((b) => b.status === "Confirmed" || b.status === "Pending").length;
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+  const todayKey = now.toISOString().split("T")[0];
+
+  const inRange = (d: string, from: Date, to?: Date) => {
+    if (!d) return false;
+    const dt = new Date(d);
+    return dt >= from && (!to || dt <= to);
+  };
+
+  const pct = (curr: number, prev: number) =>
+    prev === 0 ? (curr > 0 ? 100 : 0) : Math.round(((curr - prev) / prev) * 1000) / 10;
+
+  // Revenue MoM
+  const currRevenue = allTransactions.filter((t) => inRange(t.date, startOfMonth)).reduce((s, t) => s + t.total, 0);
+  const prevRevenue = allTransactions.filter((t) => inRange(t.date, startOfPrevMonth, endOfPrevMonth)).reduce((s, t) => s + t.total, 0);
+
+  // Bookings MoM (active bookings created this month vs prev)
+  const activeStatuses = new Set(["Confirmed", "Pending"]);
+  const currBookings = allBookings.filter((b) => activeStatuses.has(b.status) && inRange(b.date, startOfMonth)).length;
+  const prevBookings = allBookings.filter((b) => activeStatuses.has(b.status) && inRange(b.date, startOfPrevMonth, endOfPrevMonth)).length;
+
+  // Today vs yesterday check-ins
+  const yKey = new Date(now.getTime() - 86400000).toISOString().split("T")[0];
+  const checkInDocs = checkInsSnap.docs.map((d) => {
+    const data = d.data();
+    const ts = data.checkInTime?.toDate?.() || (data.date ? new Date(data.date) : null);
+    return ts ? ts.toISOString().split("T")[0] : "";
+  });
+  const todayCheckins = checkInDocs.filter((d) => d === todayKey).length;
+  const ydayCheckins = checkInDocs.filter((d) => d === yKey).length;
+
+  // Members MoM
+  const totalMembers = allMembers.length;
+  const newThisMonth = allMembers.filter((m) => inRange(m.joinDate, startOfMonth)).length;
+  const newPrevMonth = allMembers.filter((m) => inRange(m.joinDate, startOfPrevMonth, endOfPrevMonth)).length;
 
   return {
-    totalMembers: allMembers.length,
-    activeMembers,
-    monthlyRevenue,
-    revenueChange: 0,
-    activeBookings,
-    bookingsChange: 0,
-    todayCheckins: 0,
-    checkinsChange: 0,
+    totalMembers,
+    activeMembers: allMembers.filter((m) => m.status === "Active").length,
+    membersChange: pct(newThisMonth, newPrevMonth),
+    monthlyRevenue: currRevenue,
+    revenueChange: pct(currRevenue, prevRevenue),
+    activeBookings: allBookings.filter((b) => activeStatuses.has(b.status)).length,
+    bookingsChange: pct(currBookings, prevBookings),
+    todayCheckins,
+    checkinsChange: pct(todayCheckins, ydayCheckins),
   };
 }
 
