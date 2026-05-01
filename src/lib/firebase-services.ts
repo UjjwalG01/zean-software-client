@@ -3,9 +3,13 @@ import {
   query, where, orderBy, limit, type QueryConstraint, setDoc,
   Timestamp,
 } from "firebase/firestore";
-import { getFirestoreDb } from "./firebase";
+import { getFirestoreDb, getFirebaseAuth } from "./firebase";
 import { firestoreMemberToMember, firestoreBookingToBooking, firestoreTransactionToTransaction } from "./firebase-converters";
 import type { Member, Booking, Transaction, MemberTier, MemberStatus, ServiceType } from "./mock-data";
+
+const currentUid = () => {
+  try { return getFirebaseAuth().currentUser?.uid || null; } catch { return null; }
+};
 
 // ─── Members ────────────────────────────────────────────────────────
 export async function getMembers(filters?: {
@@ -62,17 +66,20 @@ export async function addMember(data: Partial<Member>): Promise<string> {
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   });
+  await addAuditLog(currentUid(), "create", "member", ref.id, null, { name: data.name, email: data.email });
   return ref.id;
 }
 
 export async function updateMember(id: string, data: Partial<Record<string, any>>): Promise<void> {
   const db = getFirestoreDb();
   await updateDoc(doc(db, "members", id), { ...data, updatedAt: Timestamp.now() });
+  await addAuditLog(currentUid(), "update", "member", id, null, data);
 }
 
 export async function deleteMember(id: string): Promise<void> {
   const db = getFirestoreDb();
   await deleteDoc(doc(db, "members", id));
+  await addAuditLog(currentUid(), "delete", "member", id, null, null);
 }
 
 // ─── Bookings ───────────────────────────────────────────────────────
@@ -104,17 +111,20 @@ export async function addBooking(data: Partial<Booking>): Promise<string> {
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   });
+  await addAuditLog(currentUid(), "create", "booking", ref.id, null, { memberId: data.memberId, date: data.date });
   return ref.id;
 }
 
 export async function updateBooking(id: string, data: Partial<Record<string, any>>): Promise<void> {
   const db = getFirestoreDb();
   await updateDoc(doc(db, "bookings", id), { ...data, updatedAt: Timestamp.now() });
+  await addAuditLog(currentUid(), "update", "booking", id, null, data);
 }
 
 export async function deleteBooking(id: string): Promise<void> {
   const db = getFirestoreDb();
   await deleteDoc(doc(db, "bookings", id));
+  await addAuditLog(currentUid(), "delete", "booking", id, null, null);
 }
 
 // ─── Transactions / Payments ────────────────────────────────────────
@@ -136,6 +146,7 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
     totalAmount: amount + vat,
     paymentMethod: data.method || "Cash",
     type: data.type || "Payment",
+    serviceType: data.serviceType || null,
     paymentDate: data.date || new Date().toISOString().split("T")[0],
     description: data.description || "",
     receiptNo: data.receiptNo || `VFC-${Date.now()}`,
@@ -143,6 +154,7 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   });
+  await addAuditLog(currentUid(), "create", "payment", ref.id, null, { memberId: data.memberId, total: amount + vat, method: data.method });
   return ref.id;
 }
 
@@ -269,29 +281,67 @@ export async function deleteMembershipPlan(id: string): Promise<void> {
 
 // ─── Dashboard Stats ────────────────────────────────────────────────
 export async function getDashboardStats() {
-  const [membersSnap, bookingsSnap, paymentsSnap] = await Promise.all([
-    getDocs(collection(getFirestoreDb(), "members")),
-    getDocs(collection(getFirestoreDb(), "bookings")),
-    getDocs(collection(getFirestoreDb(), "payments")),
+  const db = getFirestoreDb();
+  const [membersSnap, bookingsSnap, paymentsSnap, checkInsSnap] = await Promise.all([
+    getDocs(collection(db, "members")),
+    getDocs(collection(db, "bookings")),
+    getDocs(collection(db, "payments")),
+    getDocs(collection(db, "checkIns")),
   ]);
 
   const allMembers = membersSnap.docs.map(firestoreMemberToMember);
   const allBookings = bookingsSnap.docs.map(firestoreBookingToBooking);
   const allTransactions = paymentsSnap.docs.map(firestoreTransactionToTransaction);
 
-  const activeMembers = allMembers.filter((m) => m.status === "Active").length;
-  const monthlyRevenue = allTransactions.reduce((sum, t) => sum + t.total, 0);
-  const activeBookings = allBookings.filter((b) => b.status === "Confirmed" || b.status === "Pending").length;
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+  const todayKey = now.toISOString().split("T")[0];
+
+  const inRange = (d: string, from: Date, to?: Date) => {
+    if (!d) return false;
+    const dt = new Date(d);
+    return dt >= from && (!to || dt <= to);
+  };
+
+  const pct = (curr: number, prev: number) =>
+    prev === 0 ? (curr > 0 ? 100 : 0) : Math.round(((curr - prev) / prev) * 1000) / 10;
+
+  // Revenue MoM
+  const currRevenue = allTransactions.filter((t) => inRange(t.date, startOfMonth)).reduce((s, t) => s + t.total, 0);
+  const prevRevenue = allTransactions.filter((t) => inRange(t.date, startOfPrevMonth, endOfPrevMonth)).reduce((s, t) => s + t.total, 0);
+
+  // Bookings MoM (active bookings created this month vs prev)
+  const activeStatuses = new Set(["Confirmed", "Pending"]);
+  const currBookings = allBookings.filter((b) => activeStatuses.has(b.status) && inRange(b.date, startOfMonth)).length;
+  const prevBookings = allBookings.filter((b) => activeStatuses.has(b.status) && inRange(b.date, startOfPrevMonth, endOfPrevMonth)).length;
+
+  // Today vs yesterday check-ins
+  const yKey = new Date(now.getTime() - 86400000).toISOString().split("T")[0];
+  const checkInDocs = checkInsSnap.docs.map((d) => {
+    const data = d.data();
+    const ts = data.checkInTime?.toDate?.() || (data.date ? new Date(data.date) : null);
+    return ts ? ts.toISOString().split("T")[0] : "";
+  });
+  const todayCheckins = checkInDocs.filter((d) => d === todayKey).length;
+  const ydayCheckins = checkInDocs.filter((d) => d === yKey).length;
+
+  // Members MoM
+  const totalMembers = allMembers.length;
+  const newThisMonth = allMembers.filter((m) => inRange(m.joinDate, startOfMonth)).length;
+  const newPrevMonth = allMembers.filter((m) => inRange(m.joinDate, startOfPrevMonth, endOfPrevMonth)).length;
 
   return {
-    totalMembers: allMembers.length,
-    activeMembers,
-    monthlyRevenue,
-    revenueChange: 0,
-    activeBookings,
-    bookingsChange: 0,
-    todayCheckins: 0,
-    checkinsChange: 0,
+    totalMembers,
+    activeMembers: allMembers.filter((m) => m.status === "Active").length,
+    membersChange: pct(newThisMonth, newPrevMonth),
+    monthlyRevenue: currRevenue,
+    revenueChange: pct(currRevenue, prevRevenue),
+    activeBookings: allBookings.filter((b) => activeStatuses.has(b.status)).length,
+    bookingsChange: pct(currBookings, prevBookings),
+    todayCheckins,
+    checkinsChange: pct(todayCheckins, ydayCheckins),
   };
 }
 

@@ -66,6 +66,7 @@ export function firestoreTransactionToTransaction(doc: QueryDocumentSnapshot<Doc
     date: d.paymentDate ? toDateString(d.paymentDate) : d.date || "",
     description: d.description || "",
     receiptNo: d.receiptNo || d.transactionRef || "",
+    serviceType: d.serviceType || undefined,
   };
 }
 

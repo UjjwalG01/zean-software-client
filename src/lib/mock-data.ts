@@ -52,6 +52,7 @@ export interface Transaction {
   date: string;
   description: string;
   receiptNo: string;
+  serviceType?: ServiceType;
 }
 
 export interface AttendanceRecord {
