@@ -136,6 +136,7 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
     totalAmount: amount + vat,
     paymentMethod: data.method || "Cash",
     type: data.type || "Payment",
+    serviceType: data.serviceType || null,
     paymentDate: data.date || new Date().toISOString().split("T")[0],
     description: data.description || "",
     receiptNo: data.receiptNo || `VFC-${Date.now()}`,
