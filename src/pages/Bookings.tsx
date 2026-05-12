@@ -51,6 +51,17 @@ function parseSetup(settings: Record<string, string>, key: string, fallback: str
 }
 
 const Bookings_Page = () => {
+  const { selected: selectedOutlet, outlets, setSelected, pickerOpen, setPickerOpen, isLoading: outletsLoading } = useOutlet();
+  const [pickerShown, setPickerShown] = useState(false);
+
+  // Show outlet picker dialog on first entry to /bookings if no outlet selected
+  useEffect(() => {
+    if (!outletsLoading && !selectedOutlet && !pickerShown) {
+      setPickerOpen(true);
+      setPickerShown(true);
+    }
+  }, [outletsLoading, selectedOutlet, pickerShown, setPickerOpen]);
+
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [view, setView] = useState<"calendar" | "list">("calendar");
   const [dialogOpen, setDialogOpen] = useState(false);
