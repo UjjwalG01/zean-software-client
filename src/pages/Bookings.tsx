@@ -100,9 +100,13 @@ const Bookings_Page = () => {
   const days = eachDayOfInterval({ start: calStart, end: calEnd });
 
   const filtered = useMemo(() => {
-    if (serviceFilter === "all") return bookings;
-    return bookings.filter((b) => b.service === serviceFilter);
-  }, [bookings, serviceFilter]);
+    let list = bookings;
+    if (selectedOutlet) {
+      list = list.filter((b: any) => !b.outletId || b.outletId === selectedOutlet.id);
+    }
+    if (serviceFilter !== "all") list = list.filter((b) => b.service === serviceFilter);
+    return list;
+  }, [bookings, serviceFilter, selectedOutlet]);
 
   const getBookingsForDay = (day: Date) => filtered.filter((b) => isSameDay(new Date(b.date), day));
 
