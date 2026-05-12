@@ -86,9 +86,10 @@ export default function EmailTemplatesPage() {
         <div className="space-y-1 text-xs leading-relaxed">
           <p className="font-medium text-sm">Setup checklist</p>
           <ul className="text-muted-foreground space-y-1 list-disc pl-4">
-            <li>Get a free <strong>Project ID</strong> at <a href="https://unlayer.com" target="_blank" rel="noreferrer" className="text-primary underline">unlayer.com</a> and set <code className="text-primary">VITE_UNLAYER_PROJECT_ID</code> to remove the demo banner.</li>
+            <li><strong>Unlayer Project ID</strong> (free): sign up at <a href="https://unlayer.com" target="_blank" rel="noreferrer" className="text-primary underline">unlayer.com</a> → Projects → copy your numeric Project ID. Set it as <code className="text-primary">VITE_UNLAYER_PROJECT_ID</code> in your environment to remove the demo banner. Optional: brand kit (logo, fonts, colors) so the editor preloads your style.</li>
             <li>Templates (subject, HTML, design JSON) are stored in the <strong>emailTemplates</strong> Firestore collection.</li>
-            <li>Sends go through <strong>Resend</strong> via your Cloud Function URL set in <code className="text-primary">companySettings.resendEndpoint</code>. Without it, the app falls back to the user's mail client.</li>
+            <li><strong>Resend</strong> sending: deploy the included <code className="text-primary">sendEmail</code> Cloud Function with your Resend API key, then save its URL in <code className="text-primary">companySettings.resendEndpoint</code>. The Cloud Function works with either a direct Resend key (<code>re_...</code>) or the Lovable connector gateway.</li>
+            <li>Without a configured endpoint the app falls back to opening the user's mail client.</li>
             <li>Every send is logged to the <strong>emailReminders</strong> collection.</li>
           </ul>
         </div>
