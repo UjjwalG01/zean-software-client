@@ -47,7 +47,8 @@ export function firestoreBookingToBooking(doc: QueryDocumentSnapshot<DocumentDat
     endTime: d.endTime ? toTimeString(d.endTime) : "",
     status: (d.status || "Pending") as BookingStatus,
     instructor: d.instructor || "",
-  };
+    outletId: d.outletId || null,
+  } as any;
 }
 
 export function firestoreTransactionToTransaction(doc: QueryDocumentSnapshot<DocumentData>): Transaction {

@@ -23,6 +23,16 @@ service cloud.firestore {
     match /services/{id}           { allow read, write: if isSignedIn(); }
     match /membershipPlans/{id}    { allow read, write: if isSignedIn(); }
 
+    // Outlets and Service Types — readable by all signed-in users; admins manage
+    match /outlets/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /serviceTypes/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
     // companySettings — readable by all signed-in users (incl. discountRules doc).
     // Only admins can mutate.
     match /companySettings/{id}    {

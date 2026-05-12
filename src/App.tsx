@@ -23,6 +23,9 @@ import Forecast from "./pages/Forecast";
 import GeneralSetup from "./pages/GeneralSetup";
 import Users from "./pages/Users";
 import EmailTemplates from "./pages/EmailTemplates";
+import OutletsPage from "./pages/setup/Outlets";
+import ServiceTypesPage from "./pages/setup/ServiceTypes";
+import { OutletProvider } from "./contexts/OutletContext";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -66,6 +69,7 @@ const App = () => (
               path="/*"
               element={
                 <AuthGuard>
+                  <OutletProvider>
                   <AppLayout>
                     <Routes>
                       <Route path="/" element={<Index />} />
@@ -81,10 +85,13 @@ const App = () => (
                       <Route path="/setup/plans" element={<PlansServices />} />
                       <Route path="/setup/users" element={<Users />} />
                       <Route path="/setup/email-templates" element={<EmailTemplates />} />
+                      <Route path="/setup/outlets" element={<OutletsPage />} />
+                      <Route path="/setup/service-types" element={<ServiceTypesPage />} />
                       <Route path="/setup/settings" element={<Settings />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </AppLayout>
+                  </OutletProvider>
                 </AuthGuard>
               }
             />

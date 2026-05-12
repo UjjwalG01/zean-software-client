@@ -28,7 +28,11 @@ const LOVABLE_API_KEY = defineSecret("LOVABLE_API_KEY");
 const RESEND_API_KEY = defineSecret("RESEND_API_KEY");
 const REMINDER_FROM_EMAIL = defineSecret("REMINDER_FROM_EMAIL");
 
+// Resend can be reached either via the Lovable connector gateway
+// (when RESEND_API_KEY is a connection key) or directly using a real
+// Resend API key. We try direct first when LOVABLE_API_KEY is missing.
 const GATEWAY_URL = "https://connector-gateway.lovable.dev/resend";
+const RESEND_DIRECT_URL = "https://api.resend.com";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -49,16 +53,26 @@ export const sendEmail = onRequest(
       return;
     }
 
+    const resendKey = RESEND_API_KEY.value();
+    let lovableKey = "";
+    try { lovableKey = LOVABLE_API_KEY.value(); } catch { /* not set */ }
+
+    const useGateway = !!lovableKey && !resendKey.startsWith("re_");
+    const url = useGateway ? `${GATEWAY_URL}/emails` : `${RESEND_DIRECT_URL}/emails`;
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (useGateway) {
+      headers["Authorization"] = `Bearer ${lovableKey}`;
+      headers["X-Connection-Api-Key"] = resendKey;
+    } else {
+      headers["Authorization"] = `Bearer ${resendKey}`;
+    }
+
     try {
-      const r = await fetch(`${GATEWAY_URL}/emails`, {
+      const r = await fetch(url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${LOVABLE_API_KEY.value()}`,
-          "X-Connection-Api-Key": RESEND_API_KEY.value(),
-        },
+        headers,
         body: JSON.stringify({
-          from: from || REMINDER_FROM_EMAIL.value(),
+          from: from || REMINDER_FROM_EMAIL.value() || "VitaFit Club <onboarding@resend.dev>",
           to: Array.isArray(to) ? to : [to],
           subject,
           html,
@@ -67,14 +81,14 @@ export const sendEmail = onRequest(
       });
       const data = await r.json();
       if (!r.ok) {
-        logger.error("Resend gateway failed", { status: r.status, data });
+        logger.error("Resend send failed", { status: r.status, data, mode: useGateway ? "gateway" : "direct" });
         res.status(r.status).set(corsHeaders).json({ error: data });
         return;
       }
-      // Log delivery
       await db.collection("emailReminders").add({
         to, subject, channel: "email", status: "sent",
         providerId: (data as any)?.id || null,
+        mode: useGateway ? "gateway" : "direct",
         sentAt: admin.firestore.Timestamp.now(),
       });
       res.set(corsHeaders).status(200).json({ success: true, id: (data as any)?.id });

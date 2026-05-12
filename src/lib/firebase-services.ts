@@ -96,7 +96,7 @@ export async function getBookings(filters?: { service?: ServiceType }): Promise<
   return snap.docs.map(firestoreBookingToBooking);
 }
 
-export async function addBooking(data: Partial<Booking>): Promise<string> {
+export async function addBooking(data: Partial<Booking> & { outletId?: string }): Promise<string> {
   const db = getFirestoreDb();
   const ref = await addDoc(collection(db, "bookings"), {
     memberId: data.memberId || "",
@@ -108,10 +108,11 @@ export async function addBooking(data: Partial<Booking>): Promise<string> {
     endTime: data.endTime || "",
     status: data.status || "Pending",
     instructor: data.instructor || "",
+    outletId: data.outletId || null,
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   });
-  await addAuditLog(currentUid(), "create", "booking", ref.id, null, { memberId: data.memberId, date: data.date });
+  await addAuditLog(currentUid(), "create", "booking", ref.id, null, { memberId: data.memberId, date: data.date, outletId: data.outletId });
   return ref.id;
 }
 

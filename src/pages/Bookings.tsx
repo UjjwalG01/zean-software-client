@@ -12,7 +12,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { BookingDetailModal } from "@/components/BookingDetailModal";
+import { OutletPickerDialog } from "@/components/OutletPickerDialog";
 import { useBookings, useAddBooking, useMembers, useServices, useCompanySettings } from "@/hooks/use-firestore";
+import { useOutlet } from "@/contexts/OutletContext";
+import { Building2, ChevronDown } from "lucide-react";
 import type { Booking, ServiceType } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -48,6 +51,17 @@ function parseSetup(settings: Record<string, string>, key: string, fallback: str
 }
 
 const Bookings_Page = () => {
+  const { selected: selectedOutlet, outlets, setSelected, pickerOpen, setPickerOpen, isLoading: outletsLoading } = useOutlet();
+  const [pickerShown, setPickerShown] = useState(false);
+
+  // Show outlet picker dialog on first entry to /bookings if no outlet selected
+  useEffect(() => {
+    if (!outletsLoading && !selectedOutlet && !pickerShown) {
+      setPickerOpen(true);
+      setPickerShown(true);
+    }
+  }, [outletsLoading, selectedOutlet, pickerShown, setPickerOpen]);
+
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [view, setView] = useState<"calendar" | "list">("calendar");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -86,9 +100,13 @@ const Bookings_Page = () => {
   const days = eachDayOfInterval({ start: calStart, end: calEnd });
 
   const filtered = useMemo(() => {
-    if (serviceFilter === "all") return bookings;
-    return bookings.filter((b) => b.service === serviceFilter);
-  }, [bookings, serviceFilter]);
+    let list = bookings;
+    if (selectedOutlet) {
+      list = list.filter((b: any) => !b.outletId || b.outletId === selectedOutlet.id);
+    }
+    if (serviceFilter !== "all") list = list.filter((b) => b.service === serviceFilter);
+    return list;
+  }, [bookings, serviceFilter, selectedOutlet]);
 
   const getBookingsForDay = (day: Date) => filtered.filter((b) => isSameDay(new Date(b.date), day));
 
@@ -143,7 +161,8 @@ const Bookings_Page = () => {
         startTime: bookTime,
         endTime: bookEndTime || bookTime,
         status: "Pending",
-      });
+        outletId: selectedOutlet?.id,
+      } as any);
       toast.success("Booking created successfully!");
       setDialogOpen(false);
       setBookMember("");
@@ -170,10 +189,24 @@ const Bookings_Page = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <OutletPickerDialog open={pickerOpen} onOpenChange={setPickerOpen} />
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
+        <div className="space-y-1">
           <h1 className="text-2xl font-bold font-display">Bookings</h1>
-          <p className="text-muted-foreground text-sm">{filtered.length} bookings</p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <p className="text-muted-foreground text-sm">{filtered.length} bookings</p>
+            {outlets.length > 0 && (
+              <button
+                onClick={() => setPickerOpen(true)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border border-border/60 bg-muted/40 hover:bg-muted/70 transition-colors"
+              >
+                <Building2 className="h-3 w-3" style={{ color: selectedOutlet?.color }} />
+                <span className="font-medium">{selectedOutlet ? selectedOutlet.name : "Choose outlet"}</span>
+                <ChevronDown className="h-3 w-3 opacity-60" />
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex gap-2">
           <div className="flex rounded-lg border border-border overflow-hidden">
