@@ -1,139 +1,112 @@
+# Plan — Outlet-Centric Reorganization + Email Stack
 
+## 1. Outlet data model (Firestore)
 
-# Firebase Integration Plan for VitaFit Club
-
-## Overview
-Add Firebase (Firestore + Auth) as the backend data layer. All existing UI components remain untouched. A new service layer will sit between the UI and Firebase, with the existing mock data available as a seed script.
-
-## Architecture
+New collection `outlets` (admin-managed):
 
 ```text
-UI Components (unchanged)
-       │
-   React Hooks (new)
-       │
-   Firebase Services (new)
-       │
-   Firestore Database
+outlets/{id}
+  name: string
+  description?: string
+  serviceTypes: string[]        // refs to serviceTypes ids
+  imageUrl?: string             // uploaded or chosen by service type
+  color?: string                // accent color for the card
+  address?: string
+  phone?: string
+  email?: string
+  active: boolean
+  createdAt, updatedAt, createdBy
 ```
 
-## 1. Firebase Setup
+New collection `serviceTypes` (seeded, editable by admin):
+- defaults: `fitness`, `wellness`, `sports`, `membership`, `health`, `events`
+- shape: `{ id, name, slug, icon, color, defaultImage, active }`
 
-**New files:**
-- `src/lib/firebase.ts` — Firebase app initialization with config (reads from environment or hardcoded publishable keys: apiKey, authDomain, projectId, storageBucket, messagingSenderId, appId)
-- Install `firebase` npm package
+`companySettings` additions:
+- `maxOutlets: number | "unlimited"` (default `"unlimited"`)
 
-**Firebase config** will use the publishable Firebase client config keys directly in code (these are safe to expose client-side per Firebase docs).
+Firestore rules: read = authenticated; write = admin only. Seed defaults on first admin visit to setup.
 
-## 2. Firestore Collections (matching provided schema)
+## 2. Setup → Service Types page (admin)
 
-Each `@table` type maps to a Firestore collection:
+- Sidebar: Setup → Service Types
+- Table: name, slug, icon, color, default image, active toggle
+- Add/edit/delete; cannot delete if outlets reference it
+- Seed the 6 defaults on first load
 
-| Collection | Key Fields |
-|---|---|
-| `users` | name, email, password, roleId |
-| `roles` | name, description |
-| `permissions` | roleId, module, action |
-| `members` | userId, firstName, lastName, email, phone, joiningDate, qrCode, loyaltyYears, autoRenew |
-| `membershipTypes` | name, description |
-| `membershipPlans` | name, tier, price, durationInMonths, membershipTypeId |
-| `membershipPriceHistory` | membershipPlanId, price, effectiveDate |
-| `memberMemberships` | memberId, membershipPlanId, startDate, endDate, status, discountApplied, finalPrice |
-| `services` | name, type, duration, price, isActive |
-| `payments` | memberId, amount, paymentMethod, status, invoiceId |
-| `receipts` | paymentId, receiptNo, issuedDate, pdfPath |
-| `invoices` | memberId, invoiceNo, subTotal, vatAmount, totalAmount, status |
-| `invoiceItems` | invoiceId, serviceId, description, quantity, unitPrice |
-| `bookings` | memberId, serviceId, bookingDate, startTime, endTime, status |
-| `checkIns` | memberId, checkInTime, checkOutTime, manualEntry |
-| `companySettings` | key, value, type |
-| `auditLogs` | userId, action, entityType, entityId, oldValue, newValue |
-| `memberLedgerEntries` | memberId, description, debit, credit, balance |
+## 3. Setup → Outlets page (admin)
 
-## 3. Service Layer
+- Sidebar: Setup → Outlets
+- "Add Outlet" form (matches reference image 3, themed dark/gold):
+  - Name, description, address, phone, email
+  - Image upload (Firebase Storage) or pick from service type default
+  - Accent color picker
+  - **Service types** multi-select with checkboxes (matches image 2)
+  - Active toggle
+- List view with edit/deactivate/delete
+- Enforce `companySettings.maxOutlets`
 
-**New file: `src/lib/firebase-services.ts`**
-- CRUD functions for each collection (e.g., `getMembers()`, `addMember()`, `updateMember()`, `deleteMember()`)
-- Query helpers with filters (by tier, status, date ranges)
-- Converts Firestore documents to the existing TypeScript interfaces (`Member`, `Booking`, `Transaction`, etc.) so UI code sees the same shapes
+## 4. Bookings page — Outlet selector dashboard
 
-**New file: `src/lib/firebase-converters.ts`**
-- Maps between Firestore document format and the existing `mock-data.ts` interfaces
-- Ensures the UI receives data in the exact same format it currently expects
+When the user navigates to `/bookings`:
 
-## 4. React Hooks
+1. Show an **Outlet Picker dialog** (modal, blocking) that lists all active outlets as colored cards (image 1 reference):
+   - Card: outlet image, name, service-type chips, accent gradient
+   - Click → set selected outlet (persisted in localStorage + Zustand-style context) → close modal → render existing Bookings UI scoped to that outlet
+2. Top of bookings page: small "Outlet: {name} ▾" pill that re-opens the picker
+3. All booking queries gain `where("outletId","==", selectedOutletId)`. Existing bookings without `outletId` shown under a "Legacy" outlet bucket
+4. New bookings automatically tagged with `outletId`
 
-**New file: `src/hooks/use-firestore.ts`**
-- `useMembers(filters?)` — returns `{ data: Member[], loading, error }`
-- `useBookings(filters?)` — same pattern
-- `useTransactions(filters?)` — same pattern
-- `useDashboardStats()` — aggregates from Firestore
-- `useMember(id)` — single member with related data
+If only one outlet exists → auto-select, skip modal.
+If zero outlets exist → show empty-state CTA "Ask an admin to create an outlet" / for admins, link to Setup → Outlets.
 
-These hooks use `@tanstack/react-query` (already installed) with Firebase queries as the fetch function.
+## 5. Bookings schema migration
 
-## 5. Auth Integration
+- `bookings.outletId: string` (nullable for legacy)
+- Update `firebase-services.ts` create/list/update queries
+- Update calendar + list views with outlet filter
 
-**New file: `src/lib/firebase-auth.ts`**
-- `signIn(email, password)`, `signUp()`, `signOut()`, `signInWithGoogle()`
-- Auth state listener
+## 6. Unlayer email editor — finalize
 
-**New file: `src/hooks/use-auth.ts`**
-- `useAuth()` hook returning `{ user, loading, signIn, signOut }`
+Already wired via `react-email-editor` + `UnlayerEditor.tsx`. Remaining:
+- Add a banner in Setup → Email Templates listing what the user must provide:
+  - **Unlayer Project ID** (free) — set as `VITE_UNLAYER_PROJECT_ID` env var to remove the demo banner
+  - Optional custom fonts/brand kit IDs
+- Confirm merge tags pass through (already done)
+- Persist `design` JSON + rendered `html` to `emailTemplates` (already done)
 
-**New file: `src/contexts/AuthContext.tsx`**
-- Auth provider wrapping the app (optional login gate for later)
+Necessary details to provide (will be shown in UI + chat):
+1. Unlayer Project ID (sign up at unlayer.com → Projects)
+2. (Optional) Brand colors/logo to preset in design
+3. Confirm sender email + display name in `companySettings`
 
-## 6. Data Seeding
+## 7. Resend mailing — make functional
 
-**New file: `src/lib/seed-firestore.ts`**
-- Converts existing `mock-data.ts` arrays into Firestore documents
-- One-time callable function from a dev-only button or console
-- Creates all 22 members, bookings, transactions, services, plans, roles, and permissions
+Security: the API key cannot live in client code. Use the Lovable Resend connector via the connector gateway (server-side only).
 
-## 7. Page Updates (data source only, no UI changes)
+Steps:
+1. Connect **Resend** standard connector → user pastes the key once into the secure form (will request via secrets/connector flow, NOT hardcoded)
+2. Update existing `functions/src/index.ts` `sendEmail` Cloud Function to call `https://connector-gateway.lovable.dev/resend/emails` with `Authorization: Bearer ${LOVABLE_API_KEY}` and `X-Connection-Api-Key: ${RESEND_API_KEY}`
+3. Save the deployed function URL into `companySettings.resendEndpoint`
+4. `sendEmailViaResend()` already posts to that endpoint → no client change needed
+5. Reminders Cloud Function will then deliver via Resend automatically
+6. Add a "Send test email" button in Setup → Email Templates that fires the active template to the admin's own email through the function
 
-Each page currently imports directly from `mock-data.ts`. The plan:
-- Replace `import { members } from "@/lib/mock-data"` with the new hooks
-- Add loading states using existing skeleton components
-- All JSX, styling, layout remain identical
-- Toast notifications on mutations (already in place)
-- Fallback to mock data if Firebase is not configured
+> ⚠️ I will **not** paste the raw API key into the codebase. I'll request it through the secure secrets prompt so it's stored server-side only.
 
-**Pages affected:** `Index.tsx`, `MembersList.tsx`, `MemberProfile.tsx`, `AddMember.tsx`, `Bookings.tsx`, `Transactions.tsx`, `Reports.tsx`, `PlansServices.tsx`, `Settings.tsx`
+## 8. Implementation order
 
-## 8. Environment Setup
+1. Service types collection + Setup page + seed
+2. Outlets collection + Setup page (with service-type checkboxes + image)
+3. `companySettings.maxOutlets` enforcement
+4. Outlet picker modal on `/bookings` + selected-outlet context
+5. Scope booking queries/mutations by `outletId`
+6. Email Templates setup notes (Unlayer requirements)
+7. Resend connector + Cloud Function update + test-email button
 
-The user will need to:
-1. Create a Firebase project in Firebase Console
-2. Enable Firestore Database
-3. Enable Authentication (Email/Password + Google)
-4. Copy the Firebase config object
-5. Paste config values into `src/lib/firebase.ts`
+## 9. Technical notes
 
-## Files Created/Modified Summary
-
-| Action | File |
-|---|---|
-| Create | `src/lib/firebase.ts` |
-| Create | `src/lib/firebase-services.ts` |
-| Create | `src/lib/firebase-converters.ts` |
-| Create | `src/lib/seed-firestore.ts` |
-| Create | `src/lib/firebase-auth.ts` |
-| Create | `src/hooks/use-firestore.ts` |
-| Create | `src/hooks/use-auth.ts` |
-| Create | `src/contexts/AuthContext.tsx` |
-| Modify | `src/main.tsx` (wrap with AuthProvider) |
-| Modify | `src/pages/Index.tsx` (swap data source) |
-| Modify | `src/pages/MembersList.tsx` (swap data source) |
-| Modify | `src/pages/MemberProfile.tsx` (swap data source) |
-| Modify | `src/pages/AddMember.tsx` (write to Firestore) |
-| Modify | `src/pages/Bookings.tsx` (swap data source) |
-| Modify | `src/pages/Transactions.tsx` (swap data source) |
-| Modify | `src/pages/Reports.tsx` (swap data source) |
-| Modify | `src/pages/PlansServices.tsx` (swap data source) |
-| Modify | `src/pages/Settings.tsx` (swap data source) |
-| Install | `firebase` npm package |
-
-**No UI/styling changes.** All visual output remains identical.
-
+- New files: `src/pages/setup/Outlets.tsx`, `src/pages/setup/ServiceTypes.tsx`, `src/components/OutletPickerDialog.tsx`, `src/contexts/OutletContext.tsx`, `src/lib/firebase-outlets.ts`
+- Edited: `src/pages/Bookings.tsx`, `src/components/AppSidebar.tsx`, `src/lib/firebase-services.ts`, `firestore.rules`, `functions/src/index.ts`, `src/pages/EmailTemplates.tsx`, `DATABASE.md`
+- Routing: `/setup/outlets`, `/setup/service-types`
+- Storage: `outlets/{id}/cover.{ext}` in Firebase Storage
