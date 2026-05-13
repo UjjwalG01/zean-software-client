@@ -198,52 +198,40 @@ export function openMailtoReminder(opts: {
 }
 
 /**
- * Send an email through a Resend-backed Firebase Cloud Function.
- *
- * Configure the endpoint URL in companySettings.resendEndpoint
- * (e.g. https://us-central1-PROJECT.cloudfunctions.net/sendEmail).
- * The function should accept { to, subject, html, text, from } and call
- * Resend's API server-side using a private RESEND_API_KEY.
- *
- * Falls back to mailto: when no endpoint is configured so the app
- * always provides a way to reach the recipient.
+ * Send an email via the Supabase Edge Function `send-email`, which uses
+ * Resend server-side. The RESEND_API_KEY secret must be configured on the
+ * Supabase project. Falls back to mailto: only if the call fails outright.
  */
 export async function sendEmailViaResend(opts: {
-  endpoint?: string;
+  endpoint?: string; // legacy / ignored — kept for signature compatibility
   to: string;
   subject: string;
   body: string;
   fromEmail?: string;
   fromName?: string;
+  templateKey?: ReminderTemplateKey;
+  recipientName?: string;
 }): Promise<{ ok: boolean; channel: "resend" | "mailto"; error?: string }> {
-  const { endpoint, to, subject, body, fromEmail, fromName } = opts;
-  if (!endpoint) {
-    openMailtoReminder({ to, subject, body });
-    return { ok: true, channel: "mailto" };
-  }
+  const { to, subject, body, fromEmail, fromName, templateKey, recipientName } = opts;
   try {
+    const { supabase } = await import("./supabase");
     const html = body
       .split("\n")
       .map((l) => l.length === 0 ? "<br/>" : `<p style="margin:0 0 8px">${escapeHtml(l)}</p>`)
       .join("");
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        to,
-        subject,
-        html,
-        text: body,
+    const { data, error } = await supabase.functions.invoke("send-email", {
+      body: {
+        to, subject, html, text: body,
         from: fromEmail ? (fromName ? `${fromName} <${fromEmail}>` : fromEmail) : undefined,
-      }),
+        templateKey, recipientName,
+      },
     });
-    if (!res.ok) {
-      const err = await res.text().catch(() => res.statusText);
-      return { ok: false, channel: "resend", error: err };
-    }
+    if (error) return { ok: false, channel: "resend", error: error.message };
+    if (data && data.ok === false) return { ok: false, channel: "resend", error: data.error || "send failed" };
     return { ok: true, channel: "resend" };
   } catch (e: any) {
-    return { ok: false, channel: "resend", error: e?.message || String(e) };
+    openMailtoReminder({ to, subject, body });
+    return { ok: false, channel: "mailto", error: e?.message || String(e) };
   }
 }
 

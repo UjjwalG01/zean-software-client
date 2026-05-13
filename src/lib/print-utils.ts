@@ -33,11 +33,15 @@ function numberToWords(n: number): string {
 
 export function generateA5BillHTML(options: {
   companyName: string;
+  companyTagline?: string;
   companyAddress?: string;
   companyPhone?: string;
   companyEmail?: string;
+  companyLogoUrl?: string;
   vatNo?: string;
   guestName: string;
+  memberCode?: string;
+  memberClass?: string;
   billNo: string;
   billDate: string;
   billForMonth: string;
@@ -47,76 +51,93 @@ export function generateA5BillHTML(options: {
   taxableAmount: number;
   vatAmount: number;
   grandTotal: number;
+  paidAmount?: number;
+  paymentMethod?: string;
+  status?: string;
+  remarks?: string;
   attendant?: string;
 }): string {
   const o = options;
-  const inWords = numberToWords(Math.round(o.grandTotal)) + " Rupees only.";
+  const paid = o.paidAmount ?? o.grandTotal;
+  const isPaidInFull = paid >= o.grandTotal;
 
   return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Invoice ${escHtml(o.billNo)}</title>
+<html><head><meta charset="utf-8"><title>Receipt ${escHtml(o.billNo)}</title>
 <style>
-@page { size: A5; margin: 12mm; }
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Courier New', monospace; font-size: 11px; color: #000; background: #fff; width: 148mm; }
-.header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 10px; }
-.header h1 { font-size: 16px; font-weight: bold; }
-.header p { font-size: 9px; }
-.vat-no { position: absolute; right: 12mm; top: 12mm; font-size: 10px; }
-.title { text-align: center; margin: 10px 0; font-weight: bold; font-size: 12px; text-decoration: underline; }
-.info-grid { display: flex; justify-content: space-between; margin: 8px 0; }
-.info-left, .info-right { font-size: 10px; line-height: 1.6; }
-table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-th, td { border: 1px solid #000; padding: 4px 6px; text-align: left; font-size: 10px; }
-th { background: #f0f0f0; font-weight: bold; }
-td.right, th.right { text-align: right; }
-.totals { margin-left: auto; width: 55%; }
-.totals td { border: none; padding: 2px 6px; font-size: 10px; }
-.totals .grand { font-size: 12px; font-weight: bold; border-top: 2px solid #000; }
-.in-words { margin: 8px 0; font-size: 10px; border: 1px solid #000; padding: 4px 8px; }
-.footer { display: flex; justify-content: space-between; margin-top: 30px; font-size: 10px; }
-.sig-line { border-top: 1px solid #000; width: 100px; text-align: center; padding-top: 4px; }
-.thank-you { text-align: center; margin-top: 15px; font-size: 10px; font-weight: bold; }
+@page { size: A5 portrait; margin: 0; }
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 11px; color: #1f2937; background: #ffffff; width: 148mm; min-height: 210mm; position: relative; }
+.page { position: relative; padding: 0 0 16mm; min-height: 210mm; overflow: hidden; }
+.watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 75mm; opacity: 0.07; pointer-events: none; z-index: 0; }
+.header { background: #1e3a8a; color: #fff; padding: 14mm 12mm 9mm; text-align: center; position: relative; z-index: 1; }
+.header h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.3px; margin-bottom: 4px; }
+.header .tagline { font-size: 10px; font-style: italic; opacity: 0.9; margin-bottom: 6px; }
+.header .contact { font-size: 9.5px; opacity: 0.95; letter-spacing: 0.2px; }
+.header .contact span { margin: 0 6px; }
+.title-bar { background: #eef2ff; color: #1e3a8a; text-align: center; font-weight: 700; letter-spacing: 1.5px; font-size: 12px; padding: 6px 0; border-bottom: 1px solid #c7d2fe; position: relative; z-index: 1; }
+.body-pad { padding: 8mm 12mm 0; position: relative; z-index: 1; }
+.row { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 4px; }
+.row .label { color: #6b7280; font-weight: 600; min-width: 80px; display: inline-block; }
+.row .val { color: #111827; font-weight: 600; }
+.divider { border: none; border-top: 1px solid #e5e7eb; margin: 7px 0 9px; }
+.member-block { margin: 6px 0 10px; }
+.member-block .row { margin-bottom: 5px; }
+table.items { width: 100%; border-collapse: collapse; margin: 8px 0 0; }
+table.items thead th { background: #1e3a8a; color: #fff; padding: 8px 10px; font-size: 10.5px; text-align: left; font-weight: 700; letter-spacing: 0.4px; }
+table.items thead th.right { text-align: right; }
+table.items tbody td { padding: 8px 10px; font-size: 11px; border-bottom: 1px solid #e5e7eb; }
+table.items tbody td.right { text-align: right; }
+.net-row { display: flex; justify-content: space-between; padding: 6px 10px; font-size: 11px; }
+.paid-bar { background: #1e3a8a; color: #fff; display: flex; justify-content: space-between; padding: 9px 10px; font-weight: 700; font-size: 12px; letter-spacing: 0.3px; margin-top: 2px; }
+.meta-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 10px 4px; font-size: 11px; }
+.meta-row .method { color: #1e3a8a; font-weight: 600; }
+.status-pill { color: #16a34a; font-weight: 700; letter-spacing: 0.6px; font-size: 11px; }
+.remarks { font-style: italic; color: #6b7280; font-size: 10px; padding: 0 10px 8px; }
+.thanks { text-align: center; color: #b45309; font-style: italic; font-size: 10.5px; margin-top: 20px; }
+.signature { text-align: right; padding: 16px 12mm 0; font-size: 10px; color: #4b5563; }
+.signature .line { display: inline-block; width: 50mm; border-bottom: 1px solid #6b7280; margin-left: 6px; height: 14px; vertical-align: bottom; }
 </style></head><body>
-<div class="vat-no">${o.vatNo ? `VAT: ${escHtml(o.vatNo)}` : ""}</div>
+<div class="page">
+${o.companyLogoUrl ? `<img class="watermark" src="${escHtml(o.companyLogoUrl)}" alt="" />` : ""}
 <div class="header">
   <h1>${escHtml(o.companyName)}</h1>
-  ${o.companyAddress ? `<p>${escHtml(o.companyAddress)}</p>` : ""}
-  ${o.companyPhone ? `<p>Phone: ${escHtml(o.companyPhone)}</p>` : ""}
-  ${o.companyEmail ? `<p>Email: ${escHtml(o.companyEmail)}</p>` : ""}
-</div>
-<div class="title">INVOICE</div>
-<div class="info-grid">
-  <div class="info-left">
-    <div>Guest Name: <strong>${escHtml(o.guestName)}</strong></div>
-    <div>Bill For: <strong>${escHtml(o.billForMonth)}</strong></div>
-  </div>
-  <div class="info-right">
-    <div>Bill No: <strong>${escHtml(o.billNo)}</strong></div>
-    <div>Bill Date: <strong>${escHtml(o.billDate)}</strong></div>
+  ${o.companyTagline ? `<div class="tagline">${escHtml(o.companyTagline)}</div>` : ""}
+  <div class="contact">
+    ${o.companyAddress ? `<span>${escHtml(o.companyAddress)}</span>` : ""}
+    ${o.companyPhone ? `<span>|</span><span>${escHtml(o.companyPhone)}</span>` : ""}
+    ${o.companyEmail ? `<span>|</span><span>${escHtml(o.companyEmail)}</span>` : ""}
   </div>
 </div>
-<table>
-  <thead><tr><th>SN</th><th>Description</th><th class="right">Qty</th><th class="right">Rate</th><th class="right">Amount</th></tr></thead>
-  <tbody>
-    ${o.items.map((item, i) => `<tr><td>${i + 1}</td><td>${escHtml(item.description)}</td><td class="right">${item.quantity.toFixed(2)}</td><td class="right">${item.rate.toFixed(2)}</td><td class="right">${item.amount.toFixed(2)}</td></tr>`).join("")}
-  </tbody>
-</table>
-<table class="totals">
-  <tr><td class="right">Sub Total</td><td class="right">${o.subtotal.toFixed(2)}</td></tr>
-  ${o.luxuryTax ? `<tr><td class="right">2% Luxury Tax</td><td class="right">${o.luxuryTax.toFixed(2)}</td></tr>` : ""}
-  <tr><td class="right">Taxable Amount</td><td class="right">${o.taxableAmount.toFixed(2)}</td></tr>
-  <tr><td class="right">13% VAT</td><td class="right">${o.vatAmount.toFixed(2)}</td></tr>
-  <tr class="grand"><td class="right"><strong>Grand Total (NPR)</strong></td><td class="right"><strong>${o.grandTotal.toFixed(2)}</strong></td></tr>
-</table>
-<div class="in-words"><strong>In Words:</strong> ${escHtml(inWords)}</div>
-<div class="footer">
-  <div>
-    <div class="sig-line">${escHtml(o.attendant || "admin")}</div>
-    <div style="font-size:9px;margin-top:4px">TIME: ${escHtml(new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }))}</div>
+<div class="title-bar">FEE PAYMENT RECEIPT</div>
+<div class="body-pad">
+  <div class="row">
+    <div><span class="label">Receipt No:</span> <span class="val">${escHtml(o.billNo)}</span></div>
+    <div><span class="label">Date:</span> <span class="val">${escHtml(o.billDate)}</span></div>
   </div>
-  <div><div class="sig-line">Guest Signature</div></div>
+  <hr class="divider" />
+  <div class="member-block">
+    <div class="row"><div><span class="label">Member Name:</span> <span class="val">${escHtml(o.guestName.toUpperCase())}</span></div></div>
+    ${o.memberCode ? `<div class="row"><div><span class="label">Member ID:</span> <span class="val">${escHtml(o.memberCode)}</span></div></div>` : ""}
+    ${o.memberClass ? `<div class="row"><div><span class="label">Tier / Plan:</span> <span class="val">${escHtml(o.memberClass)}</span></div></div>` : ""}
+  </div>
+  <table class="items">
+    <thead><tr><th>Fee Description</th><th class="right">Amount</th></tr></thead>
+    <tbody>
+      ${o.items.map((it) => `<tr><td>${escHtml(it.description)}</td><td class="right">NPR ${it.amount.toFixed(2)}</td></tr>`).join("")}
+    </tbody>
+  </table>
+  <div class="net-row"><span>Net Amount</span><span>NPR ${o.grandTotal.toFixed(2)}</span></div>
+  <div class="paid-bar"><span>Amount Paid</span><span>NPR ${paid.toFixed(2)}</span></div>
+  <div class="meta-row">
+    <span class="method">Payment Method: ${escHtml(o.paymentMethod || "Cash")}</span>
+    <span class="status-pill">${isPaidInFull ? "PAID IN FULL" : (o.status || "PARTIAL").toUpperCase()}</span>
+  </div>
+  ${o.remarks ? `<div class="remarks">Remarks: ${escHtml(o.remarks)}</div>` : ""}
+  <hr class="divider" />
+  <div class="thanks">Thank you for the payment!!!</div>
 </div>
-<div class="thank-you">THANK YOU!</div>
+<div class="signature">Authorized Signature: <span class="line"></span></div>
+</div>
 </body></html>`;
 }
 
@@ -189,9 +210,32 @@ export function exportTableToCSV(
   URL.revokeObjectURL(url);
 }
 
-export function generateReceiptHTML(t: Transaction, companyName: string): string {
+export function generateReceiptHTML(
+  t: Transaction,
+  companyName: string,
+  extras?: {
+    companyTagline?: string;
+    companyAddress?: string;
+    companyPhone?: string;
+    companyEmail?: string;
+    companyLogoUrl?: string;
+    memberCode?: string;
+    memberClass?: string;
+    paymentMethod?: string;
+    remarks?: string;
+  }
+): string {
   return generateA5BillHTML({
     companyName,
+    companyTagline: extras?.companyTagline,
+    companyAddress: extras?.companyAddress,
+    companyPhone: extras?.companyPhone,
+    companyEmail: extras?.companyEmail,
+    companyLogoUrl: extras?.companyLogoUrl,
+    memberCode: extras?.memberCode,
+    memberClass: extras?.memberClass,
+    paymentMethod: extras?.paymentMethod,
+    remarks: extras?.remarks,
     guestName: t.memberName,
     billNo: t.receiptNo,
     billDate: t.date,
@@ -201,5 +245,6 @@ export function generateReceiptHTML(t: Transaction, companyName: string): string
     taxableAmount: t.amount,
     vatAmount: t.vat,
     grandTotal: t.total,
+    paidAmount: t.total,
   });
 }
