@@ -27,8 +27,20 @@ import OutletsPage from "./pages/setup/Outlets";
 import ServiceTypesPage from "./pages/setup/ServiceTypes";
 import { OutletProvider } from "./contexts/OutletContext";
 import NotFound from "./pages/NotFound";
+import { useEffect } from "react";
+import { pingSupabase } from "@/lib/supabase";
 
 const queryClient = new QueryClient();
+
+function SupabaseProbe() {
+  useEffect(() => {
+    pingSupabase().then((r) => {
+      // eslint-disable-next-line no-console
+      console.log(`[supabase] ${r.ok ? "✓ connected" : "✗ failed"}`, r.error || "");
+    });
+  }, []);
+  return null;
+}
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuthContext();
