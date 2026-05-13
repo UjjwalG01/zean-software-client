@@ -210,9 +210,32 @@ export function exportTableToCSV(
   URL.revokeObjectURL(url);
 }
 
-export function generateReceiptHTML(t: Transaction, companyName: string): string {
+export function generateReceiptHTML(
+  t: Transaction,
+  companyName: string,
+  extras?: {
+    companyTagline?: string;
+    companyAddress?: string;
+    companyPhone?: string;
+    companyEmail?: string;
+    companyLogoUrl?: string;
+    memberCode?: string;
+    memberClass?: string;
+    paymentMethod?: string;
+    remarks?: string;
+  }
+): string {
   return generateA5BillHTML({
     companyName,
+    companyTagline: extras?.companyTagline,
+    companyAddress: extras?.companyAddress,
+    companyPhone: extras?.companyPhone,
+    companyEmail: extras?.companyEmail,
+    companyLogoUrl: extras?.companyLogoUrl,
+    memberCode: extras?.memberCode,
+    memberClass: extras?.memberClass,
+    paymentMethod: extras?.paymentMethod,
+    remarks: extras?.remarks,
     guestName: t.memberName,
     billNo: t.receiptNo,
     billDate: t.date,
@@ -222,5 +245,6 @@ export function generateReceiptHTML(t: Transaction, companyName: string): string
     taxableAmount: t.amount,
     vatAmount: t.vat,
     grandTotal: t.total,
+    paidAmount: t.total,
   });
 }
