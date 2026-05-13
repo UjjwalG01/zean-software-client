@@ -72,6 +72,7 @@ const App = () => (
   <ThemeProvider defaultTheme="dark" attribute="class" storageKey="vitafit-theme">
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        <SupabaseProbe />
         <Toaster />
         <Sonner />
         <BrowserRouter>
