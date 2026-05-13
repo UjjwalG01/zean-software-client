@@ -251,8 +251,28 @@ function TemplateEditor({ template, meta, companyName, companyPhone, companyEmai
           </>
         )}
 
-        <div className="flex gap-2 pt-2">
+        <div className="flex flex-wrap gap-2 pt-2">
           <Button variant="outline" size="sm" onClick={handleReset}>Reset to default</Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              const to = window.prompt("Send a test email to:", companyEmail || "");
+              if (!to) return;
+              const { sendEmailViaResend } = await import("@/lib/email-templates");
+              const r = await sendEmailViaResend({
+                to,
+                subject: previewSubject,
+                body: previewBody,
+                templateKey: template.key,
+                fromName: companyName,
+              });
+              if (r.ok) toast.success(`Test email sent via ${r.channel}`);
+              else toast.error(`Send failed: ${r.error || "unknown error"}`);
+            }}
+          >
+            Send test email
+          </Button>
           <Button size="sm" onClick={handleSave} disabled={saving} className="ml-auto gradient-gold text-primary-foreground">
             {saving ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />Saving...</> : <><Save className="h-3.5 w-3.5 mr-1" />Save Template</>}
           </Button>
