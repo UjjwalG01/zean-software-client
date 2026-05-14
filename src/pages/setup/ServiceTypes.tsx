@@ -27,16 +27,16 @@ export default function ServiceTypesPage() {
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ServiceTypeDoc | null>(null);
-  const [form, setForm] = useState({ name: "", color: "#f5b300", defaultImage: "", active: true });
+  const [form, setForm] = useState({ name: "", color: "#f5b300", active: true });
 
-  const reset = () => { setEditing(null); setForm({ name: "", color: "#f5b300", defaultImage: "", active: true }); };
+  const reset = () => { setEditing(null); setForm({ name: "", color: "#f5b300", active: true }); };
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (editing) {
-        await updateServiceType(editing.id, { name: form.name, color: form.color, defaultImage: form.defaultImage, active: form.active });
+        await updateServiceType(editing.id, { name: form.name, color: form.color, active: form.active });
       } else {
-        await addServiceType({ name: form.name, color: form.color, defaultImage: form.defaultImage, active: form.active });
+        await addServiceType({ name: form.name, color: form.color, active: form.active });
       }
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["serviceTypes"] }); toast.success("Saved"); setOpen(false); reset(); },
@@ -51,7 +51,7 @@ export default function ServiceTypesPage() {
 
   const startEdit = (t: ServiceTypeDoc) => {
     setEditing(t);
-    setForm({ name: t.name, color: t.color || "#f5b300", defaultImage: t.defaultImage || "", active: t.active });
+    setForm({ name: t.name, color: t.color || "#f5b300", active: t.active });
     setOpen(true);
   };
 
@@ -110,7 +110,6 @@ export default function ServiceTypesPage() {
           <div className="space-y-4">
             <div className="space-y-2"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
             <div className="space-y-2"><Label>Color</Label><Input type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} className="h-10 w-20 p-1" /></div>
-            <div className="space-y-2"><Label>Default Image URL</Label><Input value={form.defaultImage} onChange={(e) => setForm({ ...form, defaultImage: e.target.value })} placeholder="https://..." /></div>
             <div className="flex items-center justify-between"><Label>Active</Label><Switch checked={form.active} onCheckedChange={(v) => setForm({ ...form, active: v })} /></div>
             <Button onClick={() => saveMutation.mutate()} disabled={!form.name || saveMutation.isPending} className="w-full gradient-gold text-primary-foreground">
               {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />} Save

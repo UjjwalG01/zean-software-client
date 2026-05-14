@@ -1,8 +1,4 @@
-import {
-  collection, doc, getDocs, setDoc, addDoc, query, where, orderBy, limit,
-  Timestamp,
-} from "firebase/firestore";
-import { getFirestoreDb } from "./firebase";
+import { supabase } from "./supabase";
 
 export type ReminderTemplateKey =
   | "membership_expiring"
@@ -97,34 +93,35 @@ Warm regards,
   },
 };
 
-const COLL = "emailTemplates";
-
 export async function getEmailTemplates(): Promise<Record<ReminderTemplateKey, EmailTemplate>> {
-  const db = getFirestoreDb();
-  const snap = await getDocs(collection(db, COLL));
   const result: Record<string, EmailTemplate> = { ...DEFAULT_TEMPLATES };
-  snap.docs.forEach((d) => {
-    const data = d.data();
-    if (data.key) {
-      result[data.key] = {
-        key: data.key,
-        subject: data.subject || "",
-        body: data.body || "",
-        html: data.html || "",
-        design: data.design || null,
-        enabled: data.enabled !== false,
-      };
-    }
+  const { data, error } = await supabase.from("email_templates").select("*");
+  if (error) { console.warn("[email_templates] read failed:", error.message); return result as any; }
+  (data || []).forEach((row: any) => {
+    if (!row?.key) return;
+    result[row.key] = {
+      key: row.key,
+      subject: row.subject || "",
+      body: row.body || "",
+      html: row.html || "",
+      design: row.design || null,
+      enabled: row.enabled !== false,
+    };
   });
   return result as Record<ReminderTemplateKey, EmailTemplate>;
 }
 
 export async function saveEmailTemplate(template: EmailTemplate): Promise<void> {
-  const db = getFirestoreDb();
-  await setDoc(doc(db, COLL, template.key), {
-    ...template,
-    updatedAt: Timestamp.now(),
-  });
+  const { error } = await supabase.from("email_templates").upsert({
+    key: template.key,
+    subject: template.subject,
+    body: template.body,
+    html: template.html ?? null,
+    design: template.design ?? null,
+    enabled: template.enabled,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "key" });
+  if (error) throw error;
 }
 
 /** Fill template variables of the form {{varName}}. */
@@ -150,33 +147,39 @@ export interface ReminderLogEntry {
 }
 
 export async function logReminder(entry: Omit<ReminderLogEntry, "id" | "sentAt">): Promise<string> {
-  const db = getFirestoreDb();
-  const ref = await addDoc(collection(db, "emailReminders"), {
-    ...entry,
-    sentAt: Timestamp.now(),
-  });
-  return ref.id;
+  const { data, error } = await supabase.from("email_reminders").insert({
+    recipient_email: entry.recipientEmail,
+    recipient_name: entry.recipientName,
+    template_key: entry.templateKey,
+    subject: entry.subject,
+    body: entry.body,
+    channel: entry.channel,
+    status: entry.status,
+    error_message: entry.errorMessage ?? null,
+  }).select("id").single();
+  if (error) throw error;
+  return data.id as string;
 }
 
 export async function getReminderLog(max = 100): Promise<ReminderLogEntry[]> {
-  const db = getFirestoreDb();
-  const q = query(collection(db, "emailReminders"), orderBy("sentAt", "desc"), limit(max));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => {
-    const data = d.data();
-    return {
-      id: d.id,
-      recipientEmail: data.recipientEmail || "",
-      recipientName: data.recipientName || "",
-      templateKey: data.templateKey,
-      subject: data.subject || "",
-      body: data.body || "",
-      sentAt: data.sentAt?.toDate?.()?.toISOString?.() || "",
-      status: data.status || "sent",
-      channel: data.channel || "mailto",
-      errorMessage: data.errorMessage || "",
-    };
-  });
+  const { data, error } = await supabase
+    .from("email_reminders")
+    .select("*")
+    .order("sent_at", { ascending: false })
+    .limit(max);
+  if (error) { console.warn("[email_reminders] read failed:", error.message); return []; }
+  return (data || []).map((r: any) => ({
+    id: r.id,
+    recipientEmail: r.recipient_email || "",
+    recipientName: r.recipient_name || "",
+    templateKey: r.template_key,
+    subject: r.subject || "",
+    body: r.body || "",
+    sentAt: r.sent_at || "",
+    status: r.status || "sent",
+    channel: r.channel || "resend",
+    errorMessage: r.error_message || "",
+  }));
 }
 
 /**
