@@ -1,8 +1,4 @@
-import {
-  collection, doc, getDocs, setDoc, addDoc, query, where, orderBy, limit,
-  Timestamp,
-} from "firebase/firestore";
-import { getFirestoreDb } from "./firebase";
+import { supabase } from "./supabase";
 
 export type ReminderTemplateKey =
   | "membership_expiring"
@@ -97,34 +93,35 @@ Warm regards,
   },
 };
 
-const COLL = "emailTemplates";
-
 export async function getEmailTemplates(): Promise<Record<ReminderTemplateKey, EmailTemplate>> {
-  const db = getFirestoreDb();
-  const snap = await getDocs(collection(db, COLL));
   const result: Record<string, EmailTemplate> = { ...DEFAULT_TEMPLATES };
-  snap.docs.forEach((d) => {
-    const data = d.data();
-    if (data.key) {
-      result[data.key] = {
-        key: data.key,
-        subject: data.subject || "",
-        body: data.body || "",
-        html: data.html || "",
-        design: data.design || null,
-        enabled: data.enabled !== false,
-      };
-    }
+  const { data, error } = await supabase.from("email_templates").select("*");
+  if (error) { console.warn("[email_templates] read failed:", error.message); return result as any; }
+  (data || []).forEach((row: any) => {
+    if (!row?.key) return;
+    result[row.key] = {
+      key: row.key,
+      subject: row.subject || "",
+      body: row.body || "",
+      html: row.html || "",
+      design: row.design || null,
+      enabled: row.enabled !== false,
+    };
   });
   return result as Record<ReminderTemplateKey, EmailTemplate>;
 }
 
 export async function saveEmailTemplate(template: EmailTemplate): Promise<void> {
-  const db = getFirestoreDb();
-  await setDoc(doc(db, COLL, template.key), {
-    ...template,
-    updatedAt: Timestamp.now(),
-  });
+  const { error } = await supabase.from("email_templates").upsert({
+    key: template.key,
+    subject: template.subject,
+    body: template.body,
+    html: template.html ?? null,
+    design: template.design ?? null,
+    enabled: template.enabled,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "key" });
+  if (error) throw error;
 }
 
 /** Fill template variables of the form {{varName}}. */
