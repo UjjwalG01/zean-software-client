@@ -147,33 +147,39 @@ export interface ReminderLogEntry {
 }
 
 export async function logReminder(entry: Omit<ReminderLogEntry, "id" | "sentAt">): Promise<string> {
-  const db = getFirestoreDb();
-  const ref = await addDoc(collection(db, "emailReminders"), {
-    ...entry,
-    sentAt: Timestamp.now(),
-  });
-  return ref.id;
+  const { data, error } = await supabase.from("email_reminders").insert({
+    recipient_email: entry.recipientEmail,
+    recipient_name: entry.recipientName,
+    template_key: entry.templateKey,
+    subject: entry.subject,
+    body: entry.body,
+    channel: entry.channel,
+    status: entry.status,
+    error_message: entry.errorMessage ?? null,
+  }).select("id").single();
+  if (error) throw error;
+  return data.id as string;
 }
 
 export async function getReminderLog(max = 100): Promise<ReminderLogEntry[]> {
-  const db = getFirestoreDb();
-  const q = query(collection(db, "emailReminders"), orderBy("sentAt", "desc"), limit(max));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => {
-    const data = d.data();
-    return {
-      id: d.id,
-      recipientEmail: data.recipientEmail || "",
-      recipientName: data.recipientName || "",
-      templateKey: data.templateKey,
-      subject: data.subject || "",
-      body: data.body || "",
-      sentAt: data.sentAt?.toDate?.()?.toISOString?.() || "",
-      status: data.status || "sent",
-      channel: data.channel || "mailto",
-      errorMessage: data.errorMessage || "",
-    };
-  });
+  const { data, error } = await supabase
+    .from("email_reminders")
+    .select("*")
+    .order("sent_at", { ascending: false })
+    .limit(max);
+  if (error) { console.warn("[email_reminders] read failed:", error.message); return []; }
+  return (data || []).map((r: any) => ({
+    id: r.id,
+    recipientEmail: r.recipient_email || "",
+    recipientName: r.recipient_name || "",
+    templateKey: r.template_key,
+    subject: r.subject || "",
+    body: r.body || "",
+    sentAt: r.sent_at || "",
+    status: r.status || "sent",
+    channel: r.channel || "resend",
+    errorMessage: r.error_message || "",
+  }));
 }
 
 /**
