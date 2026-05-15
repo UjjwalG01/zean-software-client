@@ -10,14 +10,9 @@ import { Label } from "@/components/ui/label";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import {
-  EmailAuthProvider,
-  reauthenticateWithCredential,
-  updatePassword,
-} from "firebase/auth";
 
 export function UserProfileMenu() {
-  const { user, signOut } = useAuthContext();
+  const { user, signOut, changePassword } = useAuthContext();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [pwdOpen, setPwdOpen] = useState(false);
@@ -26,7 +21,7 @@ export function UserProfileMenu() {
   const [confirmPwd, setConfirmPwd] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const displayName = user?.displayName || user?.email?.split("@")[0] || "Admin";
+  const displayName = user?.user_metadata?.display_name || user?.email?.split("@")[0] || "Admin";
   const initials = displayName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
 
   const handleLogout = async () => {
@@ -54,9 +49,7 @@ export function UserProfileMenu() {
 
     setLoading(true);
     try {
-      const credential = EmailAuthProvider.credential(user.email, oldPwd);
-      await reauthenticateWithCredential(user, credential);
-      await updatePassword(user, newPwd);
+      await changePassword(oldPwd, newPwd);
       toast.success("Password changed successfully!");
       setPwdOpen(false);
       setOldPwd("");

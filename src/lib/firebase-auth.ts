@@ -1,76 +1,50 @@
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut as firebaseSignOut,
-  GoogleAuthProvider,
-  signInWithPopup,
-  onAuthStateChanged,
-  updatePassword,
-  EmailAuthProvider,
-  reauthenticateWithCredential,
-  sendPasswordResetEmail,
-  type User,
-} from "firebase/auth";
-import { initializeApp, deleteApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirebaseAuth } from "./firebase";
+// Supabase-backed auth helpers.
+// File name is kept for compatibility with existing imports.
+
+import { supabase } from "./supabase";
 
 export async function signIn(email: string, password: string) {
-  const auth = getFirebaseAuth();
-  return signInWithEmailAndPassword(auth, email, password);
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+  return data;
 }
 
 export async function signUp(email: string, password: string) {
-  const auth = getFirebaseAuth();
-  return createUserWithEmailAndPassword(auth, email, password);
+  const { data, error } = await supabase.auth.signUp({ email, password });
+  if (error) throw error;
+  return data;
 }
 
 export async function signInWithGoogle() {
-  const auth = getFirebaseAuth();
-  const provider = new GoogleAuthProvider();
-  return signInWithPopup(auth, provider);
+  const { data, error } = await supabase.auth.signInWithOAuth({ provider: "google" });
+  if (error) throw error;
+  return data;
 }
 
 export async function signOut() {
-  const auth = getFirebaseAuth();
-  return firebaseSignOut(auth);
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
 }
 
-export function onAuthChange(callback: (user: User | null) => void) {
-  const auth = getFirebaseAuth();
-  return onAuthStateChanged(auth, callback);
+export function onAuthChange(callback: (user: import("@supabase/supabase-js").User | null) => void) {
+  supabase.auth.getUser().then(({ data }) => callback(data.user ?? null));
+  const { data } = supabase.auth.onAuthStateChange((_event, session) => callback(session?.user ?? null));
+  return () => data.subscription.unsubscribe();
 }
 
-/**
- * Create a Firebase Auth user without signing-out / replacing the current admin's session.
- * Uses a secondary Firebase app instance so the admin stays logged in.
- */
 export async function createFirebaseAuthUser(email: string, password: string): Promise<string> {
-  // Reuse the primary app's options
-  const primary = getFirebaseAuth().app;
-  const secondaryName = `secondary-${Date.now()}`;
-  const secondary = initializeApp(primary.options, secondaryName);
-  try {
-    const secondaryAuth = getAuth(secondary);
-    const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
-    const uid = cred.user.uid;
-    await firebaseSignOut(secondaryAuth);
-    return uid;
-  } finally {
-    await deleteApp(secondary);
-  }
+  const { data, error } = await supabase.auth.signUp({ email, password });
+  if (error) throw error;
+  if (!data.user?.id) throw new Error("Supabase did not return a user id");
+  return data.user.id;
 }
 
 export async function sendResetPasswordEmail(email: string): Promise<void> {
-  const auth = getFirebaseAuth();
-  await sendPasswordResetEmail(auth, email);
+  const { error } = await supabase.auth.resetPasswordForEmail(email);
+  if (error) throw error;
 }
 
-export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
-  const auth = getFirebaseAuth();
-  const user = auth.currentUser;
-  if (!user || !user.email) throw new Error("No user logged in");
-  const cred = EmailAuthProvider.credential(user.email, currentPassword);
-  await reauthenticateWithCredential(user, cred);
-  await updatePassword(user, newPassword);
+export async function changePassword(_currentPassword: string, newPassword: string): Promise<void> {
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) throw error;
 }

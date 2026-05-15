@@ -1,5 +1,4 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { isConfigured } from "@/lib/firebase";
 import * as fbServices from "@/lib/firebase-services";
 import {
   members as mockMembers,
@@ -18,7 +17,7 @@ import {
 } from "@/lib/mock-data";
 import { toast } from "sonner";
 
-const firebaseEnabled = isConfigured();
+const firebaseEnabled = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
 
 // ─── Members ────────────────────────────────────────────────────────
 export function useMembers(filters?: { tier?: MemberTier; status?: MemberStatus; service?: ServiceType }) {

@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, typ
 import { useAuth } from "@/hooks/use-auth";
 import { signIn, signUp, signOut, signInWithGoogle, changePassword as fbChangePassword } from "@/lib/firebase-auth";
 import { getAppUserByEmail, clearMustChangePassword, type AppUser } from "@/lib/firebase-users";
-import type { User } from "firebase/auth";
+import type { User } from "@supabase/supabase-js";
 
 interface AuthContextType {
   user: User | null;
