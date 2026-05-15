@@ -1,0 +1,109 @@
+// Supabase-backed app user helpers.
+// File name is kept for compatibility with existing imports.
+
+import { supabase } from "./supabase";
+
+export type UserRole = "admin" | "manager" | "staff" | "viewer";
+
+export interface AppUser {
+  id: string;
+  uid?: string;
+  username: string;
+  email: string;
+  fullName: string;
+  phone?: string;
+  address?: string;
+  role: UserRole;
+  isActive: boolean;
+  mustChangePassword: boolean;
+  createdAt?: string;
+  createdBy?: string;
+}
+
+function mapRole(role?: string): UserRole {
+  if (role === "admin" || role === "manager" || role === "staff") return role;
+  return role === "member" ? "viewer" : "staff";
+}
+
+function dbRole(role: UserRole): "admin" | "manager" | "staff" | "member" {
+  return role === "viewer" ? "member" : role;
+}
+
+function mapRow(r: any): AppUser {
+  const extras = r.extras && typeof r.extras === "object" ? r.extras : {};
+  return {
+    id: r.id,
+    uid: r.id,
+    username: extras.username || r.email?.split("@")[0] || "",
+    email: r.email || "",
+    fullName: r.display_name || "",
+    phone: r.phone || "",
+    address: extras.address || "",
+    role: mapRole(r.role),
+    isActive: r.active !== false,
+    mustChangePassword: extras.mustChangePassword !== false,
+    createdAt: r.created_at || "",
+    createdBy: extras.createdBy || "",
+  };
+}
+
+async function syncRole(userId: string, role: UserRole) {
+  const { error } = await supabase.from("user_roles").upsert({ user_id: userId, role: dbRole(role) }, { onConflict: "user_id,role" });
+  if (error) console.warn("[user_roles] upsert failed:", error.message);
+}
+
+export async function getAppUsers(): Promise<AppUser[]> {
+  const { data, error } = await supabase.from("app_users").select("*, role:user_roles(role)").order("created_at", { ascending: false });
+  if (error) { console.warn("[app_users] read failed:", error.message); return []; }
+  return (data || []).map((r: any) => mapRow({ ...r, role: Array.isArray(r.role) ? r.role[0]?.role : r.role?.role }));
+}
+
+export async function getAppUserByEmail(email: string): Promise<AppUser | null> {
+  const { data, error } = await supabase.from("app_users").select("*, role:user_roles(role)").eq("email", email).maybeSingle();
+  if (error) { console.warn("[app_users] read one failed:", error.message); return null; }
+  if (!data) return null;
+  return mapRow({ ...data, role: Array.isArray((data as any).role) ? (data as any).role[0]?.role : (data as any).role?.role });
+}
+
+export async function createAppUserRecord(data: Omit<AppUser, "id" | "createdAt">): Promise<string> {
+  const id = data.uid;
+  if (!id) throw new Error("Missing Supabase auth user id");
+  const { error } = await supabase.from("app_users").upsert({
+    id,
+    email: data.email,
+    display_name: data.fullName,
+    phone: data.phone || null,
+    active: data.isActive !== false,
+    extras: { username: data.username, address: data.address || "", mustChangePassword: data.mustChangePassword !== false },
+  }, { onConflict: "id" });
+  if (error) throw error;
+  await syncRole(id, data.role);
+  return id;
+}
+
+export async function updateAppUser(id: string, data: Partial<AppUser>): Promise<void> {
+  const current = (await getAppUsers()).find((u) => u.id === id);
+  const extras = { username: current?.username || "", address: current?.address || "", mustChangePassword: current?.mustChangePassword ?? true } as any;
+  const payload: Record<string, any> = { updated_at: new Date().toISOString() };
+  if (data.email !== undefined) payload.email = data.email;
+  if (data.fullName !== undefined) payload.display_name = data.fullName;
+  if (data.phone !== undefined) payload.phone = data.phone;
+  if (data.isActive !== undefined) payload.active = data.isActive;
+  if (data.username !== undefined) extras.username = data.username;
+  if (data.address !== undefined) extras.address = data.address;
+  if (data.mustChangePassword !== undefined) extras.mustChangePassword = data.mustChangePassword;
+  payload.extras = extras;
+  const { error } = await supabase.from("app_users").update(payload).eq("id", id);
+  if (error) throw error;
+  if (data.role) await syncRole(id, data.role);
+}
+
+export async function deleteAppUser(id: string): Promise<void> {
+  const { error } = await supabase.from("app_users").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function clearMustChangePassword(email: string): Promise<void> {
+  const user = await getAppUserByEmail(email);
+  if (user) await updateAppUser(user.id, { mustChangePassword: false });
+}
