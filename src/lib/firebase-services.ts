@@ -1,467 +1,444 @@
-import {
-  collection, getDocs, getDoc, doc, addDoc, updateDoc, deleteDoc,
-  query, where, orderBy, limit, type QueryConstraint, setDoc,
-  Timestamp,
-} from "firebase/firestore";
-import { getFirestoreDb, getFirebaseAuth } from "./firebase";
-import { firestoreMemberToMember, firestoreBookingToBooking, firestoreTransactionToTransaction } from "./firebase-converters";
-import type { Member, Booking, Transaction, MemberTier, MemberStatus, ServiceType } from "./mock-data";
+// Supabase-backed data service layer.
+// File name is kept for compatibility with existing imports; no Firestore writes happen here.
 
-const currentUid = () => {
-  try { return getFirebaseAuth().currentUser?.uid || null; } catch { return null; }
-};
+import { supabase } from "./supabase";
+import type { Member, Booking, Transaction, MemberTier, MemberStatus, ServiceType, PaymentMethod, BookingStatus } from "./mock-data";
+
+const avatarUrl = (seed: string) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed || "member")}`;
+
+function dateOnly(value: any): string {
+  if (!value) return "";
+  if (typeof value === "string") return value.split("T")[0];
+  try { return new Date(value).toISOString().split("T")[0]; } catch { return ""; }
+}
+
+function timeOnly(value: any): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value).slice(0, 5);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+function at(date?: string, time?: string): string {
+  const d = date || new Date().toISOString().split("T")[0];
+  const t = time || "00:00";
+  return new Date(`${d}T${t}:00`).toISOString();
+}
+
+async function maybeAudit(action: string, entityType: string, entityId: string, oldValue?: any, newValue?: any) {
+  try { await addAuditLog(null, action, entityType, entityId, oldValue, newValue); } catch { /* audit must never block CRUD */ }
+}
+
+function throwDb(error: any, table: string): never {
+  const message = error?.message || String(error);
+  if (/row-level security|RLS/i.test(message)) {
+    throw new Error(`${table}: Supabase RLS blocked this save. Run db/0003_supabase_crud_policies.sql or sign in with a Supabase admin user.`);
+  }
+  if (/column .* does not exist|schema cache/i.test(message)) {
+    throw new Error(`${table}: Supabase schema is missing a required column. Run db/0003_supabase_crud_policies.sql, then refresh the app.`);
+  }
+  throw error;
+}
 
 // ─── Members ────────────────────────────────────────────────────────
-export async function getMembers(filters?: {
-  tier?: MemberTier;
-  status?: MemberStatus;
-  service?: ServiceType;
-}): Promise<Member[]> {
-  const db = getFirestoreDb();
-  const constraints: QueryConstraint[] = [];
-  if (filters?.tier) constraints.push(where("tier", "==", filters.tier));
-  if (filters?.status) constraints.push(where("status", "==", filters.status));
+function mapMemberRow(r: any): Member {
+  const prefs = r.preferences && typeof r.preferences === "object" ? r.preferences : {};
+  const services = Array.isArray(r.services) ? r.services : Array.isArray(prefs.services) ? prefs.services : [];
+  return {
+    id: r.id,
+    name: r.full_name || prefs.name || "",
+    email: r.email || "",
+    phone: r.phone || "",
+    avatar: r.avatar_url || prefs.avatar || avatarUrl(r.full_name || r.email || r.id),
+    tier: (r.tier || "Basic") as MemberTier,
+    services: services as ServiceType[],
+    status: ((r.status || "active").replace(/^./, (c: string) => c.toUpperCase())) as MemberStatus,
+    joinDate: dateOnly(r.join_date),
+    expiryDate: dateOnly(r.expiry_date),
+    plan: r.plan || prefs.plan || "Monthly",
+    address: r.address || prefs.address || "",
+    emergencyContact: r.emergency_contact || prefs.emergencyContact || "",
+    preferences: Array.isArray(prefs.preferences) ? prefs.preferences : [],
+    openingBalance: Number(r.opening_balance ?? prefs.openingBalance ?? 0),
+    totalPaid: Number(r.total_paid ?? prefs.totalPaid ?? 0),
+    dueAmount: Number(r.due_amount ?? prefs.dueAmount ?? 0),
+    membershipYears: Number(r.membership_years ?? prefs.membershipYears ?? 0),
+    discount: Number(r.discount ?? prefs.discount ?? 0),
+    autoRenew: Boolean(r.auto_renew ?? prefs.autoRenew ?? false),
+  };
+}
 
-  const q = constraints.length > 0
-    ? query(collection(db, "members"), ...constraints)
-    : collection(db, "members");
+function memberPayload(data: Partial<Member>) {
+  const fullName = data.name || "";
+  const prefs = {
+    preferences: data.preferences || [],
+    plan: data.plan || "Monthly",
+    address: data.address || "",
+    emergencyContact: data.emergencyContact || "",
+    openingBalance: data.openingBalance || 0,
+    totalPaid: data.totalPaid || 0,
+    dueAmount: data.dueAmount || 0,
+    membershipYears: data.membershipYears || 0,
+    discount: data.discount || 0,
+    autoRenew: data.autoRenew || false,
+    services: data.services || [],
+  };
+  return {
+    full_name: fullName,
+    email: data.email || null,
+    phone: data.phone || null,
+    tier: data.tier || "Basic",
+    status: (data.status || "Active").toLowerCase(),
+    join_date: data.joinDate || new Date().toISOString(),
+    expiry_date: data.expiryDate || null,
+    preferences: prefs,
+  };
+}
 
-  const snap = await getDocs(q);
-  let results = snap.docs.map(firestoreMemberToMember);
-
-  if (filters?.service) {
-    results = results.filter((m) => m.services.includes(filters.service!));
-  }
+export async function getMembers(filters?: { tier?: MemberTier; status?: MemberStatus; service?: ServiceType }): Promise<Member[]> {
+  let q = supabase.from("members").select("*").order("created_at", { ascending: false });
+  if (filters?.tier) q = q.eq("tier", filters.tier);
+  if (filters?.status) q = q.eq("status", filters.status.toLowerCase());
+  const { data, error } = await q;
+  if (error) { console.warn("[members] read failed:", error.message); return []; }
+  let results = (data || []).map(mapMemberRow);
+  if (filters?.service) results = results.filter((m) => m.services.includes(filters.service!));
   return results;
 }
 
 export async function getMember(id: string): Promise<Member | null> {
-  const db = getFirestoreDb();
-  const snap = await getDoc(doc(db, "members", id));
-  if (!snap.exists()) return null;
-  return firestoreMemberToMember(snap as any);
+  const { data, error } = await supabase.from("members").select("*").eq("id", id).maybeSingle();
+  if (error) { console.warn("[members] read one failed:", error.message); return null; }
+  return data ? mapMemberRow(data) : null;
 }
 
 export async function addMember(data: Partial<Member>): Promise<string> {
-  const db = getFirestoreDb();
-  const ref = await addDoc(collection(db, "members"), {
-    firstName: data.name?.split(" ")[0] || "",
-    lastName: data.name?.split(" ").slice(1).join(" ") || "",
-    email: data.email || "",
-    phone: data.phone || "",
-    address: data.address || "",
-    emergencyContactNum: data.emergencyContact || "",
-    tier: data.tier || "Basic",
-    services: data.services || [],
-    status: "Active",
-    plan: data.plan || "Monthly",
-    joiningDate: Timestamp.now(),
-    autoRenew: data.autoRenew || false,
-    loyaltyYears: 0,
-    totalPaid: 0,
-    dueAmount: 0,
-    openingBalance: 0,
-    discount: 0,
-    preferences: data.preferences?.join(", ") || "",
-    createdAt: Timestamp.now(),
-    updatedAt: Timestamp.now(),
-  });
-  await addAuditLog(currentUid(), "create", "member", ref.id, null, { name: data.name, email: data.email });
-  return ref.id;
+  const { data: row, error } = await supabase.from("members").insert(memberPayload(data)).select("id").single();
+  if (error) throwDb(error, "members");
+  await maybeAudit("create", "member", row.id, null, data);
+  return row.id;
 }
 
 export async function updateMember(id: string, data: Partial<Record<string, any>>): Promise<void> {
-  const db = getFirestoreDb();
-  await updateDoc(doc(db, "members", id), { ...data, updatedAt: Timestamp.now() });
-  await addAuditLog(currentUid(), "update", "member", id, null, data);
+  const current = await getMember(id);
+  const payload: Record<string, any> = { updated_at: new Date().toISOString() };
+  if (data.name !== undefined) payload.full_name = data.name;
+  if (data.email !== undefined) payload.email = data.email;
+  if (data.phone !== undefined) payload.phone = data.phone;
+  if (data.tier !== undefined) payload.tier = data.tier;
+  if (data.status !== undefined) payload.status = String(data.status).toLowerCase();
+  if (data.joinDate !== undefined) payload.join_date = data.joinDate;
+  if (data.expiryDate !== undefined) payload.expiry_date = data.expiryDate;
+  const prefs = { ...(current ? { preferences: current.preferences, plan: current.plan, address: current.address, emergencyContact: current.emergencyContact, services: current.services, autoRenew: current.autoRenew } : {}) } as any;
+  for (const k of ["preferences", "plan", "address", "emergencyContact", "services", "openingBalance", "totalPaid", "dueAmount", "membershipYears", "discount", "autoRenew"]) {
+    if (data[k] !== undefined) prefs[k] = data[k];
+  }
+  if (Object.keys(prefs).length) payload.preferences = prefs;
+  const { error } = await supabase.from("members").update(payload).eq("id", id);
+  if (error) throwDb(error, "members");
+  await maybeAudit("update", "member", id, current, data);
 }
 
 export async function deleteMember(id: string): Promise<void> {
-  const db = getFirestoreDb();
-  await deleteDoc(doc(db, "members", id));
-  await addAuditLog(currentUid(), "delete", "member", id, null, null);
+  const { error } = await supabase.from("members").delete().eq("id", id);
+  if (error) throwDb(error, "members");
+  await maybeAudit("delete", "member", id, null, null);
 }
 
 // ─── Bookings ───────────────────────────────────────────────────────
+function mapBookingRow(r: any): Booking {
+  const notes = (() => { try { return r.notes ? JSON.parse(r.notes) : {}; } catch { return {}; } })();
+  return {
+    id: r.id,
+    memberId: r.member_id || "",
+    memberName: r.member_name || "",
+    service: (notes.service || r.service_type || "Gym") as ServiceType,
+    className: r.service_name || notes.className || "",
+    date: dateOnly(r.start_at),
+    startTime: timeOnly(r.start_at),
+    endTime: timeOnly(r.end_at),
+    status: ((r.status || "Pending").replace(/^./, (c: string) => c.toUpperCase())) as BookingStatus,
+    instructor: notes.instructor || "",
+    outletId: r.outlet_id || null,
+  } as any;
+}
+
 export async function getBookings(filters?: { service?: ServiceType }): Promise<Booking[]> {
-  const db = getFirestoreDb();
-  const constraints: QueryConstraint[] = [];
-  if (filters?.service) constraints.push(where("service", "==", filters.service));
-
-  const q = constraints.length > 0
-    ? query(collection(db, "bookings"), ...constraints)
-    : collection(db, "bookings");
-
-  const snap = await getDocs(q);
-  return snap.docs.map(firestoreBookingToBooking);
+  const { data, error } = await supabase.from("bookings").select("*").order("start_at", { ascending: true });
+  if (error) { console.warn("[bookings] read failed:", error.message); return []; }
+  let rows = (data || []).map(mapBookingRow);
+  if (filters?.service) rows = rows.filter((b) => b.service === filters.service);
+  return rows;
 }
 
 export async function addBooking(data: Partial<Booking> & { outletId?: string }): Promise<string> {
-  const db = getFirestoreDb();
-  const ref = await addDoc(collection(db, "bookings"), {
-    memberId: data.memberId || "",
-    memberName: data.memberName || "",
-    service: data.service || "Gym",
-    className: data.className || "",
-    bookingDate: data.date || "",
-    startTime: data.startTime || "",
-    endTime: data.endTime || "",
-    status: data.status || "Pending",
-    instructor: data.instructor || "",
-    outletId: data.outletId || null,
-    createdAt: Timestamp.now(),
-    updatedAt: Timestamp.now(),
-  });
-  await addAuditLog(currentUid(), "create", "booking", ref.id, null, { memberId: data.memberId, date: data.date, outletId: data.outletId });
-  return ref.id;
+  const { data: row, error } = await supabase.from("bookings").insert({
+    member_id: data.memberId || null,
+    member_name: data.memberName || null,
+    service_name: data.className || data.service || null,
+    outlet_id: data.outletId || null,
+    start_at: at(data.date, data.startTime),
+    end_at: at(data.date, data.endTime || data.startTime),
+    status: (data.status || "Pending").toLowerCase(),
+    notes: JSON.stringify({ service: data.service || "Gym", className: data.className || "", instructor: data.instructor || "" }),
+  }).select("id").single();
+  if (error) throwDb(error, "bookings");
+  await maybeAudit("create", "booking", row.id, null, data);
+  return row.id;
 }
 
 export async function updateBooking(id: string, data: Partial<Record<string, any>>): Promise<void> {
-  const db = getFirestoreDb();
-  await updateDoc(doc(db, "bookings", id), { ...data, updatedAt: Timestamp.now() });
-  await addAuditLog(currentUid(), "update", "booking", id, null, data);
+  const patch: Record<string, any> = { updated_at: new Date().toISOString() };
+  if (data.memberId !== undefined) patch.member_id = data.memberId || null;
+  if (data.memberName !== undefined) patch.member_name = data.memberName;
+  if (data.className !== undefined) patch.service_name = data.className;
+  if (data.outletId !== undefined) patch.outlet_id = data.outletId || null;
+  if (data.date !== undefined || data.startTime !== undefined) patch.start_at = at(data.date, data.startTime);
+  if (data.date !== undefined || data.endTime !== undefined) patch.end_at = at(data.date, data.endTime || data.startTime);
+  if (data.status !== undefined) patch.status = String(data.status).toLowerCase();
+  if (data.service !== undefined || data.instructor !== undefined || data.className !== undefined) patch.notes = JSON.stringify({ service: data.service, instructor: data.instructor, className: data.className });
+  const { error } = await supabase.from("bookings").update(patch).eq("id", id);
+  if (error) throwDb(error, "bookings");
+  await maybeAudit("update", "booking", id, null, data);
 }
 
 export async function deleteBooking(id: string): Promise<void> {
-  const db = getFirestoreDb();
-  await deleteDoc(doc(db, "bookings", id));
-  await addAuditLog(currentUid(), "delete", "booking", id, null, null);
+  const { error } = await supabase.from("bookings").delete().eq("id", id);
+  if (error) throwDb(error, "bookings");
+  await maybeAudit("delete", "booking", id, null, null);
 }
 
 // ─── Transactions / Payments ────────────────────────────────────────
+function mapPaymentRow(r: any): Transaction {
+  const meta = r.meta && typeof r.meta === "object" ? r.meta : {};
+  return {
+    id: r.id,
+    memberId: r.member_id || "",
+    memberName: r.member_name || "",
+    amount: Number(r.amount || 0),
+    vat: Number(r.vat_amount || 0),
+    total: Number(r.total || 0),
+    method: (r.method || "Cash") as PaymentMethod,
+    type: meta.type || "Payment",
+    date: dateOnly(r.paid_at),
+    description: r.description || "",
+    receiptNo: r.receipt_no || "",
+    serviceType: r.service_type || undefined,
+  };
+}
+
 export async function getTransactions(): Promise<Transaction[]> {
-  const db = getFirestoreDb();
-  const snap = await getDocs(collection(db, "payments"));
-  return snap.docs.map(firestoreTransactionToTransaction);
+  const { data, error } = await supabase.from("payments").select("*").order("paid_at", { ascending: false });
+  if (error) { console.warn("[payments] read failed:", error.message); return []; }
+  return (data || []).map(mapPaymentRow);
 }
 
 export async function addTransaction(data: Partial<Transaction>): Promise<string> {
-  const db = getFirestoreDb();
-  const amount = data.amount || 0;
+  const amount = Number(data.amount || 0);
   const vat = Math.round(amount * 0.13);
-  const ref = await addDoc(collection(db, "payments"), {
-    memberId: data.memberId || "",
-    memberName: data.memberName || "",
+  const { data: row, error } = await supabase.from("payments").insert({
+    receipt_no: data.receiptNo || `VFC-${Date.now()}`,
+    member_id: data.memberId || null,
+    member_name: data.memberName || null,
     amount,
-    vatAmount: vat,
-    totalAmount: amount + vat,
-    paymentMethod: data.method || "Cash",
-    type: data.type || "Payment",
-    serviceType: data.serviceType || null,
-    paymentDate: data.date || new Date().toISOString().split("T")[0],
+    vat_amount: vat,
+    total: amount + vat,
+    method: data.method || "Cash",
+    service_type: data.serviceType || null,
     description: data.description || "",
-    receiptNo: data.receiptNo || `VFC-${Date.now()}`,
-    status: "Completed",
-    createdAt: Timestamp.now(),
-    updatedAt: Timestamp.now(),
-  });
-  await addAuditLog(currentUid(), "create", "payment", ref.id, null, { memberId: data.memberId, total: amount + vat, method: data.method });
-  return ref.id;
+    paid_at: data.date ? new Date(`${data.date}T00:00:00`).toISOString() : new Date().toISOString(),
+    status: "paid",
+    meta: { type: data.type || "Payment" },
+  }).select("id").single();
+  if (error) throwDb(error, "payments");
+  await maybeAudit("create", "payment", row.id, null, data);
+  return row.id;
 }
 
 // ─── Services ───────────────────────────────────────────────────────
-export interface FirestoreService {
-  id: string;
-  name: string;
-  type: string;
-  duration: number;
-  price: number;
-  isActive: boolean;
-  description?: string;
-  capacity?: number;
-  instructor?: string;
+export interface FirestoreService { id: string; name: string; type: string; duration: number; price: number; isActive: boolean; description?: string; capacity?: number; instructor?: string; }
+
+function mapServiceRow(r: any): FirestoreService {
+  const meta = (() => { try { return r.description?.startsWith("{") ? JSON.parse(r.description) : {}; } catch { return {}; } })();
+  return { id: r.id, name: r.name || "", type: r.service_type || "Gym", duration: Number(r.duration_min || 0), price: Number(r.price || 0), isActive: r.active !== false, description: meta.description || r.description || "", capacity: Number(meta.capacity || 0), instructor: meta.instructor || "" };
 }
 
 export async function getServices(): Promise<FirestoreService[]> {
-  const db = getFirestoreDb();
-  const snap = await getDocs(collection(db, "services"));
-  return snap.docs.map((d) => {
-    const data = d.data();
-    return {
-      id: d.id,
-      name: data.name || "",
-      type: data.type || "Gym",
-      duration: data.duration || 0,
-      price: data.price || 0,
-      isActive: data.isActive !== false,
-      description: data.description || "",
-      capacity: data.capacity || 0,
-      instructor: data.instructor || "",
-    };
-  });
+  const { data, error } = await supabase.from("services").select("*").order("name", { ascending: true });
+  if (error) { console.warn("[services] read failed:", error.message); return []; }
+  return (data || []).map(mapServiceRow);
 }
 
 export async function addService(data: Partial<FirestoreService>): Promise<string> {
-  const db = getFirestoreDb();
-  const ref = await addDoc(collection(db, "services"), {
+  const { data: row, error } = await supabase.from("services").insert({
     name: data.name || "",
-    type: data.type || "Gym",
-    duration: data.duration || 60,
+    service_type: data.type || "Gym",
+    duration_min: data.duration || 60,
     price: data.price || 0,
-    isActive: data.isActive !== false,
-    description: data.description || "",
-    capacity: data.capacity || 1,
-    instructor: data.instructor || "",
-    createdAt: Timestamp.now(),
-    updatedAt: Timestamp.now(),
-  });
-  return ref.id;
+    active: data.isActive !== false,
+    description: JSON.stringify({ description: data.description || "", capacity: data.capacity || 1, instructor: data.instructor || "" }),
+  }).select("id").single();
+  if (error) throwDb(error, "services");
+  return row.id;
 }
 
 export async function updateService(id: string, data: Partial<Record<string, any>>): Promise<void> {
-  const db = getFirestoreDb();
-  await updateDoc(doc(db, "services", id), { ...data, updatedAt: Timestamp.now() });
+  const patch: Record<string, any> = {};
+  if (data.name !== undefined) patch.name = data.name;
+  if (data.type !== undefined) patch.service_type = data.type;
+  if (data.duration !== undefined) patch.duration_min = data.duration;
+  if (data.price !== undefined) patch.price = data.price;
+  if (data.isActive !== undefined) patch.active = data.isActive;
+  if (data.description !== undefined || data.capacity !== undefined || data.instructor !== undefined) patch.description = JSON.stringify({ description: data.description || "", capacity: data.capacity || 1, instructor: data.instructor || "" });
+  const { error } = await supabase.from("services").update(patch).eq("id", id);
+  if (error) throwDb(error, "services");
 }
 
 export async function deleteService(id: string): Promise<void> {
-  const db = getFirestoreDb();
-  await deleteDoc(doc(db, "services", id));
+  const { error } = await supabase.from("services").delete().eq("id", id);
+  if (error) throwDb(error, "services");
 }
 
 // ─── Membership Plans ───────────────────────────────────────────────
-export interface FirestoreMembershipPlan {
-  id: string;
-  name: string;
-  tier: string;
-  price: number;
-  yearlyPrice?: number;
-  longTermPrice?: number;
-  durationInMonths?: number;
-  membershipTypeId?: string;
-  includes?: string;
-  autoRenew?: boolean;
+export interface FirestoreMembershipPlan { id: string; name: string; tier: string; price: number; yearlyPrice?: number; longTermPrice?: number; durationInMonths?: number; membershipTypeId?: string; includes?: string; autoRenew?: boolean; }
+
+function mapPlanRow(r: any): FirestoreMembershipPlan {
+  const meta = (() => { try { return r.description?.startsWith("{") ? JSON.parse(r.description) : {}; } catch { return {}; } })();
+  return { id: r.id, name: r.name || "", tier: r.tier || "Basic", price: Number(r.price || 0), yearlyPrice: Number(meta.yearlyPrice || 0), longTermPrice: Number(meta.longTermPrice || 0), durationInMonths: Math.round(Number(r.duration_days || 30) / 30), membershipTypeId: meta.membershipTypeId || "", includes: meta.includes || r.description || "", autoRenew: Boolean(meta.autoRenew || false) };
 }
 
 export async function getMembershipPlans(): Promise<FirestoreMembershipPlan[]> {
-  const db = getFirestoreDb();
-  const snap = await getDocs(collection(db, "membershipPlans"));
-  return snap.docs.map((d) => {
-    const data = d.data();
-    return {
-      id: d.id,
-      name: data.name || "",
-      tier: data.tier || "Basic",
-      price: data.price || 0,
-      yearlyPrice: data.yearlyPrice || 0,
-      longTermPrice: data.longTermPrice || 0,
-      durationInMonths: data.durationInMonths || 1,
-      membershipTypeId: data.membershipTypeId || "",
-      includes: data.includes || "",
-      autoRenew: data.autoRenew || false,
-    };
-  });
+  const { data, error } = await supabase.from("membership_plans").select("*").order("price", { ascending: true });
+  if (error) { console.warn("[membership_plans] read failed:", error.message); return []; }
+  return (data || []).map(mapPlanRow);
 }
 
 export async function addMembershipPlan(data: Partial<FirestoreMembershipPlan>): Promise<string> {
-  const db = getFirestoreDb();
-  const ref = await addDoc(collection(db, "membershipPlans"), {
-    name: data.name || "",
+  const { data: row, error } = await supabase.from("membership_plans").insert({
+    name: data.name || data.tier || "Plan",
     tier: data.tier || "Basic",
     price: data.price || 0,
-    yearlyPrice: data.yearlyPrice || 0,
-    longTermPrice: data.longTermPrice || 0,
-    durationInMonths: data.durationInMonths || 1,
-    membershipTypeId: data.membershipTypeId || "",
-    includes: data.includes || "",
-    autoRenew: data.autoRenew || false,
-    createdAt: Timestamp.now(),
-    updatedAt: Timestamp.now(),
-  });
-  return ref.id;
+    duration_days: (data.durationInMonths || 1) * 30,
+    active: true,
+    description: JSON.stringify({ yearlyPrice: data.yearlyPrice || 0, longTermPrice: data.longTermPrice || 0, includes: data.includes || "", autoRenew: data.autoRenew || false, membershipTypeId: data.membershipTypeId || "" }),
+  }).select("id").single();
+  if (error) throwDb(error, "membership_plans");
+  return row.id;
 }
 
 export async function updateMembershipPlan(id: string, data: Partial<Record<string, any>>): Promise<void> {
-  const db = getFirestoreDb();
-  await updateDoc(doc(db, "membershipPlans", id), { ...data, updatedAt: Timestamp.now() });
+  const current = (await getMembershipPlans()).find((p) => p.id === id);
+  const patch: Record<string, any> = {};
+  if (data.name !== undefined) patch.name = data.name;
+  if (data.tier !== undefined) patch.tier = data.tier;
+  if (data.price !== undefined) patch.price = data.price;
+  if (data.durationInMonths !== undefined) patch.duration_days = data.durationInMonths * 30;
+  const meta = { yearlyPrice: current?.yearlyPrice || 0, longTermPrice: current?.longTermPrice || 0, includes: current?.includes || "", autoRenew: current?.autoRenew || false, membershipTypeId: current?.membershipTypeId || "", ...data };
+  patch.description = JSON.stringify(meta);
+  const { error } = await supabase.from("membership_plans").update(patch).eq("id", id);
+  if (error) throwDb(error, "membership_plans");
 }
 
 export async function deleteMembershipPlan(id: string): Promise<void> {
-  const db = getFirestoreDb();
-  await deleteDoc(doc(db, "membershipPlans", id));
+  const { error } = await supabase.from("membership_plans").delete().eq("id", id);
+  if (error) throwDb(error, "membership_plans");
 }
 
 // ─── Dashboard Stats ────────────────────────────────────────────────
 export async function getDashboardStats() {
-  const db = getFirestoreDb();
-  const [membersSnap, bookingsSnap, paymentsSnap, checkInsSnap] = await Promise.all([
-    getDocs(collection(db, "members")),
-    getDocs(collection(db, "bookings")),
-    getDocs(collection(db, "payments")),
-    getDocs(collection(db, "checkIns")),
-  ]);
-
-  const allMembers = membersSnap.docs.map(firestoreMemberToMember);
-  const allBookings = bookingsSnap.docs.map(firestoreBookingToBooking);
-  const allTransactions = paymentsSnap.docs.map(firestoreTransactionToTransaction);
-
+  const [members, bookings, transactions, checkIns] = await Promise.all([getMembers(), getBookings(), getTransactions(), getCheckIns()]);
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
   const todayKey = now.toISOString().split("T")[0];
-
-  const inRange = (d: string, from: Date, to?: Date) => {
-    if (!d) return false;
-    const dt = new Date(d);
-    return dt >= from && (!to || dt <= to);
-  };
-
-  const pct = (curr: number, prev: number) =>
-    prev === 0 ? (curr > 0 ? 100 : 0) : Math.round(((curr - prev) / prev) * 1000) / 10;
-
-  // Revenue MoM
-  const currRevenue = allTransactions.filter((t) => inRange(t.date, startOfMonth)).reduce((s, t) => s + t.total, 0);
-  const prevRevenue = allTransactions.filter((t) => inRange(t.date, startOfPrevMonth, endOfPrevMonth)).reduce((s, t) => s + t.total, 0);
-
-  // Bookings MoM (active bookings created this month vs prev)
-  const activeStatuses = new Set(["Confirmed", "Pending"]);
-  const currBookings = allBookings.filter((b) => activeStatuses.has(b.status) && inRange(b.date, startOfMonth)).length;
-  const prevBookings = allBookings.filter((b) => activeStatuses.has(b.status) && inRange(b.date, startOfPrevMonth, endOfPrevMonth)).length;
-
-  // Today vs yesterday check-ins
-  const yKey = new Date(now.getTime() - 86400000).toISOString().split("T")[0];
-  const checkInDocs = checkInsSnap.docs.map((d) => {
-    const data = d.data();
-    const ts = data.checkInTime?.toDate?.() || (data.date ? new Date(data.date) : null);
-    return ts ? ts.toISOString().split("T")[0] : "";
-  });
-  const todayCheckins = checkInDocs.filter((d) => d === todayKey).length;
-  const ydayCheckins = checkInDocs.filter((d) => d === yKey).length;
-
-  // Members MoM
-  const totalMembers = allMembers.length;
-  const newThisMonth = allMembers.filter((m) => inRange(m.joinDate, startOfMonth)).length;
-  const newPrevMonth = allMembers.filter((m) => inRange(m.joinDate, startOfPrevMonth, endOfPrevMonth)).length;
-
-  return {
-    totalMembers,
-    activeMembers: allMembers.filter((m) => m.status === "Active").length,
-    membersChange: pct(newThisMonth, newPrevMonth),
-    monthlyRevenue: currRevenue,
-    revenueChange: pct(currRevenue, prevRevenue),
-    activeBookings: allBookings.filter((b) => activeStatuses.has(b.status)).length,
-    bookingsChange: pct(currBookings, prevBookings),
-    todayCheckins,
-    checkinsChange: pct(todayCheckins, ydayCheckins),
-  };
+  const inMonth = (d: string) => d && new Date(d) >= startOfMonth;
+  const currRevenue = transactions.filter((t) => inMonth(t.date)).reduce((s, t) => s + t.total, 0);
+  return { totalMembers: members.length, activeMembers: members.filter((m) => m.status === "Active").length, membersChange: members.filter((m) => inMonth(m.joinDate)).length, monthlyRevenue: currRevenue, revenueChange: 0, activeBookings: bookings.filter((b) => ["Confirmed", "Pending"].includes(b.status)).length, bookingsChange: 0, todayCheckins: checkIns.filter((c) => c.date === todayKey).length, checkinsChange: 0 };
 }
 
 // ─── Company Settings ───────────────────────────────────────────────
-export async function getCompanySettings(): Promise<Record<string, string>> {
-  const db = getFirestoreDb();
-  const snap = await getDocs(collection(db, "companySettings"));
-  const settings: Record<string, string> = {};
-  snap.docs.forEach((d) => {
-    const data = d.data();
-    settings[data.key] = data.value;
-  });
-  return settings;
+function mapSettingsRow(row: any): Record<string, string> {
+  const extras = row?.extras && typeof row.extras === "object" ? row.extras : {};
+  return {
+    ...extras,
+    companyName: row?.company_name || extras.companyName || "VitaFit Club",
+    companyAddress: row?.address || extras.companyAddress || "",
+    companyPhone: row?.phone || extras.companyPhone || "",
+    companyEmail: row?.email || extras.companyEmail || "",
+    logoUrl: row?.logo_url || extras.logoUrl || "",
+    vatNo: row?.vat_no || extras.vatNo || "",
+    panNumber: extras.panNumber || row?.vat_no || "",
+    currency: row?.currency || extras.currency || "NPR",
+    vatRate: String(row?.vat_rate ?? extras.vatRate ?? "13"),
+    maxOutlets: row?.max_outlets || extras.maxOutlets || "unlimited",
+    resendEndpoint: row?.resend_endpoint || extras.resendEndpoint || "",
+  };
 }
 
-export async function setCompanySetting(key: string, value: string, type = "string"): Promise<void> {
-  const db = getFirestoreDb();
-  await setDoc(doc(db, "companySettings", key), {
-    key, value, type,
-    updatedAt: Timestamp.now(),
-  });
+export async function getCompanySettings(): Promise<Record<string, string>> {
+  const { data, error } = await supabase.from("company_settings").select("*").eq("id", "main").maybeSingle();
+  if (error) { console.warn("[company_settings] read failed:", error.message); return {}; }
+  return mapSettingsRow(data || {});
 }
+
+export async function setCompanySetting(key: string, value: string): Promise<void> { await saveCompanySettings({ [key]: value }); }
 
 export async function saveCompanySettings(settings: Record<string, string>): Promise<void> {
-  const promises = Object.entries(settings).map(([key, value]) => setCompanySetting(key, value));
-  await Promise.all(promises);
+  const { data: existing } = await supabase.from("company_settings").select("*").eq("id", "main").maybeSingle();
+  const extras = { ...((existing?.extras && typeof existing.extras === "object") ? existing.extras : {}) } as Record<string, string>;
+  const payload: Record<string, any> = { id: "main", updated_at: new Date().toISOString() };
+  for (const [key, value] of Object.entries(settings)) {
+    if (key === "companyName") payload.company_name = value;
+    else if (key === "companyAddress") payload.address = value;
+    else if (key === "companyPhone") payload.phone = value;
+    else if (key === "companyEmail") payload.email = value;
+    else if (key === "logoUrl") payload.logo_url = value;
+    else if (key === "vatNo" || key === "panNumber") { payload.vat_no = value; extras[key] = value; }
+    else if (key === "currency") payload.currency = value;
+    else if (key === "vatRate") payload.vat_rate = Number(value) || 13;
+    else if (key === "maxOutlets") payload.max_outlets = value;
+    else if (key === "resendEndpoint") payload.resend_endpoint = value;
+    else extras[key] = value;
+  }
+  payload.extras = extras;
+  const { error } = await supabase.from("company_settings").upsert(payload, { onConflict: "id" });
+  if (error) throwDb(error, "company_settings");
 }
 
 // ─── Check-ins ──────────────────────────────────────────────────────
-export async function addCheckIn(memberId: string): Promise<string> {
-  const db = getFirestoreDb();
-  const ref = await addDoc(collection(db, "checkIns"), {
-    memberId,
-    checkInTime: Timestamp.now(),
-    checkOutTime: null,
-    manualEntry: false,
-    createdAt: Timestamp.now(),
-  });
-  return ref.id;
-}
+export async function addCheckIn(memberId: string): Promise<string> { return addCheckInRecord({ memberId, memberName: "", date: new Date().toISOString().split("T")[0] }); }
 
-export interface CheckInRecord {
-  id: string;
-  memberId: string;
-  memberName: string;
-  date: string;
-  checkInTime: string;
-  checkOutTime?: string;
-}
+export interface CheckInRecord { id: string; memberId: string; memberName: string; date: string; checkInTime: string; checkOutTime?: string; }
 
 export async function getCheckIns(): Promise<CheckInRecord[]> {
-  const db = getFirestoreDb();
-  const snap = await getDocs(collection(db, "checkIns"));
-  return snap.docs.map((d) => {
-    const data = d.data();
-    const checkInTs = data.checkInTime?.toDate?.() || new Date();
-    return {
-      id: d.id,
-      memberId: data.memberId || "",
-      memberName: data.memberName || "",
-      date: data.date || checkInTs.toISOString().split("T")[0],
-      checkInTime: checkInTs.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-      checkOutTime: data.checkOutTime?.toDate?.()?.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) || undefined,
-    };
-  });
+  const { data, error } = await supabase.from("check_ins").select("*").order("check_in_at", { ascending: false });
+  if (error) { console.warn("[check_ins] read failed:", error.message); return []; }
+  return (data || []).map((r: any) => ({ id: r.id, memberId: r.member_id || "", memberName: r.member_name || "", date: dateOnly(r.check_in_at), checkInTime: timeOnly(r.check_in_at), checkOutTime: r.check_out_at ? timeOnly(r.check_out_at) : undefined }));
 }
 
 export async function addCheckInRecord(data: { memberId: string; memberName: string; date: string }): Promise<string> {
-  const db = getFirestoreDb();
-  const ref = await addDoc(collection(db, "checkIns"), {
-    memberId: data.memberId,
-    memberName: data.memberName,
-    date: data.date,
-    checkInTime: Timestamp.now(),
-    checkOutTime: null,
-    manualEntry: false,
-    createdAt: Timestamp.now(),
-  });
-  return ref.id;
+  const { data: row, error } = await supabase.from("check_ins").insert({ member_id: data.memberId || null, member_name: data.memberName || null, check_in_at: at(data.date, new Date().toTimeString().slice(0, 5)) }).select("id").single();
+  if (error) throwDb(error, "check_ins");
+  return row.id;
 }
 
 // ─── Discount Rules ─────────────────────────────────────────────────
-export interface DiscountRule {
-  years: number;
-  discount: number;
-}
+export interface DiscountRule { years: number; discount: number; }
 
 export async function getDiscountRules(): Promise<DiscountRule[]> {
-  const db = getFirestoreDb();
-  const snap = await getDocs(query(collection(db, "companySettings"), where("key", "==", "discountRules")));
-  if (snap.empty) return [];
-  const data = snap.docs[0].data();
-  try {
-    return JSON.parse(data.value) as DiscountRule[];
-  } catch {
-    return [];
-  }
+  const { data, error } = await supabase.from("company_settings").select("discount_rules, extras").eq("id", "main").maybeSingle();
+  if (error) { console.warn("[discount_rules] read failed:", error.message); return []; }
+  if (Array.isArray(data?.discount_rules)) return data.discount_rules as DiscountRule[];
+  try { return data?.extras?.discountRules ? JSON.parse(data.extras.discountRules) : []; } catch { return []; }
 }
 
 export async function saveDiscountRules(rules: DiscountRule[]): Promise<void> {
-  const db = getFirestoreDb();
-  await setDoc(doc(db, "companySettings", "discountRules"), {
-    key: "discountRules",
-    value: JSON.stringify(rules),
-    type: "json",
-    updatedAt: Timestamp.now(),
-  });
+  const { error } = await supabase.from("company_settings").upsert({ id: "main", discount_rules: rules, updated_at: new Date().toISOString() }, { onConflict: "id" });
+  if (error) throwDb(error, "company_settings");
 }
 
 // ─── Audit Log ──────────────────────────────────────────────────────
 export async function addAuditLog(userId: string | null, action: string, entityType: string, entityId: string, oldValue?: any, newValue?: any): Promise<void> {
-  const db = getFirestoreDb();
-  await addDoc(collection(db, "auditLogs"), {
-    userId,
-    action,
-    entityType,
-    entityId,
-    oldValue: oldValue ? JSON.stringify(oldValue) : null,
-    newValue: newValue ? JSON.stringify(newValue) : null,
-    timestamp: Timestamp.now(),
-  });
+  const { data: auth } = await supabase.auth.getUser();
+  const { error } = await supabase.from("audit_logs").insert({ actor_id: auth?.user?.id || userId || null, actor_email: auth?.user?.email || null, action, entity_type: entityType, entity_id: entityId, diff: { oldValue: oldValue ?? null, newValue: newValue ?? null } });
+  if (error) console.warn("[audit_logs] insert failed:", error.message);
 }
