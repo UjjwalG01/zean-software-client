@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { isConfigured } from "@/lib/firebase";
 import { onAuthChange } from "@/lib/firebase-auth";
-import type { User } from "firebase/auth";
+import type { User } from "@supabase/supabase-js";
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);

@@ -7,8 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Lock, Mail, Dumbbell } from "lucide-react";
 import { toast } from "sonner";
 import { LicensedFooter } from "@/components/LicensedFooter";
-import { getDoc, doc } from "firebase/firestore";
-import { getFirestoreDb } from "@/lib/firebase";
 
 const Login = () => {
   const navigate = useNavigate();
