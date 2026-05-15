@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
-import { isConfigured } from "@/lib/firebase";
 import { onAuthChange } from "@/lib/firebase-auth";
 import type { User } from "@supabase/supabase-js";
+
+const supabaseConfigured = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isConfigured()) {
+    if (!supabaseConfigured) {
       setLoading(false);
       return;
     }
@@ -21,5 +22,5 @@ export function useAuth() {
     return unsubscribe;
   }, []);
 
-  return { user, loading, isConfigured: isConfigured() };
+  return { user, loading, isConfigured: supabaseConfigured };
 }
