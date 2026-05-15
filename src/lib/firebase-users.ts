@@ -48,21 +48,28 @@ function mapRow(r: any): AppUser {
 }
 
 async function syncRole(userId: string, role: UserRole) {
-  const { error } = await supabase.from("user_roles").upsert({ user_id: userId, role: dbRole(role) }, { onConflict: "user_id,role" });
-  if (error) console.warn("[user_roles] upsert failed:", error.message);
+  await supabase.from("user_roles").delete().eq("user_id", userId);
+  const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: dbRole(role) });
+  if (error) throw error;
 }
 
 export async function getAppUsers(): Promise<AppUser[]> {
-  const { data, error } = await supabase.from("app_users").select("*, role:user_roles(role)").order("created_at", { ascending: false });
+  const { data, error } = await supabase.from("app_users").select("*").order("created_at", { ascending: false });
   if (error) { console.warn("[app_users] read failed:", error.message); return []; }
-  return (data || []).map((r: any) => mapRow({ ...r, role: Array.isArray(r.role) ? r.role[0]?.role : r.role?.role }));
+  const ids = (data || []).map((r: any) => r.id);
+  const { data: roles } = ids.length
+    ? await supabase.from("user_roles").select("user_id, role").in("user_id", ids)
+    : { data: [] as any[] };
+  const roleByUser = new Map((roles || []).map((r: any) => [r.user_id, r.role]));
+  return (data || []).map((r: any) => mapRow({ ...r, role: roleByUser.get(r.id) }));
 }
 
 export async function getAppUserByEmail(email: string): Promise<AppUser | null> {
-  const { data, error } = await supabase.from("app_users").select("*, role:user_roles(role)").eq("email", email).maybeSingle();
+  const { data, error } = await supabase.from("app_users").select("*").eq("email", email).maybeSingle();
   if (error) { console.warn("[app_users] read one failed:", error.message); return null; }
   if (!data) return null;
-  return mapRow({ ...data, role: Array.isArray((data as any).role) ? (data as any).role[0]?.role : (data as any).role?.role });
+  const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", data.id).limit(1);
+  return mapRow({ ...data, role: roles?.[0]?.role });
 }
 
 export async function createAppUserRecord(data: Omit<AppUser, "id" | "createdAt">): Promise<string> {
