@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Mail, Phone, MapPin, Calendar, CreditCard, Activity, Edit, Power, Save, X } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MapPin, Calendar, CreditCard, Activity, Edit, Power, Save, X, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { TierBadge } from "@/components/TierBadge";
@@ -102,6 +102,9 @@ const MemberProfile = () => {
           <ArrowLeft className="h-4 w-4 mr-1" /> Back to Members
         </Button>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => navigate(`/members/${id}/grc`)}>
+            <FileText className="h-4 w-4 mr-1" /> Generate GRC
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
             <Edit className="h-4 w-4 mr-1" /> Edit
           </Button>

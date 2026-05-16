@@ -41,10 +41,20 @@ function throwDb(error: any, table: string): never {
 }
 
 // ─── Members ────────────────────────────────────────────────────────
+const EXTRA_KEYS = [
+  "firstName","middleName","lastName","dob","gender","nationality","religion","maritalStatus",
+  "residenceStatus","nationalId","tinNo","fatherName","occupation","officeName","officeAddress",
+  "permanentAddress","temporaryAddress","contactAlt","bloodGroup","height","weight","chest","arms",
+  "thigh","waistInch","hipInch","shoulder","heartStroke","breathingDifficulty","skinDisease",
+  "doctorName","doctorContact","emergencyName","emergencyContactNum","notifyPhone","notifyEmail",
+  "notifySMS","timeSlot","packages",
+] as const;
+
 function mapMemberRow(r: any): Member {
   const prefs = r.preferences && typeof r.preferences === "object" ? r.preferences : {};
+  const extras = r.extras && typeof r.extras === "object" ? r.extras : {};
   const services = Array.isArray(r.services) ? r.services : Array.isArray(prefs.services) ? prefs.services : [];
-  return {
+  const base: any = {
     id: r.id,
     name: r.full_name || prefs.name || "",
     email: r.email || "",
@@ -65,11 +75,15 @@ function mapMemberRow(r: any): Member {
     membershipYears: Number(r.membership_years ?? prefs.membershipYears ?? 0),
     discount: Number(r.discount ?? prefs.discount ?? 0),
     autoRenew: Boolean(r.auto_renew ?? prefs.autoRenew ?? false),
+    outletId: r.outlet_id || extras.outletId || "",
+    grcNo: r.grc_no || "",
   };
+  for (const k of EXTRA_KEYS) base[k] = extras[k];
+  return base as Member;
 }
 
 function memberPayload(data: Partial<Member>) {
-  const fullName = data.name || "";
+  const fullName = data.name || [data.firstName, data.middleName, data.lastName].filter(Boolean).join(" ").trim();
   const prefs = {
     preferences: data.preferences || [],
     plan: data.plan || "Monthly",
@@ -83,15 +97,21 @@ function memberPayload(data: Partial<Member>) {
     autoRenew: data.autoRenew || false,
     services: data.services || [],
   };
+  const extras: Record<string, any> = {};
+  for (const k of EXTRA_KEYS) if ((data as any)[k] !== undefined) extras[k] = (data as any)[k];
   return {
     full_name: fullName,
     email: data.email || null,
     phone: data.phone || null,
+    avatar_url: (data as any).avatar || null,
     tier: data.tier || "Basic",
     status: (data.status || "Active").toLowerCase(),
     join_date: data.joinDate || new Date().toISOString(),
     expiry_date: data.expiryDate || null,
+    outlet_id: data.outletId || null,
+    grc_no: data.grcNo || null,
     preferences: prefs,
+    extras,
   };
 }
 
@@ -112,6 +132,31 @@ export async function getMember(id: string): Promise<Member | null> {
   return data ? mapMemberRow(data) : null;
 }
 
+/** Generate next GRC number prefixed by outlet code, e.g. FT00078.
+ *  Counts existing members for the outlet and increments. Safe enough for low concurrency. */
+export async function generateGRCNumber(outletId: string, outletCode: string): Promise<string> {
+  const prefix = (outletCode || "GRC").toUpperCase().replace(/\s+/g, "");
+  const { count } = await supabase
+    .from("members")
+    .select("id", { count: "exact", head: true })
+    .eq("outlet_id", outletId);
+  const next = (count || 0) + 1;
+  return `${prefix}${String(next).padStart(5, "0")}`;
+}
+
+/** Upload member profile photo to storage bucket `members` and return its public URL. */
+export async function uploadMemberAvatar(key: string, file: File): Promise<string> {
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+  const path = `${key}/photo-${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from("members").upload(path, file, {
+    cacheControl: "3600",
+    upsert: true,
+    contentType: file.type || undefined,
+  });
+  if (error) throw error;
+  return supabase.storage.from("members").getPublicUrl(path).data.publicUrl;
+}
+
 export async function addMember(data: Partial<Member>): Promise<string> {
   const { data: row, error } = await supabase.from("members").insert(memberPayload(data)).select("id").single();
   if (error) throwDb(error, "members");
@@ -129,11 +174,23 @@ export async function updateMember(id: string, data: Partial<Record<string, any>
   if (data.status !== undefined) payload.status = String(data.status).toLowerCase();
   if (data.joinDate !== undefined) payload.join_date = data.joinDate;
   if (data.expiryDate !== undefined) payload.expiry_date = data.expiryDate;
+  if (data.avatar !== undefined) payload.avatar_url = data.avatar;
+  if (data.outletId !== undefined) payload.outlet_id = data.outletId || null;
+  if (data.grcNo !== undefined) payload.grc_no = data.grcNo;
   const prefs = { ...(current ? { preferences: current.preferences, plan: current.plan, address: current.address, emergencyContact: current.emergencyContact, services: current.services, autoRenew: current.autoRenew } : {}) } as any;
   for (const k of ["preferences", "plan", "address", "emergencyContact", "services", "openingBalance", "totalPaid", "dueAmount", "membershipYears", "discount", "autoRenew"]) {
     if (data[k] !== undefined) prefs[k] = data[k];
   }
   if (Object.keys(prefs).length) payload.preferences = prefs;
+  // extras merge
+  const extras: Record<string, any> = {};
+  let touched = false;
+  for (const k of EXTRA_KEYS) if (data[k] !== undefined) { extras[k] = data[k]; touched = true; }
+  if (touched) {
+    const merged = { ...(current as any || {}) };
+    for (const k of EXTRA_KEYS) if (extras[k] === undefined) extras[k] = merged[k];
+    payload.extras = extras;
+  }
   const { error } = await supabase.from("members").update(payload).eq("id", id);
   if (error) throwDb(error, "members");
   await maybeAudit("update", "member", id, current, data);

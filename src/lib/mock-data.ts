@@ -25,6 +25,48 @@ export interface Member {
   membershipYears: number;
   discount: number;
   autoRenew: boolean;
+  // Extended GRC fields (all optional)
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  dob?: string;
+  gender?: string;
+  nationality?: string;
+  religion?: string;
+  maritalStatus?: string;
+  residenceStatus?: string;
+  nationalId?: string;
+  tinNo?: string;
+  fatherName?: string;
+  occupation?: string;
+  officeName?: string;
+  officeAddress?: string;
+  permanentAddress?: string;
+  temporaryAddress?: string;
+  contactAlt?: string;
+  bloodGroup?: string;
+  height?: string;
+  weight?: string;
+  chest?: string;
+  arms?: string;
+  thigh?: string;
+  waistInch?: string;
+  hipInch?: string;
+  shoulder?: string;
+  heartStroke?: boolean;
+  breathingDifficulty?: string;
+  skinDisease?: string;
+  doctorName?: string;
+  doctorContact?: string;
+  emergencyName?: string;
+  emergencyContactNum?: string;
+  notifyPhone?: boolean;
+  notifyEmail?: boolean;
+  notifySMS?: boolean;
+  timeSlot?: string;
+  packages?: string[];
+  outletId?: string;
+  grcNo?: string;
 }
 
 export interface Booking {

@@ -44,14 +44,31 @@ const GeneralSetup = () => {
     "Yoga", "Cardio", "Weight Training", "Swimming Laps", "Steam Bath",
     "Personal Training", "Dance Fitness", "Meditation", "Boxing",
   ]);
+  const timeSlots = useSetupList("setup_timeSlots", ["Morning", "Day", "Evening"]);
+  const packages = useSetupList("setup_packages", [
+    "Gym", "Cardio", "Swimming", "Spa",
+    "Gym+Cardio", "Cardio+Spa", "Gym+Swimming", "Cardio+Swimming",
+    "Gym+Cardio+Swimming", "Gym+Spa", "Gym+Cardio+Spa",
+    "Gym-Swimming+Spa", "Cardio+Swimming+Spa", "Swimming+Spa", "Combo",
+  ]);
+  const bloodGroups = useSetupList("setup_bloodGroups", ["A+","A-","B+","B-","O+","O-","AB+","AB-"]);
+  const grcRules = useSetupList("setup_grcFooterRules", [
+    "Periodic check up (3, 6, 12 months) body analysis will be made.",
+    "If you need to be informed or communicated.",
+    "Membership expiration will be informed before 7 days.",
+  ]);
 
   const sections = [
     { key: "classes", label: "Classes / Sessions", hook: classes },
     { key: "serviceTypes", label: "Service Types", hook: serviceTypes },
     { key: "planDurations", label: "Plan Durations", hook: planDurations },
+    { key: "timeSlots", label: "Time Slots", hook: timeSlots },
+    { key: "packages", label: "Available Packages", hook: packages },
+    { key: "bloodGroups", label: "Blood Groups", hook: bloodGroups },
     { key: "paymentModes", label: "Payment Modes", hook: paymentModes },
     { key: "paymentTypes", label: "Payment Types", hook: paymentTypes },
     { key: "preferences", label: "Member Preferences", hook: preferences },
+    { key: "grcFooterRules", label: "GRC Footer Rules", hook: grcRules },
   ];
 
   return (
