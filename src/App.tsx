@@ -11,6 +11,7 @@ import { ForcePasswordChangeModal } from "@/components/ForcePasswordChangeModal"
 import Index from "./pages/Index";
 import MembersList from "./pages/MembersList";
 import MemberProfile from "./pages/MemberProfile";
+import MemberGRC from "./pages/MemberGRC";
 import AddMember from "./pages/AddMember";
 import Bookings from "./pages/Bookings";
 import Transactions from "./pages/Transactions";
@@ -89,6 +90,7 @@ const App = () => (
                       <Route path="/members" element={<MembersList />} />
                       <Route path="/members/new" element={<AddMember />} />
                       <Route path="/members/:id" element={<MemberProfile />} />
+                      <Route path="/members/:id/grc" element={<MemberGRC />} />
                       <Route path="/bookings" element={<Bookings />} />
                       <Route path="/attendance" element={<Attendance />} />
                       <Route path="/forecast" element={<Forecast />} />
