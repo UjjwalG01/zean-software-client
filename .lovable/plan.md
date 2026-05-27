@@ -1,120 +1,142 @@
-# Plan — Supabase migration, Resend mail, Unlayer key, and new receipt format
 
-This is a large change. The app currently runs on **Firebase (Firestore + Cloud Functions)**. You've asked me to switch to **Supabase** with the credentials you supplied, wire up **Resend** for outbound mail, plug in your **Unlayer** project key, and add a print-ready **fee-receipt** layout matching the uploaded sample.
+# VitaFit Club — End-to-End Workflow Refactor
 
-I'll do it in 6 ordered steps. Nothing is destructive — Firebase code is kept behind a flag until Supabase is verified.
-
----
-
-## 1. Connect the project to your Supabase backend
-
-Add a Supabase client and the env vars you provided.
-
-- New file `src/lib/supabase.ts` exporting a typed `createClient(...)` using `VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY`.
-- Add `.env` entries (Vite reads `VITE_*` only — your `NEXT_PUBLIC_*` names won't work, so I'll rename them):
-  - `VITE_SUPABASE_URL=https://jjshmzlwhbspaqytgulf.supabase.co`
-  - `VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_zUMrTp50lpc2blGwbQufaA_SLGInNP9`
-- Add a `src/lib/backend.ts` switch (`VITE_BACKEND=firebase|supabase`, default `supabase`) so existing Firestore code still compiles.
-- Smoke-test: small `useEffect` in `App.tsx` that runs `supabase.from('app_users').select('count').limit(1)` and logs the response — verifies URL, key, network, RLS auth.
-
-> Note: I cannot verify connectivity from inside this sandbox. After deploy you'll see the result in the browser console; if it fails I'll iterate.
+Implementation is ordered by dependency: schema first, then services, then UI, then printing/cleanup. Each phase compiles and ships independently.
 
 ---
 
-## 2. Map the 13 tables to Supabase (schema migration)
+## Phase 1 — Database (single consolidated SQL)
 
-Create one SQL migration that mirrors the Firestore collections you listed, plus RLS. Names use Supabase convention (snake_case):
+Deliver one file: `db/schema.sql` (drop-in for a fresh Supabase project, supersedes 0001–0004). It contains:
 
-```text
-app_users           members            membership_plans   services
-outlets             service_types      bookings           payments
-transactions(view)  check_ins          email_templates    email_reminders
-audit_logs          company_settings
-```
+- **Enums:** `app_role`, `member_status`, `booking_status`, `invoice_status`, `payment_status`, `payment_method`, `gender`, `marital_status`, `blood_group`, `outlet_type`.
+- **Core tables (with explicit GRANTs + RLS):**
+  - `app_users`, `user_roles` (+ `has_role`, `has_any_role` SECURITY DEFINER fns)
+  - `company_settings` (singleton)
+  - `outlets`, `service_types`, `outlet_service_types` (join)
+  - `members` (global, with JSONB `address {permanent,temporary}`, `emergency_contact {name,phone,address}`, `physical {height,weight,chest,blood_group}`, `medical {heart_stroke bool, breathing_difficulty bool, skin_disease bool}`, `member_preferences text[]`, `photo_url`, `member_code` unique)
+  - `member_outlet_access` (member ↔ outlets they've used)
+  - `membership_plans`, `services`, `service_packages` (outlet_id nullable = chain-wide)
+  - `member_packages` (member's purchased package + remaining sessions + validity + outlet)
+  - `employees` (trainer/therapist)
+  - `bookings` (member_id, outlet_id, service_id|package_id, employee_id, start_at, end_at, status)
+  - `invoices` (member_id, outlet_id, booking_id NULLABLE, totals, status)
+  - `invoice_items` (invoice_id, service_id|package_id, qty, price, discount, tax)
+  - `payments` (invoice_id, amount, method, status, paid_at) — supports partial
+  - `check_ins`, `email_templates`, `email_reminders`, `audit_logs`
+- **Functions/triggers:**
+  - `generate_member_code()` → `M` + `YY` + sequence (e.g. `M260516`), unique
+  - `tg_member_code_before_insert` (auto-assign on insert when null)
+  - `tg_touch_updated_at` on all tables with `updated_at`
+  - `tg_member_outlet_access_on_booking` (insert/update access row)
+  - `tg_member_package_decrement_on_completed_booking`
+  - `tg_invoice_totals_recalc` (sum items → invoice totals)
+  - `tg_payment_updates_invoice_status` (paid/partial/unpaid)
+  - `is_config_value_in_use(category text, value text) returns boolean` — checks references in bookings/members/invoices/etc., used by setup-page delete guard
+- **RLS:** auth users CRUD everywhere they need it; admin-only on `user_roles`, `company_settings`, deletes. Public read on `service_types`, `company_settings`.
+- **GRANTs:** explicit `GRANT SELECT,INSERT,UPDATE,DELETE … TO authenticated` and `GRANT ALL TO service_role` per table.
+- **Storage:** `members` bucket (public read, authenticated write) with RLS.
+- **Seeds:** default service types, blood groups, nationalities (in `company_settings.extras.lists`).
 
-Key points:
-- `transactions` will be a **view over `payments`** (the app already uses `payments` as the canonical table; "transactions" is the UI term).
-- `outlets.service_types` = `text[]`; `service_types` table seeded with the 6 defaults.
-- `app_users` linked to `auth.users(id)` 1:1; roles stored in a separate `user_roles` table with an `app_role` enum + `has_role()` SECURITY DEFINER function (per platform rules — never store role on profile).
-- RLS on every table. Public read on `service_types` + `company_settings`; authenticated read elsewhere; admin-only write via `has_role(auth.uid(),'admin')`.
-- Indexes: `bookings(start_at)`, `payments(paid_at)`, `check_ins(check_in_at)`, `members(expiry_date)`, `audit_logs(created_at)`.
-
-Then rewrite the data-access layer:
-- `src/lib/firebase-services.ts` → `src/lib/db.ts` with the same exported function names so React Query hooks don't change.
-- `src/lib/firebase-converters.ts` → `src/lib/db-types.ts` (TS types matching the SQL columns).
-- `src/contexts/AuthContext.tsx` swapped to `supabase.auth` (email/password + Google).
-
----
-
-## 3. Resend mail — make sending actually work
-
-Your key `re_Jw1Sm8jp_3X6dhr3S37TZ1aNJdaQKxhaE` is a **secret** and must never sit in the frontend bundle. I'll:
-
-- Store it as a Supabase secret (`RESEND_API_KEY`) via the secrets tool — you'll paste it into the secure form once.
-- Create Edge Function `supabase/functions/send-email/index.ts` that POSTs to `https://api.resend.com/emails` server-side, with CORS, Zod validation, and writes a row to `email_reminders` for every send (status `sent` / `failed`).
-- Replace `sendEmailViaResend()` in `src/lib/email-templates.ts` with `supabase.functions.invoke('send-email', { body: ... })` — no more `companySettings.resendEndpoint` field needed.
-- Add a "Send test email" button on the Email Templates page.
-- Default `from`: `VitaFit Club <onboarding@resend.dev>` until you verify a domain in Resend.
-
----
-
-## 4. Unlayer project key
-
-`UnlayerEditor.tsx` already reads `import.meta.env.VITE_UNLAYER_PROJECT_ID`. Unlayer expects a **numeric Project ID**, but the value you sent (`usiz5uUh45oEBVwYLglBCY4n3FX78slJayRVEMAHMrX5ufMcMPsfkPNH1oDzystT`) looks like an **API key / secret token**, not a project ID.
-
-I'll wire it as both, so whichever role it actually plays will work:
-- `VITE_UNLAYER_PROJECT_ID` — kept for the editor's `projectId` option (you can paste the numeric ID later from the Unlayer dashboard).
-- `VITE_UNLAYER_API_KEY` — set to the value you provided; used only if we later add server-side template export.
-
-I'll add a one-line note in the Email Templates UI explaining where to find the numeric Project ID (Unlayer dashboard → Project Settings).
+Old `db/0001…0004.sql` are kept on disk but `db/schema.sql` is the authoritative one for new installs.
 
 ---
 
-## 5. New fee-receipt / billing format
+## Phase 2 — Service layer (`src/lib/firebase-services.ts` + new modules)
 
-Match the uploaded image: blue header band with company name, tagline, contact strip; "FEE PAYMENT RECEIPT" title; receipt no + date row; member info block; blue table header with line items; net amount; blue "Amount Paid" bar; payment method + status pill; remarks; thank-you + signature line; **company logo as a faint centered watermark behind the body**.
-
-- New component `src/components/ReceiptA5.tsx` (A5 print size, semantic tokens only — uses your existing gold/dark theme variables, but the receipt itself is light because it prints).
-- Hook into existing print flow in `src/lib/print-utils.ts` — replace the current template, keep the same `printReceipt(payment)` API so all call sites keep working.
-- Watermark = `<img>` with `opacity:.06`, absolutely centered, `print-color-adjust: exact`.
-- Pulls header/contact/logo from `company_settings`.
-
----
-
-## 6. Cleanup & verification
-
-- Remove `firestore.rules`, `firebase.json`, `functions/` once Supabase paths are green (kept in git history).
-- Run a checklist after deploy:
-  1. Sign in with email/password → AuthContext returns a session
-  2. `select count(*) from app_users` returns a number
-  3. Send test email from Email Templates → row appears in `email_reminders` with `status='sent'`
-  4. Open a paid booking → print preview shows the new receipt with watermark
-  5. Outlet picker on `/bookings` lists rows from `outlets` table
+- Replace bespoke `generateGRCNumber` with DB-side `generate_member_code` (trigger does it). Frontend just reads it back.
+- New `src/lib/packages.ts`: `listAvailablePackages(outletId)`, `assignPackageToMember(memberId, packageId, outletId, paymentInfo?)`.
+- New `src/lib/bookings.ts`: `createBooking({memberId, outletId, serviceOrPackageId, employeeId, startAt})` with capacity check via RPC.
+- New `src/lib/invoices.ts`: `createInvoiceFromBooking(bookingId)`, `createDirectInvoice({memberId, outletId, items})`, `recordPayment(invoiceId, amount, method)`.
+- Rewrite `mapMemberRow`/`memberPayload` to use the new JSONB columns (`address`, `emergency_contact`, `physical`, `medical`) — no more catch-all `extras` for these.
+- Remove unused: GRC number generator, opening_balance/totalPaid duplicates on members (live in invoices), services array on member (moved to packages).
+- Add `setupConfig.ts`: CRUD for setup lists (classes, plan durations, packages, blood groups, etc.) backed by `company_settings.extras.lists.<key>` with `isValueInUse(category, value)` calling the SQL function.
 
 ---
 
-## Files I'll create / edit
+## Phase 3 — Member registration UI
 
-**Create**
-- `src/lib/supabase.ts`, `src/lib/db.ts`, `src/lib/db-types.ts`, `src/lib/backend.ts`
-- `supabase/migrations/0001_init.sql` (all 13 tables + RLS + seed)
-- `supabase/functions/send-email/index.ts`
-- `src/components/ReceiptA5.tsx`
-- `.env` additions
-
-**Edit**
-- `src/contexts/AuthContext.tsx`, `src/contexts/OutletContext.tsx`
-- `src/lib/email-templates.ts`, `src/lib/print-utils.ts`, `src/lib/firebase-outlets.ts`
-- `src/hooks/use-firestore.ts` → `use-db.ts` (re-exported alias to avoid touching every page)
-- `src/pages/EmailTemplates.tsx` (test-send button + Unlayer note)
-- `DATABASE.md` (Firestore → Postgres column map)
+- `src/pages/AddMember.tsx` — slim multi-step modal (also opens as full page for edit):
+  - **Personal:** member_code (read-only, auto), full_name, dob, gender (dropdown), nationality (dropdown from setup), religion, address (permanent + temporary), occupation, photo upload.
+  - **Contact:** phone, email, alt contact, office name/address, emergency_contact {name, phone, address} (JSONB form).
+  - **Physical & Medical:** height, weight, chest, blood_group (dropdown), heart_stroke (switch), breathing_difficulty (switch), skin_disease (switch), member_preferences (multi-select).
+  - **Review & Save** → no package selection here.
+- After save, open **PackageSelectionModal** (new component):
+  - Outlet dropdown (defaults to current).
+  - List of plans/services for that outlet.
+  - Pick one → record in `member_packages`, prompt "Collect payment now?" → opens direct billing modal or skip.
+- `src/pages/EditMember.tsx` (or reuse AddMember in edit mode) — same multi-tab form, prefilled.
+- Remove the old single-page form fields not in the new spec.
+- Member changes propagate everywhere via React Query invalidation of `["members"]` and per-member keys (already wired; just ensure new fields are read from JSONB).
 
 ---
 
-## Things I need from you before I start
+## Phase 4 — Booking & Billing flows
 
-1. **Confirm switching the live backend from Firebase to Supabase** (one-way for the running app — Firestore data won't be migrated automatically; tell me if you have data to import and I'll add a CSV import step).
-2. **Confirm the Unlayer value is an API key, not a Project ID.** If you have the numeric Project ID, paste it — otherwise the editor will run in demo mode (with banner) until you add it.
-3. After approval I'll trigger the secure form for `RESEND_API_KEY` — please paste the Resend key there (don't send it again in chat).
+- `src/pages/Bookings.tsx`: member search by phone/member_code, outlet/service pick, capacity check, status transitions (Pending → Confirmed → Completed/No-show/Cancelled). On Completed, auto-create invoice (Path A).
+- `src/pages/Transactions.tsx`: add **"Direct Invoice"** action for walk-ins (Path B, `booking_id=null`).
+- Invoice modal supports multiple items (services + package usage), discounts, taxes; payments table supports partial.
+- Multi-outlet: every booking/invoice/payment tags `outlet_id`; member profile shows aggregated history & package balance across outlets.
 
-Reply "approve" (or with edits) and I'll implement steps 1-6 in order.
+---
+
+## Phase 5 — GRC compact A4 + print isolation
+
+Rewrite `src/pages/MemberGRC.tsx`:
+- Compact header (logo 36px, single-line company info), Form No inline.
+- Two-column grid; group related fields inline (e.g. "Height / Weight / Chest / Blood Group" on one row).
+- Tighter section bars (4px padding), smaller fonts (10–11px body).
+- **Print isolation:** dedicated `@media print` that hides everything except `#grc-page`:
+  ```css
+  @media print {
+    body * { visibility: hidden; }
+    #grc-page, #grc-page * { visibility: visible; }
+    #grc-page { position: absolute; left:0; top:0; width:210mm; }
+    @page { size: A4; margin: 8mm; }
+  }
+  ```
+- Empty fields render blank lines (printable for guest fill-in).
+
+---
+
+## Phase 6 — General Setup hardening
+
+Update `src/pages/GeneralSetup.tsx`:
+- Each row gets **Edit** + **Delete** actions (currently delete-only).
+- On delete, call `is_config_value_in_use(category, value)`; if true, disable button + tooltip "Used in N records — cannot delete."
+- Add categories: nationalities, religions, occupations (referenced by member form dropdowns).
+
+---
+
+## Phase 7 — Auth simplification
+
+- `src/pages/Login.tsx` + `firebase-auth.ts`: admin creates user via Supabase admin API → no confirmation email, `email_confirm=true` on signup. Disable Resend "welcome" trigger.
+- Update Supabase Auth setting note in README: turn off "Confirm email".
+
+---
+
+## Phase 8 — Cleanup
+
+- Delete dead Firebase code: `firebase.ts`, `seed-firestore.ts`, `firestore.rules`, `functions/`, `firebase.json`, unused converters.
+- Rename `firebase-services.ts` → `data-services.ts` (keep re-export shim for one release).
+- Strip unused imports/types reported by ESLint.
+- Update `DATABASE.md` to point at `db/schema.sql` only.
+
+---
+
+## Technical notes
+
+- **Member code generation** lives in Postgres (sequence + trigger) for true uniqueness across concurrent inserts; client never computes it.
+- **JSONB shapes** are validated client-side with Zod; DB stores raw JSONB for flexibility.
+- **Capacity check** is an RPC (`check_booking_capacity`) inside a transaction to avoid race conditions.
+- **Package decrement** is trigger-driven on `bookings.status = 'completed'` to keep balance consistent regardless of which UI path created the booking.
+- **Invoice totals & status** are trigger-driven; payments just insert rows.
+
+## Manual steps for the user (once)
+
+1. In Supabase SQL Editor, run `db/schema.sql` on a fresh project (or apply against existing — it's idempotent where possible).
+2. In Supabase Auth settings, disable "Confirm email".
+3. Set secret `RESEND_API_KEY` and deploy `send-email` edge function (unchanged).
+4. Insert your admin: `insert into public.user_roles(user_id, role) values ('<auth-uid>', 'admin');`
+
+After approval I'll implement phases 1 → 8 in order; each phase leaves the app in a working state.
