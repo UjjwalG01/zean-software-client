@@ -122,6 +122,17 @@ function SetupSection({ label, category, items, onSave, isPending }: { label: st
 
   useEffect(() => { setLocalItems(items); }, [items]);
 
+  // Pre-check usage so disabled state appears without click
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const next: Record<string, boolean> = {};
+      for (const it of items) next[it] = await checkInUse(category, it);
+      if (!cancelled) setInUse(next);
+    })();
+    return () => { cancelled = true; };
+  }, [items, category]);
+
   const addItem = () => {
     if (!newItem.trim()) return;
     if (localItems.includes(newItem.trim())) { toast.error("Already exists"); return; }
@@ -130,19 +141,31 @@ function SetupSection({ label, category, items, onSave, isPending }: { label: st
     setDirty(true);
   };
 
-  const removeItem = (index: number) => {
+  const removeItem = async (index: number) => {
+    const value = localItems[index];
+    if (await checkInUse(category, value)) {
+      toast.error(`"${value}" is used in existing records and cannot be deleted.`);
+      setInUse((p) => ({ ...p, [value]: true }));
+      return;
+    }
     setLocalItems(localItems.filter((_, i) => i !== index));
     setDirty(true);
   };
 
+  const startEdit = (i: number) => { setEditIndex(i); setEditValue(localItems[i]); };
+  const cancelEdit = () => { setEditIndex(null); setEditValue(""); };
+  const saveEdit = () => {
+    const trimmed = editValue.trim();
+    if (!trimmed) { toast.error("Cannot be empty"); return; }
+    if (editIndex === null) return;
+    if (localItems.some((v, i) => i !== editIndex && v === trimmed)) { toast.error("Already exists"); return; }
+    setLocalItems(localItems.map((v, i) => (i === editIndex ? trimmed : v)));
+    setEditIndex(null); setEditValue(""); setDirty(true);
+  };
+
   const handleSave = async () => {
-    try {
-      await onSave(localItems);
-      toast.success(`${label} saved!`);
-      setDirty(false);
-    } catch {
-      toast.error("Failed to save");
-    }
+    try { await onSave(localItems); toast.success(`${label} saved!`); setDirty(false); }
+    catch { toast.error("Failed to save"); }
   };
 
   return (
@@ -169,21 +192,52 @@ function SetupSection({ label, category, items, onSave, isPending }: { label: st
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-12">#</TableHead>
               <TableHead>Name</TableHead>
-              <TableHead className="w-16"></TableHead>
+              <TableHead className="w-28 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {localItems.map((item, i) => (
-              <TableRow key={i}>
-                <TableCell className="text-muted-foreground text-sm">{i + 1}</TableCell>
-                <TableCell className="text-sm font-medium">{item}</TableCell>
-                <TableCell>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => removeItem(i)}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
+            {localItems.map((item, i) => {
+              const locked = !!inUse[item];
+              return (
+                <TableRow key={i}>
+                  <TableCell className="text-muted-foreground text-sm">{i + 1}</TableCell>
+                  <TableCell className="text-sm font-medium">
+                    {editIndex === i ? (
+                      <Input value={editValue} onChange={(e) => setEditValue(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") cancelEdit(); }} className="h-7" autoFocus />
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        {item}
+                        {locked && <Badge variant="outline" className="text-[10px]">in use</Badge>}
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {editIndex === i ? (
+                      <>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-success" onClick={saveEdit}><Check className="h-3.5 w-3.5" /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={cancelEdit}><X className="h-3.5 w-3.5" /></Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEdit(i)} title="Edit">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:bg-destructive/10 disabled:opacity-40"
+                          onClick={() => removeItem(i)}
+                          disabled={locked}
+                          title={locked ? "Used in existing records — cannot delete" : "Delete"}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
