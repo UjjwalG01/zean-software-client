@@ -136,7 +136,7 @@ const MemberProfile = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm text-muted-foreground">
               <span className="flex items-center gap-2"><Mail className="h-3.5 w-3.5" />{member.email}</span>
               <span className="flex items-center gap-2"><Phone className="h-3.5 w-3.5" />{member.phone}</span>
-              <span className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5" />{member.address}</span>
+              <span className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5" />{typeof member.address === "string" ? member.address : (member.address?.permanent || member.address?.temporary || (member as any).permanentAddress || "")}</span>
               <span className="flex items-center gap-2"><Calendar className="h-3.5 w-3.5" />Joined {member.joinDate}</span>
             </div>
             <div className="flex flex-wrap gap-2">
