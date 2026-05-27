@@ -70,16 +70,16 @@ const GeneralSetup = () => {
   ]);
 
   const sections = [
-    { key: "classes", label: "Classes / Sessions", hook: classes },
-    { key: "serviceTypes", label: "Service Types", hook: serviceTypes },
-    { key: "planDurations", label: "Plan Durations", hook: planDurations },
-    { key: "timeSlots", label: "Time Slots", hook: timeSlots },
-    { key: "packages", label: "Available Packages", hook: packages },
-    { key: "bloodGroups", label: "Blood Groups", hook: bloodGroups },
-    { key: "paymentModes", label: "Payment Modes", hook: paymentModes },
-    { key: "paymentTypes", label: "Payment Types", hook: paymentTypes },
-    { key: "preferences", label: "Member Preferences", hook: preferences },
-    { key: "grcFooterRules", label: "GRC Footer Rules", hook: grcRules },
+    { key: "classes",        cat: "setup_classes",        label: "Classes / Sessions",  hook: classes },
+    { key: "serviceTypes",   cat: "setup_serviceTypes",   label: "Service Types",        hook: serviceTypes },
+    { key: "planDurations",  cat: "setup_planDurations",  label: "Plan Durations",       hook: planDurations },
+    { key: "timeSlots",      cat: "setup_timeSlots",      label: "Time Slots",           hook: timeSlots },
+    { key: "packages",       cat: "setup_packages",       label: "Available Packages",   hook: packages },
+    { key: "bloodGroups",    cat: "setup_bloodGroups",    label: "Blood Groups",         hook: bloodGroups },
+    { key: "paymentModes",   cat: "setup_paymentModes",   label: "Payment Modes",        hook: paymentModes },
+    { key: "paymentTypes",   cat: "setup_paymentTypes",   label: "Payment Types",        hook: paymentTypes },
+    { key: "preferences",    cat: "setup_preferences",    label: "Member Preferences",   hook: preferences },
+    { key: "grcFooterRules", cat: "setup_grcFooterRules", label: "GRC Footer Rules",     hook: grcRules },
   ];
 
   return (
