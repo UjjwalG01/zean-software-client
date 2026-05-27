@@ -12,14 +12,18 @@ Do these once in your Supabase project (`jjshmzlwhbspaqytgulf`).
 
 ### 1.1 Create / migrate the schema
 
-Open the **Supabase Dashboard → SQL Editor → New query**, then run, in order:
+For a **fresh project** (recommended): paste `db/schema.sql` into the SQL Editor and Run.
+It is the single source of truth — enums, tables, triggers (member-code auto-gen,
+invoice totals, package decrement), RLS, GRANTs, storage bucket, and seeds.
 
-1. `db/0001_init.sql` — base schema, RLS, default service types.
-2. `db/0002_outlet_fields.sql` — adds the extended outlet fields used by the
-   new Outlet Setup form (Outlet Code, Cost Center, Type, Effective From,
-   Country/State/City/Street/Zip, Tel1/Tel2/Mobile, Website, plus flags:
-   Show Room Guest, Real Time Sales, Enable Membership, Allow Bill Date
-   Change, Is Ticketing).
+For an **existing project** previously bootstrapped with the older migrations
+(`0001`…`0004`), `db/schema.sql` is idempotent for most statements and safe to re-run.
+
+### 1.1b Disable email confirmation (admin-managed signup)
+
+In **Supabase Dashboard → Authentication → Providers → Email**, turn **OFF**
+"Confirm email". Admin-created users can then log in immediately with the
+email/password set on creation — no verification link required.
 
 ### 1.2 Create a public storage bucket for outlet covers (optional)
 

@@ -132,17 +132,38 @@ export async function getMember(id: string): Promise<Member | null> {
   return data ? mapMemberRow(data) : null;
 }
 
-/** Generate next GRC number prefixed by outlet code, e.g. FT00078.
- *  Counts existing members for the outlet and increments. Safe enough for low concurrency. */
-export async function generateGRCNumber(outletId: string, outletCode: string): Promise<string> {
-  const prefix = (outletCode || "GRC").toUpperCase().replace(/\s+/g, "");
-  const { count } = await supabase
-    .from("members")
-    .select("id", { count: "exact", head: true })
-    .eq("outlet_id", outletId);
-  const next = (count || 0) + 1;
-  return `${prefix}${String(next).padStart(5, "0")}`;
+/**
+ * Generate a unique member code: `M` + YY + 5-digit sequence (e.g. M2600001).
+ *
+ * Preferred path: db/schema.sql installs a sequence + BEFORE INSERT trigger
+ * that assigns this automatically when `member_code` is null. For older
+ * databases (without the trigger) this client-side fallback queries the
+ * highest existing code for the current year and increments it.
+ */
+export async function generateMemberCode(): Promise<string> {
+  const yy = String(new Date().getFullYear() % 100).padStart(2, "0");
+  const prefix = `M${yy}`;
+  try {
+    // Try the new column first (db/schema.sql).
+    const { data, error } = await supabase
+      .from("members")
+      .select("member_code")
+      .like("member_code", `${prefix}%`)
+      .order("member_code", { ascending: false })
+      .limit(1);
+    if (!error && data && data.length) {
+      const last = (data[0] as any).member_code as string;
+      const n = parseInt(last.slice(prefix.length), 10);
+      if (!Number.isNaN(n)) return `${prefix}${String(n + 1).padStart(5, "0")}`;
+    }
+  } catch { /* column may not exist on legacy DBs — fall through */ }
+  // Legacy fallback: use grc_no or total count
+  const { count } = await supabase.from("members").select("id", { count: "exact", head: true });
+  return `${prefix}${String((count || 0) + 1).padStart(5, "0")}`;
 }
+
+/** Back-compat shim — older code still imports generateGRCNumber. */
+export const generateGRCNumber = async (_outletId?: string, _outletCode?: string) => generateMemberCode();
 
 /** Upload member profile photo to storage bucket `members` and return its public URL. */
 export async function uploadMemberAvatar(key: string, file: File): Promise<string> {

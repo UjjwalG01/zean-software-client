@@ -105,7 +105,7 @@ const MemberProfile = () => {
           <Button variant="outline" size="sm" onClick={() => navigate(`/members/${id}/grc`)}>
             <FileText className="h-4 w-4 mr-1" /> Generate GRC
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+          <Button variant="outline" size="sm" onClick={() => navigate(`/members/new?edit=${id}`)}>
             <Edit className="h-4 w-4 mr-1" /> Edit
           </Button>
           <Button

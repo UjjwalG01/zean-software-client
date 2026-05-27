@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Trash2, Save, Loader2 } from "lucide-react";
+import { Plus, Trash2, Save, Loader2, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,7 +7,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useCompanySettings, useSaveCompanySettings } from "@/hooks/use-firestore";
+import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+
+// Check if a setup value is referenced by other records. Calls SQL function
+// is_config_value_in_use (db/schema.sql); falls back to false on legacy DBs.
+async function checkInUse(category: string, value: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.rpc("is_config_value_in_use", { _category: category, _value: value });
+    if (error) return false;
+    return !!data;
+  } catch { return false; }
+}
 
 // Each setup category is stored as JSON in companySettings
 function useSetupList(key: string, fallback: string[]) {
@@ -59,16 +70,16 @@ const GeneralSetup = () => {
   ]);
 
   const sections = [
-    { key: "classes", label: "Classes / Sessions", hook: classes },
-    { key: "serviceTypes", label: "Service Types", hook: serviceTypes },
-    { key: "planDurations", label: "Plan Durations", hook: planDurations },
-    { key: "timeSlots", label: "Time Slots", hook: timeSlots },
-    { key: "packages", label: "Available Packages", hook: packages },
-    { key: "bloodGroups", label: "Blood Groups", hook: bloodGroups },
-    { key: "paymentModes", label: "Payment Modes", hook: paymentModes },
-    { key: "paymentTypes", label: "Payment Types", hook: paymentTypes },
-    { key: "preferences", label: "Member Preferences", hook: preferences },
-    { key: "grcFooterRules", label: "GRC Footer Rules", hook: grcRules },
+    { key: "classes",        cat: "setup_classes",        label: "Classes / Sessions",  hook: classes },
+    { key: "serviceTypes",   cat: "setup_serviceTypes",   label: "Service Types",        hook: serviceTypes },
+    { key: "planDurations",  cat: "setup_planDurations",  label: "Plan Durations",       hook: planDurations },
+    { key: "timeSlots",      cat: "setup_timeSlots",      label: "Time Slots",           hook: timeSlots },
+    { key: "packages",       cat: "setup_packages",       label: "Available Packages",   hook: packages },
+    { key: "bloodGroups",    cat: "setup_bloodGroups",    label: "Blood Groups",         hook: bloodGroups },
+    { key: "paymentModes",   cat: "setup_paymentModes",   label: "Payment Modes",        hook: paymentModes },
+    { key: "paymentTypes",   cat: "setup_paymentTypes",   label: "Payment Types",        hook: paymentTypes },
+    { key: "preferences",    cat: "setup_preferences",    label: "Member Preferences",   hook: preferences },
+    { key: "grcFooterRules", cat: "setup_grcFooterRules", label: "GRC Footer Rules",     hook: grcRules },
   ];
 
   return (
@@ -87,7 +98,13 @@ const GeneralSetup = () => {
 
         {sections.map((section) => (
           <TabsContent key={section.key} value={section.key}>
-            <SetupSection label={section.label} items={section.hook.items} onSave={section.hook.save} isPending={section.hook.isPending} />
+            <SetupSection
+              label={section.label}
+              category={section.cat}
+              items={section.hook.items}
+              onSave={section.hook.save}
+              isPending={section.hook.isPending}
+            />
           </TabsContent>
         ))}
       </Tabs>
@@ -95,12 +112,26 @@ const GeneralSetup = () => {
   );
 };
 
-function SetupSection({ label, items, onSave, isPending }: { label: string; items: string[]; onSave: (items: string[]) => Promise<void>; isPending: boolean }) {
+function SetupSection({ label, category, items, onSave, isPending }: { label: string; category: string; items: string[]; onSave: (items: string[]) => Promise<void>; isPending: boolean }) {
   const [localItems, setLocalItems] = useState(items);
   const [newItem, setNewItem] = useState("");
   const [dirty, setDirty] = useState(false);
+  const [editIndex, setEditIndex] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [inUse, setInUse] = useState<Record<string, boolean>>({});
 
   useEffect(() => { setLocalItems(items); }, [items]);
+
+  // Pre-check usage so disabled state appears without click
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const next: Record<string, boolean> = {};
+      for (const it of items) next[it] = await checkInUse(category, it);
+      if (!cancelled) setInUse(next);
+    })();
+    return () => { cancelled = true; };
+  }, [items, category]);
 
   const addItem = () => {
     if (!newItem.trim()) return;
@@ -110,19 +141,31 @@ function SetupSection({ label, items, onSave, isPending }: { label: string; item
     setDirty(true);
   };
 
-  const removeItem = (index: number) => {
+  const removeItem = async (index: number) => {
+    const value = localItems[index];
+    if (await checkInUse(category, value)) {
+      toast.error(`"${value}" is used in existing records and cannot be deleted.`);
+      setInUse((p) => ({ ...p, [value]: true }));
+      return;
+    }
     setLocalItems(localItems.filter((_, i) => i !== index));
     setDirty(true);
   };
 
+  const startEdit = (i: number) => { setEditIndex(i); setEditValue(localItems[i]); };
+  const cancelEdit = () => { setEditIndex(null); setEditValue(""); };
+  const saveEdit = () => {
+    const trimmed = editValue.trim();
+    if (!trimmed) { toast.error("Cannot be empty"); return; }
+    if (editIndex === null) return;
+    if (localItems.some((v, i) => i !== editIndex && v === trimmed)) { toast.error("Already exists"); return; }
+    setLocalItems(localItems.map((v, i) => (i === editIndex ? trimmed : v)));
+    setEditIndex(null); setEditValue(""); setDirty(true);
+  };
+
   const handleSave = async () => {
-    try {
-      await onSave(localItems);
-      toast.success(`${label} saved!`);
-      setDirty(false);
-    } catch {
-      toast.error("Failed to save");
-    }
+    try { await onSave(localItems); toast.success(`${label} saved!`); setDirty(false); }
+    catch { toast.error("Failed to save"); }
   };
 
   return (
@@ -149,21 +192,52 @@ function SetupSection({ label, items, onSave, isPending }: { label: string; item
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-12">#</TableHead>
               <TableHead>Name</TableHead>
-              <TableHead className="w-16"></TableHead>
+              <TableHead className="w-28 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {localItems.map((item, i) => (
-              <TableRow key={i}>
-                <TableCell className="text-muted-foreground text-sm">{i + 1}</TableCell>
-                <TableCell className="text-sm font-medium">{item}</TableCell>
-                <TableCell>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => removeItem(i)}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
+            {localItems.map((item, i) => {
+              const locked = !!inUse[item];
+              return (
+                <TableRow key={i}>
+                  <TableCell className="text-muted-foreground text-sm">{i + 1}</TableCell>
+                  <TableCell className="text-sm font-medium">
+                    {editIndex === i ? (
+                      <Input value={editValue} onChange={(e) => setEditValue(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") cancelEdit(); }} className="h-7" autoFocus />
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        {item}
+                        {locked && <Badge variant="outline" className="text-[10px]">in use</Badge>}
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {editIndex === i ? (
+                      <>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-success" onClick={saveEdit}><Check className="h-3.5 w-3.5" /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={cancelEdit}><X className="h-3.5 w-3.5" /></Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEdit(i)} title="Edit">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:bg-destructive/10 disabled:opacity-40"
+                          onClick={() => removeItem(i)}
+                          disabled={locked}
+                          title={locked ? "Used in existing records — cannot delete" : "Delete"}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
