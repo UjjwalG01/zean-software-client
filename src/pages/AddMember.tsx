@@ -1,21 +1,26 @@
-import { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Check, Upload, Loader2, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { useAddMember, useCompanySettings, useUpdateMember } from "@/hooks/use-firestore";
+import { useAddMember, useCompanySettings, useUpdateMember, useMember } from "@/hooks/use-firestore";
 import { useOutlet } from "@/contexts/OutletContext";
-import { uploadMemberAvatar, generateGRCNumber } from "@/lib/firebase-services";
-import type { MemberTier, ServiceType, PaymentMethod } from "@/lib/mock-data";
+import { uploadMemberAvatar, generateMemberCode } from "@/lib/firebase-services";
+import PackageSelectionModal from "@/components/PackageSelectionModal";
 
-const STEPS = ["Personal", "Contact", "Membership", "Physical & Medical", "Review"];
+const STEPS = ["Personal", "Contact", "Physical & Medical", "Review"];
+
+const NATIONALITIES = [
+  "Nepali","Indian","American","British","Australian","Canadian","Chinese","Japanese",
+  "German","French","Italian","Spanish","Russian","Brazilian","Mexican","Other",
+];
+const BLOOD_GROUPS = ["A+","A-","B+","B-","O+","O-","AB+","AB-"];
 
 function parseList(settings: Record<string, string>, key: string, fallback: string[]): string[] {
   try { return settings[key] ? JSON.parse(settings[key]) : fallback; } catch { return fallback; }
@@ -23,50 +28,90 @@ function parseList(settings: Record<string, string>, key: string, fallback: stri
 
 const AddMember = () => {
   const navigate = useNavigate();
+  const [search] = useSearchParams();
+  const editId = search.get("edit") || undefined;
+  const isEdit = !!editId;
+
   const addMember = useAddMember();
   const updateMember = useUpdateMember();
+  const { data: existing } = useMember(editId);
   const { data: settings = {} } = useCompanySettings();
   const { selected: outlet, setPickerOpen } = useOutlet();
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const planDurations = parseList(settings, "setup_planDurations", ["Monthly","Quarterly","Half-Yearly","Yearly","15-Year"]);
-  const paymentModes = parseList(settings, "setup_paymentModes", ["Cash","Card","Esewa","Bank Transfer","Mobile Wallet"]);
-  const timeSlots = parseList(settings, "setup_timeSlots", ["Morning","Day","Evening"]);
-  const packages = parseList(settings, "setup_packages", ["Gym","Cardio","Swimming","Spa","Combo"]);
-  const bloodGroups = parseList(settings, "setup_bloodGroups", ["A+","A-","B+","B-","O+","O-","AB+","AB-"]);
+  const nationalities = parseList(settings, "setup_nationalities", NATIONALITIES);
+  const bloodGroups = parseList(settings, "setup_bloodGroups", BLOOD_GROUPS);
+  const preferenceOptions = parseList(settings, "setup_preferences", [
+    "Yoga","Cardio","Weight Training","Swimming Laps","Steam Bath","Personal Training","Dance Fitness","Meditation","Boxing",
+  ]);
 
   const [step, setStep] = useState(0);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [memberCode, setMemberCode] = useState<string>("");
+  const [pkgModalOpen, setPkgModalOpen] = useState(false);
+  const [createdId, setCreatedId] = useState<string>("");
+  const [createdName, setCreatedName] = useState<string>("");
 
   const [f, setF] = useState({
-    // personal
+    // Personal
+    memberCode: "",
     firstName: "", middleName: "", lastName: "",
     dob: "", gender: "", nationality: "Nepali", religion: "",
-    maritalStatus: "", residenceStatus: "", nationalId: "", tinNo: "",
-    fatherName: "", occupation: "",
-    // contact
-    email: "", phone: "", contactAlt: "",
+    occupation: "",
     permanentAddress: "", temporaryAddress: "",
+    // Contact
+    email: "", phone: "", contactAlt: "",
     officeName: "", officeAddress: "",
-    emergencyName: "", emergencyContactNum: "", doctorName: "", doctorContact: "",
-    notifyPhone: true, notifyEmail: true, notifySMS: false,
-    // membership
-    tier: "Basic" as MemberTier, plan: planDurations[0] || "Monthly",
-    timeSlot: timeSlots[0] || "Morning",
-    packages: [] as string[],
-    paymentMethod: (paymentModes[0] || "Cash") as PaymentMethod,
-    autoRenew: false,
-    // physical
-    height: "", weight: "", chest: "", arms: "", thigh: "",
-    waistInch: "", hipInch: "", shoulder: "",
+    emergencyName: "", emergencyPhone: "", emergencyAddress: "",
+    // Physical & Medical
+    height: "", weight: "", chest: "",
     bloodGroup: "",
-    heartStroke: false, breathingDifficulty: "", skinDisease: "",
+    heartStroke: false,
+    breathingDifficulty: false,
+    skinDisease: false,
+    preferences: [] as string[],
   });
 
   const u = (k: string, v: any) => setF((p) => ({ ...p, [k]: v }));
-  const togglePackage = (p: string) => u("packages", f.packages.includes(p) ? f.packages.filter((x) => x !== p) : [...f.packages, p]);
+  const togglePref = (p: string) => u("preferences", f.preferences.includes(p) ? f.preferences.filter((x) => x !== p) : [...f.preferences, p]);
+
+  // Hydrate for edit mode
+  useEffect(() => {
+    if (!existing) return;
+    const m: any = existing;
+    setF((p) => ({
+      ...p,
+      memberCode: m.memberCode || m.grcNo || "",
+      firstName: m.firstName || (m.name ? m.name.split(" ")[0] : ""),
+      middleName: m.middleName || "",
+      lastName: m.lastName || (m.name ? m.name.split(" ").slice(1).join(" ") : ""),
+      dob: m.dob || "", gender: m.gender || "", nationality: m.nationality || "Nepali", religion: m.religion || "",
+      occupation: m.occupation || "",
+      permanentAddress: m.permanentAddress || m.address || "",
+      temporaryAddress: m.temporaryAddress || "",
+      email: m.email || "", phone: m.phone || "", contactAlt: m.contactAlt || "",
+      officeName: m.officeName || "", officeAddress: m.officeAddress || "",
+      emergencyName: m.emergencyName || "", emergencyPhone: m.emergencyContactNum || m.emergencyContact || "",
+      emergencyAddress: m.emergencyAddress || "",
+      height: m.height || "", weight: m.weight || "", chest: m.chest || "",
+      bloodGroup: m.bloodGroup || "",
+      heartStroke: !!m.heartStroke,
+      breathingDifficulty: typeof m.breathingDifficulty === "boolean" ? m.breathingDifficulty : !!String(m.breathingDifficulty || "").trim(),
+      skinDisease: typeof m.skinDisease === "boolean" ? m.skinDisease : !!String(m.skinDisease || "").trim(),
+      preferences: Array.isArray(m.preferences) ? m.preferences : [],
+    }));
+    if (m.avatar && !String(m.avatar).includes("dicebear")) setPhotoPreview(m.avatar);
+    setMemberCode(m.memberCode || m.grcNo || "");
+  }, [existing]);
+
+  // Generate the member code once on create
+  useEffect(() => {
+    if (!isEdit && !memberCode) {
+      generateMemberCode().then((c) => setMemberCode(c)).catch(() => setMemberCode(""));
+    }
+  }, [isEdit, memberCode]);
 
   const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -81,10 +126,7 @@ const AddMember = () => {
       if (!f.firstName.trim()) { toast.error("First name is required"); return false; }
       if (!f.lastName.trim()) { toast.error("Last name is required"); return false; }
     }
-    if (s === 1) {
-      if (!f.phone.trim()) { toast.error("Phone is required"); return false; }
-      if (!f.email.trim()) { toast.error("Email is required"); return false; }
-    }
+    if (s === 1 && !f.phone.trim()) { toast.error("Phone is required"); return false; }
     return true;
   };
 
@@ -97,35 +139,46 @@ const AddMember = () => {
     setSaving(true);
     try {
       const fullName = [f.firstName, f.middleName, f.lastName].filter(Boolean).join(" ");
-      const grcNo = await generateGRCNumber(outlet.id, outlet.outletCode || outlet.name.slice(0, 2).toUpperCase());
-
-      // map packages → services type (best effort)
-      const services = Array.from(new Set(f.packages.flatMap((p) =>
-        p.split(/[+\-]/).map((x) => x.trim()).filter(Boolean)
-      ))) as ServiceType[];
-
-      const id = await addMember.mutateAsync({
+      const payload: any = {
         ...f,
         name: fullName,
-        services,
+        // legacy compat
         address: f.permanentAddress || f.temporaryAddress,
-        emergencyContact: f.emergencyContactNum,
+        emergencyContact: f.emergencyPhone,
+        emergencyContactNum: f.emergencyPhone,
+        emergencyAddress: f.emergencyAddress,
         outletId: outlet.id,
-        grcNo,
-      } as any);
+        grcNo: memberCode,        // legacy field (existing schema)
+        memberCode: memberCode,   // new field (schema.sql)
+      };
 
-      if (photoFile && id !== "mock-id") {
+      let id: string;
+      if (isEdit && editId) {
+        await updateMember.mutateAsync({ id: editId, data: payload });
+        id = editId;
+      } else {
+        id = await addMember.mutateAsync(payload);
+      }
+
+      if (photoFile && id && id !== "mock-id") {
         try {
           const url = await uploadMemberAvatar(id, photoFile);
           await updateMember.mutateAsync({ id, data: { avatar: url } });
-        } catch (e: any) {
-          toast.error(`Photo upload failed: ${e.message}`);
-        }
+        } catch (e: any) { toast.error(`Photo upload failed: ${e.message}`); }
       }
-      toast.success(`Member ${fullName} registered as ${grcNo}`);
-      navigate(`/members/${id}`);
+
+      toast.success(isEdit ? `Member ${fullName} updated` : `Member ${fullName} registered (${memberCode})`);
+      setCreatedId(id);
+      setCreatedName(fullName);
+
+      if (isEdit) {
+        navigate(`/members/${id}`);
+      } else {
+        // Per workflow: package selection happens AFTER member creation
+        setPkgModalOpen(true);
+      }
     } catch (e: any) {
-      toast.error(e.message || "Failed to register");
+      toast.error(e.message || "Failed to save");
     } finally { setSaving(false); }
   };
 
@@ -135,20 +188,21 @@ const AddMember = () => {
         <Button variant="ghost" size="sm" onClick={() => navigate("/members")} className="text-muted-foreground">
           <ArrowLeft className="h-4 w-4 mr-1" /> Back
         </Button>
-        {outlet && (
-          <p className="text-xs text-muted-foreground">
-            Outlet: <span className="font-medium text-foreground">{outlet.name}</span>
-            {outlet.outletCode && <span className="ml-2 text-primary">[{outlet.outletCode}]</span>}
-          </p>
-        )}
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          {outlet && (
+            <span>Outlet: <span className="font-medium text-foreground">{outlet.name}</span>
+              {outlet.outletCode && <span className="ml-2 text-primary">[{outlet.outletCode}]</span>}
+            </span>
+          )}
+          {memberCode && <span>Member Code: <span className="font-mono font-semibold text-primary">{memberCode}</span></span>}
+        </div>
       </div>
 
       <div>
-        <h1 className="text-2xl font-bold font-display">Member Registration Form</h1>
+        <h1 className="text-2xl font-bold font-display">{isEdit ? "Edit Member" : "Member Registration Form"}</h1>
         <p className="text-muted-foreground text-sm">Step {step + 1} of {STEPS.length} — {STEPS[step]}</p>
       </div>
 
-      {/* Step indicator */}
       <div className="flex items-center gap-2 flex-wrap">
         {STEPS.map((s, i) => (
           <div key={s} className="flex items-center gap-2">
@@ -164,7 +218,6 @@ const AddMember = () => {
       <div className="glass-card rounded-xl p-6 space-y-6">
         {step === 0 && (
           <>
-            {/* Photo */}
             <div className="flex items-center gap-4">
               <Avatar className="h-24 w-24 ring-2 ring-primary/30">
                 {photoPreview ? <AvatarImage src={photoPreview} /> : <AvatarFallback><User className="h-8 w-8" /></AvatarFallback>}
@@ -179,9 +232,10 @@ const AddMember = () => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="space-y-2"><Label>Member Code</Label><Input value={memberCode} readOnly className="font-mono bg-muted/40" /></div>
               <div className="space-y-2"><Label>First Name *</Label><Input value={f.firstName} onChange={(e) => u("firstName", e.target.value)} /></div>
-              <div className="space-y-2"><Label>Middle Name</Label><Input value={f.middleName} onChange={(e) => u("middleName", e.target.value)} /></div>
               <div className="space-y-2"><Label>Last Name *</Label><Input value={f.lastName} onChange={(e) => u("lastName", e.target.value)} /></div>
+              <div className="space-y-2"><Label>Middle Name</Label><Input value={f.middleName} onChange={(e) => u("middleName", e.target.value)} /></div>
               <div className="space-y-2"><Label>Date of Birth</Label><Input type="date" value={f.dob} onChange={(e) => u("dob", e.target.value)} /></div>
               <div className="space-y-2"><Label>Gender</Label>
                 <Select value={f.gender} onValueChange={(v) => u("gender", v)}>
@@ -193,61 +247,34 @@ const AddMember = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2"><Label>Marital Status</Label>
-                <Select value={f.maritalStatus} onValueChange={(v) => u("maritalStatus", v)}>
+              <div className="space-y-2"><Label>Nationality</Label>
+                <Select value={f.nationality} onValueChange={(v) => u("nationality", v)}>
                   <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Single">Single</SelectItem>
-                    <SelectItem value="Married">Married</SelectItem>
-                    <SelectItem value="Widowed">Widowed</SelectItem>
-                  </SelectContent>
+                  <SelectContent>{nationalities.map((n) => <SelectItem key={n} value={n}>{n}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2"><Label>Nationality</Label><Input value={f.nationality} onChange={(e) => u("nationality", e.target.value)} /></div>
               <div className="space-y-2"><Label>Religion</Label><Input value={f.religion} onChange={(e) => u("religion", e.target.value)} /></div>
-              <div className="space-y-2"><Label>Residence Status</Label>
-                <Select value={f.residenceStatus} onValueChange={(v) => u("residenceStatus", v)}>
-                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Residence">Residence</SelectItem>
-                    <SelectItem value="Non-Residence">Non-Residence</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2"><Label>National ID No.</Label><Input value={f.nationalId} onChange={(e) => u("nationalId", e.target.value)} /></div>
-              <div className="space-y-2"><Label>TIN No.</Label><Input value={f.tinNo} onChange={(e) => u("tinNo", e.target.value)} /></div>
-              <div className="space-y-2"><Label>Father's Name</Label><Input value={f.fatherName} onChange={(e) => u("fatherName", e.target.value)} /></div>
               <div className="space-y-2 sm:col-span-2"><Label>Occupation</Label><Input value={f.occupation} onChange={(e) => u("occupation", e.target.value)} /></div>
+              <div className="space-y-2 sm:col-span-3"><Label>Permanent Address</Label><Textarea rows={2} value={f.permanentAddress} onChange={(e) => u("permanentAddress", e.target.value)} /></div>
+              <div className="space-y-2 sm:col-span-3"><Label>Temporary Address</Label><Textarea rows={2} value={f.temporaryAddress} onChange={(e) => u("temporaryAddress", e.target.value)} /></div>
             </div>
           </>
         )}
 
         {step === 1 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2"><Label>Email *</Label><Input type="email" value={f.email} onChange={(e) => u("email", e.target.value)} /></div>
             <div className="space-y-2"><Label>Mobile / Phone *</Label><Input value={f.phone} onChange={(e) => u("phone", e.target.value)} /></div>
+            <div className="space-y-2"><Label>Email</Label><Input type="email" value={f.email} onChange={(e) => u("email", e.target.value)} /></div>
             <div className="space-y-2"><Label>Alt. Contact</Label><Input value={f.contactAlt} onChange={(e) => u("contactAlt", e.target.value)} /></div>
             <div className="space-y-2"><Label>Office Name</Label><Input value={f.officeName} onChange={(e) => u("officeName", e.target.value)} /></div>
             <div className="space-y-2 sm:col-span-2"><Label>Office Address</Label><Input value={f.officeAddress} onChange={(e) => u("officeAddress", e.target.value)} /></div>
-            <div className="space-y-2 sm:col-span-2"><Label>Permanent Address</Label><Textarea rows={2} value={f.permanentAddress} onChange={(e) => u("permanentAddress", e.target.value)} /></div>
-            <div className="space-y-2 sm:col-span-2"><Label>Temporary Address</Label><Textarea rows={2} value={f.temporaryAddress} onChange={(e) => u("temporaryAddress", e.target.value)} /></div>
 
             <div className="sm:col-span-2 border-t border-border pt-4 mt-2">
               <h3 className="font-semibold mb-3">Emergency Contact</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Contact Name</Label><Input value={f.emergencyName} onChange={(e) => u("emergencyName", e.target.value)} /></div>
-                <div className="space-y-2"><Label>Telephone</Label><Input value={f.emergencyContactNum} onChange={(e) => u("emergencyContactNum", e.target.value)} /></div>
-                <div className="space-y-2"><Label>Doctor's Name</Label><Input value={f.doctorName} onChange={(e) => u("doctorName", e.target.value)} /></div>
-                <div className="space-y-2"><Label>Doctor's Contact / Address</Label><Input value={f.doctorContact} onChange={(e) => u("doctorContact", e.target.value)} /></div>
-              </div>
-            </div>
-
-            <div className="sm:col-span-2 border-t border-border pt-4 mt-2">
-              <h3 className="font-semibold mb-3">Notification Preferences</h3>
-              <div className="flex flex-wrap gap-6">
-                <label className="flex items-center gap-2"><Checkbox checked={f.notifyPhone} onCheckedChange={(v) => u("notifyPhone", !!v)} /> Phone</label>
-                <label className="flex items-center gap-2"><Checkbox checked={f.notifyEmail} onCheckedChange={(v) => u("notifyEmail", !!v)} /> Email</label>
-                <label className="flex items-center gap-2"><Checkbox checked={f.notifySMS} onCheckedChange={(v) => u("notifySMS", !!v)} /> SMS</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-2"><Label>Name</Label><Input value={f.emergencyName} onChange={(e) => u("emergencyName", e.target.value)} /></div>
+                <div className="space-y-2"><Label>Phone</Label><Input value={f.emergencyPhone} onChange={(e) => u("emergencyPhone", e.target.value)} /></div>
+                <div className="space-y-2"><Label>Address</Label><Input value={f.emergencyAddress} onChange={(e) => u("emergencyAddress", e.target.value)} /></div>
               </div>
             </div>
           </div>
@@ -255,109 +282,70 @@ const AddMember = () => {
 
         {step === 2 && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-2"><Label>Membership Tier</Label>
-                <Select value={f.tier} onValueChange={(v) => u("tier", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {["Basic","Silver","Gold","Platinum"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2"><Label>Plan Duration</Label>
-                <Select value={f.plan} onValueChange={(v) => u("plan", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{planDurations.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2"><Label>Time Slot</Label>
-                <Select value={f.timeSlot} onValueChange={(v) => u("timeSlot", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{timeSlots.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div>
-              <Label className="mb-3 block">Available Packages</Label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                {packages.map((p) => (
-                  <label key={p} className="flex items-center gap-2 rounded-lg border border-border p-2.5 cursor-pointer hover:bg-muted/30 text-sm">
-                    <Checkbox checked={f.packages.includes(p)} onCheckedChange={() => togglePackage(p)} />
-                    <span>{p}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>Payment Method</Label>
-                <Select value={f.paymentMethod} onValueChange={(v) => u("paymentMethod", v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{paymentModes.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-3 pt-7">
-                <Switch checked={f.autoRenew} onCheckedChange={(v) => u("autoRenew", v)} />
-                <Label>Auto-Renew Membership</Label>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className="space-y-6">
             <div>
               <h3 className="font-semibold mb-3">Physical Details</h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div className="space-y-2"><Label>Weight (kg)</Label><Input value={f.weight} onChange={(e) => u("weight", e.target.value)} /></div>
                 <div className="space-y-2"><Label>Height (ft.)</Label><Input value={f.height} onChange={(e) => u("height", e.target.value)} /></div>
+                <div className="space-y-2"><Label>Weight (kg)</Label><Input value={f.weight} onChange={(e) => u("weight", e.target.value)} /></div>
                 <div className="space-y-2"><Label>Chest (inch)</Label><Input value={f.chest} onChange={(e) => u("chest", e.target.value)} /></div>
-                <div className="space-y-2"><Label>Shoulder (inch)</Label><Input value={f.shoulder} onChange={(e) => u("shoulder", e.target.value)} /></div>
-                <div className="space-y-2"><Label>Arms (inch)</Label><Input value={f.arms} onChange={(e) => u("arms", e.target.value)} /></div>
-                <div className="space-y-2"><Label>Thigh (inch)</Label><Input value={f.thigh} onChange={(e) => u("thigh", e.target.value)} /></div>
-                <div className="space-y-2"><Label>Waist (inch)</Label><Input value={f.waistInch} onChange={(e) => u("waistInch", e.target.value)} /></div>
-                <div className="space-y-2"><Label>Hip (inch)</Label><Input value={f.hipInch} onChange={(e) => u("hipInch", e.target.value)} /></div>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-semibold mb-3">Medical Details</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>Blood Group</Label>
                   <Select value={f.bloodGroup} onValueChange={(v) => u("bloodGroup", v)}>
                     <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>{bloodGroups.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                <div className="flex items-center gap-3 pt-7">
+              </div>
+            </div>
+
+            <div>
+              <h3 className="font-semibold mb-3">Medical Details</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <label className="flex items-center justify-between rounded-lg border border-border p-3">
+                  <span className="text-sm">Any Heart Stroke?</span>
                   <Switch checked={f.heartStroke} onCheckedChange={(v) => u("heartStroke", v)} />
-                  <Label>Any Heart Stroke?</Label>
-                </div>
-                <div className="space-y-2 sm:col-span-2"><Label>Any Breathing Difficulties?</Label><Input value={f.breathingDifficulty} onChange={(e) => u("breathingDifficulty", e.target.value)} /></div>
-                <div className="space-y-2 sm:col-span-2"><Label>Any Skin Disease? (If yes, not allowed to use Jacuzzi)</Label><Input value={f.skinDisease} onChange={(e) => u("skinDisease", e.target.value)} /></div>
+                </label>
+                <label className="flex items-center justify-between rounded-lg border border-border p-3">
+                  <span className="text-sm">Breathing Difficulty?</span>
+                  <Switch checked={f.breathingDifficulty} onCheckedChange={(v) => u("breathingDifficulty", v)} />
+                </label>
+                <label className="flex items-center justify-between rounded-lg border border-border p-3">
+                  <span className="text-sm">Any Skin Disease?</span>
+                  <Switch checked={f.skinDisease} onCheckedChange={(v) => u("skinDisease", v)} />
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="font-semibold mb-3">Member Preferences</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                {preferenceOptions.map((p) => (
+                  <label key={p} className="flex items-center gap-2 rounded-lg border border-border p-2.5 cursor-pointer hover:bg-muted/30 text-sm">
+                    <input type="checkbox" checked={f.preferences.includes(p)} onChange={() => togglePref(p)} />
+                    <span>{p}</span>
+                  </label>
+                ))}
               </div>
             </div>
           </div>
         )}
 
-        {step === 4 && (
+        {step === 3 && (
           <div className="space-y-3 text-sm">
             <h3 className="font-semibold mb-3">Review</h3>
             <div className="grid grid-cols-2 gap-3 glass-card p-4 rounded-lg bg-muted/30">
+              <Row label="Member Code" value={memberCode} />
               <Row label="Name" value={[f.firstName, f.middleName, f.lastName].filter(Boolean).join(" ")} />
-              <Row label="DOB" value={f.dob} />
-              <Row label="Gender" value={f.gender} />
-              <Row label="Phone" value={f.phone} />
-              <Row label="Email" value={f.email} />
-              <Row label="Tier / Plan" value={`${f.tier} · ${f.plan}`} />
-              <Row label="Time Slot" value={f.timeSlot} />
-              <Row label="Packages" value={f.packages.join(", ") || "—"} />
-              <Row label="Payment" value={f.paymentMethod} />
+              <Row label="DOB / Gender" value={`${f.dob || "—"} · ${f.gender || "—"}`} />
+              <Row label="Phone / Email" value={`${f.phone} · ${f.email || "—"}`} />
+              <Row label="Nationality / Religion" value={`${f.nationality} · ${f.religion || "—"}`} />
+              <Row label="Permanent Address" value={f.permanentAddress} />
+              <Row label="Emergency" value={[f.emergencyName, f.emergencyPhone].filter(Boolean).join(" · ")} />
+              <Row label="Blood / Height / Weight" value={`${f.bloodGroup || "—"} · ${f.height || "—"} · ${f.weight || "—"}`} />
               <Row label="Outlet" value={outlet?.name || "—"} />
-              <Row label="GRC No." value={`${outlet?.outletCode || "—"}xxxxx (auto)`} />
             </div>
-            <p className="text-xs text-muted-foreground">A GRC number will be generated when you submit, prefixed with the outlet code.</p>
+            <p className="text-xs text-muted-foreground">
+              No package is assigned during registration. After saving you'll be prompted to choose packages & plan for the selected outlet.
+            </p>
           </div>
         )}
 
@@ -367,11 +355,19 @@ const AddMember = () => {
             <Button onClick={next}>Next</Button>
           ) : (
             <Button onClick={handleSubmit} disabled={saving} className="gradient-gold text-primary-foreground">
-              {saving ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Saving...</> : "Register Member"}
+              {saving ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Saving...</> : (isEdit ? "Update Member" : "Register Member")}
             </Button>
           )}
         </div>
       </div>
+
+      <PackageSelectionModal
+        open={pkgModalOpen}
+        onOpenChange={setPkgModalOpen}
+        memberId={createdId}
+        memberName={createdName}
+        onDone={() => navigate(`/members/${createdId}`)}
+      />
     </div>
   );
 };
