@@ -26,13 +26,14 @@ const Login = () => {
       toast.success("Welcome back!");
       navigate("/");
     } catch (err: any) {
-      const msg = err?.code === "auth/invalid-credential"
+      const raw = (err?.message || "").toLowerCase();
+      const msg = raw.includes("invalid login") || raw.includes("invalid credentials")
         ? "Invalid email or password"
-        : err?.code === "auth/user-not-found"
-        ? "No account found with this email"
-        : err?.code === "auth/too-many-requests"
+        : raw.includes("email not confirmed")
+        ? "Email not confirmed. Contact your administrator."
+        : raw.includes("rate") || raw.includes("too many")
         ? "Too many attempts. Try again later."
-        : "Login failed. Please try again.";
+        : err?.message || "Login failed. Please try again.";
       toast.error(msg);
     } finally {
       setLoading(false);
