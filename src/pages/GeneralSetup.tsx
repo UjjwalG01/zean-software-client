@@ -98,7 +98,13 @@ const GeneralSetup = () => {
 
         {sections.map((section) => (
           <TabsContent key={section.key} value={section.key}>
-            <SetupSection label={section.label} items={section.hook.items} onSave={section.hook.save} isPending={section.hook.isPending} />
+            <SetupSection
+              label={section.label}
+              category={section.cat}
+              items={section.hook.items}
+              onSave={section.hook.save}
+              isPending={section.hook.isPending}
+            />
           </TabsContent>
         ))}
       </Tabs>
@@ -106,10 +112,13 @@ const GeneralSetup = () => {
   );
 };
 
-function SetupSection({ label, items, onSave, isPending }: { label: string; items: string[]; onSave: (items: string[]) => Promise<void>; isPending: boolean }) {
+function SetupSection({ label, category, items, onSave, isPending }: { label: string; category: string; items: string[]; onSave: (items: string[]) => Promise<void>; isPending: boolean }) {
   const [localItems, setLocalItems] = useState(items);
   const [newItem, setNewItem] = useState("");
   const [dirty, setDirty] = useState(false);
+  const [editIndex, setEditIndex] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [inUse, setInUse] = useState<Record<string, boolean>>({});
 
   useEffect(() => { setLocalItems(items); }, [items]);
 
