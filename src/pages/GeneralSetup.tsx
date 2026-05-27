@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Trash2, Save, Loader2 } from "lucide-react";
+import { Plus, Trash2, Save, Loader2, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,7 +7,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useCompanySettings, useSaveCompanySettings } from "@/hooks/use-firestore";
+import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+
+// Check if a setup value is referenced by other records. Calls SQL function
+// is_config_value_in_use (db/schema.sql); falls back to false on legacy DBs.
+async function checkInUse(category: string, value: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.rpc("is_config_value_in_use", { _category: category, _value: value });
+    if (error) return false;
+    return !!data;
+  } catch { return false; }
+}
 
 // Each setup category is stored as JSON in companySettings
 function useSetupList(key: string, fallback: string[]) {
