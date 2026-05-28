@@ -70,6 +70,9 @@ const MembersList = () => {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleExport}><Download className="h-4 w-4 mr-1" />Export</Button>
+          <Button variant="outline" size="sm" onClick={() => window.open("/members/blank/grc", "_blank")}>
+            <FileText className="h-4 w-4 mr-1" />Generate Blank GRC
+          </Button>
           <Button size="sm" onClick={() => navigate("/members/new")}><Plus className="h-4 w-4 mr-1" />Add Member</Button>
         </div>
       </div>
