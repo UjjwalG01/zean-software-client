@@ -200,6 +200,9 @@ const UsersPage = () => {
                       <SelectItem value="manager">Manager</SelectItem>
                       <SelectItem value="staff">Staff (standard access)</SelectItem>
                       <SelectItem value="viewer">Viewer (read-only)</SelectItem>
+                      {customRoles.filter(r => r.active).map(r => (
+                        <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
