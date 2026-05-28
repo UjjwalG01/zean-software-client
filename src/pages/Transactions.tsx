@@ -167,7 +167,7 @@ const Transactions = () => {
         },
       });
       toast.success("Payment settled! Generating invoice...");
-      printBill(settleTxn.memberName, settleTxn.receiptNo, settleTxn.description, settleTxn.amount, new Date());
+      printBill(settleTxn.memberName, settleTxn.receiptNo, settleTxn.description, settleTxn.total, new Date());
       setSettleTxn(null);
     } catch {
       toast.error("Failed to settle payment");
