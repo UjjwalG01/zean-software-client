@@ -374,8 +374,9 @@ const UsersPage = () => {
                   </TableHeader>
                   <TableBody>
                     {users.map((u) => {
-                      const custom = customRoles.find(r => r.id === u.role);
-                      const colorClass = custom ? "bg-accent/20 text-accent-foreground" : roleColors[u.role as UserRole];
+                      const assignedId = u.customRoleId || u.role;
+                      const custom = customRoles.find(r => r.id === assignedId);
+                      const colorClass = custom ? "bg-accent/20 text-accent-foreground" : "bg-muted text-muted-foreground";
                       return (
                       <TableRow key={u.id}>
                         <TableCell>
@@ -387,16 +388,14 @@ const UsersPage = () => {
                         <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{u.email}</TableCell>
                         <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">{u.phone || "—"}</TableCell>
                         <TableCell>
-                          <Select value={u.role} onValueChange={(v) => handleRoleChange(u.id, v as UserRole)}>
-                            <SelectTrigger className={`h-8 w-[140px] text-[11px] border-0 ${colorClass}`}>
-                              <SelectValue />
+                          <Select value={assignedId} onValueChange={(v) => handleRoleChange(u.id, v as UserRole)}>
+                            <SelectTrigger className={`h-8 w-[160px] text-[11px] border-0 ${colorClass}`}>
+                              <SelectValue placeholder="Unassigned" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="admin">Admin</SelectItem>
-                              <SelectItem value="manager">Manager</SelectItem>
-                              <SelectItem value="staff">Staff</SelectItem>
-                              <SelectItem value="viewer">Viewer</SelectItem>
-                              {customRoles.filter(r => r.active).map(r => (
+                              {customRoles.filter(r => r.active).length === 0 ? (
+                                <div className="px-3 py-2 text-xs text-muted-foreground">Create a role first</div>
+                              ) : customRoles.filter(r => r.active).map(r => (
                                 <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
                               ))}
                             </SelectContent>
