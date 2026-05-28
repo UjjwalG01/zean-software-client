@@ -379,11 +379,11 @@ const Bookings_Page = () => {
               <div className="rounded-lg border border-border bg-muted/30 p-3 grid grid-cols-3 gap-2 text-sm">
                 <div><span className="text-muted-foreground text-xs block">Duration</span><span className="font-medium">{selectedService.duration || 0} min</span></div>
                 <div><span className="text-muted-foreground text-xs block">Rate</span><span className="font-medium">NPR {selectedService.price || 0}</span></div>
-                <div><span className="text-muted-foreground text-xs block">Default Instructor</span><span className="font-medium">{selectedService.instructor || "—"}</span></div>
+                <div><span className="text-muted-foreground text-xs block">Instructor</span><span className="font-medium">{selectedService.requiresInstructor ? (selectedService.instructor || "—") : "Not required"}</span></div>
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className={cn("grid gap-3", selectedService?.requiresInstructor ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2")}>
               <div className="space-y-2">
                 <Label>Date *</Label>
                 <Input type="date" value={bookDate} onChange={(e) => setBookDate(e.target.value)} />
@@ -397,15 +397,17 @@ const Bookings_Page = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Instructor</Label>
-                <Select value={bookInstructor} onValueChange={setBookInstructor}>
-                  <SelectTrigger><SelectValue placeholder="Default" /></SelectTrigger>
-                  <SelectContent>
-                    {setupInstructors.map((i) => <SelectItem key={i} value={i}>{i}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+              {selectedService?.requiresInstructor && (
+                <div className="space-y-2">
+                  <Label>Instructor *</Label>
+                  <Select value={bookInstructor} onValueChange={setBookInstructor}>
+                    <SelectTrigger><SelectValue placeholder="Select instructor" /></SelectTrigger>
+                    <SelectContent>
+                      {setupInstructors.map((i) => <SelectItem key={i} value={i}>{i}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
 
             <Button onClick={handleBook} disabled={addBookingMutation.isPending} className="w-full gradient-gold text-primary-foreground">
