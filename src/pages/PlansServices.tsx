@@ -126,29 +126,32 @@ const PlansServices = () => {
     try { await updatePlanMutation.mutateAsync({ id, data: { autoRenew: !current } }); toast.success("Auto-renew updated"); } catch { toast.error("Failed"); }
   };
 
+  const emptyService = { name: "", outletId: "", type: "", duration: "", price: "", capacity: "", instructor: "" };
+
   const handleCreateService = async () => {
+    if (!newService.name.trim()) { toast.error("Service name required"); return; }
+    if (!newService.outletId) { toast.error("Select the outlet this service belongs to"); return; }
+    if (!newService.type) { toast.error("Select service type"); return; }
     try {
+      const payload = {
+        name: newService.name,
+        type: newService.type,
+        outletId: newService.outletId,
+        duration: Number(newService.duration) || 60,
+        price: Number(newService.price) || 0,
+        capacity: Number(newService.capacity) || 1,
+        instructor: newService.instructor,
+      };
       if (editServiceId) {
-        await updateServiceMutation.mutateAsync({
-          id: editServiceId,
-          data: {
-            name: newService.name, type: newService.type,
-            duration: Number(newService.duration) || 60, price: Number(newService.price) || 0,
-            capacity: Number(newService.capacity) || 1, instructor: newService.instructor,
-          },
-        });
+        await updateServiceMutation.mutateAsync({ id: editServiceId, data: payload });
         toast.success("Service updated!");
       } else {
-        await addServiceMutation.mutateAsync({
-          name: newService.name, type: newService.type,
-          duration: Number(newService.duration) || 60, price: Number(newService.price) || 0,
-          capacity: Number(newService.capacity) || 1, instructor: newService.instructor, isActive: true,
-        });
+        await addServiceMutation.mutateAsync({ ...payload, isActive: true });
         toast.success("Service created!");
       }
       setServiceDialogOpen(false);
       setEditServiceId(null);
-      setNewService({ name: "", type: "Gym", duration: "", price: "", capacity: "", instructor: "" });
+      setNewService(emptyService);
     } catch {
       toast.error("Failed to save service");
     }
@@ -157,7 +160,7 @@ const PlansServices = () => {
   const openEditService = (svc: any) => {
     setEditServiceId(svc.id);
     setNewService({
-      name: svc.name, type: svc.type,
+      name: svc.name, outletId: svc.outletId || "", type: svc.type || "",
       duration: String(svc.duration), price: String(svc.price),
       capacity: String(svc.capacity || ""), instructor: svc.instructor || "",
     });
