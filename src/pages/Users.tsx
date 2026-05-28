@@ -137,13 +137,13 @@ const UsersPage = () => {
 
   const openEdit = (u: AppUser) => {
     setEditTarget(u);
-    setEditForm({ fullName: u.fullName, username: u.username, phone: u.phone, address: u.address, role: u.role });
+    setEditForm({ fullName: u.fullName, username: u.username, phone: u.phone, address: u.address, customRoleId: u.customRoleId || "" });
   };
 
   const handleSaveEdit = async () => {
     if (!editTarget) return;
     try {
-      await updateMutation.mutateAsync({ id: editTarget.id, data: editForm });
+      await updateMutation.mutateAsync({ id: editTarget.id, data: { ...editForm, role: "staff" as UserRole } });
       toast.success("User updated");
       setEditTarget(null);
     } catch { toast.error("Update failed"); }
