@@ -343,30 +343,29 @@ const Transactions = () => {
                   <TableCell className="text-right text-sm text-muted-foreground hidden md:table-cell">{formatNPR(t.vat)}</TableCell>
                   <TableCell className="text-right font-medium text-sm">{formatNPR(t.total)}</TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {
-                      e.stopPropagation();
-                      const companyName = settings.companyName || "VitaFit Club";
-                      const html = generateA5BillHTML({
-                        companyName,
-                        companyAddress: settings.companyAddress || "",
-                        companyPhone: settings.companyPhone || "",
-                        companyEmail: settings.companyEmail || "",
-                        vatNo: settings.vatNo || settings.panNumber || "",
-                        guestName: t.memberName,
-                        billNo: t.receiptNo,
-                        billDate: t.date,
-                        billForMonth: format(new Date(t.date), "MMMM yyyy"),
-                        items: [{ description: t.description, quantity: 1, rate: t.amount, amount: t.amount }],
-                        subtotal: t.amount,
-                        taxableAmount: t.amount,
-                        vatAmount: t.vat,
-                        grandTotal: t.total,
-                        attendant: "admin",
-                      });
-                      printHTML(html);
-                    }}>
-                      <Printer className="h-3.5 w-3.5" />
-                    </Button>
+                    {t.status === "pending" ? (
+                      <Badge className="text-[10px] border-0 bg-amber-500/20 text-amber-400">Pending</Badge>
+                    ) : (
+                      <Badge className="text-[10px] border-0 bg-success/20 text-success">Paid</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      {t.status === "pending" ? (
+                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={(e) => {
+                          e.stopPropagation();
+                          setPayMethod("Cash");
+                          setSettleTxn(t);
+                        }}>Settle</Button>
+                      ) : (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {
+                          e.stopPropagation();
+                          printBill(t.memberName, t.receiptNo, t.description, t.amount, new Date(t.date));
+                        }}>
+                          <Printer className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
