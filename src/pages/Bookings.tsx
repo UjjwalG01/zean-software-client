@@ -278,51 +278,93 @@ const Bookings_Page = () => {
 
       {/* New Booking Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle className="font-display">New Booking</DialogTitle></DialogHeader>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display">New Booking</DialogTitle>
+          </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Member</Label>
-              <Select value={bookMember} onValueChange={setBookMember}>
-                <SelectTrigger><SelectValue placeholder="Select member" /></SelectTrigger>
-                <SelectContent>
-                  {members.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Member *</Label>
+                <Select value={bookMember} onValueChange={setBookMember}>
+                  <SelectTrigger><SelectValue placeholder="Select member" /></SelectTrigger>
+                  <SelectContent>
+                    {members.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Service Type *</Label>
+                <Select value={bookService} onValueChange={(v) => { setBookService(v as ServiceType); setBookClass(""); setBookEndTime(""); setBookInstructor(""); }}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {setupServiceTypes.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>{bookService} Option / Class *</Label>
+                <Select value={bookClass} onValueChange={(v) => { setBookClass(v); setBookEndTime(""); setBookInstructor(""); }}>
+                  <SelectTrigger><SelectValue placeholder="Select option" /></SelectTrigger>
+                  <SelectContent>
+                    {classOptions.map((c) => {
+                      const svc = services.find((s) => s.type === bookService && s.name === c);
+                      return (
+                        <SelectItem key={c} value={c}>
+                          {c}{svc ? ` — ${svc.duration || 0}min${svc.price ? ` • NPR ${svc.price}` : ""}` : ""}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Service</Label>
-              <Select value={bookService} onValueChange={(v) => { setBookService(v as ServiceType); setBookClass(""); }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {setupServiceTypes.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
+
+            {selectedClassInfo && (
+              <div className="rounded-lg border border-border bg-muted/30 p-3 grid grid-cols-3 gap-2 text-sm">
+                <div><span className="text-muted-foreground text-xs block">Duration</span><span className="font-medium">{selectedClassInfo.duration || 0} min</span></div>
+                <div><span className="text-muted-foreground text-xs block">Price</span><span className="font-medium">NPR {selectedClassInfo.price || 0}</span></div>
+                <div><span className="text-muted-foreground text-xs block">Default Instructor</span><span className="font-medium">{selectedClassInfo.instructor || "—"}</span></div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Instructor</Label>
+                <Select value={bookInstructor} onValueChange={setBookInstructor}>
+                  <SelectTrigger><SelectValue placeholder="Select instructor" /></SelectTrigger>
+                  <SelectContent>
+                    {setupInstructors.map((i) => <SelectItem key={i} value={i}>{i}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Time Slot</Label>
+                <Select value={bookTimeSlot} onValueChange={setBookTimeSlot}>
+                  <SelectTrigger><SelectValue placeholder="Select slot" /></SelectTrigger>
+                  <SelectContent>
+                    {setupTimeSlots.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Class / Session</Label>
-              <Select value={bookClass} onValueChange={setBookClass}>
-                <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
-                <SelectContent>
-                  {classOptions.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+
             <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-2"><Label>Date</Label><Input type="date" value={bookDate} onChange={(e) => setBookDate(e.target.value)} /></div>
-              <div className="space-y-2"><Label>Start</Label><Input type="time" value={bookTime} onChange={(e) => setBookTime(e.target.value)} /></div>
+              <div className="space-y-2"><Label>Date *</Label><Input type="date" value={bookDate} onChange={(e) => setBookDate(e.target.value)} /></div>
+              <div className="space-y-2"><Label>Start *</Label><Input type="time" value={bookTime} onChange={(e) => setBookTime(e.target.value)} /></div>
               <div className="space-y-2"><Label>End</Label><Input type="time" value={bookEndTime} onChange={(e) => setBookEndTime(e.target.value)} /></div>
             </div>
+
             <Button onClick={handleBook} disabled={addBookingMutation.isPending} className="w-full gradient-gold text-primary-foreground">
               {addBookingMutation.isPending ? "Creating..." : "Create Booking"}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+
 
       <BookingDetailModal booking={selectedBooking} open={detailOpen} onOpenChange={setDetailOpen} />
 
