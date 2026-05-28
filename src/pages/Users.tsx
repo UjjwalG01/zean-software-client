@@ -194,13 +194,13 @@ const UsersPage = () => {
                 <div className="space-y-2">
                   <Label>Role *</Label>
                   <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as UserRole })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue placeholder={customRoles.filter(r => r.active).length === 0 ? "No roles — create one first" : "Select role"} />
+                    </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">Admin (full access)</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="staff">Staff (standard access)</SelectItem>
-                      <SelectItem value="viewer">Viewer (read-only)</SelectItem>
-                      {customRoles.filter(r => r.active).map(r => (
+                      {customRoles.filter(r => r.active).length === 0 ? (
+                        <div className="px-3 py-2 text-xs text-muted-foreground">Create roles in the Roles &amp; Permissions tab.</div>
+                      ) : customRoles.filter(r => r.active).map(r => (
                         <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
                       ))}
                     </SelectContent>
