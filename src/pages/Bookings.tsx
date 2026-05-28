@@ -83,6 +83,8 @@ const Bookings_Page = () => {
   const [bookClass, setBookClass] = useState("");
   const [bookTime, setBookTime] = useState("");
   const [bookEndTime, setBookEndTime] = useState("");
+  const [bookInstructor, setBookInstructor] = useState("");
+  const [bookTimeSlot, setBookTimeSlot] = useState("");
 
   const { data: bookings = [], isLoading } = useBookings();
   const { data: members = [] } = useMembers();
@@ -92,6 +94,8 @@ const Bookings_Page = () => {
 
   const setupServiceTypes = parseSetup(settings, "setup_serviceTypes", ["Gym", "Spa", "Sauna", "Swimming"]);
   const setupClasses = parseSetup(settings, "setup_classes", []);
+  const setupInstructors = parseSetup(settings, "setup_instructors", ["Trainer Ravi","Trainer Prakash","Therapist Maya","Coach Anil"]);
+  const setupTimeSlots = parseSetup(settings, "setup_timeSlots", ["Morning","Day","Evening"]);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
