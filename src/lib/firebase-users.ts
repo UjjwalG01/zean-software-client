@@ -88,16 +88,16 @@ export async function createAppUserRecord(data: Omit<AppUser, "id" | "createdAt"
     display_name: data.fullName,
     phone: data.phone || null,
     active: data.isActive !== false,
-    extras: { username: data.username, address: data.address || "", mustChangePassword: data.mustChangePassword !== false },
+    extras: { username: data.username, address: data.address || "", mustChangePassword: data.mustChangePassword !== false, customRoleId: data.customRoleId || "" },
   }, { onConflict: "id" });
   if (error) throw error;
   await syncRole(id, data.role);
   return id;
 }
 
-export async function updateAppUser(id: string, data: Partial<AppUser>): Promise<void> {
+export async function updateAppUser(id: string, data: Partial<AppUser> & { customRoleId?: string }): Promise<void> {
   const current = (await getAppUsers()).find((u) => u.id === id);
-  const extras = { username: current?.username || "", address: current?.address || "", mustChangePassword: current?.mustChangePassword ?? true } as any;
+  const extras = { username: current?.username || "", address: current?.address || "", mustChangePassword: current?.mustChangePassword ?? true, customRoleId: current?.customRoleId || "" } as any;
   const payload: Record<string, any> = { updated_at: new Date().toISOString() };
   if (data.email !== undefined) payload.email = data.email;
   if (data.fullName !== undefined) payload.display_name = data.fullName;
@@ -106,6 +106,7 @@ export async function updateAppUser(id: string, data: Partial<AppUser>): Promise
   if (data.username !== undefined) extras.username = data.username;
   if (data.address !== undefined) extras.address = data.address;
   if (data.mustChangePassword !== undefined) extras.mustChangePassword = data.mustChangePassword;
+  if (data.customRoleId !== undefined) extras.customRoleId = data.customRoleId;
   payload.extras = extras;
   const { error } = await supabase.from("app_users").update(payload).eq("id", id);
   if (error) throw error;
