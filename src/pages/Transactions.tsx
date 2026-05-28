@@ -235,11 +235,11 @@ const Transactions = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Amount (NPR){payLocked && <span className="text-xs text-muted-foreground ml-1">(locked)</span>}</Label>
+                    <Label>Amount (NPR, VAT incl.){payLocked && <span className="text-xs text-muted-foreground ml-1">(locked)</span>}</Label>
                     <Input type="number" placeholder="0" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} disabled={payLocked} />
                   </div>
                   <div className="space-y-2">
-                    <Label>VAT (13%)</Label>
+                    <Label>VAT included (13%)</Label>
                     <Input type="number" value={vatPreview} disabled />
                   </div>
                 </div>
@@ -255,9 +255,9 @@ const Transactions = () => {
                 <div className="space-y-2"><Label>Description</Label><Input placeholder="e.g. Gold Monthly Payment" value={payDesc} onChange={(e) => setPayDesc(e.target.value)} /></div>
                 {payAmount && (
                   <div className="rounded-lg bg-muted/30 p-3 text-sm space-y-1">
-                    <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatNPR(Number(payAmount))}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">VAT</span><span>{formatNPR(vatPreview)}</span></div>
-                    <div className="flex justify-between font-bold"><span>Total</span><span className="text-primary">{formatNPR(Number(payAmount) + vatPreview)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Net (excl. VAT)</span><span>{formatNPR(netPreview)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">VAT (13% incl.)</span><span>{formatNPR(vatPreview)}</span></div>
+                    <div className="flex justify-between font-bold"><span>Total Payable</span><span className="text-primary">{formatNPR(grossPreview)}</span></div>
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-2">
