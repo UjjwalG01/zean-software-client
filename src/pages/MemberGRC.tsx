@@ -58,19 +58,20 @@ const MemberGRC = () => {
 
   // Template style tokens
   const accent = tpl === "modern" ? "#b9985a" : "#0c3a52";
-  const sectionStyle = (() => {
-    if (tpl === "modern") return { bg: "transparent", color: accent, border: `2px solid ${accent}`, padding: "2px 0", borderWidth: "0 0 2px 0" } as React.CSSProperties;
-    if (tpl === "classic") return { bg: "#f3eee2", color: accent, border: `1px solid ${accent}`, padding: "3px 10px" } as React.CSSProperties;
-    return { bg: accent, color: "white", padding: "3px 16px" } as React.CSSProperties;
+  type SHStyle = { bg: string; color: string; padding: string; border?: string; borderWidth?: string };
+  const sectionStyle: SHStyle = (() => {
+    if (tpl === "modern") return { bg: "transparent", color: accent, border: `2px solid ${accent}`, padding: "2px 0", borderWidth: "0 0 2px 0" };
+    if (tpl === "classic") return { bg: "#f3eee2", color: accent, border: `1px solid ${accent}`, padding: "3px 10px" };
+    return { bg: accent, color: "white", padding: "3px 16px" };
   })();
 
   const SH = ({ children }: { children: React.ReactNode }) => (
     <div style={{
-      backgroundColor: sectionStyle.bg as any || (tpl === "modern" ? "transparent" : accent),
-      color: sectionStyle.color as any || "white",
-      padding: sectionStyle.padding as any,
-      border: sectionStyle.border as any,
-      borderWidth: (sectionStyle as any).borderWidth || undefined,
+      backgroundColor: sectionStyle.bg,
+      color: sectionStyle.color,
+      padding: sectionStyle.padding,
+      border: sectionStyle.border,
+      borderWidth: sectionStyle.borderWidth as any,
       fontSize: Math.max(baseFs, 10),
       fontWeight: 700,
       letterSpacing: 1.5,
