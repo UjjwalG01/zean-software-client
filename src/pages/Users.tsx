@@ -8,11 +8,13 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppUsers, useCreateAppUser, useUpdateAppUser, useDeleteAppUser } from "@/hooks/use-app-users";
 import { sendResetPasswordEmail } from "@/lib/firebase-auth";
 import { toast } from "sonner";
 import type { UserRole, AppUser } from "@/lib/firebase-users";
+import { RolesManager, useRoleDefinitions } from "@/components/RolesManager";
 
 const roleColors: Record<UserRole, string> = {
   admin: "bg-primary/20 text-primary",
