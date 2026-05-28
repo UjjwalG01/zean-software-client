@@ -91,9 +91,11 @@ const Transactions = () => {
   const totalAmount = filtered.reduce((sum, t) => sum + t.total, 0);
   const totalVat = filtered.reduce((sum, t) => sum + t.vat, 0);
 
-  const printBill = (memberName: string, receiptNo: string, desc: string, amount: number, date: Date) => {
+  const printBill = (memberName: string, receiptNo: string, desc: string, gross: number, date: Date) => {
     const companyName = settings.companyName || "VitaFit Club";
-    const vat = Math.round(amount * 0.13);
+    // VAT-inclusive: the displayed/charged price already contains 13% VAT
+    const net = Math.round((gross / 1.13) * 100) / 100;
+    const vat = Math.round((gross - net) * 100) / 100;
     const html = generateA5BillHTML({
       companyName,
       companyAddress: settings.companyAddress || "",
@@ -104,11 +106,11 @@ const Transactions = () => {
       billNo: receiptNo,
       billDate: format(date, "dd/MM/yyyy"),
       billForMonth: format(date, "MMMM yyyy"),
-      items: [{ description: desc || "Membership Payment", quantity: 1, rate: amount, amount }],
-      subtotal: amount,
-      taxableAmount: amount,
+      items: [{ description: desc || "Membership Payment", quantity: 1, rate: gross, amount: gross }],
+      subtotal: net,
+      taxableAmount: net,
       vatAmount: vat,
-      grandTotal: amount + vat,
+      grandTotal: gross,
       attendant: "admin",
     });
     printHTML(html);
