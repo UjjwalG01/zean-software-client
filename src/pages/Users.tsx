@@ -60,6 +60,7 @@ const UsersPage = () => {
   const handleCreate = async () => {
     const err = validate();
     if (err) { toast.error(err); return; }
+    if (!form.role) { toast.error("Please assign a role"); return; }
     try {
       await createMutation.mutateAsync({
         username: form.username,
@@ -68,7 +69,8 @@ const UsersPage = () => {
         fullName: form.fullName,
         phone: form.phone,
         address: form.address,
-        role: form.role,
+        role: "staff" as UserRole,
+        customRoleId: form.role,
       });
       const created = { email: form.email, password: form.password, fullName: form.fullName };
       setOpen(false);
