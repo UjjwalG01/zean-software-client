@@ -1,7 +1,6 @@
-import { TrendingUp, Users, DollarSign, ClipboardList, Download } from "lucide-react";
+import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { StatCard } from "@/components/StatCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNPR } from "@/lib/mock-data";
 import { useMembers, useTransactions, useBookings, useCompanySettings } from "@/hooks/use-firestore";
@@ -24,16 +23,13 @@ const tooltipStyle = {
 };
 
 const Reports = () => {
-  const { data: members = [], isLoading: membersLoading } = useMembers();
-  const { data: transactions = [], isLoading: txLoading } = useTransactions();
+  const { data: members = [] } = useMembers();
+  const { data: transactions = [] } = useTransactions();
   const { data: bookings = [] } = useBookings();
   const { data: settings = {} } = useCompanySettings();
 
-  const isLoading = membersLoading || txLoading;
   const activeMembers = members.filter((m) => m.status === "Active").length;
   const totalRevenue = transactions.reduce((sum, t) => sum + t.total, 0);
-  const avgRevenue = activeMembers > 0 ? Math.round(totalRevenue / activeMembers) : 0;
-  const attendanceRate = members.length > 0 ? Math.round((activeMembers / members.length) * 100) : 0;
 
   // Build revenue by service from transactions (prefers serviceType field, falls back to description keywords)
   const revenueByService = useMemo(() => {
@@ -111,19 +107,6 @@ const Reports = () => {
         }}>
           <Download className="h-4 w-4 mr-1" />Export All
         </Button>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {isLoading ? (
-          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)
-        ) : (
-          <>
-            <StatCard title="Total Revenue" value={formatNPR(totalRevenue)} change={0} icon={TrendingUp} />
-            <StatCard title="Active Members" value={activeMembers.toLocaleString()} change={0} icon={Users} />
-            <StatCard title="Avg. Revenue/Member" value={formatNPR(avgRevenue)} change={0} icon={DollarSign} />
-            <StatCard title="Active Rate" value={`${attendanceRate}%`} change={0} icon={ClipboardList} />
-          </>
-        )}
       </div>
 
       <Tabs defaultValue="ledger" className="space-y-4">
