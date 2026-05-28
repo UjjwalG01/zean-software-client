@@ -45,25 +45,14 @@ function useSetupList(key: string, fallback: string[]) {
 }
 
 const GeneralSetup = () => {
-  const classes = useSetupList("setup_classes", [
-    "Morning Power Yoga", "HIIT Blast", "CrossFit WOD", "Strength Training",
-    "Aqua Fitness", "Zumba", "Pilates", "Boxing Basics",
-  ]);
   const planDurations = useSetupList("setup_planDurations", ["Monthly", "Quarterly", "Half-Yearly", "Yearly", "15-Year"]);
   const paymentModes = useSetupList("setup_paymentModes", ["Cash", "Card", "Esewa", "Bank Transfer", "Mobile Wallet"]);
   const paymentTypes = useSetupList("setup_paymentTypes", ["Payment", "Renewal", "Registration", "Advance", "Refund"]);
-  const serviceTypes = useSetupList("setup_serviceTypes", ["Gym", "Spa", "Sauna", "Swimming"]);
   const preferences = useSetupList("setup_preferences", [
     "Yoga", "Cardio", "Weight Training", "Swimming Laps", "Steam Bath",
     "Personal Training", "Dance Fitness", "Meditation", "Boxing",
   ]);
   const timeSlots = useSetupList("setup_timeSlots", ["Morning", "Day", "Evening"]);
-  const packages = useSetupList("setup_packages", [
-    "Gym", "Cardio", "Swimming", "Spa",
-    "Gym+Cardio", "Cardio+Spa", "Gym+Swimming", "Cardio+Swimming",
-    "Gym+Cardio+Swimming", "Gym+Spa", "Gym+Cardio+Spa",
-    "Gym-Swimming+Spa", "Cardio+Swimming+Spa", "Swimming+Spa", "Combo",
-  ]);
   const bloodGroups = useSetupList("setup_bloodGroups", ["A+","A-","B+","B-","O+","O-","AB+","AB-"]);
   const grcRules = useSetupList("setup_grcFooterRules", [
     "Periodic check up (3, 6, 12 months) body analysis will be made.",
@@ -75,11 +64,8 @@ const GeneralSetup = () => {
   ]);
 
   const sections = [
-    { key: "classes",        cat: "setup_classes",        label: "Classes / Sessions",  hook: classes },
-    { key: "serviceTypes",   cat: "setup_serviceTypes",   label: "Service Types",        hook: serviceTypes },
     { key: "planDurations",  cat: "setup_planDurations",  label: "Plan Durations",       hook: planDurations },
     { key: "timeSlots",      cat: "setup_timeSlots",      label: "Time Slots",           hook: timeSlots },
-    { key: "packages",       cat: "setup_packages",       label: "Available Packages",   hook: packages },
     { key: "bloodGroups",    cat: "setup_bloodGroups",    label: "Blood Groups",         hook: bloodGroups },
     { key: "instructors",    cat: "setup_instructors",    label: "Instructors / Staff",  hook: instructors },
     { key: "paymentModes",   cat: "setup_paymentModes",   label: "Payment Modes",        hook: paymentModes },
@@ -95,7 +81,7 @@ const GeneralSetup = () => {
         <p className="text-muted-foreground text-sm">Configure dropdown options used across bookings, members, and transactions</p>
       </div>
 
-      <Tabs defaultValue="classes" className="space-y-4">
+      <Tabs defaultValue="planDurations" className="space-y-4">
         <TabsList className="bg-muted/50 flex-wrap h-auto gap-1">
           {sections.map((s) => (
             <TabsTrigger key={s.key} value={s.key}>{s.label}</TabsTrigger>
@@ -323,9 +309,9 @@ function GRCSettingsPanel() {
           <Select value={vals.template} onValueChange={(v) => set("template", v)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="compact">Compact — dense one-page (default)</SelectItem>
-              <SelectItem value="classic">Classic — boxed sections, formal</SelectItem>
-              <SelectItem value="modern">Modern — minimal, accent stripe</SelectItem>
+              <SelectItem value="classic">Classic — accent header bands, formal</SelectItem>
+              <SelectItem value="elegant">Elegant — serif heading, bordered hero</SelectItem>
+              <SelectItem value="modern">Modern — minimal, gold accent rule</SelectItem>
             </SelectContent>
           </Select>
         </div>

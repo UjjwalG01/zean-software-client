@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect } from "react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek, isToday, addHours } from "date-fns";
-import { ChevronLeft, ChevronRight, Plus, List, CalendarDays as CalIcon, Settings } from "lucide-react";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek, isToday } from "date-fns";
+import { ChevronLeft, ChevronRight, Plus, List, CalendarDays as CalIcon, Settings, Search, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +20,8 @@ import type { Booking, ServiceType } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
+const SLOT_START: Record<string, string> = { Morning: "06:00", Day: "12:00", Evening: "18:00" };
+
 const defaultServiceColors: Record<string, { bg: string; dot: string }> = {
   Gym: { bg: "bg-primary/80 text-primary-foreground", dot: "bg-primary" },
   Spa: { bg: "bg-spa text-white", dot: "bg-spa" },
@@ -35,16 +37,6 @@ const colorOptions = [
   { label: "Green", value: "hsl(142,71%,45%)", tw: "bg-success" },
   { label: "Red", value: "hsl(0,84%,60%)", tw: "bg-destructive" },
 ];
-
-function getNowTime(): string {
-  const now = new Date();
-  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-}
-
-function getEndTime(): string {
-  const end = addHours(new Date(), 1);
-  return `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
-}
 
 function parseSetup(settings: Record<string, string>, key: string, fallback: string[]): string[] {
   try { return settings[key] ? JSON.parse(settings[key]) : fallback; } catch { return fallback; }
@@ -79,10 +71,9 @@ const Bookings_Page = () => {
 
   const [bookDate, setBookDate] = useState("");
   const [bookMember, setBookMember] = useState("");
-  const [bookService, setBookService] = useState<ServiceType>("Gym");
-  const [bookClass, setBookClass] = useState("");
-  const [bookTime, setBookTime] = useState("");
-  const [bookEndTime, setBookEndTime] = useState("");
+  const [memberSearch, setMemberSearch] = useState("");
+  const [memberPopoverOpen, setMemberPopoverOpen] = useState(false);
+  const [bookServiceId, setBookServiceId] = useState("");
   const [bookInstructor, setBookInstructor] = useState("");
   const [bookTimeSlot, setBookTimeSlot] = useState("");
 
@@ -92,10 +83,21 @@ const Bookings_Page = () => {
   const { data: settings = {} } = useCompanySettings();
   const addBookingMutation = useAddBooking();
 
-  const setupServiceTypes = parseSetup(settings, "setup_serviceTypes", ["Gym", "Spa", "Sauna", "Swimming"]);
-  const setupClasses = parseSetup(settings, "setup_classes", []);
   const setupInstructors = parseSetup(settings, "setup_instructors", ["Trainer Ravi","Trainer Prakash","Therapist Maya","Coach Anil"]);
   const setupTimeSlots = parseSetup(settings, "setup_timeSlots", ["Morning","Day","Evening"]);
+
+  // Services scoped to the selected outlet only
+  const outletServices = useMemo(
+    () => services.filter((s) => s.outletId === selectedOutlet?.id && s.isActive !== false),
+    [services, selectedOutlet?.id]
+  );
+
+  // Service types present in this outlet (for the calendar filter dropdown)
+  const outletServiceTypes = useMemo(
+    () => Array.from(new Set(outletServices.map((s) => s.type))),
+    [outletServices]
+  );
+
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -115,6 +117,7 @@ const Bookings_Page = () => {
   const getBookingsForDay = (day: Date) => filtered.filter((b) => isSameDay(new Date(b.date), day));
 
   const openNewBookingDialog = (day?: Date) => {
+    if (!selectedOutlet) { setPickerOpen(true); return; }
     const d = day || new Date();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -123,8 +126,6 @@ const Bookings_Page = () => {
       return;
     }
     setBookDate(format(d, "yyyy-MM-dd"));
-    setBookTime(getNowTime());
-    setBookEndTime(getEndTime());
     setDialogOpen(true);
   };
 
@@ -143,9 +144,21 @@ const Bookings_Page = () => {
     setDetailOpen(true);
   };
 
+  // Selected service info (drives type, rate, duration, default instructor)
+  const selectedService = useMemo(
+    () => outletServices.find((s) => s.id === bookServiceId) || null,
+    [outletServices, bookServiceId]
+  );
+
+  // Default instructor to the service's instructor when chosen
+  useEffect(() => {
+    if (selectedService?.instructor && !bookInstructor) setBookInstructor(selectedService.instructor);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedService]);
+
   const handleBook = async () => {
-    if (!bookMember || !bookClass || !bookDate || !bookTime) {
-      toast.error("Please fill in all required fields");
+    if (!bookMember || !selectedService || !bookDate || !bookTimeSlot) {
+      toast.error("Please fill member, service, date and time slot");
       return;
     }
     const today = new Date();
@@ -154,24 +167,31 @@ const Bookings_Page = () => {
       toast.error("Cannot create bookings for past dates");
       return;
     }
+    const start = SLOT_START[bookTimeSlot] || "09:00";
+    const [h, m] = start.split(":").map(Number);
+    const total = h * 60 + m + Number(selectedService.duration || 60);
+    const eh = Math.floor(total / 60) % 24;
+    const em = total % 60;
+    const end = `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`;
+
     const memberObj = members.find((m) => m.id === bookMember);
     try {
       await addBookingMutation.mutateAsync({
         memberId: bookMember,
         memberName: memberObj?.name || "",
-        service: bookService,
-        className: bookClass,
+        service: selectedService.type as ServiceType,
+        className: selectedService.name,
         date: bookDate,
-        startTime: bookTime,
-        endTime: bookEndTime || bookTime,
+        startTime: start,
+        endTime: end,
         status: "Pending",
         outletId: selectedOutlet?.id,
-        instructor: bookInstructor,
+        instructor: bookInstructor || selectedService.instructor || "",
         timeSlot: bookTimeSlot,
       } as any);
       toast.success("Booking created successfully!");
       setDialogOpen(false);
-      setBookMember(""); setBookClass(""); setBookTime(""); setBookEndTime("");
+      setBookMember(""); setMemberSearch(""); setBookServiceId("");
       setBookInstructor(""); setBookTimeSlot("");
     } catch {
       toast.error("Failed to create booking");
@@ -179,35 +199,18 @@ const Bookings_Page = () => {
   };
 
   const getServiceStyle = (service: string) => {
-    const color = serviceColors[service];
+    const color = serviceColors[service] || colorOptions[0].value;
     return { backgroundColor: color, color: "#fff" };
   };
 
-  // Classes for selected service, merged from `services` + `setup_classes`
-  const classOptions = useMemo(() => {
-    const fromServices = services.filter((s) => s.type === bookService).map((s) => s.name);
-    const merged = Array.from(new Set([...fromServices, ...setupClasses]));
-    return merged.length > 0 ? merged : ["General Session"];
-  }, [services, bookService, setupClasses]);
+  const filteredMembers = useMemo(() => {
+    const q = memberSearch.trim().toLowerCase();
+    const list = q ? members.filter((m) => (m.name || "").toLowerCase().includes(q) || (m.phone || "").includes(q) || (m.email || "").toLowerCase().includes(q)) : members;
+    return list.slice(0, 50);
+  }, [members, memberSearch]);
 
-  // Selected class details (price, duration, instructor) from services collection
-  const selectedClassInfo = useMemo(() => {
-    return services.find((s) => s.type === bookService && s.name === bookClass) || null;
-  }, [services, bookService, bookClass]);
+  const selectedMember = members.find((m) => m.id === bookMember);
 
-  // Auto-fill end time / instructor when class chosen
-  useEffect(() => {
-    if (!selectedClassInfo || !bookTime) return;
-    if (selectedClassInfo.duration && !bookEndTime) {
-      const [h, m] = bookTime.split(":").map(Number);
-      const total = h * 60 + m + Number(selectedClassInfo.duration || 0);
-      const eh = Math.floor(total / 60) % 24;
-      const em = total % 60;
-      setBookEndTime(`${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`);
-    }
-    if (selectedClassInfo.instructor && !bookInstructor) setBookInstructor(selectedClassInfo.instructor);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedClassInfo]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -239,7 +242,7 @@ const Bookings_Page = () => {
             <SelectTrigger className="w-[130px] bg-muted/50 border-0"><SelectValue placeholder="Service" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Services</SelectItem>
-              {setupServiceTypes.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              {outletServiceTypes.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
 
@@ -249,7 +252,7 @@ const Bookings_Page = () => {
             </PopoverTrigger>
             <PopoverContent className="w-64" align="end">
               <p className="font-semibold text-sm mb-3">Calendar Colors</p>
-              {setupServiceTypes.map((svc) => (
+              {outletServiceTypes.map((svc) => (
                 <div key={svc} className="flex items-center justify-between mb-2">
                   <span className="text-sm">{svc}</span>
                   <div className="flex gap-1">
@@ -278,70 +281,101 @@ const Bookings_Page = () => {
 
       {/* New Booking Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display">New Booking</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Member *</Label>
-                <Select value={bookMember} onValueChange={setBookMember}>
-                  <SelectTrigger><SelectValue placeholder="Select member" /></SelectTrigger>
-                  <SelectContent>
-                    {members.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Service Type *</Label>
-                <Select value={bookService} onValueChange={(v) => { setBookService(v as ServiceType); setBookClass(""); setBookEndTime(""); setBookInstructor(""); }}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {setupServiceTypes.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <Label>{bookService} Option / Class *</Label>
-                <Select value={bookClass} onValueChange={(v) => { setBookClass(v); setBookEndTime(""); setBookInstructor(""); }}>
-                  <SelectTrigger><SelectValue placeholder="Select option" /></SelectTrigger>
-                  <SelectContent>
-                    {classOptions.map((c) => {
-                      const svc = services.find((s) => s.type === bookService && s.name === c);
-                      return (
-                        <SelectItem key={c} value={c}>
-                          {c}{svc ? ` — ${svc.duration || 0}min${svc.price ? ` • NPR ${svc.price}` : ""}` : ""}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* Outlet context (read-only) */}
+            <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 flex items-center gap-2 text-sm">
+              <Building2 className="h-4 w-4" style={{ color: selectedOutlet?.color }} />
+              <span className="text-muted-foreground">Outlet</span>
+              <span className="font-medium">{selectedOutlet?.name || "—"}</span>
+              {selectedService?.type && (
+                <Badge variant="secondary" className="ml-auto text-[10px]">{selectedService.type}</Badge>
+              )}
             </div>
 
-            {selectedClassInfo && (
+            {/* Member search */}
+            <div className="space-y-2">
+              <Label>Member *</Label>
+              <Popover open={memberPopoverOpen} onOpenChange={setMemberPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                    {selectedMember ? (
+                      <span className="flex items-center gap-2 truncate">
+                        <span className="truncate">{selectedMember.name}</span>
+                        {selectedMember.phone && <span className="text-xs text-muted-foreground">{selectedMember.phone}</span>}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">Search and select member…</span>
+                    )}
+                    <ChevronDown className="h-4 w-4 opacity-60" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <div className="p-2 border-b border-border">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input value={memberSearch} onChange={(e) => setMemberSearch(e.target.value)} placeholder="Search by name, phone, email" className="pl-7 h-8" autoFocus />
+                    </div>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {filteredMembers.length === 0 ? (
+                      <p className="px-3 py-6 text-center text-xs text-muted-foreground">No members found</p>
+                    ) : filteredMembers.map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => { setBookMember(m.id); setMemberPopoverOpen(false); }}
+                        className="flex items-center justify-between w-full px-3 py-2 text-sm text-left hover:bg-muted/50"
+                      >
+                        <div className="flex flex-col min-w-0">
+                          <span className="truncate">{m.name}</span>
+                          <span className="text-[11px] text-muted-foreground truncate">{m.phone || m.email || "—"}</span>
+                        </div>
+                        {bookMember === m.id && <Check className="h-3.5 w-3.5 text-primary" />}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Service (from outlet) */}
+            <div className="space-y-2">
+              <Label>Service *</Label>
+              <Select value={bookServiceId} onValueChange={(v) => { setBookServiceId(v); setBookInstructor(""); }}>
+                <SelectTrigger>
+                  <SelectValue placeholder={outletServices.length === 0 ? "No services for this outlet" : "Select service"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {outletServices.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name} — {s.type} • {s.duration || 0}min{s.price ? ` • NPR ${s.price}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {outletServices.length === 0 && (
+                <p className="text-[11px] text-muted-foreground">Add services for this outlet in Plans & Services → Services.</p>
+              )}
+            </div>
+
+            {selectedService && (
               <div className="rounded-lg border border-border bg-muted/30 p-3 grid grid-cols-3 gap-2 text-sm">
-                <div><span className="text-muted-foreground text-xs block">Duration</span><span className="font-medium">{selectedClassInfo.duration || 0} min</span></div>
-                <div><span className="text-muted-foreground text-xs block">Price</span><span className="font-medium">NPR {selectedClassInfo.price || 0}</span></div>
-                <div><span className="text-muted-foreground text-xs block">Default Instructor</span><span className="font-medium">{selectedClassInfo.instructor || "—"}</span></div>
+                <div><span className="text-muted-foreground text-xs block">Duration</span><span className="font-medium">{selectedService.duration || 0} min</span></div>
+                <div><span className="text-muted-foreground text-xs block">Rate</span><span className="font-medium">NPR {selectedService.price || 0}</span></div>
+                <div><span className="text-muted-foreground text-xs block">Default Instructor</span><span className="font-medium">{selectedService.instructor || "—"}</span></div>
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-2">
-                <Label>Instructor</Label>
-                <Select value={bookInstructor} onValueChange={setBookInstructor}>
-                  <SelectTrigger><SelectValue placeholder="Select instructor" /></SelectTrigger>
-                  <SelectContent>
-                    {setupInstructors.map((i) => <SelectItem key={i} value={i}>{i}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Label>Date *</Label>
+                <Input type="date" value={bookDate} onChange={(e) => setBookDate(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>Time Slot</Label>
+                <Label>Time Slot *</Label>
                 <Select value={bookTimeSlot} onValueChange={setBookTimeSlot}>
                   <SelectTrigger><SelectValue placeholder="Select slot" /></SelectTrigger>
                   <SelectContent>
@@ -349,12 +383,15 @@ const Bookings_Page = () => {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-2"><Label>Date *</Label><Input type="date" value={bookDate} onChange={(e) => setBookDate(e.target.value)} /></div>
-              <div className="space-y-2"><Label>Start *</Label><Input type="time" value={bookTime} onChange={(e) => setBookTime(e.target.value)} /></div>
-              <div className="space-y-2"><Label>End</Label><Input type="time" value={bookEndTime} onChange={(e) => setBookEndTime(e.target.value)} /></div>
+              <div className="space-y-2">
+                <Label>Instructor</Label>
+                <Select value={bookInstructor} onValueChange={setBookInstructor}>
+                  <SelectTrigger><SelectValue placeholder="Default" /></SelectTrigger>
+                  <SelectContent>
+                    {setupInstructors.map((i) => <SelectItem key={i} value={i}>{i}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <Button onClick={handleBook} disabled={addBookingMutation.isPending} className="w-full gradient-gold text-primary-foreground">
@@ -431,7 +468,7 @@ const Bookings_Page = () => {
             })}
           </div>
           <div className="flex gap-4 mt-4 pt-4 border-t border-border">
-            {setupServiceTypes.map((s) => (
+            {outletServiceTypes.map((s) => (
               <div key={s} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: serviceColors[s] || colorOptions[0].value }} />{s}
               </div>

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Plus, Edit, Trash2, Crown, Save, Percent } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Plus, Edit, Trash2, Crown, Save, Percent, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -17,6 +17,9 @@ import {
   useServices, useAddService, useUpdateService, useDeleteService,
   useDiscountRules, useSaveDiscountRules,
 } from "@/hooks/use-firestore";
+import { useOutlet } from "@/contexts/OutletContext";
+import { useQuery } from "@tanstack/react-query";
+import { getServiceTypes } from "@/lib/firebase-outlets";
 import { toast } from "sonner";
 
 const fallbackPlans = [
@@ -40,7 +43,11 @@ const PlansServices = () => {
   const [editPlanId, setEditPlanId] = useState<string | null>(null);
   const [editServiceId, setEditServiceId] = useState<string | null>(null);
   const [newPlan, setNewPlan] = useState({ tier: "Basic", monthly: "", yearly: "", longTerm: "", includes: "" });
-  const [newService, setNewService] = useState({ name: "", type: "Gym", duration: "", price: "", capacity: "", instructor: "" });
+  const [newService, setNewService] = useState({ name: "", outletId: "", type: "", duration: "", price: "", capacity: "", instructor: "" });
+  const [serviceOutletFilter, setServiceOutletFilter] = useState<string>("all");
+
+  const { outlets } = useOutlet();
+  const { data: serviceTypes = [] } = useQuery({ queryKey: ["serviceTypes"], queryFn: getServiceTypes });
 
   const { data: firestorePlans = [], isLoading: plansLoading } = useMembershipPlans();
   const { data: firestoreServices = [], isLoading: servicesLoading } = useServices();
@@ -119,29 +126,32 @@ const PlansServices = () => {
     try { await updatePlanMutation.mutateAsync({ id, data: { autoRenew: !current } }); toast.success("Auto-renew updated"); } catch { toast.error("Failed"); }
   };
 
+  const emptyService = { name: "", outletId: "", type: "", duration: "", price: "", capacity: "", instructor: "" };
+
   const handleCreateService = async () => {
+    if (!newService.name.trim()) { toast.error("Service name required"); return; }
+    if (!newService.outletId) { toast.error("Select the outlet this service belongs to"); return; }
+    if (!newService.type) { toast.error("Select service type"); return; }
     try {
+      const payload = {
+        name: newService.name,
+        type: newService.type,
+        outletId: newService.outletId,
+        duration: Number(newService.duration) || 60,
+        price: Number(newService.price) || 0,
+        capacity: Number(newService.capacity) || 1,
+        instructor: newService.instructor,
+      };
       if (editServiceId) {
-        await updateServiceMutation.mutateAsync({
-          id: editServiceId,
-          data: {
-            name: newService.name, type: newService.type,
-            duration: Number(newService.duration) || 60, price: Number(newService.price) || 0,
-            capacity: Number(newService.capacity) || 1, instructor: newService.instructor,
-          },
-        });
+        await updateServiceMutation.mutateAsync({ id: editServiceId, data: payload });
         toast.success("Service updated!");
       } else {
-        await addServiceMutation.mutateAsync({
-          name: newService.name, type: newService.type,
-          duration: Number(newService.duration) || 60, price: Number(newService.price) || 0,
-          capacity: Number(newService.capacity) || 1, instructor: newService.instructor, isActive: true,
-        });
+        await addServiceMutation.mutateAsync({ ...payload, isActive: true });
         toast.success("Service created!");
       }
       setServiceDialogOpen(false);
       setEditServiceId(null);
-      setNewService({ name: "", type: "Gym", duration: "", price: "", capacity: "", instructor: "" });
+      setNewService(emptyService);
     } catch {
       toast.error("Failed to save service");
     }
@@ -150,7 +160,7 @@ const PlansServices = () => {
   const openEditService = (svc: any) => {
     setEditServiceId(svc.id);
     setNewService({
-      name: svc.name, type: svc.type,
+      name: svc.name, outletId: svc.outletId || "", type: svc.type || "",
       duration: String(svc.duration), price: String(svc.price),
       capacity: String(svc.capacity || ""), instructor: svc.instructor || "",
     });
@@ -260,25 +270,52 @@ const PlansServices = () => {
 
         {/* ─── Services ─── */}
         <TabsContent value="services">
-          <div className="flex justify-end mb-4">
-            <Dialog open={serviceDialogOpen} onOpenChange={(o) => { setServiceDialogOpen(o); if (!o) { setEditServiceId(null); setNewService({ name: "", type: "Gym", duration: "", price: "", capacity: "", instructor: "" }); } }}>
+          <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+              <Label className="text-xs text-muted-foreground">Outlet</Label>
+              <Select value={serviceOutletFilter} onValueChange={setServiceOutletFilter}>
+                <SelectTrigger className="w-[220px] h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All outlets</SelectItem>
+                  {outlets.map((o) => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <Dialog open={serviceDialogOpen} onOpenChange={(o) => { setServiceDialogOpen(o); if (!o) { setEditServiceId(null); setNewService(emptyService); } }}>
               <DialogTrigger asChild><Button size="sm"><Plus className="h-4 w-4 mr-1" />Add Service</Button></DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle className="font-display">{editServiceId ? "Edit" : "Add"} Service</DialogTitle></DialogHeader>
                 <div className="space-y-4">
-                  <div className="space-y-2"><Label>Service Name</Label><Input placeholder="e.g. Power Yoga" value={newService.name} onChange={(e) => setNewService((s) => ({ ...s, name: e.target.value }))} /></div>
                   <div className="space-y-2">
-                    <Label>Type</Label>
-                    <Select value={newService.type} onValueChange={(v) => setNewService((s) => ({ ...s, type: v }))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                    <Label>Outlet *</Label>
+                    <Select value={newService.outletId} onValueChange={(v) => setNewService((s) => ({ ...s, outletId: v, type: "" }))}>
+                      <SelectTrigger><SelectValue placeholder="Select outlet" /></SelectTrigger>
                       <SelectContent>
-                        {["Gym", "Spa", "Sauna", "Swimming"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                        {outlets.map((o) => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2"><Label>Service Name *</Label><Input placeholder="e.g. Power Yoga" value={newService.name} onChange={(e) => setNewService((s) => ({ ...s, name: e.target.value }))} /></div>
+                  <div className="space-y-2">
+                    <Label>Service Type * <span className="text-xs text-muted-foreground">(inherited from outlet)</span></Label>
+                    <Select value={newService.type} onValueChange={(v) => setNewService((s) => ({ ...s, type: v }))} disabled={!newService.outletId}>
+                      <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                      <SelectContent>
+                        {(() => {
+                          const o = outlets.find((o) => o.id === newService.outletId);
+                          const slugs = o?.serviceTypes || [];
+                          const items = serviceTypes.filter((st) => slugs.includes(st.slug));
+                          return items.length > 0
+                            ? items.map((st) => <SelectItem key={st.slug} value={st.name}>{st.name}</SelectItem>)
+                            : slugs.map((sl) => <SelectItem key={sl} value={sl}>{sl}</SelectItem>);
+                        })()}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2"><Label>Duration (min)</Label><Input type="number" placeholder="60" value={newService.duration} onChange={(e) => setNewService((s) => ({ ...s, duration: e.target.value }))} /></div>
-                    <div className="space-y-2"><Label>Price (NPR)</Label><Input type="number" placeholder="500" value={newService.price} onChange={(e) => setNewService((s) => ({ ...s, price: e.target.value }))} /></div>
+                    <div className="space-y-2"><Label>Rate (NPR)</Label><Input type="number" placeholder="500" value={newService.price} onChange={(e) => setNewService((s) => ({ ...s, price: e.target.value }))} /></div>
                     <div className="space-y-2"><Label>Capacity</Label><Input type="number" placeholder="20" value={newService.capacity} onChange={(e) => setNewService((s) => ({ ...s, capacity: e.target.value }))} /></div>
                   </div>
                   <div className="space-y-2"><Label>Instructor</Label><Input placeholder="e.g. Trainer Ravi" value={newService.instructor} onChange={(e) => setNewService((s) => ({ ...s, instructor: e.target.value }))} /></div>
@@ -297,31 +334,38 @@ const PlansServices = () => {
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead>Service</TableHead>
+                    <TableHead>Outlet</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead className="hidden md:table-cell">Duration</TableHead>
                     <TableHead className="hidden md:table-cell">Instructor</TableHead>
                     <TableHead className="hidden lg:table-cell">Capacity</TableHead>
-                    <TableHead className="text-right">Price</TableHead>
+                    <TableHead className="text-right">Rate</TableHead>
                     <TableHead className="w-20"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {services.map((s) => (
-                    <TableRow key={s.id}>
-                      <TableCell className="font-medium text-sm">{s.name}</TableCell>
-                      <TableCell><Badge variant="secondary" className="text-[10px]">{s.type}</Badge></TableCell>
-                      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{s.duration} min</TableCell>
-                      <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{s.instructor || "—"}</TableCell>
-                      <TableCell className="hidden lg:table-cell text-sm">{s.capacity || "—"}</TableCell>
-                      <TableCell className="text-right font-medium text-sm">{formatNPR(s.price)}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditService(s)}><Edit className="h-3.5 w-3.5" /></Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => handleDeleteService(s.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {services
+                    .filter((s: any) => serviceOutletFilter === "all" || s.outletId === serviceOutletFilter)
+                    .map((s: any) => {
+                      const o = outlets.find((o) => o.id === s.outletId);
+                      return (
+                        <TableRow key={s.id}>
+                          <TableCell className="font-medium text-sm">{s.name}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{o?.name || <span className="italic text-destructive/70">unassigned</span>}</TableCell>
+                          <TableCell><Badge variant="secondary" className="text-[10px]">{s.type}</Badge></TableCell>
+                          <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{s.duration} min</TableCell>
+                          <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{s.instructor || "—"}</TableCell>
+                          <TableCell className="hidden lg:table-cell text-sm">{s.capacity || "—"}</TableCell>
+                          <TableCell className="text-right font-medium text-sm">{formatNPR(s.price)}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditService(s)}><Edit className="h-3.5 w-3.5" /></Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => handleDeleteService(s.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                 </TableBody>
               </Table>
             </div>
