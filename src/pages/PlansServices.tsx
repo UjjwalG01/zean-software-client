@@ -43,7 +43,11 @@ const PlansServices = () => {
   const [editPlanId, setEditPlanId] = useState<string | null>(null);
   const [editServiceId, setEditServiceId] = useState<string | null>(null);
   const [newPlan, setNewPlan] = useState({ tier: "Basic", monthly: "", yearly: "", longTerm: "", includes: "" });
-  const [newService, setNewService] = useState({ name: "", type: "Gym", duration: "", price: "", capacity: "", instructor: "" });
+  const [newService, setNewService] = useState({ name: "", outletId: "", type: "", duration: "", price: "", capacity: "", instructor: "" });
+  const [serviceOutletFilter, setServiceOutletFilter] = useState<string>("all");
+
+  const { outlets } = useOutlet();
+  const { data: serviceTypes = [] } = useQuery({ queryKey: ["serviceTypes"], queryFn: getServiceTypes });
 
   const { data: firestorePlans = [], isLoading: plansLoading } = useMembershipPlans();
   const { data: firestoreServices = [], isLoading: servicesLoading } = useServices();
