@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Plus, Edit, Trash2, Crown, Save, Percent } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Plus, Edit, Trash2, Crown, Save, Percent, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -17,6 +17,9 @@ import {
   useServices, useAddService, useUpdateService, useDeleteService,
   useDiscountRules, useSaveDiscountRules,
 } from "@/hooks/use-firestore";
+import { useOutlet } from "@/contexts/OutletContext";
+import { useQuery } from "@tanstack/react-query";
+import { getServiceTypes } from "@/lib/firebase-outlets";
 import { toast } from "sonner";
 
 const fallbackPlans = [
