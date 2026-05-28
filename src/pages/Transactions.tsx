@@ -174,7 +174,9 @@ const Transactions = () => {
     }
   };
 
-  const vatPreview = payAmount ? Math.round(Number(payAmount) * 0.13) : 0;
+  const grossPreview = Number(payAmount || 0);
+  const netPreview = grossPreview ? Math.round((grossPreview / 1.13) * 100) / 100 : 0;
+  const vatPreview = grossPreview ? Math.round((grossPreview - netPreview) * 100) / 100 : 0;
 
   return (
     <div className="space-y-6 animate-fade-in">
