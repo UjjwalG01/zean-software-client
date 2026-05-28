@@ -42,11 +42,15 @@ const Transactions = () => {
   const [payAmount, setPayAmount] = useState("");
   const [payMethod, setPayMethod] = useState("Cash");
   const [payDesc, setPayDesc] = useState("");
+  const [payLocked, setPayLocked] = useState(false);
+  const [payBookingId, setPayBookingId] = useState<string>("");
+  const [settleTxn, setSettleTxn] = useState<Transaction | null>(null);
 
   const { data: transactions = [], isLoading } = useTransactions();
   const { data: members = [] } = useMembers();
   const { data: settings = {} } = useCompanySettings();
   const addTransactionMutation = useAddTransaction();
+  const updateTransactionMutation = useUpdateTransaction();
 
   const paymentModes = parseSetup(settings, "setup_paymentModes", ["Cash", "Card", "Esewa", "Bank Transfer", "Mobile Wallet"]);
   const paymentTypes = parseSetup(settings, "setup_paymentTypes", ["Payment", "Renewal", "Registration", "Advance", "Refund"]);
@@ -58,15 +62,19 @@ const Transactions = () => {
       const memberId = searchParams.get("memberId") || "";
       const service = searchParams.get("service") || "";
       const className = searchParams.get("className") || "";
+      const amount = searchParams.get("amount") || "";
+      const locked = searchParams.get("locked") === "1";
+      const bookingId = searchParams.get("bookingId") || "";
 
-      // Find member by id or name
       const member = members.find((m) => m.id === memberId) || members.find((m) => m.name === memberName);
       if (member) setPayMember(member.id);
       setPayDesc(`${service} — ${className}`);
       setPayType("Payment");
+      if (amount) setPayAmount(amount);
+      setPayLocked(locked);
+      setPayBookingId(bookingId);
       setDialogOpen(true);
 
-      // Clear URL params
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, members, setSearchParams]);
