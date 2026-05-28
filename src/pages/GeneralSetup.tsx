@@ -309,9 +309,9 @@ function GRCSettingsPanel() {
           <Select value={vals.template} onValueChange={(v) => set("template", v)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="compact">Compact — dense one-page (default)</SelectItem>
-              <SelectItem value="classic">Classic — boxed sections, formal</SelectItem>
-              <SelectItem value="modern">Modern — minimal, accent stripe</SelectItem>
+              <SelectItem value="classic">Classic — accent header bands, formal</SelectItem>
+              <SelectItem value="elegant">Elegant — serif heading, bordered hero</SelectItem>
+              <SelectItem value="modern">Modern — minimal, gold accent rule</SelectItem>
             </SelectContent>
           </Select>
         </div>
