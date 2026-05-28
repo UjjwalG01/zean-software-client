@@ -321,9 +321,10 @@ const Transactions = () => {
                 <TableHead className="hidden md:table-cell">Description</TableHead>
                 <TableHead>Method</TableHead>
                 <TableHead className="hidden lg:table-cell">Type</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead className="text-right hidden md:table-cell">VAT</TableHead>
                 <TableHead className="text-right">Total</TableHead>
-                <TableHead className="w-20"></TableHead>
+                <TableHead className="w-28"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
