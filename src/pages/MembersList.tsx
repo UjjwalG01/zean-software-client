@@ -125,8 +125,10 @@ const MembersList = () => {
                 <TableHead>Member</TableHead>
                 <TableHead className="hidden md:table-cell">Phone</TableHead>
                 <TableHead>Tier</TableHead>
+                <TableHead className="hidden lg:table-cell">Plan</TableHead>
                 <TableHead className="hidden lg:table-cell">Services</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="hidden md:table-cell">Joined</TableHead>
                 <TableHead className="hidden md:table-cell">Expiry</TableHead>
               </TableRow>
             </TableHeader>
