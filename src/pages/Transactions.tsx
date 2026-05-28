@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TransactionDetailModal } from "@/components/TransactionDetailModal";
 import { formatNPR, type PaymentMethod, type Transaction } from "@/lib/mock-data";
-import { useTransactions, useAddTransaction, useMembers, useCompanySettings } from "@/hooks/use-firestore";
+import { useTransactions, useAddTransaction, useUpdateTransaction, useMembers, useCompanySettings } from "@/hooks/use-firestore";
 import { generateA5BillHTML, printHTML, exportTableToCSV } from "@/lib/print-utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -42,11 +42,15 @@ const Transactions = () => {
   const [payAmount, setPayAmount] = useState("");
   const [payMethod, setPayMethod] = useState("Cash");
   const [payDesc, setPayDesc] = useState("");
+  const [payLocked, setPayLocked] = useState(false);
+  const [payBookingId, setPayBookingId] = useState<string>("");
+  const [settleTxn, setSettleTxn] = useState<Transaction | null>(null);
 
   const { data: transactions = [], isLoading } = useTransactions();
   const { data: members = [] } = useMembers();
   const { data: settings = {} } = useCompanySettings();
   const addTransactionMutation = useAddTransaction();
+  const updateTransactionMutation = useUpdateTransaction();
 
   const paymentModes = parseSetup(settings, "setup_paymentModes", ["Cash", "Card", "Esewa", "Bank Transfer", "Mobile Wallet"]);
   const paymentTypes = parseSetup(settings, "setup_paymentTypes", ["Payment", "Renewal", "Registration", "Advance", "Refund"]);
@@ -58,15 +62,19 @@ const Transactions = () => {
       const memberId = searchParams.get("memberId") || "";
       const service = searchParams.get("service") || "";
       const className = searchParams.get("className") || "";
+      const amount = searchParams.get("amount") || "";
+      const locked = searchParams.get("locked") === "1";
+      const bookingId = searchParams.get("bookingId") || "";
 
-      // Find member by id or name
       const member = members.find((m) => m.id === memberId) || members.find((m) => m.name === memberName);
       if (member) setPayMember(member.id);
       setPayDesc(`${service} — ${className}`);
       setPayType("Payment");
+      if (amount) setPayAmount(amount);
+      setPayLocked(locked);
+      setPayBookingId(bookingId);
       setDialogOpen(true);
 
-      // Clear URL params
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, members, setSearchParams]);
@@ -83,7 +91,35 @@ const Transactions = () => {
   const totalAmount = filtered.reduce((sum, t) => sum + t.total, 0);
   const totalVat = filtered.reduce((sum, t) => sum + t.vat, 0);
 
-  const handleRecordPayment = async () => {
+  const printBill = (memberName: string, receiptNo: string, desc: string, amount: number, date: Date) => {
+    const companyName = settings.companyName || "VitaFit Club";
+    const vat = Math.round(amount * 0.13);
+    const html = generateA5BillHTML({
+      companyName,
+      companyAddress: settings.companyAddress || "",
+      companyPhone: settings.companyPhone || "",
+      companyEmail: settings.companyEmail || "",
+      vatNo: settings.vatNo || settings.panNumber || "",
+      guestName: memberName,
+      billNo: receiptNo,
+      billDate: format(date, "dd/MM/yyyy"),
+      billForMonth: format(date, "MMMM yyyy"),
+      items: [{ description: desc || "Membership Payment", quantity: 1, rate: amount, amount }],
+      subtotal: amount,
+      taxableAmount: amount,
+      vatAmount: vat,
+      grandTotal: amount + vat,
+      attendant: "admin",
+    });
+    printHTML(html);
+  };
+
+  const resetPayForm = () => {
+    setPayMember(""); setPayAmount(""); setPayDesc("");
+    setPayLocked(false); setPayBookingId("");
+  };
+
+  const handleRecordPayment = async (markPending = false) => {
     if (!payMember || !payAmount) {
       toast.error("Please select member and enter amount");
       return;
@@ -101,37 +137,38 @@ const Transactions = () => {
         description: payDesc,
         date: new Date().toISOString().split("T")[0],
         receiptNo,
+        status: markPending ? "pending" : "paid",
+        bookingId: payBookingId || undefined,
       });
-      toast.success("Payment recorded! Generating invoice...");
       setDialogOpen(false);
-
-      // Auto-print bill
-      const companyName = settings.companyName || "VitaFit Club";
-      const vat = Math.round(amount * 0.13);
-      const html = generateA5BillHTML({
-        companyName,
-        companyAddress: settings.companyAddress || "",
-        companyPhone: settings.companyPhone || "",
-        companyEmail: settings.companyEmail || "",
-        vatNo: settings.vatNo || settings.panNumber || "",
-        guestName: memberObj?.name || "",
-        billNo: receiptNo,
-        billDate: format(new Date(), "dd/MM/yyyy"),
-        billForMonth: format(new Date(), "MMMM yyyy"),
-        items: [{ description: payDesc || "Membership Payment", quantity: 1, rate: amount, amount }],
-        subtotal: amount,
-        taxableAmount: amount,
-        vatAmount: vat,
-        grandTotal: amount + vat,
-        attendant: "admin",
-      });
-      printHTML(html);
-
-      setPayMember("");
-      setPayAmount("");
-      setPayDesc("");
+      if (markPending) {
+        toast.success("Marked as pending — settle later from this list");
+      } else {
+        toast.success("Payment recorded! Generating invoice...");
+        printBill(memberObj?.name || "", receiptNo, payDesc, amount, new Date());
+      }
+      resetPayForm();
     } catch {
       toast.error("Failed to record payment");
+    }
+  };
+
+  const handleSettle = async () => {
+    if (!settleTxn) return;
+    try {
+      await updateTransactionMutation.mutateAsync({
+        id: settleTxn.id,
+        data: {
+          status: "paid",
+          method: payMethod as PaymentMethod,
+          date: new Date().toISOString().split("T")[0],
+        },
+      });
+      toast.success("Payment settled! Generating invoice...");
+      printBill(settleTxn.memberName, settleTxn.receiptNo, settleTxn.description, settleTxn.amount, new Date());
+      setSettleTxn(null);
+    } catch {
+      toast.error("Failed to settle payment");
     }
   };
 
@@ -194,8 +231,8 @@ const Transactions = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Amount (NPR)</Label>
-                    <Input type="number" placeholder="0" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
+                    <Label>Amount (NPR){payLocked && <span className="text-xs text-muted-foreground ml-1">(locked)</span>}</Label>
+                    <Input type="number" placeholder="0" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} disabled={payLocked} />
                   </div>
                   <div className="space-y-2">
                     <Label>VAT (13%)</Label>
@@ -219,9 +256,14 @@ const Transactions = () => {
                     <div className="flex justify-between font-bold"><span>Total</span><span className="text-primary">{formatNPR(Number(payAmount) + vatPreview)}</span></div>
                   </div>
                 )}
-                <Button onClick={handleRecordPayment} disabled={addTransactionMutation.isPending} className="w-full gradient-gold text-primary-foreground">
-                  <Receipt className="h-4 w-4 mr-1" />{addTransactionMutation.isPending ? "Saving..." : "Save & Print Invoice"}
-                </Button>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" onClick={() => handleRecordPayment(true)} disabled={addTransactionMutation.isPending}>
+                    Pay Later (Pending)
+                  </Button>
+                  <Button onClick={() => handleRecordPayment(false)} disabled={addTransactionMutation.isPending} className="gradient-gold text-primary-foreground">
+                    <Receipt className="h-4 w-4 mr-1" />{addTransactionMutation.isPending ? "Saving..." : "Pay & Print Bill"}
+                  </Button>
+                </div>
               </div>
             </DialogContent>
           </Dialog>
@@ -279,9 +321,10 @@ const Transactions = () => {
                 <TableHead className="hidden md:table-cell">Description</TableHead>
                 <TableHead>Method</TableHead>
                 <TableHead className="hidden lg:table-cell">Type</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead className="text-right hidden md:table-cell">VAT</TableHead>
                 <TableHead className="text-right">Total</TableHead>
-                <TableHead className="w-20"></TableHead>
+                <TableHead className="w-28"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -300,30 +343,29 @@ const Transactions = () => {
                   <TableCell className="text-right text-sm text-muted-foreground hidden md:table-cell">{formatNPR(t.vat)}</TableCell>
                   <TableCell className="text-right font-medium text-sm">{formatNPR(t.total)}</TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {
-                      e.stopPropagation();
-                      const companyName = settings.companyName || "VitaFit Club";
-                      const html = generateA5BillHTML({
-                        companyName,
-                        companyAddress: settings.companyAddress || "",
-                        companyPhone: settings.companyPhone || "",
-                        companyEmail: settings.companyEmail || "",
-                        vatNo: settings.vatNo || settings.panNumber || "",
-                        guestName: t.memberName,
-                        billNo: t.receiptNo,
-                        billDate: t.date,
-                        billForMonth: format(new Date(t.date), "MMMM yyyy"),
-                        items: [{ description: t.description, quantity: 1, rate: t.amount, amount: t.amount }],
-                        subtotal: t.amount,
-                        taxableAmount: t.amount,
-                        vatAmount: t.vat,
-                        grandTotal: t.total,
-                        attendant: "admin",
-                      });
-                      printHTML(html);
-                    }}>
-                      <Printer className="h-3.5 w-3.5" />
-                    </Button>
+                    {t.status === "pending" ? (
+                      <Badge className="text-[10px] border-0 bg-amber-500/20 text-amber-400">Pending</Badge>
+                    ) : (
+                      <Badge className="text-[10px] border-0 bg-success/20 text-success">Paid</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      {t.status === "pending" ? (
+                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={(e) => {
+                          e.stopPropagation();
+                          setPayMethod("Cash");
+                          setSettleTxn(t);
+                        }}>Settle</Button>
+                      ) : (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {
+                          e.stopPropagation();
+                          printBill(t.memberName, t.receiptNo, t.description, t.amount, new Date(t.date));
+                        }}>
+                          <Printer className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -331,6 +373,35 @@ const Transactions = () => {
           </Table>
         )}
       </div>
+
+      <Dialog open={!!settleTxn} onOpenChange={(o) => !o && setSettleTxn(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle className="font-display">Settle Pending Payment</DialogTitle></DialogHeader>
+          {settleTxn && (
+            <div className="space-y-4">
+              <div className="rounded-lg bg-muted/30 p-3 text-sm space-y-1">
+                <div className="flex justify-between"><span className="text-muted-foreground">Member</span><span className="font-medium">{settleTxn.memberName}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Description</span><span>{settleTxn.description}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Amount</span><span>{formatNPR(settleTxn.amount)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">VAT</span><span>{formatNPR(settleTxn.vat)}</span></div>
+                <div className="flex justify-between font-bold"><span>Total</span><span className="text-primary">{formatNPR(settleTxn.total)}</span></div>
+              </div>
+              <div className="space-y-2">
+                <Label>Payment Method</Label>
+                <Select value={payMethod} onValueChange={setPayMethod}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {paymentModes.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={handleSettle} disabled={updateTransactionMutation.isPending} className="w-full gradient-gold text-primary-foreground">
+                <Receipt className="h-4 w-4 mr-1" />{updateTransactionMutation.isPending ? "Settling..." : "Settle & Print Bill"}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

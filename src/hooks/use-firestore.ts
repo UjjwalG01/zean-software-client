@@ -150,6 +150,17 @@ export function useAddTransaction() {
   });
 }
 
+export function useUpdateTransaction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Transaction> }) => {
+      if (!firebaseEnabled) return;
+      return fbServices.updateTransaction(id, data);
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["transactions"] }); },
+  });
+}
+
 // ─── Check-ins / Attendance ─────────────────────────────────────────
 export interface CheckInRecord {
   id: string;

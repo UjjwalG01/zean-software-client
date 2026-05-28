@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek, isToday } from "date-fns";
 import { ChevronLeft, ChevronRight, Plus, List, CalendarDays as CalIcon, Settings, Search, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,7 @@ function parseSetup(settings: Record<string, string>, key: string, fallback: str
 }
 
 const Bookings_Page = () => {
+  const navigate = useNavigate();
   const { selected: selectedOutlet, outlets, setSelected, pickerOpen, setPickerOpen, isLoading: outletsLoading } = useOutlet();
   const [pickerShown, setPickerShown] = useState(false);
 
@@ -176,7 +178,7 @@ const Bookings_Page = () => {
 
     const memberObj = members.find((m) => m.id === bookMember);
     try {
-      await addBookingMutation.mutateAsync({
+      const bookingId = await addBookingMutation.mutateAsync({
         memberId: bookMember,
         memberName: memberObj?.name || "",
         service: selectedService.type as ServiceType,
@@ -189,10 +191,22 @@ const Bookings_Page = () => {
         instructor: bookInstructor || selectedService.instructor || "",
         timeSlot: bookTimeSlot,
       } as any);
-      toast.success("Booking created successfully!");
+      toast.success("Booking created — proceed to payment");
       setDialogOpen(false);
+      const price = Number(selectedService.price || 0);
+      const params = new URLSearchParams({
+        newPayment: "true",
+        memberId: bookMember,
+        memberName: memberObj?.name || "",
+        service: String(selectedService.type),
+        className: selectedService.name,
+        amount: String(price),
+        locked: "1",
+        bookingId: String(bookingId || ""),
+      });
       setBookMember(""); setMemberSearch(""); setBookServiceId("");
       setBookInstructor(""); setBookTimeSlot("");
+      navigate(`/transactions?${params.toString()}`);
     } catch {
       toast.error("Failed to create booking");
     }

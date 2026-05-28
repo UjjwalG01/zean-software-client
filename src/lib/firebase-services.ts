@@ -302,6 +302,8 @@ function mapPaymentRow(r: any): Transaction {
     description: r.description || "",
     receiptNo: r.receipt_no || "",
     serviceType: r.service_type || undefined,
+    status: (r.status === "pending" ? "pending" : "paid") as "paid" | "pending",
+    bookingId: meta.bookingId || undefined,
   };
 }
 
@@ -314,6 +316,7 @@ export async function getTransactions(): Promise<Transaction[]> {
 export async function addTransaction(data: Partial<Transaction>): Promise<string> {
   const amount = Number(data.amount || 0);
   const vat = Math.round(amount * 0.13);
+  const status = data.status === "pending" ? "pending" : "paid";
   const { data: row, error } = await supabase.from("payments").insert({
     receipt_no: data.receiptNo || `VFC-${Date.now()}`,
     member_id: data.memberId || null,
@@ -325,12 +328,23 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
     service_type: data.serviceType || null,
     description: data.description || "",
     paid_at: data.date ? new Date(`${data.date}T00:00:00`).toISOString() : new Date().toISOString(),
-    status: "paid",
-    meta: { type: data.type || "Payment" },
+    status,
+    meta: { type: data.type || "Payment", bookingId: data.bookingId || null },
   }).select("id").single();
   if (error) throwDb(error, "payments");
   await maybeAudit("create", "payment", row.id, null, data);
   return row.id;
+}
+
+export async function updateTransaction(id: string, data: Partial<Transaction>): Promise<void> {
+  const patch: any = {};
+  if (data.method !== undefined) patch.method = data.method;
+  if (data.status !== undefined) patch.status = data.status;
+  if (data.description !== undefined) patch.description = data.description;
+  if (data.date !== undefined) patch.paid_at = new Date(`${data.date}T00:00:00`).toISOString();
+  const { error } = await supabase.from("payments").update(patch).eq("id", id);
+  if (error) throwDb(error, "payments");
+  await maybeAudit("update", "payment", id, null, data);
 }
 
 // ─── Services ───────────────────────────────────────────────────────
