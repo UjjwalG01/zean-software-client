@@ -165,12 +165,18 @@ const MemberProfile = () => {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="payments" className="space-y-4">
+      <Tabs defaultValue="progress" className="space-y-4">
         <TabsList className="bg-muted/50">
+          <TabsTrigger value="progress"><TrendingUp className="h-3.5 w-3.5 mr-1" />Progress</TabsTrigger>
           <TabsTrigger value="payments"><CreditCard className="h-3.5 w-3.5 mr-1" />Payments</TabsTrigger>
           <TabsTrigger value="bookings"><Calendar className="h-3.5 w-3.5 mr-1" />Bookings</TabsTrigger>
           <TabsTrigger value="preferences"><Activity className="h-3.5 w-3.5 mr-1" />Preferences</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="progress">
+          <MemberProgress member={member} bookings={memberBookings} transactions={memberTx} propertyName={settings.companyName} />
+        </TabsContent>
+
 
         <TabsContent value="payments">
           <div className="glass-card rounded-xl overflow-hidden">
