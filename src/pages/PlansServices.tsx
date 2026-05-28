@@ -43,7 +43,7 @@ const PlansServices = () => {
   const [editPlanId, setEditPlanId] = useState<string | null>(null);
   const [editServiceId, setEditServiceId] = useState<string | null>(null);
   const [newPlan, setNewPlan] = useState({ tier: "Basic", monthly: "", yearly: "", longTerm: "", includes: "" });
-  const [newService, setNewService] = useState({ name: "", outletId: "", type: "", duration: "", price: "", capacity: "", instructor: "" });
+  const [newService, setNewService] = useState({ name: "", outletId: "", type: "", duration: "", price: "", capacity: "", instructor: "", requiresInstructor: false });
   const [serviceOutletFilter, setServiceOutletFilter] = useState<string>("all");
 
   const { outlets } = useOutlet();
@@ -126,7 +126,7 @@ const PlansServices = () => {
     try { await updatePlanMutation.mutateAsync({ id, data: { autoRenew: !current } }); toast.success("Auto-renew updated"); } catch { toast.error("Failed"); }
   };
 
-  const emptyService = { name: "", outletId: "", type: "", duration: "", price: "", capacity: "", instructor: "" };
+  const emptyService = { name: "", outletId: "", type: "", duration: "", price: "", capacity: "", instructor: "", requiresInstructor: false };
 
   const handleCreateService = async () => {
     if (!newService.name.trim()) { toast.error("Service name required"); return; }
@@ -140,7 +140,8 @@ const PlansServices = () => {
         duration: Number(newService.duration) || 60,
         price: Number(newService.price) || 0,
         capacity: Number(newService.capacity) || 1,
-        instructor: newService.instructor,
+        instructor: newService.requiresInstructor ? newService.instructor : "",
+        requiresInstructor: newService.requiresInstructor,
       };
       if (editServiceId) {
         await updateServiceMutation.mutateAsync({ id: editServiceId, data: payload });
@@ -163,6 +164,7 @@ const PlansServices = () => {
       name: svc.name, outletId: svc.outletId || "", type: svc.type || "",
       duration: String(svc.duration), price: String(svc.price),
       capacity: String(svc.capacity || ""), instructor: svc.instructor || "",
+      requiresInstructor: svc.requiresInstructor === true,
     });
     setServiceDialogOpen(true);
   };
@@ -318,7 +320,16 @@ const PlansServices = () => {
                     <div className="space-y-2"><Label>Rate (NPR)</Label><Input type="number" placeholder="500" value={newService.price} onChange={(e) => setNewService((s) => ({ ...s, price: e.target.value }))} /></div>
                     <div className="space-y-2"><Label>Capacity</Label><Input type="number" placeholder="20" value={newService.capacity} onChange={(e) => setNewService((s) => ({ ...s, capacity: e.target.value }))} /></div>
                   </div>
-                  <div className="space-y-2"><Label>Instructor</Label><Input placeholder="e.g. Trainer Ravi" value={newService.instructor} onChange={(e) => setNewService((s) => ({ ...s, instructor: e.target.value }))} /></div>
+                  <div className="rounded-lg border border-border bg-muted/30 p-3 flex items-center justify-between">
+                    <div>
+                      <Label className="text-sm">Requires Instructor?</Label>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">Toggle on if this service needs a dedicated trainer/therapist.</p>
+                    </div>
+                    <Switch checked={newService.requiresInstructor} onCheckedChange={(v) => setNewService((s) => ({ ...s, requiresInstructor: v, instructor: v ? s.instructor : "" }))} />
+                  </div>
+                  {newService.requiresInstructor && (
+                    <div className="space-y-2"><Label>Default Instructor</Label><Input placeholder="e.g. Trainer Ravi" value={newService.instructor} onChange={(e) => setNewService((s) => ({ ...s, instructor: e.target.value }))} /></div>
+                  )}
                   <Button onClick={handleCreateService} disabled={addServiceMutation.isPending || updateServiceMutation.isPending} className="w-full gradient-gold text-primary-foreground">
                     {(addServiceMutation.isPending || updateServiceMutation.isPending) ? "Saving..." : editServiceId ? "Update Service" : "Create Service"}
                   </Button>

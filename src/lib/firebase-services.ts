@@ -348,11 +348,11 @@ export async function updateTransaction(id: string, data: Partial<Transaction>):
 }
 
 // ─── Services ───────────────────────────────────────────────────────
-export interface FirestoreService { id: string; name: string; type: string; duration: number; price: number; isActive: boolean; description?: string; capacity?: number; instructor?: string; outletId?: string; }
+export interface FirestoreService { id: string; name: string; type: string; duration: number; price: number; isActive: boolean; description?: string; capacity?: number; instructor?: string; outletId?: string; requiresInstructor?: boolean; }
 
 function mapServiceRow(r: any): FirestoreService {
   const meta = (() => { try { return r.description?.startsWith("{") ? JSON.parse(r.description) : {}; } catch { return {}; } })();
-  return { id: r.id, name: r.name || "", type: r.service_type || "Gym", duration: Number(r.duration_min || 0), price: Number(r.price || 0), isActive: r.active !== false, description: meta.description || r.description || "", capacity: Number(meta.capacity || 0), instructor: meta.instructor || "", outletId: meta.outletId || "" };
+  return { id: r.id, name: r.name || "", type: r.service_type || "Gym", duration: Number(r.duration_min || 0), price: Number(r.price || 0), isActive: r.active !== false, description: meta.description || r.description || "", capacity: Number(meta.capacity || 0), instructor: meta.instructor || "", outletId: meta.outletId || "", requiresInstructor: meta.requiresInstructor === true };
 }
 
 export async function getServices(filters?: { outletId?: string }): Promise<FirestoreService[]> {
@@ -364,7 +364,7 @@ export async function getServices(filters?: { outletId?: string }): Promise<Fire
 }
 
 function encodeServiceMeta(data: Partial<FirestoreService>) {
-  return JSON.stringify({ description: data.description || "", capacity: data.capacity || 1, instructor: data.instructor || "", outletId: data.outletId || "" });
+  return JSON.stringify({ description: data.description || "", capacity: data.capacity || 1, instructor: data.instructor || "", outletId: data.outletId || "", requiresInstructor: data.requiresInstructor === true });
 }
 
 export async function addService(data: Partial<FirestoreService>): Promise<string> {
@@ -387,7 +387,7 @@ export async function updateService(id: string, data: Partial<Record<string, any
   if (data.duration !== undefined) patch.duration_min = data.duration;
   if (data.price !== undefined) patch.price = data.price;
   if (data.isActive !== undefined) patch.active = data.isActive;
-  if (data.description !== undefined || data.capacity !== undefined || data.instructor !== undefined || data.outletId !== undefined) {
+  if (data.description !== undefined || data.capacity !== undefined || data.instructor !== undefined || data.outletId !== undefined || data.requiresInstructor !== undefined) {
     patch.description = encodeServiceMeta(data as Partial<FirestoreService>);
   }
   const { error } = await supabase.from("services").update(patch).eq("id", id);

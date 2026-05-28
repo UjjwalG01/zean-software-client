@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { BookingDetailModal } from "@/components/BookingDetailModal";
 import { OutletPickerDialog } from "@/components/OutletPickerDialog";
-import { useBookings, useAddBooking, useMembers, useServices, useCompanySettings } from "@/hooks/use-firestore";
+import { useBookings, useAddBooking, useMembers, useServices, useCompanySettings, useMembershipPlans, useUpdateMember } from "@/hooks/use-firestore";
 import { useOutlet } from "@/contexts/OutletContext";
 import { Building2, ChevronDown } from "lucide-react";
 import type { Booking, ServiceType } from "@/lib/mock-data";
@@ -79,11 +79,22 @@ const Bookings_Page = () => {
   const [bookInstructor, setBookInstructor] = useState("");
   const [bookTimeSlot, setBookTimeSlot] = useState("");
 
+  const [bookPlanId, setBookPlanId] = useState("");
+  const [bookDuration, setBookDuration] = useState<"monthly" | "yearly" | "longTerm">("monthly");
+
   const { data: bookings = [], isLoading } = useBookings();
   const { data: members = [] } = useMembers();
   const { data: services = [] } = useServices();
+  const { data: plans = [] } = useMembershipPlans();
   const { data: settings = {} } = useCompanySettings();
   const addBookingMutation = useAddBooking();
+  const updateMemberMutation = useUpdateMember();
+
+  // Outlet is "membership" type when the flag is on OR when its service types include the membership slug
+  const isMembershipOutlet = !!selectedOutlet && (
+    selectedOutlet.enableMembership === true ||
+    (selectedOutlet.serviceTypes || []).some((s) => s.toLowerCase() === "membership")
+  );
 
   const setupInstructors = parseSetup(settings, "setup_instructors", ["Trainer Ravi","Trainer Prakash","Therapist Maya","Coach Anil"]);
   const setupTimeSlots = parseSetup(settings, "setup_timeSlots", ["Morning","Day","Evening"]);
@@ -209,6 +220,53 @@ const Bookings_Page = () => {
       navigate(`/transactions?${params.toString()}`);
     } catch {
       toast.error("Failed to create booking");
+    }
+  };
+
+  const selectedPlan = useMemo(() => plans.find((p) => p.id === bookPlanId) || null, [plans, bookPlanId]);
+
+  const membershipAmount = useMemo(() => {
+    if (!selectedPlan) return 0;
+    if (bookDuration === "yearly") return Number(selectedPlan.yearlyPrice || 0);
+    if (bookDuration === "longTerm") return Number(selectedPlan.longTermPrice || 0);
+    return Number(selectedPlan.price || 0);
+  }, [selectedPlan, bookDuration]);
+
+  const handleEnrollMembership = async () => {
+    if (!bookMember || !selectedPlan) { toast.error("Select a member and a membership plan"); return; }
+    if (membershipAmount <= 0) { toast.error("Selected duration has no price configured"); return; }
+    const memberObj = members.find((m) => m.id === bookMember);
+    const today = new Date();
+    const expiry = new Date(today);
+    if (bookDuration === "monthly") expiry.setMonth(expiry.getMonth() + 1);
+    if (bookDuration === "yearly") expiry.setFullYear(expiry.getFullYear() + 1);
+    if (bookDuration === "longTerm") expiry.setFullYear(expiry.getFullYear() + 15);
+    const durationLabel = bookDuration === "monthly" ? "Monthly" : bookDuration === "yearly" ? "Yearly" : "15-Year";
+    try {
+      await updateMemberMutation.mutateAsync({
+        id: bookMember,
+        data: {
+          tier: selectedPlan.tier,
+          plan: durationLabel,
+          expiryDate: expiry.toISOString().split("T")[0],
+          status: "Active",
+        },
+      });
+      toast.success("Membership enrolled — proceed to payment");
+      setDialogOpen(false);
+      const params = new URLSearchParams({
+        newPayment: "true",
+        memberId: bookMember,
+        memberName: memberObj?.name || "",
+        service: "Membership",
+        className: `${selectedPlan.tier} · ${durationLabel}`,
+        amount: String(membershipAmount),
+        locked: "1",
+      });
+      setBookMember(""); setMemberSearch(""); setBookPlanId(""); setBookDuration("monthly");
+      navigate(`/transactions?${params.toString()}`);
+    } catch {
+      toast.error("Failed to enroll membership");
     }
   };
 
@@ -355,62 +413,115 @@ const Bookings_Page = () => {
               </Popover>
             </div>
 
-            {/* Service (from outlet) */}
-            <div className="space-y-2">
-              <Label>Service *</Label>
-              <Select value={bookServiceId} onValueChange={(v) => { setBookServiceId(v); setBookInstructor(""); }}>
-                <SelectTrigger>
-                  <SelectValue placeholder={outletServices.length === 0 ? "No services for this outlet" : "Select service"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {outletServices.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name} — {s.type} • {s.duration || 0}min{s.price ? ` • NPR ${s.price}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {outletServices.length === 0 && (
-                <p className="text-[11px] text-muted-foreground">Add services for this outlet in Plans & Services → Services.</p>
-              )}
-            </div>
+            {isMembershipOutlet ? (
+              <>
+                <div className="space-y-2">
+                  <Label>Membership Plan *</Label>
+                  <Select value={bookPlanId} onValueChange={setBookPlanId}>
+                    <SelectTrigger><SelectValue placeholder={plans.length === 0 ? "No plans configured" : "Select plan"} /></SelectTrigger>
+                    <SelectContent>
+                      {plans.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>{p.tier} — {p.includes || p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {plans.length === 0 && (
+                    <p className="text-[11px] text-muted-foreground">Create plans in Plans & Services → Membership Plans.</p>
+                  )}
+                </div>
 
-            {selectedService && (
-              <div className="rounded-lg border border-border bg-muted/30 p-3 grid grid-cols-3 gap-2 text-sm">
-                <div><span className="text-muted-foreground text-xs block">Duration</span><span className="font-medium">{selectedService.duration || 0} min</span></div>
-                <div><span className="text-muted-foreground text-xs block">Rate</span><span className="font-medium">NPR {selectedService.price || 0}</span></div>
-                <div><span className="text-muted-foreground text-xs block">Default Instructor</span><span className="font-medium">{selectedService.instructor || "—"}</span></div>
-              </div>
+                {selectedPlan && (
+                  <div className="space-y-2">
+                    <Label>Duration *</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {([
+                        { key: "monthly", label: "Monthly", price: selectedPlan.price },
+                        { key: "yearly", label: "1 Year", price: selectedPlan.yearlyPrice || 0 },
+                        { key: "longTerm", label: "15 Years", price: selectedPlan.longTermPrice || 0 },
+                      ] as const).map((d) => (
+                        <button
+                          key={d.key}
+                          type="button"
+                          onClick={() => setBookDuration(d.key)}
+                          disabled={!d.price}
+                          className={cn(
+                            "rounded-lg border p-3 text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
+                            bookDuration === d.key ? "border-primary bg-primary/10" : "border-border bg-muted/30 hover:bg-muted/50"
+                          )}
+                        >
+                          <p className="text-xs text-muted-foreground">{d.label}</p>
+                          <p className="text-sm font-bold font-display mt-1">NPR {Number(d.price || 0).toLocaleString()}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <Button onClick={handleEnrollMembership} disabled={updateMemberMutation.isPending || !selectedPlan} className="w-full gradient-gold text-primary-foreground">
+                  {updateMemberMutation.isPending ? "Enrolling..." : `Enroll & Pay NPR ${membershipAmount.toLocaleString()}`}
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label>Service *</Label>
+                  <Select value={bookServiceId} onValueChange={(v) => { setBookServiceId(v); setBookInstructor(""); }}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={outletServices.length === 0 ? "No services for this outlet" : "Select service"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {outletServices.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name} — {s.type} • {s.duration || 0}min{s.price ? ` • NPR ${s.price}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {outletServices.length === 0 && (
+                    <p className="text-[11px] text-muted-foreground">Add services for this outlet in Plans & Services → Services.</p>
+                  )}
+                </div>
+
+                {selectedService && (
+                  <div className="rounded-lg border border-border bg-muted/30 p-3 grid grid-cols-3 gap-2 text-sm">
+                    <div><span className="text-muted-foreground text-xs block">Duration</span><span className="font-medium">{selectedService.duration || 0} min</span></div>
+                    <div><span className="text-muted-foreground text-xs block">Rate</span><span className="font-medium">NPR {selectedService.price || 0}</span></div>
+                    <div><span className="text-muted-foreground text-xs block">Instructor</span><span className="font-medium">{selectedService.requiresInstructor ? (selectedService.instructor || "—") : "Not required"}</span></div>
+                  </div>
+                )}
+
+                <div className={cn("grid gap-3", selectedService?.requiresInstructor ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2")}>
+                  <div className="space-y-2">
+                    <Label>Date *</Label>
+                    <Input type="date" value={bookDate} onChange={(e) => setBookDate(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Time Slot *</Label>
+                    <Select value={bookTimeSlot} onValueChange={setBookTimeSlot}>
+                      <SelectTrigger><SelectValue placeholder="Select slot" /></SelectTrigger>
+                      <SelectContent>
+                        {setupTimeSlots.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {selectedService?.requiresInstructor && (
+                    <div className="space-y-2">
+                      <Label>Instructor *</Label>
+                      <Select value={bookInstructor} onValueChange={setBookInstructor}>
+                        <SelectTrigger><SelectValue placeholder="Select instructor" /></SelectTrigger>
+                        <SelectContent>
+                          {setupInstructors.map((i) => <SelectItem key={i} value={i}>{i}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+
+                <Button onClick={handleBook} disabled={addBookingMutation.isPending} className="w-full gradient-gold text-primary-foreground">
+                  {addBookingMutation.isPending ? "Creating..." : "Create Booking"}
+                </Button>
+              </>
             )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="space-y-2">
-                <Label>Date *</Label>
-                <Input type="date" value={bookDate} onChange={(e) => setBookDate(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Time Slot *</Label>
-                <Select value={bookTimeSlot} onValueChange={setBookTimeSlot}>
-                  <SelectTrigger><SelectValue placeholder="Select slot" /></SelectTrigger>
-                  <SelectContent>
-                    {setupTimeSlots.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Instructor</Label>
-                <Select value={bookInstructor} onValueChange={setBookInstructor}>
-                  <SelectTrigger><SelectValue placeholder="Default" /></SelectTrigger>
-                  <SelectContent>
-                    {setupInstructors.map((i) => <SelectItem key={i} value={i}>{i}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <Button onClick={handleBook} disabled={addBookingMutation.isPending} className="w-full gradient-gold text-primary-foreground">
-              {addBookingMutation.isPending ? "Creating..." : "Create Booking"}
-            </Button>
           </div>
         </DialogContent>
       </Dialog>

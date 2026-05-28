@@ -109,7 +109,11 @@ export function TransactionDetailModal({ transaction: t, open, onOpenChange }: T
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Status</span>
-                <Badge variant="default" className="text-[10px] bg-success/20 text-success border-0">Completed</Badge>
+                {t.status === "pending" ? (
+                  <Badge className="text-[10px] bg-amber-500/20 text-amber-400 border-0">Pending</Badge>
+                ) : (
+                  <Badge variant="default" className="text-[10px] bg-success/20 text-success border-0">Paid</Badge>
+                )}
               </div>
             </div>
           </div>
@@ -124,14 +128,20 @@ export function TransactionDetailModal({ transaction: t, open, onOpenChange }: T
             </>
           )}
 
-          <div className="flex gap-2 pt-2">
-            <Button variant="outline" size="sm" className="flex-1" onClick={handlePrint}>
-              <Printer className="h-4 w-4 mr-1" />Print
-            </Button>
-            <Button variant="outline" size="sm" className="flex-1" onClick={handleDownload}>
-              <Download className="h-4 w-4 mr-1" />Download PDF
-            </Button>
-          </div>
+          {t.status === "pending" ? (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-300 text-center">
+              Bill cannot be printed until this transaction is settled. Settle it from the Transactions list first.
+            </div>
+          ) : (
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" size="sm" className="flex-1" onClick={handlePrint}>
+                <Printer className="h-4 w-4 mr-1" />Print
+              </Button>
+              <Button variant="outline" size="sm" className="flex-1" onClick={handleDownload}>
+                <Download className="h-4 w-4 mr-1" />Download PDF
+              </Button>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
