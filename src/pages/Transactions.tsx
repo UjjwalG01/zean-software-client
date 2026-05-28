@@ -364,7 +364,7 @@ const Transactions = () => {
                       ) : (
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {
                           e.stopPropagation();
-                          printBill(t.memberName, t.receiptNo, t.description, t.amount, new Date(t.date));
+                          printBill(t.memberName, t.receiptNo, t.description, t.total, new Date(t.date));
                         }}>
                           <Printer className="h-3.5 w-3.5" />
                         </Button>
