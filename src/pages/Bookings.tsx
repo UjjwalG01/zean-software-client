@@ -166,13 +166,13 @@ const Bookings_Page = () => {
         endTime: bookEndTime || bookTime,
         status: "Pending",
         outletId: selectedOutlet?.id,
+        instructor: bookInstructor,
+        timeSlot: bookTimeSlot,
       } as any);
       toast.success("Booking created successfully!");
       setDialogOpen(false);
-      setBookMember("");
-      setBookClass("");
-      setBookTime("");
-      setBookEndTime("");
+      setBookMember(""); setBookClass(""); setBookTime(""); setBookEndTime("");
+      setBookInstructor(""); setBookTimeSlot("");
     } catch {
       toast.error("Failed to create booking");
     }
@@ -183,13 +183,31 @@ const Bookings_Page = () => {
     return { backgroundColor: color, color: "#fff" };
   };
 
-  // Merge classes from services collection and setup
+  // Classes for selected service, merged from `services` + `setup_classes`
   const classOptions = useMemo(() => {
     const fromServices = services.filter((s) => s.type === bookService).map((s) => s.name);
-    const fromSetup = setupClasses;
-    const merged = Array.from(new Set([...fromServices, ...fromSetup]));
+    const merged = Array.from(new Set([...fromServices, ...setupClasses]));
     return merged.length > 0 ? merged : ["General Session"];
   }, [services, bookService, setupClasses]);
+
+  // Selected class details (price, duration, instructor) from services collection
+  const selectedClassInfo = useMemo(() => {
+    return services.find((s) => s.type === bookService && s.name === bookClass) || null;
+  }, [services, bookService, bookClass]);
+
+  // Auto-fill end time / instructor when class chosen
+  useEffect(() => {
+    if (!selectedClassInfo || !bookTime) return;
+    if (selectedClassInfo.duration && !bookEndTime) {
+      const [h, m] = bookTime.split(":").map(Number);
+      const total = h * 60 + m + Number(selectedClassInfo.duration || 0);
+      const eh = Math.floor(total / 60) % 24;
+      const em = total % 60;
+      setBookEndTime(`${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`);
+    }
+    if (selectedClassInfo.instructor && !bookInstructor) setBookInstructor(selectedClassInfo.instructor);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClassInfo]);
 
   return (
     <div className="space-y-6 animate-fade-in">
