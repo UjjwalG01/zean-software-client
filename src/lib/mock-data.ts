@@ -95,6 +95,8 @@ export interface Transaction {
   description: string;
   receiptNo: string;
   serviceType?: ServiceType;
+  status?: "paid" | "pending";
+  bookingId?: string;
 }
 
 export interface AttendanceRecord {
