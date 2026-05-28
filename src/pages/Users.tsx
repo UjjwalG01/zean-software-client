@@ -91,9 +91,10 @@ const UsersPage = () => {
     } catch { toast.error("Update failed"); }
   };
 
-  const handleRoleChange = async (id: string, role: UserRole) => {
+  const handleRoleChange = async (id: string, customRoleId: string) => {
     try {
-      await updateMutation.mutateAsync({ id, data: { role } });
+      // Custom role IDs are stored in extras; system DB role stays "staff" so RLS enums are valid.
+      await updateMutation.mutateAsync({ id, data: { customRoleId, role: "staff" as UserRole } });
       toast.success("Role updated");
     } catch { toast.error("Failed"); }
   };
