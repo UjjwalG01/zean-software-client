@@ -357,80 +357,98 @@ const UsersPage = () => {
         </DialogContent>
       </Dialog>
 
-      <div className="glass-card rounded-xl overflow-hidden">
-        {isLoading ? (
-          <div className="p-4 space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}</div>
-        ) : users.length === 0 ? (
-          <div className="p-12 text-center">
-            <UserCog className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-muted-foreground text-sm">No users yet. Create your first user to grant access.</p>
+      <Tabs value={tab} onValueChange={setTab} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="roles">Roles & Permissions</TabsTrigger>
+        </TabsList>
+        <TabsContent value="users" className="space-y-4">
+          <div className="glass-card rounded-xl overflow-hidden">
+            {isLoading ? (
+              <div className="p-4 space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}</div>
+            ) : users.length === 0 ? (
+              <div className="p-12 text-center">
+                <UserCog className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-muted-foreground text-sm">No users yet. Create your first user to grant access.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead>User</TableHead>
+                      <TableHead className="hidden md:table-cell">Email</TableHead>
+                      <TableHead className="hidden lg:table-cell">Phone</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Active</TableHead>
+                      <TableHead className="w-24 text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.map((u) => {
+                      const custom = customRoles.find(r => r.id === u.role);
+                      const colorClass = custom ? "bg-accent/20 text-accent-foreground" : roleColors[u.role as UserRole];
+                      return (
+                      <TableRow key={u.id}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium text-sm">{u.fullName}</p>
+                            <p className="text-xs text-muted-foreground">@{u.username}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{u.email}</TableCell>
+                        <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">{u.phone || "—"}</TableCell>
+                        <TableCell>
+                          <Select value={u.role} onValueChange={(v) => handleRoleChange(u.id, v as UserRole)}>
+                            <SelectTrigger className={`h-8 w-[140px] text-[11px] border-0 ${colorClass}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="manager">Manager</SelectItem>
+                              <SelectItem value="staff">Staff</SelectItem>
+                              <SelectItem value="viewer">Viewer</SelectItem>
+                              {customRoles.filter(r => r.active).map(r => (
+                                <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          {u.mustChangePassword
+                            ? <Badge className="text-[10px] bg-warning/20 text-warning border-0">Pending password change</Badge>
+                            : <Badge className="text-[10px] bg-success/20 text-success border-0">Active</Badge>}
+                        </TableCell>
+                        <TableCell>
+                          <Switch checked={u.isActive} onCheckedChange={() => toggleActive(u.id, u.isActive)} />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-muted" title="Edit user" onClick={() => openEdit(u)}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/10" title="Reset password" onClick={() => setResetTarget(u)}>
+                              <KeyRound className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" title="Remove user" onClick={() => handleDelete(u.id, u.fullName)}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead>User</TableHead>
-                  <TableHead className="hidden md:table-cell">Email</TableHead>
-                  <TableHead className="hidden lg:table-cell">Phone</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Active</TableHead>
-                  <TableHead className="w-24 text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((u) => (
-                  <TableRow key={u.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium text-sm">{u.fullName}</p>
-                        <p className="text-xs text-muted-foreground">@{u.username}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{u.email}</TableCell>
-                    <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">{u.phone || "—"}</TableCell>
-                    <TableCell>
-                      <Select value={u.role} onValueChange={(v) => handleRoleChange(u.id, v as UserRole)}>
-                        <SelectTrigger className={`h-8 w-[110px] text-[11px] border-0 ${roleColors[u.role]}`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="manager">Manager</SelectItem>
-                          <SelectItem value="staff">Staff</SelectItem>
-                          <SelectItem value="viewer">Viewer</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      {u.mustChangePassword
-                        ? <Badge className="text-[10px] bg-warning/20 text-warning border-0">Pending password change</Badge>
-                        : <Badge className="text-[10px] bg-success/20 text-success border-0">Active</Badge>}
-                    </TableCell>
-                    <TableCell>
-                      <Switch checked={u.isActive} onCheckedChange={() => toggleActive(u.id, u.isActive)} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-muted" title="Edit user" onClick={() => openEdit(u)}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/10" title="Reset password" onClick={() => setResetTarget(u)}>
-                          <KeyRound className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" title="Remove user" onClick={() => handleDelete(u.id, u.fullName)}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </div>
+        </TabsContent>
+        <TabsContent value="roles">
+          <RolesManager />
+        </TabsContent>
+      </Tabs>
 
       {/* EDIT USER */}
       <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
