@@ -100,6 +100,7 @@ const GeneralSetup = () => {
           {sections.map((s) => (
             <TabsTrigger key={s.key} value={s.key}>{s.label}</TabsTrigger>
           ))}
+          <TabsTrigger value="grcSettings">GRC Template</TabsTrigger>
         </TabsList>
 
         {sections.map((section) => (
@@ -113,6 +114,9 @@ const GeneralSetup = () => {
             />
           </TabsContent>
         ))}
+        <TabsContent value="grcSettings">
+          <GRCSettingsPanel />
+        </TabsContent>
       </Tabs>
     </div>
   );
