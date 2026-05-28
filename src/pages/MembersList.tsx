@@ -149,10 +149,12 @@ const MembersList = () => {
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{m.phone}</TableCell>
                   <TableCell><TierBadge tier={m.tier} /></TableCell>
+                  <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">{m.plan}</TableCell>
                   <TableCell className="hidden lg:table-cell">
                     <div className="flex gap-1 flex-wrap">{m.services.map((s) => <span key={s} className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full">{s}</span>)}</div>
                   </TableCell>
                   <TableCell><StatusBadge status={m.status} /></TableCell>
+                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{m.joinDate}</TableCell>
                   <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{m.expiryDate}</TableCell>
                 </TableRow>
               ))}
