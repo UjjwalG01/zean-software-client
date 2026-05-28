@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TransactionDetailModal } from "@/components/TransactionDetailModal";
 import { formatNPR, type PaymentMethod, type Transaction } from "@/lib/mock-data";
-import { useTransactions, useAddTransaction, useMembers, useCompanySettings } from "@/hooks/use-firestore";
+import { useTransactions, useAddTransaction, useUpdateTransaction, useMembers, useCompanySettings } from "@/hooks/use-firestore";
 import { generateA5BillHTML, printHTML, exportTableToCSV } from "@/lib/print-utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
