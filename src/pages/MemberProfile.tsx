@@ -23,6 +23,7 @@ const MemberProfile = () => {
   const { data: member, isLoading } = useMember(id);
   const { data: allTransactions = [] } = useTransactions();
   const { data: allBookings = [] } = useBookings();
+  const { data: settings = {} } = useCompanySettings();
   const updateMember = useUpdateMember();
 
   const [editOpen, setEditOpen] = useState(false);
