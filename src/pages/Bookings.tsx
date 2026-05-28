@@ -223,6 +223,53 @@ const Bookings_Page = () => {
     }
   };
 
+  const selectedPlan = useMemo(() => plans.find((p) => p.id === bookPlanId) || null, [plans, bookPlanId]);
+
+  const membershipAmount = useMemo(() => {
+    if (!selectedPlan) return 0;
+    if (bookDuration === "yearly") return Number(selectedPlan.yearlyPrice || 0);
+    if (bookDuration === "longTerm") return Number(selectedPlan.longTermPrice || 0);
+    return Number(selectedPlan.price || 0);
+  }, [selectedPlan, bookDuration]);
+
+  const handleEnrollMembership = async () => {
+    if (!bookMember || !selectedPlan) { toast.error("Select a member and a membership plan"); return; }
+    if (membershipAmount <= 0) { toast.error("Selected duration has no price configured"); return; }
+    const memberObj = members.find((m) => m.id === bookMember);
+    const today = new Date();
+    const expiry = new Date(today);
+    if (bookDuration === "monthly") expiry.setMonth(expiry.getMonth() + 1);
+    if (bookDuration === "yearly") expiry.setFullYear(expiry.getFullYear() + 1);
+    if (bookDuration === "longTerm") expiry.setFullYear(expiry.getFullYear() + 15);
+    const durationLabel = bookDuration === "monthly" ? "Monthly" : bookDuration === "yearly" ? "Yearly" : "15-Year";
+    try {
+      await updateMemberMutation.mutateAsync({
+        id: bookMember,
+        data: {
+          tier: selectedPlan.tier,
+          plan: durationLabel,
+          expiryDate: expiry.toISOString().split("T")[0],
+          status: "Active",
+        },
+      });
+      toast.success("Membership enrolled — proceed to payment");
+      setDialogOpen(false);
+      const params = new URLSearchParams({
+        newPayment: "true",
+        memberId: bookMember,
+        memberName: memberObj?.name || "",
+        service: "Membership",
+        className: `${selectedPlan.tier} · ${durationLabel}`,
+        amount: String(membershipAmount),
+        locked: "1",
+      });
+      setBookMember(""); setMemberSearch(""); setBookPlanId(""); setBookDuration("monthly");
+      navigate(`/transactions?${params.toString()}`);
+    } catch {
+      toast.error("Failed to enroll membership");
+    }
+  };
+
   const getServiceStyle = (service: string) => {
     const color = serviceColors[service] || colorOptions[0].value;
     return { backgroundColor: color, color: "#fff" };
