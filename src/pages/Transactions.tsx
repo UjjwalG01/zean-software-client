@@ -91,7 +91,35 @@ const Transactions = () => {
   const totalAmount = filtered.reduce((sum, t) => sum + t.total, 0);
   const totalVat = filtered.reduce((sum, t) => sum + t.vat, 0);
 
-  const handleRecordPayment = async () => {
+  const printBill = (memberName: string, receiptNo: string, desc: string, amount: number, date: Date) => {
+    const companyName = settings.companyName || "VitaFit Club";
+    const vat = Math.round(amount * 0.13);
+    const html = generateA5BillHTML({
+      companyName,
+      companyAddress: settings.companyAddress || "",
+      companyPhone: settings.companyPhone || "",
+      companyEmail: settings.companyEmail || "",
+      vatNo: settings.vatNo || settings.panNumber || "",
+      guestName: memberName,
+      billNo: receiptNo,
+      billDate: format(date, "dd/MM/yyyy"),
+      billForMonth: format(date, "MMMM yyyy"),
+      items: [{ description: desc || "Membership Payment", quantity: 1, rate: amount, amount }],
+      subtotal: amount,
+      taxableAmount: amount,
+      vatAmount: vat,
+      grandTotal: amount + vat,
+      attendant: "admin",
+    });
+    printHTML(html);
+  };
+
+  const resetPayForm = () => {
+    setPayMember(""); setPayAmount(""); setPayDesc("");
+    setPayLocked(false); setPayBookingId("");
+  };
+
+  const handleRecordPayment = async (markPending = false) => {
     if (!payMember || !payAmount) {
       toast.error("Please select member and enter amount");
       return;
@@ -109,37 +137,38 @@ const Transactions = () => {
         description: payDesc,
         date: new Date().toISOString().split("T")[0],
         receiptNo,
+        status: markPending ? "pending" : "paid",
+        bookingId: payBookingId || undefined,
       });
-      toast.success("Payment recorded! Generating invoice...");
       setDialogOpen(false);
-
-      // Auto-print bill
-      const companyName = settings.companyName || "VitaFit Club";
-      const vat = Math.round(amount * 0.13);
-      const html = generateA5BillHTML({
-        companyName,
-        companyAddress: settings.companyAddress || "",
-        companyPhone: settings.companyPhone || "",
-        companyEmail: settings.companyEmail || "",
-        vatNo: settings.vatNo || settings.panNumber || "",
-        guestName: memberObj?.name || "",
-        billNo: receiptNo,
-        billDate: format(new Date(), "dd/MM/yyyy"),
-        billForMonth: format(new Date(), "MMMM yyyy"),
-        items: [{ description: payDesc || "Membership Payment", quantity: 1, rate: amount, amount }],
-        subtotal: amount,
-        taxableAmount: amount,
-        vatAmount: vat,
-        grandTotal: amount + vat,
-        attendant: "admin",
-      });
-      printHTML(html);
-
-      setPayMember("");
-      setPayAmount("");
-      setPayDesc("");
+      if (markPending) {
+        toast.success("Marked as pending — settle later from this list");
+      } else {
+        toast.success("Payment recorded! Generating invoice...");
+        printBill(memberObj?.name || "", receiptNo, payDesc, amount, new Date());
+      }
+      resetPayForm();
     } catch {
       toast.error("Failed to record payment");
+    }
+  };
+
+  const handleSettle = async () => {
+    if (!settleTxn) return;
+    try {
+      await updateTransactionMutation.mutateAsync({
+        id: settleTxn.id,
+        data: {
+          status: "paid",
+          method: payMethod as PaymentMethod,
+          date: new Date().toISOString().split("T")[0],
+        },
+      });
+      toast.success("Payment settled! Generating invoice...");
+      printBill(settleTxn.memberName, settleTxn.receiptNo, settleTxn.description, settleTxn.amount, new Date());
+      setSettleTxn(null);
+    } catch {
+      toast.error("Failed to settle payment");
     }
   };
 
