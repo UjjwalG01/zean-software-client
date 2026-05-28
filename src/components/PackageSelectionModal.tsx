@@ -41,10 +41,11 @@ export default function PackageSelectionModal({ open, onOpenChange, memberId, me
   const [outletId, setOutletId] = useState(selected?.id || "");
   const [planId, setPlanId] = useState<string>("");
   const [pkgs, setPkgs] = useState<string[]>([]);
-  const [timeSlot, setTimeSlot] = useState(timeSlots[0] || "Morning");
+  const [timeSlot, setTimeSlot] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { if (open && selected?.id) setOutletId(selected.id); }, [open, selected]);
+  useEffect(() => { if (!timeSlot && timeSlots.length) setTimeSlot(timeSlots[0]); }, [timeSlots, timeSlot]);
 
   const outletServices = useMemo(() => services, [services]);
   const toggle = (p: string) => setPkgs((cur) => cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]);

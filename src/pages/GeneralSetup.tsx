@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCompanySettings, useSaveCompanySettings } from "@/hooks/use-firestore";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -68,6 +70,9 @@ const GeneralSetup = () => {
     "If you need to be informed or communicated.",
     "Membership expiration will be informed before 7 days.",
   ]);
+  const instructors = useSetupList("setup_instructors", [
+    "Trainer Ravi", "Trainer Prakash", "Therapist Maya", "Therapist Sunita", "Coach Anil", "Staff Binita",
+  ]);
 
   const sections = [
     { key: "classes",        cat: "setup_classes",        label: "Classes / Sessions",  hook: classes },
@@ -76,6 +81,7 @@ const GeneralSetup = () => {
     { key: "timeSlots",      cat: "setup_timeSlots",      label: "Time Slots",           hook: timeSlots },
     { key: "packages",       cat: "setup_packages",       label: "Available Packages",   hook: packages },
     { key: "bloodGroups",    cat: "setup_bloodGroups",    label: "Blood Groups",         hook: bloodGroups },
+    { key: "instructors",    cat: "setup_instructors",    label: "Instructors / Staff",  hook: instructors },
     { key: "paymentModes",   cat: "setup_paymentModes",   label: "Payment Modes",        hook: paymentModes },
     { key: "paymentTypes",   cat: "setup_paymentTypes",   label: "Payment Types",        hook: paymentTypes },
     { key: "preferences",    cat: "setup_preferences",    label: "Member Preferences",   hook: preferences },
@@ -94,6 +100,7 @@ const GeneralSetup = () => {
           {sections.map((s) => (
             <TabsTrigger key={s.key} value={s.key}>{s.label}</TabsTrigger>
           ))}
+          <TabsTrigger value="grcSettings">GRC Template</TabsTrigger>
         </TabsList>
 
         {sections.map((section) => (
@@ -107,6 +114,9 @@ const GeneralSetup = () => {
             />
           </TabsContent>
         ))}
+        <TabsContent value="grcSettings">
+          <GRCSettingsPanel />
+        </TabsContent>
       </Tabs>
     </div>
   );
@@ -247,6 +257,107 @@ function SetupSection({ label, category, items, onSave, isPending }: { label: st
           {isPending ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Saving...</> : <><Save className="h-4 w-4 mr-1" />Save Changes</>}
         </Button>
       )}
+    </div>
+  );
+}
+
+// ─── GRC Settings Panel ──────────────────────────────────────────────
+const GRC_DEFAULTS = {
+  template: "compact",
+  textSize: "10",
+  showPhoto: "true",
+  showPhysical: "true",
+  showEmergency: "true",
+  showPackages: "true",
+  showPreferences: "true",
+  showOffice: "true",
+  showNotify: "true",
+};
+
+function GRCSettingsPanel() {
+  const { data: settings = {} } = useCompanySettings();
+  const saveMutation = useSaveCompanySettings();
+  const [vals, setVals] = useState<Record<string, string>>(GRC_DEFAULTS);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (loaded) return;
+    const next: Record<string, string> = { ...GRC_DEFAULTS };
+    Object.keys(GRC_DEFAULTS).forEach((k) => {
+      const key = `grc_${k}`;
+      if (settings[key] !== undefined) next[k] = settings[key];
+    });
+    setVals(next);
+    setLoaded(true);
+  }, [settings, loaded]);
+
+  const set = (k: string, v: string) => setVals((p) => ({ ...p, [k]: v }));
+
+  const save = async () => {
+    const payload: Record<string, string> = {};
+    Object.entries(vals).forEach(([k, v]) => { payload[`grc_${k}`] = v; });
+    try { await saveMutation.mutateAsync(payload); toast.success("GRC settings saved"); }
+    catch { toast.error("Failed to save"); }
+  };
+
+  const toggles: { k: keyof typeof GRC_DEFAULTS; label: string }[] = [
+    { k: "showPhoto", label: "Show Photo Box" },
+    { k: "showOffice", label: "Show Office Info" },
+    { k: "showEmergency", label: "Show Emergency Contact" },
+    { k: "showPhysical", label: "Show Physical & Medical" },
+    { k: "showPackages", label: "Show Packages Checklist" },
+    { k: "showPreferences", label: "Show Preferences" },
+    { k: "showNotify", label: "Show Notify Preferences" },
+  ];
+
+  return (
+    <div className="glass-card rounded-xl p-6 space-y-5">
+      <div>
+        <h3 className="font-semibold font-display">GRC Form Template</h3>
+        <p className="text-xs text-muted-foreground">Controls the Guest Registration Form layout, density, and visible fields.</p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Template Style</Label>
+          <Select value={vals.template} onValueChange={(v) => set("template", v)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="compact">Compact — dense one-page (default)</SelectItem>
+              <SelectItem value="classic">Classic — boxed sections, formal</SelectItem>
+              <SelectItem value="modern">Modern — minimal, accent stripe</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Base Text Size (px)</Label>
+          <Select value={vals.textSize} onValueChange={(v) => set("textSize", v)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {["9","10","11","12","13"].map((s) => <SelectItem key={s} value={s}>{s}px</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div>
+        <Label className="mb-2 block">Visible Sections</Label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {toggles.map((t) => (
+            <label key={t.k} className="flex items-center justify-between gap-3 rounded-lg border border-border p-2.5">
+              <span className="text-sm">{t.label}</span>
+              <Switch
+                checked={vals[t.k] === "true"}
+                onCheckedChange={(c) => set(t.k, c ? "true" : "false")}
+              />
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <Button onClick={save} disabled={saveMutation.isPending} className="gradient-gold text-primary-foreground">
+        {saveMutation.isPending ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Saving...</> : <><Save className="h-4 w-4 mr-1" />Save GRC Settings</>}
+      </Button>
     </div>
   );
 }
