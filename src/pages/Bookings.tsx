@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { BookingDetailModal } from "@/components/BookingDetailModal";
 import { OutletPickerDialog } from "@/components/OutletPickerDialog";
-import { useBookings, useAddBooking, useMembers, useServices, useCompanySettings } from "@/hooks/use-firestore";
+import { useBookings, useAddBooking, useMembers, useServices, useCompanySettings, useMembershipPlans, useUpdateMember } from "@/hooks/use-firestore";
 import { useOutlet } from "@/contexts/OutletContext";
 import { Building2, ChevronDown } from "lucide-react";
 import type { Booking, ServiceType } from "@/lib/mock-data";
@@ -79,11 +79,22 @@ const Bookings_Page = () => {
   const [bookInstructor, setBookInstructor] = useState("");
   const [bookTimeSlot, setBookTimeSlot] = useState("");
 
+  const [bookPlanId, setBookPlanId] = useState("");
+  const [bookDuration, setBookDuration] = useState<"monthly" | "yearly" | "longTerm">("monthly");
+
   const { data: bookings = [], isLoading } = useBookings();
   const { data: members = [] } = useMembers();
   const { data: services = [] } = useServices();
+  const { data: plans = [] } = useMembershipPlans();
   const { data: settings = {} } = useCompanySettings();
   const addBookingMutation = useAddBooking();
+  const updateMemberMutation = useUpdateMember();
+
+  // Outlet is "membership" type when the flag is on OR when its service types include the membership slug
+  const isMembershipOutlet = !!selectedOutlet && (
+    selectedOutlet.enableMembership === true ||
+    (selectedOutlet.serviceTypes || []).some((s) => s.toLowerCase() === "membership")
+  );
 
   const setupInstructors = parseSetup(settings, "setup_instructors", ["Trainer Ravi","Trainer Prakash","Therapist Maya","Coach Anil"]);
   const setupTimeSlots = parseSetup(settings, "setup_timeSlots", ["Morning","Day","Evening"]);
