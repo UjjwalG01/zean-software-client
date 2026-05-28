@@ -231,8 +231,8 @@ const Transactions = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Amount (NPR)</Label>
-                    <Input type="number" placeholder="0" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
+                    <Label>Amount (NPR){payLocked && <span className="text-xs text-muted-foreground ml-1">(locked)</span>}</Label>
+                    <Input type="number" placeholder="0" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} disabled={payLocked} />
                   </div>
                   <div className="space-y-2">
                     <Label>VAT (13%)</Label>
