@@ -373,6 +373,35 @@ const Transactions = () => {
           </Table>
         )}
       </div>
+
+      <Dialog open={!!settleTxn} onOpenChange={(o) => !o && setSettleTxn(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle className="font-display">Settle Pending Payment</DialogTitle></DialogHeader>
+          {settleTxn && (
+            <div className="space-y-4">
+              <div className="rounded-lg bg-muted/30 p-3 text-sm space-y-1">
+                <div className="flex justify-between"><span className="text-muted-foreground">Member</span><span className="font-medium">{settleTxn.memberName}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Description</span><span>{settleTxn.description}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Amount</span><span>{formatNPR(settleTxn.amount)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">VAT</span><span>{formatNPR(settleTxn.vat)}</span></div>
+                <div className="flex justify-between font-bold"><span>Total</span><span className="text-primary">{formatNPR(settleTxn.total)}</span></div>
+              </div>
+              <div className="space-y-2">
+                <Label>Payment Method</Label>
+                <Select value={payMethod} onValueChange={setPayMethod}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {paymentModes.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={handleSettle} disabled={updateTransactionMutation.isPending} className="w-full gradient-gold text-primary-foreground">
+                <Receipt className="h-4 w-4 mr-1" />{updateTransactionMutation.isPending ? "Settling..." : "Settle & Print Bill"}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
