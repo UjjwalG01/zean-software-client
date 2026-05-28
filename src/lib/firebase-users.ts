@@ -14,19 +14,25 @@ export interface AppUser {
   phone?: string;
   address?: string;
   role: UserRole;
+  /** Custom role id from RolesManager. When set, this is the actual assigned permission profile. */
+  customRoleId?: string;
   isActive: boolean;
   mustChangePassword: boolean;
   createdAt?: string;
   createdBy?: string;
 }
 
+const SYSTEM_ROLES: UserRole[] = ["admin", "manager", "staff", "viewer"];
+
 function mapRole(role?: string): UserRole {
   if (role === "admin" || role === "manager" || role === "staff") return role;
   return role === "member" ? "viewer" : "staff";
 }
 
-function dbRole(role: UserRole): "admin" | "manager" | "staff" | "member" {
-  return role === "viewer" ? "member" : role;
+function dbRole(role: UserRole | string): "admin" | "manager" | "staff" | "member" {
+  if (role === "admin" || role === "manager" || role === "staff") return role;
+  if (role === "viewer") return "member";
+  return "staff";
 }
 
 function mapRow(r: any): AppUser {
@@ -40,6 +46,7 @@ function mapRow(r: any): AppUser {
     phone: r.phone || "",
     address: extras.address || "",
     role: mapRole(r.role),
+    customRoleId: extras.customRoleId || "",
     isActive: r.active !== false,
     mustChangePassword: extras.mustChangePassword !== false,
     createdAt: r.created_at || "",
@@ -47,7 +54,7 @@ function mapRow(r: any): AppUser {
   };
 }
 
-async function syncRole(userId: string, role: UserRole) {
+async function syncRole(userId: string, role: UserRole | string) {
   await supabase.from("user_roles").delete().eq("user_id", userId);
   const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: dbRole(role) });
   if (error) throw error;
