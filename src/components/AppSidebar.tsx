@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, CalendarDays, Receipt, BarChart3, Settings, Dumbbell, Crown,
-  UserCheck, TrendingUp, Wrench, UserCog, Mail, Building2, Tag,
+  UserCheck, TrendingUp, Wrench, UserCog, Mail, Building2, Tag, Package, Warehouse, Layers,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -15,6 +15,7 @@ const mainItems = [
   { title: "Bookings", url: "/bookings", icon: CalendarDays },
   { title: "Attendance", url: "/attendance", icon: UserCheck },
   { title: "Transactions", url: "/transactions", icon: Receipt },
+  { title: "Inventory", url: "/inventory", icon: Package },
   { title: "Reports", url: "/reports", icon: BarChart3 },
   { title: "Forecast", url: "/forecast", icon: TrendingUp },
 ];
@@ -24,6 +25,8 @@ const setupItems = [
   { title: "Outlets", url: "/setup/outlets", icon: Building2 },
   { title: "Service Types", url: "/setup/service-types", icon: Tag },
   { title: "Plans & Services", url: "/setup/plans", icon: Dumbbell },
+  { title: "Stores", url: "/setup/stores", icon: Warehouse },
+  { title: "Item Groups", url: "/setup/item-groups", icon: Layers },
   { title: "Users & Roles", url: "/setup/users", icon: UserCog },
   { title: "Email Templates", url: "/setup/email-templates", icon: Mail },
   { title: "Settings", url: "/setup/settings", icon: Settings },

@@ -26,6 +26,9 @@ import Users from "./pages/Users";
 import EmailTemplates from "./pages/EmailTemplates";
 import OutletsPage from "./pages/setup/Outlets";
 import ServiceTypesPage from "./pages/setup/ServiceTypes";
+import Inventory from "./pages/Inventory";
+import StoresPage from "./pages/setup/Stores";
+import ItemGroupsPage from "./pages/setup/ItemGroups";
 import { OutletProvider } from "./contexts/OutletContext";
 import NotFound from "./pages/NotFound";
 import { useEffect } from "react";
@@ -103,6 +106,9 @@ const App = () => (
                       <Route path="/setup/outlets" element={<OutletsPage />} />
                       <Route path="/setup/service-types" element={<ServiceTypesPage />} />
                       <Route path="/setup/settings" element={<Settings />} />
+                      <Route path="/inventory" element={<Inventory />} />
+                      <Route path="/setup/stores" element={<StoresPage />} />
+                      <Route path="/setup/item-groups" element={<ItemGroupsPage />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </AppLayout>
