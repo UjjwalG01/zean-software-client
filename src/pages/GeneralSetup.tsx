@@ -70,6 +70,9 @@ const GeneralSetup = () => {
     "If you need to be informed or communicated.",
     "Membership expiration will be informed before 7 days.",
   ]);
+  const instructors = useSetupList("setup_instructors", [
+    "Trainer Ravi", "Trainer Prakash", "Therapist Maya", "Therapist Sunita", "Coach Anil", "Staff Binita",
+  ]);
 
   const sections = [
     { key: "classes",        cat: "setup_classes",        label: "Classes / Sessions",  hook: classes },
@@ -78,6 +81,7 @@ const GeneralSetup = () => {
     { key: "timeSlots",      cat: "setup_timeSlots",      label: "Time Slots",           hook: timeSlots },
     { key: "packages",       cat: "setup_packages",       label: "Available Packages",   hook: packages },
     { key: "bloodGroups",    cat: "setup_bloodGroups",    label: "Blood Groups",         hook: bloodGroups },
+    { key: "instructors",    cat: "setup_instructors",    label: "Instructors / Staff",  hook: instructors },
     { key: "paymentModes",   cat: "setup_paymentModes",   label: "Payment Modes",        hook: paymentModes },
     { key: "paymentTypes",   cat: "setup_paymentTypes",   label: "Payment Types",        hook: paymentTypes },
     { key: "preferences",    cat: "setup_preferences",    label: "Member Preferences",   hook: preferences },
