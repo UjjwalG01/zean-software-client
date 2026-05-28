@@ -469,14 +469,12 @@ const UsersPage = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>Role</Label>
-                  <Select value={editForm.role as string} onValueChange={(v) => setEditForm({ ...editForm, role: v as UserRole })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                  <Select value={(editForm as any).customRoleId || ""} onValueChange={(v) => setEditForm({ ...editForm, customRoleId: v } as any)}>
+                    <SelectTrigger><SelectValue placeholder={customRoles.filter(r => r.active).length === 0 ? "No roles available" : "Select role"} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="staff">Staff</SelectItem>
-                      <SelectItem value="viewer">Viewer</SelectItem>
-                      {customRoles.filter(r => r.active).map(r => (
+                      {customRoles.filter(r => r.active).length === 0 ? (
+                        <div className="px-3 py-2 text-xs text-muted-foreground">Create roles in Roles &amp; Permissions tab.</div>
+                      ) : customRoles.filter(r => r.active).map(r => (
                         <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
                       ))}
                     </SelectContent>
