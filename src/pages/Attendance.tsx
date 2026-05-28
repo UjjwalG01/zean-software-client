@@ -177,8 +177,10 @@ const Attendance = () => {
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead>Member</TableHead>
+                    <TableHead className="hidden md:table-cell">Phone</TableHead>
                     <TableHead>Tier</TableHead>
-                    <TableHead>Services</TableHead>
+                    <TableHead className="hidden lg:table-cell">Services</TableHead>
+                    <TableHead className="hidden md:table-cell">Last Check-in</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Action</TableHead>
                   </TableRow>
@@ -186,11 +188,14 @@ const Attendance = () => {
                 <TableBody>
                   {filteredMembers.map((m) => {
                     const isPresent = todayCheckedInIds.has(m.id);
+                    const lastCi = [...checkIns].filter((c) => c.memberId === m.id).sort((a, b) => (a.date < b.date ? 1 : -1))[0];
                     return (
                       <TableRow key={m.id}>
                         <TableCell className="font-medium text-sm">{m.name}</TableCell>
+                        <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{m.phone}</TableCell>
                         <TableCell><Badge variant="secondary" className="text-[10px]">{m.tier}</Badge></TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{m.services.join(", ")}</TableCell>
+                        <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">{m.services.join(", ")}</TableCell>
+                        <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{lastCi?.date || "—"}</TableCell>
                         <TableCell>
                           <Badge className={`text-[10px] border-0 ${isPresent ? "bg-success/20 text-success" : "bg-destructive/20 text-destructive"}`}>
                             {isPresent ? "Present" : "Absent"}

@@ -48,7 +48,7 @@ const MemberGRC = () => {
   const timeSlots = parseList(settings, "setup_timeSlots", ["Morning","Day","Evening"]);
   const memberPkgs: string[] = Array.isArray(m.packages) ? m.packages : [];
 
-  if (isLoading) return <div className="p-6"><Skeleton className="h-96 w-full" /></div>;
+  if (isLoading && id !== "blank") return <div className="p-6"><Skeleton className="h-96 w-full" /></div>;
   if (!member) return <div className="p-6">Member not found</div>;
 
   const handlePrint = () => window.print();

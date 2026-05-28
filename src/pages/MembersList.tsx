@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Plus, Download } from "lucide-react";
+import { Search, Plus, Download, FileText } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -70,6 +70,9 @@ const MembersList = () => {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleExport}><Download className="h-4 w-4 mr-1" />Export</Button>
+          <Button variant="outline" size="sm" onClick={() => window.open("/members/blank/grc", "_blank")}>
+            <FileText className="h-4 w-4 mr-1" />Generate Blank GRC
+          </Button>
           <Button size="sm" onClick={() => navigate("/members/new")}><Plus className="h-4 w-4 mr-1" />Add Member</Button>
         </div>
       </div>
@@ -122,8 +125,10 @@ const MembersList = () => {
                 <TableHead>Member</TableHead>
                 <TableHead className="hidden md:table-cell">Phone</TableHead>
                 <TableHead>Tier</TableHead>
+                <TableHead className="hidden lg:table-cell">Plan</TableHead>
                 <TableHead className="hidden lg:table-cell">Services</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="hidden md:table-cell">Joined</TableHead>
                 <TableHead className="hidden md:table-cell">Expiry</TableHead>
               </TableRow>
             </TableHeader>
@@ -144,10 +149,12 @@ const MembersList = () => {
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{m.phone}</TableCell>
                   <TableCell><TierBadge tier={m.tier} /></TableCell>
+                  <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">{m.plan}</TableCell>
                   <TableCell className="hidden lg:table-cell">
                     <div className="flex gap-1 flex-wrap">{m.services.map((s) => <span key={s} className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full">{s}</span>)}</div>
                   </TableCell>
                   <TableCell><StatusBadge status={m.status} /></TableCell>
+                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{m.joinDate}</TableCell>
                   <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{m.expiryDate}</TableCell>
                 </TableRow>
               ))}

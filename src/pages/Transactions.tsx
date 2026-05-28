@@ -91,9 +91,11 @@ const Transactions = () => {
   const totalAmount = filtered.reduce((sum, t) => sum + t.total, 0);
   const totalVat = filtered.reduce((sum, t) => sum + t.vat, 0);
 
-  const printBill = (memberName: string, receiptNo: string, desc: string, amount: number, date: Date) => {
+  const printBill = (memberName: string, receiptNo: string, desc: string, gross: number, date: Date) => {
     const companyName = settings.companyName || "VitaFit Club";
-    const vat = Math.round(amount * 0.13);
+    // VAT-inclusive: the displayed/charged price already contains 13% VAT
+    const net = Math.round((gross / 1.13) * 100) / 100;
+    const vat = Math.round((gross - net) * 100) / 100;
     const html = generateA5BillHTML({
       companyName,
       companyAddress: settings.companyAddress || "",
@@ -104,11 +106,11 @@ const Transactions = () => {
       billNo: receiptNo,
       billDate: format(date, "dd/MM/yyyy"),
       billForMonth: format(date, "MMMM yyyy"),
-      items: [{ description: desc || "Membership Payment", quantity: 1, rate: amount, amount }],
-      subtotal: amount,
-      taxableAmount: amount,
+      items: [{ description: desc || "Membership Payment", quantity: 1, rate: gross, amount: gross }],
+      subtotal: net,
+      taxableAmount: net,
       vatAmount: vat,
-      grandTotal: amount + vat,
+      grandTotal: gross,
       attendant: "admin",
     });
     printHTML(html);
@@ -165,14 +167,16 @@ const Transactions = () => {
         },
       });
       toast.success("Payment settled! Generating invoice...");
-      printBill(settleTxn.memberName, settleTxn.receiptNo, settleTxn.description, settleTxn.amount, new Date());
+      printBill(settleTxn.memberName, settleTxn.receiptNo, settleTxn.description, settleTxn.total, new Date());
       setSettleTxn(null);
     } catch {
       toast.error("Failed to settle payment");
     }
   };
 
-  const vatPreview = payAmount ? Math.round(Number(payAmount) * 0.13) : 0;
+  const grossPreview = Number(payAmount || 0);
+  const netPreview = grossPreview ? Math.round((grossPreview / 1.13) * 100) / 100 : 0;
+  const vatPreview = grossPreview ? Math.round((grossPreview - netPreview) * 100) / 100 : 0;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -231,11 +235,11 @@ const Transactions = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Amount (NPR){payLocked && <span className="text-xs text-muted-foreground ml-1">(locked)</span>}</Label>
+                    <Label>Amount (NPR, VAT incl.){payLocked && <span className="text-xs text-muted-foreground ml-1">(locked)</span>}</Label>
                     <Input type="number" placeholder="0" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} disabled={payLocked} />
                   </div>
                   <div className="space-y-2">
-                    <Label>VAT (13%)</Label>
+                    <Label>VAT included (13%)</Label>
                     <Input type="number" value={vatPreview} disabled />
                   </div>
                 </div>
@@ -251,9 +255,9 @@ const Transactions = () => {
                 <div className="space-y-2"><Label>Description</Label><Input placeholder="e.g. Gold Monthly Payment" value={payDesc} onChange={(e) => setPayDesc(e.target.value)} /></div>
                 {payAmount && (
                   <div className="rounded-lg bg-muted/30 p-3 text-sm space-y-1">
-                    <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatNPR(Number(payAmount))}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">VAT</span><span>{formatNPR(vatPreview)}</span></div>
-                    <div className="flex justify-between font-bold"><span>Total</span><span className="text-primary">{formatNPR(Number(payAmount) + vatPreview)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Net (excl. VAT)</span><span>{formatNPR(netPreview)}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">VAT (13% incl.)</span><span>{formatNPR(vatPreview)}</span></div>
+                    <div className="flex justify-between font-bold"><span>Total Payable</span><span className="text-primary">{formatNPR(grossPreview)}</span></div>
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-2">
@@ -360,7 +364,7 @@ const Transactions = () => {
                       ) : (
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {
                           e.stopPropagation();
-                          printBill(t.memberName, t.receiptNo, t.description, t.amount, new Date(t.date));
+                          printBill(t.memberName, t.receiptNo, t.description, t.total, new Date(t.date));
                         }}>
                           <Printer className="h-3.5 w-3.5" />
                         </Button>
@@ -382,9 +386,9 @@ const Transactions = () => {
               <div className="rounded-lg bg-muted/30 p-3 text-sm space-y-1">
                 <div className="flex justify-between"><span className="text-muted-foreground">Member</span><span className="font-medium">{settleTxn.memberName}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Description</span><span>{settleTxn.description}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Amount</span><span>{formatNPR(settleTxn.amount)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">VAT</span><span>{formatNPR(settleTxn.vat)}</span></div>
-                <div className="flex justify-between font-bold"><span>Total</span><span className="text-primary">{formatNPR(settleTxn.total)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Net (excl. VAT)</span><span>{formatNPR(settleTxn.amount)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">VAT (13% incl.)</span><span>{formatNPR(settleTxn.vat)}</span></div>
+                <div className="flex justify-between font-bold"><span>Total Payable</span><span className="text-primary">{formatNPR(settleTxn.total)}</span></div>
               </div>
               <div className="space-y-2">
                 <Label>Payment Method</Label>

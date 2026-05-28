@@ -1,11 +1,9 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Building2, Save, Loader2, Power, MapPin, FileText } from "lucide-react";
+import { Plus, Pencil, Trash2, Building2, Save, Loader2, Power, MapPin, FileText, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -18,16 +16,23 @@ import {
 } from "@/lib/firebase-outlets";
 import { useCompanySettings } from "@/hooks/use-firestore";
 
-const OUTLET_TYPES = ["REGULAR", "SPA", "GYM", "WELLNESS", "EVENT", "RETAIL"];
+const COUNTRIES = ["Nepal", "India", "Bhutan", "Bangladesh", "China", "United States", "United Kingdom", "Australia", "Other"];
+
+// Foreign-key relations the outlet participates in across the schema.
+// These are informational toggles so admins know what links exist.
+const FK_RELATIONS: { key: keyof Outlet | "members" | "bookings" | "services" | "transactions"; label: string; help: string }[] = [
+  { key: "services", label: "Services", help: "Services created under this outlet" },
+  { key: "bookings", label: "Bookings", help: "Member bookings made against this outlet" },
+  { key: "members", label: "Members", help: "Members assigned to this outlet" },
+  { key: "transactions", label: "Transactions", help: "Payments collected for this outlet" },
+];
 
 const emptyForm: Partial<Outlet> = {
-  name: "", outletCode: "", costCenter: "", outletType: "REGULAR",
-  effectiveFrom: new Date().toISOString().slice(0, 10),
-  description: "", serviceTypes: [], color: "#f5b300", imageUrl: "",
-  country: "Nepal", state: "", city: "", street: "", zip: "",
-  tel1: "", tel2: "", mobile: "", email: "", website: "",
-  active: true, showRoomGuest: true, realTimeSales: false,
-  enableMembership: false, allowBillDateChange: false, isTicketing: false,
+  name: "",
+  serviceTypes: [],
+  country: "Nepal", state: "", city: "", street: "",
+  tel1: "",
+  active: true,
 };
 
 export default function OutletsPage() {
@@ -104,20 +109,14 @@ export default function OutletsPage() {
       {isLoading ? <Skeleton className="h-64 rounded-xl" /> : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {outlets.map((o) => {
-            const img = o.imageUrl || stMap[o.serviceTypes[0]]?.defaultImage;
+            const addr = [o.street, o.city, o.state, o.country].filter(Boolean).join(", ");
             return (
               <div key={o.id} className="glass-card rounded-xl overflow-hidden flex flex-col">
-                <div className="h-32 bg-muted relative">
-                  {img && <img src={img} alt={o.name} className="h-full w-full object-cover" />}
-                  <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, transparent 50%, ${o.color}cc)` }} />
-                  {!o.active && <Badge variant="secondary" className="absolute top-2 left-2">Inactive</Badge>}
-                  {o.outletCode && <Badge className="absolute top-2 right-2 bg-background/80 text-foreground">{o.outletCode}</Badge>}
-                </div>
                 <div className="p-4 space-y-2 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <h3 className="font-semibold font-display">{o.name}</h3>
-                      {o.outletType && <p className="text-[11px] text-muted-foreground uppercase tracking-wider">{o.outletType}</p>}
+                      {!o.active && <Badge variant="secondary" className="mt-1">Inactive</Badge>}
                     </div>
                     <div className="flex">
                       <Button variant="ghost" size="icon" onClick={() => toggleActive.mutate({ id: o.id, active: !o.active })} title="Toggle active">
@@ -129,8 +128,9 @@ export default function OutletsPage() {
                       </Button>
                     </div>
                   </div>
-                  {o.description && <p className="text-xs text-muted-foreground line-clamp-2">{o.description}</p>}
-                  <div className="flex flex-wrap gap-1">
+                  {addr && <p className="text-xs text-muted-foreground flex items-start gap-1"><MapPin className="h-3 w-3 mt-0.5 shrink-0" />{addr}</p>}
+                  {o.tel1 && <p className="text-xs text-muted-foreground">☎ {o.tel1}</p>}
+                  <div className="flex flex-wrap gap-1 pt-1">
                     {o.serviceTypes.map((s) => {
                       const sd = stMap[s];
                       return <Badge key={s} variant="outline" className="text-[10px]" style={sd?.color ? { color: sd.color, borderColor: `${sd.color}66` } : undefined}>{sd?.name || s}</Badge>;
@@ -147,90 +147,44 @@ export default function OutletsPage() {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
           <DialogHeader><DialogTitle className="font-display">{editing ? "Edit" : "Add"} Outlet</DialogTitle></DialogHeader>
           <div className="space-y-6">
 
-            {/* ── Outlet section ─────────────────────────────────────── */}
+            {/* ── Outlet name ─────────────────────────────────────────── */}
             <section className="rounded-xl border border-border/50 p-4 space-y-3">
               <div className="flex items-center gap-2 text-primary">
                 <Building2 className="h-4 w-4" />
                 <h3 className="font-semibold text-sm">Outlet</h3>
-                <span className="text-xs text-muted-foreground">All fields marked with * are mandatory.</span>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Effective From *</Label>
-                  <Input type="date" value={form.effectiveFrom || ""} onChange={(e) => setForm({ ...form, effectiveFrom: e.target.value })} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Outlet Code *</Label>
-                  <Input value={form.outletCode || ""} onChange={(e) => setForm({ ...form, outletCode: e.target.value.toUpperCase() })} placeholder="e.g. SP" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Outlet Name *</Label>
-                  <Input value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="SANCTUARY SPA" />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Cost Center *</Label>
-                  <Input value={form.costCenter || ""} onChange={(e) => setForm({ ...form, costCenter: e.target.value })} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Type *</Label>
-                  <Select value={form.outletType || "REGULAR"} onValueChange={(v) => setForm({ ...form, outletType: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{OUTLET_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Accent Color</Label>
-                  <Input type="color" value={form.color || "#f5b300"} onChange={(e) => setForm({ ...form, color: e.target.value })} className="h-10 w-20 p-1" />
-                </div>
-
-                <div className="md:col-span-3 space-y-1.5">
-                  <Label className="text-xs">Description</Label>
-                  <Textarea rows={2} value={form.description || ""} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-                </div>
-                <div className="md:col-span-3 space-y-1.5">
-                  <Label className="text-xs">Cover Image URL</Label>
-                  <Input value={form.imageUrl || ""} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://..." />
-                </div>
-              </div>
-
-              {/* Flags */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pt-2 border-t border-border/40">
-                <FlagSwitch label="Active" v={form.active !== false} on={(v) => setForm({ ...form, active: v })} />
-                <FlagSwitch label="Show Room Guest" v={!!form.showRoomGuest} on={(v) => setForm({ ...form, showRoomGuest: v })} />
-                <FlagSwitch label="Real Time Sales" v={!!form.realTimeSales} on={(v) => setForm({ ...form, realTimeSales: v })} />
-                <FlagSwitch label="Enable Membership" v={!!form.enableMembership} on={(v) => setForm({ ...form, enableMembership: v })} />
-                <FlagSwitch label="Allow Bill Date Change" v={!!form.allowBillDateChange} on={(v) => setForm({ ...form, allowBillDateChange: v })} />
-                <FlagSwitch label="Is Ticketing Outlet" v={!!form.isTicketing} on={(v) => setForm({ ...form, isTicketing: v })} />
+              <div className="space-y-1.5">
+                <Label className="text-xs">Outlet Name *</Label>
+                <Input value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="SANCTUARY SPA" />
               </div>
             </section>
 
-            {/* ── Address section ────────────────────────────────────── */}
+            {/* ── Address ─────────────────────────────────────────────── */}
             <section className="rounded-xl border border-border/50 p-4 space-y-3">
               <div className="flex items-center gap-2 text-primary">
                 <MapPin className="h-4 w-4" />
                 <h3 className="font-semibold text-sm">Address</h3>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                <div className="space-y-1.5"><Label className="text-xs">Country *</Label><Input value={form.country || ""} onChange={(e) => setForm({ ...form, country: e.target.value })} /></div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Country *</Label>
+                  <Select value={form.country || "Nepal"} onValueChange={(v) => setForm({ ...form, country: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{COUNTRIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-1.5"><Label className="text-xs">State</Label><Input value={form.state || ""} onChange={(e) => setForm({ ...form, state: e.target.value })} /></div>
                 <div className="space-y-1.5"><Label className="text-xs">City *</Label><Input value={form.city || ""} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
                 <div className="space-y-1.5"><Label className="text-xs">Street *</Label><Input value={form.street || ""} onChange={(e) => setForm({ ...form, street: e.target.value })} /></div>
-                <div className="space-y-1.5"><Label className="text-xs">Zip</Label><Input value={form.zip || ""} onChange={(e) => setForm({ ...form, zip: e.target.value })} /></div>
-                <div className="space-y-1.5"><Label className="text-xs">Tel 1 *</Label><Input value={form.tel1 || ""} onChange={(e) => setForm({ ...form, tel1: e.target.value })} /></div>
-                <div className="space-y-1.5"><Label className="text-xs">Tel 2</Label><Input value={form.tel2 || ""} onChange={(e) => setForm({ ...form, tel2: e.target.value })} /></div>
-                <div className="space-y-1.5"><Label className="text-xs">Mobile</Label><Input value={form.mobile || ""} onChange={(e) => setForm({ ...form, mobile: e.target.value })} /></div>
-                <div className="space-y-1.5 md:col-span-2"><Label className="text-xs">Email</Label><Input type="email" value={form.email || ""} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-                <div className="space-y-1.5 md:col-span-2"><Label className="text-xs">Website</Label><Input value={form.website || ""} onChange={(e) => setForm({ ...form, website: e.target.value })} /></div>
+                <div className="space-y-1.5 md:col-span-2"><Label className="text-xs">Tel 1 *</Label><Input value={form.tel1 || ""} onChange={(e) => setForm({ ...form, tel1: e.target.value })} /></div>
               </div>
             </section>
 
-            {/* ── Service Type linking (Outlet ↔ Service Type) ───────── */}
+            {/* ── Service Type linking ─────────────────────────────────── */}
             <section className="rounded-xl border border-border/50 p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-primary">
@@ -259,7 +213,25 @@ export default function OutletsPage() {
                 ))}
                 {activeSt.length === 0 && <p className="text-xs text-muted-foreground col-span-full">No service types yet. Create some in Setup → Service Types.</p>}
               </div>
-              <p className="text-[11px] text-muted-foreground">Selected service types determine which categories this outlet appears under during bookings.</p>
+            </section>
+
+            {/* ── FK Relations ─────────────────────────────────────────── */}
+            <section className="rounded-xl border border-border/50 p-4 space-y-3">
+              <div className="flex items-center gap-2 text-primary">
+                <Link2 className="h-4 w-4" />
+                <h3 className="font-semibold text-sm">Linked Tables (FK Relations)</h3>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                These tables reference this outlet automatically — no manual setup required.
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {FK_RELATIONS.map((r) => (
+                  <div key={r.key as string} className="rounded-md border border-border/40 px-3 py-2 bg-muted/10">
+                    <p className="text-xs font-medium">{r.label}</p>
+                    <p className="text-[10px] text-muted-foreground">{r.help}</p>
+                  </div>
+                ))}
+              </div>
             </section>
 
             <div className="flex gap-2 sticky bottom-0 bg-background pt-3 border-t border-border/40">
@@ -276,15 +248,6 @@ export default function OutletsPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
-
-function FlagSwitch({ label, v, on }: { label: string; v: boolean; on: (v: boolean) => void }) {
-  return (
-    <div className="flex items-center justify-between rounded-md border border-border/40 px-3 py-2">
-      <Label className="text-xs">{label}</Label>
-      <Switch checked={v} onCheckedChange={on} />
     </div>
   );
 }

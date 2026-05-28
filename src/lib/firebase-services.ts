@@ -314,16 +314,18 @@ export async function getTransactions(): Promise<Transaction[]> {
 }
 
 export async function addTransaction(data: Partial<Transaction>): Promise<string> {
-  const amount = Number(data.amount || 0);
-  const vat = Math.round(amount * 0.13);
+  // Prices are VAT-INCLUSIVE. `amount` is the gross total; derive the embedded VAT.
+  const gross = Number(data.amount || 0);
+  const net = Math.round((gross / 1.13) * 100) / 100;
+  const vat = Math.round((gross - net) * 100) / 100;
   const status = data.status === "pending" ? "pending" : "paid";
   const { data: row, error } = await supabase.from("payments").insert({
     receipt_no: data.receiptNo || `VFC-${Date.now()}`,
     member_id: data.memberId || null,
     member_name: data.memberName || null,
-    amount,
+    amount: net,
     vat_amount: vat,
-    total: amount + vat,
+    total: gross,
     method: data.method || "Cash",
     service_type: data.serviceType || null,
     description: data.description || "",
