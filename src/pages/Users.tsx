@@ -263,27 +263,14 @@ const UsersPage = () => {
         ))}
       </div>
 
-      <div className="glass-card rounded-xl p-4">
-        <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">Role permissions</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-          <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
-            <p className="font-semibold text-primary mb-1">Admin</p>
-            <p className="text-muted-foreground">Full access · manage users, settings, billing, and all records.</p>
-          </div>
-          <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-3">
-            <p className="font-semibold text-blue-400 mb-1">Manager</p>
-            <p className="text-muted-foreground">Manage members, bookings, payments, reports. No user management.</p>
-          </div>
-          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
-            <p className="font-semibold text-emerald-400 mb-1">Staff</p>
-            <p className="text-muted-foreground">Day-to-day operations: check-ins, bookings, payments.</p>
-          </div>
-          <div className="rounded-lg border border-muted-foreground/30 bg-muted/10 p-3">
-            <p className="font-semibold mb-1">Viewer</p>
-            <p className="text-muted-foreground">Read-only access to dashboards and reports.</p>
-          </div>
+      {customRoles.length === 0 && (
+        <div className="glass-card rounded-xl p-4 border border-warning/30 bg-warning/5">
+          <p className="text-xs uppercase tracking-wider text-warning font-semibold mb-1">No roles defined</p>
+          <p className="text-sm text-muted-foreground">
+            Create roles with custom permissions in the <strong>Roles &amp; Permissions</strong> tab below, then assign them to each user.
+          </p>
         </div>
-      </div>
+      )}
 
       <Dialog open={!!successUser} onOpenChange={(o) => !o && setSuccessUser(null)}>
         <DialogContent className="sm:max-w-[440px]">
