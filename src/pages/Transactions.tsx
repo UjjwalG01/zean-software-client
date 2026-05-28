@@ -256,9 +256,14 @@ const Transactions = () => {
                     <div className="flex justify-between font-bold"><span>Total</span><span className="text-primary">{formatNPR(Number(payAmount) + vatPreview)}</span></div>
                   </div>
                 )}
-                <Button onClick={handleRecordPayment} disabled={addTransactionMutation.isPending} className="w-full gradient-gold text-primary-foreground">
-                  <Receipt className="h-4 w-4 mr-1" />{addTransactionMutation.isPending ? "Saving..." : "Save & Print Invoice"}
-                </Button>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" onClick={() => handleRecordPayment(true)} disabled={addTransactionMutation.isPending}>
+                    Pay Later (Pending)
+                  </Button>
+                  <Button onClick={() => handleRecordPayment(false)} disabled={addTransactionMutation.isPending} className="gradient-gold text-primary-foreground">
+                    <Receipt className="h-4 w-4 mr-1" />{addTransactionMutation.isPending ? "Saving..." : "Pay & Print Bill"}
+                  </Button>
+                </div>
               </div>
             </DialogContent>
           </Dialog>
