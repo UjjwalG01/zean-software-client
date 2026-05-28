@@ -30,8 +30,10 @@ const UsersPage = () => {
   const createMutation = useCreateAppUser();
   const updateMutation = useUpdateAppUser();
   const deleteMutation = useDeleteAppUser();
+  const { roles: customRoles } = useRoleDefinitions();
 
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState("users");
   const [showPwd, setShowPwd] = useState(false);
   const [successUser, setSuccessUser] = useState<{ email: string; password: string; fullName: string } | null>(null);
   const [resetTarget, setResetTarget] = useState<AppUser | null>(null);
