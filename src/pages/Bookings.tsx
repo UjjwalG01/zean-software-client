@@ -242,7 +242,7 @@ const Bookings_Page = () => {
             <SelectTrigger className="w-[130px] bg-muted/50 border-0"><SelectValue placeholder="Service" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Services</SelectItem>
-              {setupServiceTypes.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              {outletServiceTypes.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
 
@@ -252,7 +252,7 @@ const Bookings_Page = () => {
             </PopoverTrigger>
             <PopoverContent className="w-64" align="end">
               <p className="font-semibold text-sm mb-3">Calendar Colors</p>
-              {setupServiceTypes.map((svc) => (
+              {outletServiceTypes.map((svc) => (
                 <div key={svc} className="flex items-center justify-between mb-2">
                   <span className="text-sm">{svc}</span>
                   <div className="flex gap-1">
@@ -281,70 +281,101 @@ const Bookings_Page = () => {
 
       {/* New Booking Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display">New Booking</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Member *</Label>
-                <Select value={bookMember} onValueChange={setBookMember}>
-                  <SelectTrigger><SelectValue placeholder="Select member" /></SelectTrigger>
-                  <SelectContent>
-                    {members.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Service Type *</Label>
-                <Select value={bookService} onValueChange={(v) => { setBookService(v as ServiceType); setBookClass(""); setBookEndTime(""); setBookInstructor(""); }}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {setupServiceTypes.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <Label>{bookService} Option / Class *</Label>
-                <Select value={bookClass} onValueChange={(v) => { setBookClass(v); setBookEndTime(""); setBookInstructor(""); }}>
-                  <SelectTrigger><SelectValue placeholder="Select option" /></SelectTrigger>
-                  <SelectContent>
-                    {classOptions.map((c) => {
-                      const svc = services.find((s) => s.type === bookService && s.name === c);
-                      return (
-                        <SelectItem key={c} value={c}>
-                          {c}{svc ? ` — ${svc.duration || 0}min${svc.price ? ` • NPR ${svc.price}` : ""}` : ""}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* Outlet context (read-only) */}
+            <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 flex items-center gap-2 text-sm">
+              <Building2 className="h-4 w-4" style={{ color: selectedOutlet?.color }} />
+              <span className="text-muted-foreground">Outlet</span>
+              <span className="font-medium">{selectedOutlet?.name || "—"}</span>
+              {selectedService?.type && (
+                <Badge variant="secondary" className="ml-auto text-[10px]">{selectedService.type}</Badge>
+              )}
             </div>
 
-            {selectedClassInfo && (
+            {/* Member search */}
+            <div className="space-y-2">
+              <Label>Member *</Label>
+              <Popover open={memberPopoverOpen} onOpenChange={setMemberPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                    {selectedMember ? (
+                      <span className="flex items-center gap-2 truncate">
+                        <span className="truncate">{selectedMember.name}</span>
+                        {selectedMember.phone && <span className="text-xs text-muted-foreground">{selectedMember.phone}</span>}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">Search and select member…</span>
+                    )}
+                    <ChevronDown className="h-4 w-4 opacity-60" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <div className="p-2 border-b border-border">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input value={memberSearch} onChange={(e) => setMemberSearch(e.target.value)} placeholder="Search by name, phone, email" className="pl-7 h-8" autoFocus />
+                    </div>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {filteredMembers.length === 0 ? (
+                      <p className="px-3 py-6 text-center text-xs text-muted-foreground">No members found</p>
+                    ) : filteredMembers.map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => { setBookMember(m.id); setMemberPopoverOpen(false); }}
+                        className="flex items-center justify-between w-full px-3 py-2 text-sm text-left hover:bg-muted/50"
+                      >
+                        <div className="flex flex-col min-w-0">
+                          <span className="truncate">{m.name}</span>
+                          <span className="text-[11px] text-muted-foreground truncate">{m.phone || m.email || "—"}</span>
+                        </div>
+                        {bookMember === m.id && <Check className="h-3.5 w-3.5 text-primary" />}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Service (from outlet) */}
+            <div className="space-y-2">
+              <Label>Service *</Label>
+              <Select value={bookServiceId} onValueChange={(v) => { setBookServiceId(v); setBookInstructor(""); }}>
+                <SelectTrigger>
+                  <SelectValue placeholder={outletServices.length === 0 ? "No services for this outlet" : "Select service"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {outletServices.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name} — {s.type} • {s.duration || 0}min{s.price ? ` • NPR ${s.price}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {outletServices.length === 0 && (
+                <p className="text-[11px] text-muted-foreground">Add services for this outlet in Plans & Services → Services.</p>
+              )}
+            </div>
+
+            {selectedService && (
               <div className="rounded-lg border border-border bg-muted/30 p-3 grid grid-cols-3 gap-2 text-sm">
-                <div><span className="text-muted-foreground text-xs block">Duration</span><span className="font-medium">{selectedClassInfo.duration || 0} min</span></div>
-                <div><span className="text-muted-foreground text-xs block">Price</span><span className="font-medium">NPR {selectedClassInfo.price || 0}</span></div>
-                <div><span className="text-muted-foreground text-xs block">Default Instructor</span><span className="font-medium">{selectedClassInfo.instructor || "—"}</span></div>
+                <div><span className="text-muted-foreground text-xs block">Duration</span><span className="font-medium">{selectedService.duration || 0} min</span></div>
+                <div><span className="text-muted-foreground text-xs block">Rate</span><span className="font-medium">NPR {selectedService.price || 0}</span></div>
+                <div><span className="text-muted-foreground text-xs block">Default Instructor</span><span className="font-medium">{selectedService.instructor || "—"}</span></div>
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-2">
-                <Label>Instructor</Label>
-                <Select value={bookInstructor} onValueChange={setBookInstructor}>
-                  <SelectTrigger><SelectValue placeholder="Select instructor" /></SelectTrigger>
-                  <SelectContent>
-                    {setupInstructors.map((i) => <SelectItem key={i} value={i}>{i}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Label>Date *</Label>
+                <Input type="date" value={bookDate} onChange={(e) => setBookDate(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>Time Slot</Label>
+                <Label>Time Slot *</Label>
                 <Select value={bookTimeSlot} onValueChange={setBookTimeSlot}>
                   <SelectTrigger><SelectValue placeholder="Select slot" /></SelectTrigger>
                   <SelectContent>
@@ -352,12 +383,15 @@ const Bookings_Page = () => {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-2"><Label>Date *</Label><Input type="date" value={bookDate} onChange={(e) => setBookDate(e.target.value)} /></div>
-              <div className="space-y-2"><Label>Start *</Label><Input type="time" value={bookTime} onChange={(e) => setBookTime(e.target.value)} /></div>
-              <div className="space-y-2"><Label>End</Label><Input type="time" value={bookEndTime} onChange={(e) => setBookEndTime(e.target.value)} /></div>
+              <div className="space-y-2">
+                <Label>Instructor</Label>
+                <Select value={bookInstructor} onValueChange={setBookInstructor}>
+                  <SelectTrigger><SelectValue placeholder="Default" /></SelectTrigger>
+                  <SelectContent>
+                    {setupInstructors.map((i) => <SelectItem key={i} value={i}>{i}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <Button onClick={handleBook} disabled={addBookingMutation.isPending} className="w-full gradient-gold text-primary-foreground">
