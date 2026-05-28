@@ -117,6 +117,7 @@ const Bookings_Page = () => {
   const getBookingsForDay = (day: Date) => filtered.filter((b) => isSameDay(new Date(b.date), day));
 
   const openNewBookingDialog = (day?: Date) => {
+    if (!selectedOutlet) { setPickerOpen(true); return; }
     const d = day || new Date();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -125,8 +126,6 @@ const Bookings_Page = () => {
       return;
     }
     setBookDate(format(d, "yyyy-MM-dd"));
-    setBookTime(getNowTime());
-    setBookEndTime(getEndTime());
     setDialogOpen(true);
   };
 
@@ -145,9 +144,21 @@ const Bookings_Page = () => {
     setDetailOpen(true);
   };
 
+  // Selected service info (drives type, rate, duration, default instructor)
+  const selectedService = useMemo(
+    () => outletServices.find((s) => s.id === bookServiceId) || null,
+    [outletServices, bookServiceId]
+  );
+
+  // Default instructor to the service's instructor when chosen
+  useEffect(() => {
+    if (selectedService?.instructor && !bookInstructor) setBookInstructor(selectedService.instructor);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedService]);
+
   const handleBook = async () => {
-    if (!bookMember || !bookClass || !bookDate || !bookTime) {
-      toast.error("Please fill in all required fields");
+    if (!bookMember || !selectedService || !bookDate || !bookTimeSlot) {
+      toast.error("Please fill member, service, date and time slot");
       return;
     }
     const today = new Date();
@@ -156,24 +167,31 @@ const Bookings_Page = () => {
       toast.error("Cannot create bookings for past dates");
       return;
     }
+    const start = SLOT_START[bookTimeSlot] || "09:00";
+    const [h, m] = start.split(":").map(Number);
+    const total = h * 60 + m + Number(selectedService.duration || 60);
+    const eh = Math.floor(total / 60) % 24;
+    const em = total % 60;
+    const end = `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`;
+
     const memberObj = members.find((m) => m.id === bookMember);
     try {
       await addBookingMutation.mutateAsync({
         memberId: bookMember,
         memberName: memberObj?.name || "",
-        service: bookService,
-        className: bookClass,
+        service: selectedService.type as ServiceType,
+        className: selectedService.name,
         date: bookDate,
-        startTime: bookTime,
-        endTime: bookEndTime || bookTime,
+        startTime: start,
+        endTime: end,
         status: "Pending",
         outletId: selectedOutlet?.id,
-        instructor: bookInstructor,
+        instructor: bookInstructor || selectedService.instructor || "",
         timeSlot: bookTimeSlot,
       } as any);
       toast.success("Booking created successfully!");
       setDialogOpen(false);
-      setBookMember(""); setBookClass(""); setBookTime(""); setBookEndTime("");
+      setBookMember(""); setMemberSearch(""); setBookServiceId("");
       setBookInstructor(""); setBookTimeSlot("");
     } catch {
       toast.error("Failed to create booking");
@@ -181,35 +199,18 @@ const Bookings_Page = () => {
   };
 
   const getServiceStyle = (service: string) => {
-    const color = serviceColors[service];
+    const color = serviceColors[service] || colorOptions[0].value;
     return { backgroundColor: color, color: "#fff" };
   };
 
-  // Classes for selected service, merged from `services` + `setup_classes`
-  const classOptions = useMemo(() => {
-    const fromServices = services.filter((s) => s.type === bookService).map((s) => s.name);
-    const merged = Array.from(new Set([...fromServices, ...setupClasses]));
-    return merged.length > 0 ? merged : ["General Session"];
-  }, [services, bookService, setupClasses]);
+  const filteredMembers = useMemo(() => {
+    const q = memberSearch.trim().toLowerCase();
+    const list = q ? members.filter((m) => (m.name || "").toLowerCase().includes(q) || (m.phone || "").includes(q) || (m.email || "").toLowerCase().includes(q)) : members;
+    return list.slice(0, 50);
+  }, [members, memberSearch]);
 
-  // Selected class details (price, duration, instructor) from services collection
-  const selectedClassInfo = useMemo(() => {
-    return services.find((s) => s.type === bookService && s.name === bookClass) || null;
-  }, [services, bookService, bookClass]);
+  const selectedMember = members.find((m) => m.id === bookMember);
 
-  // Auto-fill end time / instructor when class chosen
-  useEffect(() => {
-    if (!selectedClassInfo || !bookTime) return;
-    if (selectedClassInfo.duration && !bookEndTime) {
-      const [h, m] = bookTime.split(":").map(Number);
-      const total = h * 60 + m + Number(selectedClassInfo.duration || 0);
-      const eh = Math.floor(total / 60) % 24;
-      const em = total % 60;
-      setBookEndTime(`${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`);
-    }
-    if (selectedClassInfo.instructor && !bookInstructor) setBookInstructor(selectedClassInfo.instructor);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedClassInfo]);
 
   return (
     <div className="space-y-6 animate-fade-in">
