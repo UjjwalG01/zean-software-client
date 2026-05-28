@@ -81,7 +81,7 @@ const GeneralSetup = () => {
         <p className="text-muted-foreground text-sm">Configure dropdown options used across bookings, members, and transactions</p>
       </div>
 
-      <Tabs defaultValue="classes" className="space-y-4">
+      <Tabs defaultValue="planDurations" className="space-y-4">
         <TabsList className="bg-muted/50 flex-wrap h-auto gap-1">
           {sections.map((s) => (
             <TabsTrigger key={s.key} value={s.key}>{s.label}</TabsTrigger>
