@@ -44,6 +44,7 @@ function parseSetup(settings: Record<string, string>, key: string, fallback: str
 }
 
 const Bookings_Page = () => {
+  const navigate = useNavigate();
   const { selected: selectedOutlet, outlets, setSelected, pickerOpen, setPickerOpen, isLoading: outletsLoading } = useOutlet();
   const [pickerShown, setPickerShown] = useState(false);
 
