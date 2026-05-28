@@ -386,9 +386,9 @@ const Transactions = () => {
               <div className="rounded-lg bg-muted/30 p-3 text-sm space-y-1">
                 <div className="flex justify-between"><span className="text-muted-foreground">Member</span><span className="font-medium">{settleTxn.memberName}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Description</span><span>{settleTxn.description}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Amount</span><span>{formatNPR(settleTxn.amount)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">VAT</span><span>{formatNPR(settleTxn.vat)}</span></div>
-                <div className="flex justify-between font-bold"><span>Total</span><span className="text-primary">{formatNPR(settleTxn.total)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Net (excl. VAT)</span><span>{formatNPR(settleTxn.amount)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">VAT (13% incl.)</span><span>{formatNPR(settleTxn.vat)}</span></div>
+                <div className="flex justify-between font-bold"><span>Total Payable</span><span className="text-primary">{formatNPR(settleTxn.total)}</span></div>
               </div>
               <div className="space-y-2">
                 <Label>Payment Method</Label>
