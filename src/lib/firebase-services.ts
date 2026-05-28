@@ -387,7 +387,7 @@ export async function updateService(id: string, data: Partial<Record<string, any
   if (data.duration !== undefined) patch.duration_min = data.duration;
   if (data.price !== undefined) patch.price = data.price;
   if (data.isActive !== undefined) patch.active = data.isActive;
-  if (data.description !== undefined || data.capacity !== undefined || data.instructor !== undefined || data.outletId !== undefined) {
+  if (data.description !== undefined || data.capacity !== undefined || data.instructor !== undefined || data.outletId !== undefined || data.requiresInstructor !== undefined) {
     patch.description = encodeServiceMeta(data as Partial<FirestoreService>);
   }
   const { error } = await supabase.from("services").update(patch).eq("id", id);
