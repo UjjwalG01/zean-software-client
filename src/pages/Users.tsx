@@ -42,7 +42,7 @@ const UsersPage = () => {
 
   const initialForm = () => ({
     username: "", email: "", password: DEFAULT_TEMP_PASSWORD, confirmPassword: DEFAULT_TEMP_PASSWORD,
-    fullName: "", phone: "", address: "", role: "staff" as UserRole,
+    fullName: "", phone: "", address: "", role: "" as unknown as UserRole,
   });
   const [form, setForm] = useState(initialForm());
   const reset = () => setForm(initialForm());
