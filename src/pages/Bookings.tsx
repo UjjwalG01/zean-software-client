@@ -38,16 +38,6 @@ const colorOptions = [
   { label: "Red", value: "hsl(0,84%,60%)", tw: "bg-destructive" },
 ];
 
-function getNowTime(): string {
-  const now = new Date();
-  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-}
-
-function getEndTime(): string {
-  const end = addHours(new Date(), 1);
-  return `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
-}
-
 function parseSetup(settings: Record<string, string>, key: string, fallback: string[]): string[] {
   try { return settings[key] ? JSON.parse(settings[key]) : fallback; } catch { return fallback; }
 }
@@ -81,10 +71,9 @@ const Bookings_Page = () => {
 
   const [bookDate, setBookDate] = useState("");
   const [bookMember, setBookMember] = useState("");
-  const [bookService, setBookService] = useState<ServiceType>("Gym");
-  const [bookClass, setBookClass] = useState("");
-  const [bookTime, setBookTime] = useState("");
-  const [bookEndTime, setBookEndTime] = useState("");
+  const [memberSearch, setMemberSearch] = useState("");
+  const [memberPopoverOpen, setMemberPopoverOpen] = useState(false);
+  const [bookServiceId, setBookServiceId] = useState("");
   const [bookInstructor, setBookInstructor] = useState("");
   const [bookTimeSlot, setBookTimeSlot] = useState("");
 
@@ -94,10 +83,21 @@ const Bookings_Page = () => {
   const { data: settings = {} } = useCompanySettings();
   const addBookingMutation = useAddBooking();
 
-  const setupServiceTypes = parseSetup(settings, "setup_serviceTypes", ["Gym", "Spa", "Sauna", "Swimming"]);
-  const setupClasses = parseSetup(settings, "setup_classes", []);
   const setupInstructors = parseSetup(settings, "setup_instructors", ["Trainer Ravi","Trainer Prakash","Therapist Maya","Coach Anil"]);
   const setupTimeSlots = parseSetup(settings, "setup_timeSlots", ["Morning","Day","Evening"]);
+
+  // Services scoped to the selected outlet only
+  const outletServices = useMemo(
+    () => services.filter((s) => s.outletId === selectedOutlet?.id && s.isActive !== false),
+    [services, selectedOutlet?.id]
+  );
+
+  // Service types present in this outlet (for the calendar filter dropdown)
+  const outletServiceTypes = useMemo(
+    () => Array.from(new Set(outletServices.map((s) => s.type))),
+    [outletServices]
+  );
+
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
