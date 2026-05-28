@@ -42,7 +42,7 @@ const UsersPage = () => {
 
   const initialForm = () => ({
     username: "", email: "", password: DEFAULT_TEMP_PASSWORD, confirmPassword: DEFAULT_TEMP_PASSWORD,
-    fullName: "", phone: "", address: "", role: "staff" as UserRole,
+    fullName: "", phone: "", address: "", role: "" as unknown as UserRole,
   });
   const [form, setForm] = useState(initialForm());
   const reset = () => setForm(initialForm());
@@ -60,6 +60,7 @@ const UsersPage = () => {
   const handleCreate = async () => {
     const err = validate();
     if (err) { toast.error(err); return; }
+    if (!form.role) { toast.error("Please assign a role"); return; }
     try {
       await createMutation.mutateAsync({
         username: form.username,
@@ -68,7 +69,8 @@ const UsersPage = () => {
         fullName: form.fullName,
         phone: form.phone,
         address: form.address,
-        role: form.role,
+        role: "staff" as UserRole,
+        customRoleId: form.role,
       });
       const created = { email: form.email, password: form.password, fullName: form.fullName };
       setOpen(false);
@@ -91,9 +93,10 @@ const UsersPage = () => {
     } catch { toast.error("Update failed"); }
   };
 
-  const handleRoleChange = async (id: string, role: UserRole) => {
+  const handleRoleChange = async (id: string, customRoleId: string) => {
     try {
-      await updateMutation.mutateAsync({ id, data: { role } });
+      // Custom role IDs are stored in extras; system DB role stays "staff" so RLS enums are valid.
+      await updateMutation.mutateAsync({ id, data: { customRoleId, role: "staff" as UserRole } });
       toast.success("Role updated");
     } catch { toast.error("Failed"); }
   };
@@ -134,13 +137,13 @@ const UsersPage = () => {
 
   const openEdit = (u: AppUser) => {
     setEditTarget(u);
-    setEditForm({ fullName: u.fullName, username: u.username, phone: u.phone, address: u.address, role: u.role });
+    setEditForm({ fullName: u.fullName, username: u.username, phone: u.phone, address: u.address, customRoleId: u.customRoleId || "" });
   };
 
   const handleSaveEdit = async () => {
     if (!editTarget) return;
     try {
-      await updateMutation.mutateAsync({ id: editTarget.id, data: editForm });
+      await updateMutation.mutateAsync({ id: editTarget.id, data: { ...editForm, role: "staff" as UserRole } });
       toast.success("User updated");
       setEditTarget(null);
     } catch { toast.error("Update failed"); }
@@ -194,13 +197,13 @@ const UsersPage = () => {
                 <div className="space-y-2">
                   <Label>Role *</Label>
                   <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as UserRole })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue placeholder={customRoles.filter(r => r.active).length === 0 ? "No roles — create one first" : "Select role"} />
+                    </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">Admin (full access)</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="staff">Staff (standard access)</SelectItem>
-                      <SelectItem value="viewer">Viewer (read-only)</SelectItem>
-                      {customRoles.filter(r => r.active).map(r => (
+                      {customRoles.filter(r => r.active).length === 0 ? (
+                        <div className="px-3 py-2 text-xs text-muted-foreground">Create roles in the Roles &amp; Permissions tab.</div>
+                      ) : customRoles.filter(r => r.active).map(r => (
                         <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
                       ))}
                     </SelectContent>
@@ -263,27 +266,14 @@ const UsersPage = () => {
         ))}
       </div>
 
-      <div className="glass-card rounded-xl p-4">
-        <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">Role permissions</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-          <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
-            <p className="font-semibold text-primary mb-1">Admin</p>
-            <p className="text-muted-foreground">Full access · manage users, settings, billing, and all records.</p>
-          </div>
-          <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-3">
-            <p className="font-semibold text-blue-400 mb-1">Manager</p>
-            <p className="text-muted-foreground">Manage members, bookings, payments, reports. No user management.</p>
-          </div>
-          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
-            <p className="font-semibold text-emerald-400 mb-1">Staff</p>
-            <p className="text-muted-foreground">Day-to-day operations: check-ins, bookings, payments.</p>
-          </div>
-          <div className="rounded-lg border border-muted-foreground/30 bg-muted/10 p-3">
-            <p className="font-semibold mb-1">Viewer</p>
-            <p className="text-muted-foreground">Read-only access to dashboards and reports.</p>
-          </div>
+      {customRoles.length === 0 && (
+        <div className="glass-card rounded-xl p-4 border border-warning/30 bg-warning/5">
+          <p className="text-xs uppercase tracking-wider text-warning font-semibold mb-1">No roles defined</p>
+          <p className="text-sm text-muted-foreground">
+            Create roles with custom permissions in the <strong>Roles &amp; Permissions</strong> tab below, then assign them to each user.
+          </p>
         </div>
-      </div>
+      )}
 
       <Dialog open={!!successUser} onOpenChange={(o) => !o && setSuccessUser(null)}>
         <DialogContent className="sm:max-w-[440px]">
@@ -387,8 +377,9 @@ const UsersPage = () => {
                   </TableHeader>
                   <TableBody>
                     {users.map((u) => {
-                      const custom = customRoles.find(r => r.id === u.role);
-                      const colorClass = custom ? "bg-accent/20 text-accent-foreground" : roleColors[u.role as UserRole];
+                      const assignedId = u.customRoleId || u.role;
+                      const custom = customRoles.find(r => r.id === assignedId);
+                      const colorClass = custom ? "bg-accent/20 text-accent-foreground" : "bg-muted text-muted-foreground";
                       return (
                       <TableRow key={u.id}>
                         <TableCell>
@@ -400,16 +391,14 @@ const UsersPage = () => {
                         <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{u.email}</TableCell>
                         <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">{u.phone || "—"}</TableCell>
                         <TableCell>
-                          <Select value={u.role} onValueChange={(v) => handleRoleChange(u.id, v as UserRole)}>
-                            <SelectTrigger className={`h-8 w-[140px] text-[11px] border-0 ${colorClass}`}>
-                              <SelectValue />
+                          <Select value={assignedId} onValueChange={(v) => handleRoleChange(u.id, v as UserRole)}>
+                            <SelectTrigger className={`h-8 w-[160px] text-[11px] border-0 ${colorClass}`}>
+                              <SelectValue placeholder="Unassigned" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="admin">Admin</SelectItem>
-                              <SelectItem value="manager">Manager</SelectItem>
-                              <SelectItem value="staff">Staff</SelectItem>
-                              <SelectItem value="viewer">Viewer</SelectItem>
-                              {customRoles.filter(r => r.active).map(r => (
+                              {customRoles.filter(r => r.active).length === 0 ? (
+                                <div className="px-3 py-2 text-xs text-muted-foreground">Create a role first</div>
+                              ) : customRoles.filter(r => r.active).map(r => (
                                 <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
                               ))}
                             </SelectContent>
@@ -480,14 +469,12 @@ const UsersPage = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>Role</Label>
-                  <Select value={editForm.role as string} onValueChange={(v) => setEditForm({ ...editForm, role: v as UserRole })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                  <Select value={(editForm as any).customRoleId || ""} onValueChange={(v) => setEditForm({ ...editForm, customRoleId: v } as any)}>
+                    <SelectTrigger><SelectValue placeholder={customRoles.filter(r => r.active).length === 0 ? "No roles available" : "Select role"} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="staff">Staff</SelectItem>
-                      <SelectItem value="viewer">Viewer</SelectItem>
-                      {customRoles.filter(r => r.active).map(r => (
+                      {customRoles.filter(r => r.active).length === 0 ? (
+                        <div className="px-3 py-2 text-xs text-muted-foreground">Create roles in Roles &amp; Permissions tab.</div>
+                      ) : customRoles.filter(r => r.active).map(r => (
                         <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
                       ))}
                     </SelectContent>

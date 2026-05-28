@@ -435,25 +435,48 @@ const Bookings_Page = () => {
                     <Label>Duration *</Label>
                     <div className="grid grid-cols-3 gap-2">
                       {([
-                        { key: "monthly", label: "Monthly", price: selectedPlan.price },
-                        { key: "yearly", label: "1 Year", price: selectedPlan.yearlyPrice || 0 },
-                        { key: "longTerm", label: "15 Years", price: selectedPlan.longTermPrice || 0 },
-                      ] as const).map((d) => (
-                        <button
-                          key={d.key}
-                          type="button"
-                          onClick={() => setBookDuration(d.key)}
-                          disabled={!d.price}
-                          className={cn(
-                            "rounded-lg border p-3 text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
-                            bookDuration === d.key ? "border-primary bg-primary/10" : "border-border bg-muted/30 hover:bg-muted/50"
-                          )}
-                        >
-                          <p className="text-xs text-muted-foreground">{d.label}</p>
-                          <p className="text-sm font-bold font-display mt-1">NPR {Number(d.price || 0).toLocaleString()}</p>
-                        </button>
-                      ))}
+                        { key: "monthly", label: "Monthly", price: selectedPlan.price, baseline: selectedPlan.price, months: 1 },
+                        { key: "yearly", label: "1 Year", price: selectedPlan.yearlyPrice || 0, baseline: selectedPlan.price * 12, months: 12 },
+                        { key: "longTerm", label: "15 Years", price: selectedPlan.longTermPrice || 0, baseline: selectedPlan.price * 180, months: 180 },
+                      ] as const).map((d) => {
+                        const save = d.baseline > 0 && d.price > 0 ? Math.max(0, d.baseline - d.price) : 0;
+                        const pct = d.baseline > 0 && save > 0 ? Math.round((save / d.baseline) * 100) : 0;
+                        return (
+                          <button
+                            key={d.key}
+                            type="button"
+                            onClick={() => setBookDuration(d.key)}
+                            disabled={!d.price}
+                            className={cn(
+                              "relative rounded-lg border p-3 text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
+                              bookDuration === d.key ? "border-primary bg-primary/10" : "border-border bg-muted/30 hover:bg-muted/50"
+                            )}
+                          >
+                            {pct > 0 && (
+                              <span className="absolute -top-2 -right-2 text-[9px] font-bold bg-success text-white px-1.5 py-0.5 rounded-full shadow-md">
+                                -{pct}%
+                              </span>
+                            )}
+                            <p className="text-xs text-muted-foreground">{d.label}</p>
+                            <p className="text-sm font-bold font-display mt-1">NPR {Number(d.price || 0).toLocaleString()}</p>
+                            {save > 0 ? (
+                              <p className="text-[10px] text-success mt-0.5">Save NPR {save.toLocaleString()}</p>
+                            ) : d.months > 1 && d.price > 0 ? (
+                              <p className="text-[10px] text-muted-foreground mt-0.5">No discount</p>
+                            ) : null}
+                          </button>
+                        );
+                      })}
                     </div>
+                    {bookDuration !== "monthly" && membershipAmount > 0 && (
+                      <p className="text-[11px] text-success">
+                        Auto-discount applied — Member saves NPR{" "}
+                        {(bookDuration === "yearly"
+                          ? selectedPlan.price * 12 - membershipAmount
+                          : selectedPlan.price * 180 - membershipAmount
+                        ).toLocaleString()} vs monthly billing.
+                      </p>
+                    )}
                   </div>
                 )}
 

@@ -14,19 +14,25 @@ export interface AppUser {
   phone?: string;
   address?: string;
   role: UserRole;
+  /** Custom role id from RolesManager. When set, this is the actual assigned permission profile. */
+  customRoleId?: string;
   isActive: boolean;
   mustChangePassword: boolean;
   createdAt?: string;
   createdBy?: string;
 }
 
+const SYSTEM_ROLES: UserRole[] = ["admin", "manager", "staff", "viewer"];
+
 function mapRole(role?: string): UserRole {
   if (role === "admin" || role === "manager" || role === "staff") return role;
   return role === "member" ? "viewer" : "staff";
 }
 
-function dbRole(role: UserRole): "admin" | "manager" | "staff" | "member" {
-  return role === "viewer" ? "member" : role;
+function dbRole(role: UserRole | string): "admin" | "manager" | "staff" | "member" {
+  if (role === "admin" || role === "manager" || role === "staff") return role;
+  if (role === "viewer") return "member";
+  return "staff";
 }
 
 function mapRow(r: any): AppUser {
@@ -40,6 +46,7 @@ function mapRow(r: any): AppUser {
     phone: r.phone || "",
     address: extras.address || "",
     role: mapRole(r.role),
+    customRoleId: extras.customRoleId || "",
     isActive: r.active !== false,
     mustChangePassword: extras.mustChangePassword !== false,
     createdAt: r.created_at || "",
@@ -47,7 +54,7 @@ function mapRow(r: any): AppUser {
   };
 }
 
-async function syncRole(userId: string, role: UserRole) {
+async function syncRole(userId: string, role: UserRole | string) {
   await supabase.from("user_roles").delete().eq("user_id", userId);
   const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: dbRole(role) });
   if (error) throw error;
@@ -81,16 +88,16 @@ export async function createAppUserRecord(data: Omit<AppUser, "id" | "createdAt"
     display_name: data.fullName,
     phone: data.phone || null,
     active: data.isActive !== false,
-    extras: { username: data.username, address: data.address || "", mustChangePassword: data.mustChangePassword !== false },
+    extras: { username: data.username, address: data.address || "", mustChangePassword: data.mustChangePassword !== false, customRoleId: data.customRoleId || "" },
   }, { onConflict: "id" });
   if (error) throw error;
   await syncRole(id, data.role);
   return id;
 }
 
-export async function updateAppUser(id: string, data: Partial<AppUser>): Promise<void> {
+export async function updateAppUser(id: string, data: Partial<AppUser> & { customRoleId?: string }): Promise<void> {
   const current = (await getAppUsers()).find((u) => u.id === id);
-  const extras = { username: current?.username || "", address: current?.address || "", mustChangePassword: current?.mustChangePassword ?? true } as any;
+  const extras = { username: current?.username || "", address: current?.address || "", mustChangePassword: current?.mustChangePassword ?? true, customRoleId: current?.customRoleId || "" } as any;
   const payload: Record<string, any> = { updated_at: new Date().toISOString() };
   if (data.email !== undefined) payload.email = data.email;
   if (data.fullName !== undefined) payload.display_name = data.fullName;
@@ -99,6 +106,7 @@ export async function updateAppUser(id: string, data: Partial<AppUser>): Promise
   if (data.username !== undefined) extras.username = data.username;
   if (data.address !== undefined) extras.address = data.address;
   if (data.mustChangePassword !== undefined) extras.mustChangePassword = data.mustChangePassword;
+  if (data.customRoleId !== undefined) extras.customRoleId = data.customRoleId;
   payload.extras = extras;
   const { error } = await supabase.from("app_users").update(payload).eq("id", id);
   if (error) throw error;

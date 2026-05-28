@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Mail, Phone, MapPin, Calendar, CreditCard, Activity, Edit, Power, Save, X, FileText } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MapPin, Calendar, CreditCard, Activity, Edit, Power, Save, X, FileText, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { TierBadge } from "@/components/TierBadge";
@@ -11,9 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { formatNPR } from "@/lib/mock-data";
-import { useMember, useTransactions, useBookings, useUpdateMember } from "@/hooks/use-firestore";
+import { useMember, useTransactions, useBookings, useUpdateMember, useCompanySettings } from "@/hooks/use-firestore";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MemberProgress } from "@/components/MemberProgress";
 import { toast } from "sonner";
 
 const MemberProfile = () => {
@@ -22,6 +23,7 @@ const MemberProfile = () => {
   const { data: member, isLoading } = useMember(id);
   const { data: allTransactions = [] } = useTransactions();
   const { data: allBookings = [] } = useBookings();
+  const { data: settings = {} } = useCompanySettings();
   const updateMember = useUpdateMember();
 
   const [editOpen, setEditOpen] = useState(false);
@@ -163,12 +165,18 @@ const MemberProfile = () => {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="payments" className="space-y-4">
+      <Tabs defaultValue="progress" className="space-y-4">
         <TabsList className="bg-muted/50">
+          <TabsTrigger value="progress"><TrendingUp className="h-3.5 w-3.5 mr-1" />Progress</TabsTrigger>
           <TabsTrigger value="payments"><CreditCard className="h-3.5 w-3.5 mr-1" />Payments</TabsTrigger>
           <TabsTrigger value="bookings"><Calendar className="h-3.5 w-3.5 mr-1" />Bookings</TabsTrigger>
           <TabsTrigger value="preferences"><Activity className="h-3.5 w-3.5 mr-1" />Preferences</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="progress">
+          <MemberProgress member={member} bookings={memberBookings} transactions={memberTx} propertyName={settings.companyName} />
+        </TabsContent>
+
 
         <TabsContent value="payments">
           <div className="glass-card rounded-xl overflow-hidden">

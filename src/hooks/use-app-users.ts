@@ -16,6 +16,7 @@ export function useCreateAppUser() {
       username: string; email: string; password: string;
       fullName: string; phone?: string; address?: string;
       role: users.UserRole;
+      customRoleId?: string;
     }) => {
       const uid = await createFirebaseAuthUser(input.email, input.password);
       const id = await users.createAppUserRecord({
@@ -26,6 +27,7 @@ export function useCreateAppUser() {
         phone: input.phone || "",
         address: input.address || "",
         role: input.role,
+        customRoleId: input.customRoleId || "",
         isActive: true,
         mustChangePassword: true,
       });
