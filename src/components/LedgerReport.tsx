@@ -100,6 +100,7 @@ export default function LedgerReport() {
 
   const handleLoad = () => {
     setLoaded(true);
+    setShowFilters(false);
     toast.success("Report loaded");
   };
 
