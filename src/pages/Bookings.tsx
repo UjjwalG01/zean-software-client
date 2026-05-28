@@ -468,7 +468,7 @@ const Bookings_Page = () => {
             })}
           </div>
           <div className="flex gap-4 mt-4 pt-4 border-t border-border">
-            {setupServiceTypes.map((s) => (
+            {outletServiceTypes.map((s) => (
               <div key={s} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: serviceColors[s] || colorOptions[0].value }} />{s}
               </div>
