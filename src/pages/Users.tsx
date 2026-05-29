@@ -37,6 +37,9 @@ const UsersPage = () => {
   const [showPwd, setShowPwd] = useState(false);
   const [successUser, setSuccessUser] = useState<{ email: string; password: string; fullName: string } | null>(null);
   const [resetTarget, setResetTarget] = useState<AppUser | null>(null);
+  const [resetPwd, setResetPwd] = useState("");
+  const [resetConfirm, setResetConfirm] = useState("");
+  const [resetting, setResetting] = useState(false);
   const [editTarget, setEditTarget] = useState<AppUser | null>(null);
   const [editForm, setEditForm] = useState<Partial<AppUser>>({});
 
@@ -109,25 +112,21 @@ const UsersPage = () => {
     } catch { toast.error("Failed"); }
   };
 
-  const handleSendResetEmail = async (email: string) => {
+  const handleAdminResetPassword = async () => {
+    if (!resetTarget) return;
+    if (resetPwd.length < 8) { toast.error("Password must be at least 8 characters"); return; }
+    if (resetPwd !== resetConfirm) { toast.error("Passwords do not match"); return; }
+    setResetting(true);
     try {
-      await sendResetPasswordEmail(email);
-      toast.success(`Password reset email sent to ${email}`);
-      setResetTarget(null);
+      const { data, error } = await supabase.functions.invoke("admin-reset-password", {
+        body: { userId: resetTarget.id, newPassword: resetPwd },
+      });
+      if (error || (data as any)?.error) throw new Error(error?.message || (data as any)?.error);
+      toast.success(`Password reset for ${resetTarget.fullName}. They'll be prompted to change it at next login.`);
+      setResetTarget(null); setResetPwd(""); setResetConfirm("");
     } catch (e: any) {
-      toast.error(e?.message || "Failed to send reset email");
-    }
-  };
-
-  const handleForceTempPassword = async (user: AppUser) => {
-    try {
-      await updateMutation.mutateAsync({ id: user.id, data: { mustChangePassword: true } });
-      await sendResetPasswordEmail(user.email);
-      toast.success(`Reset email sent. User will set a new password and be prompted again on next login.`);
-      setResetTarget(null);
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to reset");
-    }
+      toast.error(e?.message || "Failed to reset password");
+    } finally { setResetting(false); }
   };
 
   const copyCreds = (creds: { email: string; password: string }) => {
