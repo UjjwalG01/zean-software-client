@@ -113,6 +113,9 @@ export default function OutletsPage() {
             const addr = [o.street, o.city, o.state, o.country].filter(Boolean).join(", ");
             return (
               <div key={o.id} className="glass-card rounded-xl overflow-hidden flex flex-col">
+                {o.imageUrl && (
+                  <img src={o.imageUrl} alt={o.name} className="h-28 w-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                )}
                 <div className="p-4 space-y-2 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <div>
