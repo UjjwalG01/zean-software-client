@@ -156,17 +156,26 @@ export function TransactionDetailModal({ transaction: t, open, onOpenChange }: T
             </>
           )}
 
-          {t.status === "pending" ? (
+          {isVoided && (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive text-center">
+              VOIDED{t.voidReason ? ` — ${t.voidReason}` : ""}
+            </div>
+          )}
+
+          {t.status === "pending" || t.status === "unpaid" ? (
             <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-300 text-center">
               Bill cannot be printed until this transaction is settled. Settle it from the Transactions list first.
             </div>
-          ) : (
+          ) : isVoided ? null : (
             <div className="flex gap-2 pt-2">
               <Button variant="outline" size="sm" className="flex-1" onClick={handlePrint}>
                 <Printer className="h-4 w-4 mr-1" />Print
               </Button>
               <Button variant="outline" size="sm" className="flex-1" onClick={handleDownload}>
                 <Download className="h-4 w-4 mr-1" />Download PDF
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleVoid} disabled={voiding} className="text-destructive border-destructive/40 hover:bg-destructive/10">
+                <Ban className="h-4 w-4 mr-1" />{voiding ? "Voiding…" : "Void"}
               </Button>
             </div>
           )}
