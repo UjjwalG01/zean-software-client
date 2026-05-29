@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppUsers, useCreateAppUser, useUpdateAppUser, useDeleteAppUser } from "@/hooks/use-app-users";
-import { sendResetPasswordEmail } from "@/lib/firebase-auth";
+import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import type { UserRole, AppUser } from "@/lib/firebase-users";
 import { RolesManager, useRoleDefinitions } from "@/components/RolesManager";
@@ -37,6 +37,9 @@ const UsersPage = () => {
   const [showPwd, setShowPwd] = useState(false);
   const [successUser, setSuccessUser] = useState<{ email: string; password: string; fullName: string } | null>(null);
   const [resetTarget, setResetTarget] = useState<AppUser | null>(null);
+  const [resetPwd, setResetPwd] = useState("");
+  const [resetConfirm, setResetConfirm] = useState("");
+  const [resetting, setResetting] = useState(false);
   const [editTarget, setEditTarget] = useState<AppUser | null>(null);
   const [editForm, setEditForm] = useState<Partial<AppUser>>({});
 
@@ -109,25 +112,21 @@ const UsersPage = () => {
     } catch { toast.error("Failed"); }
   };
 
-  const handleSendResetEmail = async (email: string) => {
+  const handleAdminResetPassword = async () => {
+    if (!resetTarget) return;
+    if (resetPwd.length < 8) { toast.error("Password must be at least 8 characters"); return; }
+    if (resetPwd !== resetConfirm) { toast.error("Passwords do not match"); return; }
+    setResetting(true);
     try {
-      await sendResetPasswordEmail(email);
-      toast.success(`Password reset email sent to ${email}`);
-      setResetTarget(null);
+      const { data, error } = await supabase.functions.invoke("admin-reset-password", {
+        body: { userId: resetTarget.id, newPassword: resetPwd },
+      });
+      if (error || (data as any)?.error) throw new Error(error?.message || (data as any)?.error);
+      toast.success(`Password reset for ${resetTarget.fullName}. They'll be prompted to change it at next login.`);
+      setResetTarget(null); setResetPwd(""); setResetConfirm("");
     } catch (e: any) {
-      toast.error(e?.message || "Failed to send reset email");
-    }
-  };
-
-  const handleForceTempPassword = async (user: AppUser) => {
-    try {
-      await updateMutation.mutateAsync({ id: user.id, data: { mustChangePassword: true } });
-      await sendResetPasswordEmail(user.email);
-      toast.success(`Reset email sent. User will set a new password and be prompted again on next login.`);
-      setResetTarget(null);
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to reset");
-    }
+      toast.error(e?.message || "Failed to reset password");
+    } finally { setResetting(false); }
   };
 
   const copyCreds = (creds: { email: string; password: string }) => {
@@ -318,13 +317,13 @@ const UsersPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* RESET PASSWORD POPUP */}
-      <Dialog open={!!resetTarget} onOpenChange={(o) => !o && setResetTarget(null)}>
+      {/* ADMIN RESET PASSWORD */}
+      <Dialog open={!!resetTarget} onOpenChange={(o) => { if (!o) { setResetTarget(null); setResetPwd(""); setResetConfirm(""); } }}>
         <DialogContent className="sm:max-w-[440px]">
           <DialogHeader>
             <DialogTitle className="font-display">Reset Password</DialogTitle>
             <DialogDescription>
-              For security, Firebase requires the user to set their own password via a secure email link. Choose how to reset:
+              Set a new password for this user. They will be prompted to change it again on their next login.
             </DialogDescription>
           </DialogHeader>
           {resetTarget && (
@@ -333,15 +332,20 @@ const UsersPage = () => {
                 <p className="font-medium">{resetTarget.fullName}</p>
                 <p className="text-xs text-muted-foreground font-mono">{resetTarget.email}</p>
               </div>
-              <Button onClick={() => handleSendResetEmail(resetTarget.email)} className="w-full" variant="outline">
-                <Mail className="h-4 w-4 mr-2" /> Send password reset email
-              </Button>
-              <Button onClick={() => handleForceTempPassword(resetTarget)} className="w-full gradient-gold text-primary-foreground">
-                <KeyRound className="h-4 w-4 mr-2" /> Force change on next login
-              </Button>
-              <p className="text-[11px] text-muted-foreground text-center">
-                Both options are secure: the user sets their own new password.
-              </p>
+              <div className="space-y-2">
+                <Label>New Password *</Label>
+                <Input type="password" value={resetPwd} onChange={(e) => setResetPwd(e.target.value)} placeholder="Min 8 characters" autoFocus />
+              </div>
+              <div className="space-y-2">
+                <Label>Confirm Password *</Label>
+                <Input type="password" value={resetConfirm} onChange={(e) => setResetConfirm(e.target.value)} />
+              </div>
+              <DialogFooter className="gap-2">
+                <Button variant="outline" onClick={() => setResetTarget(null)}>Cancel</Button>
+                <Button onClick={handleAdminResetPassword} disabled={resetting} className="gradient-gold text-primary-foreground">
+                  <KeyRound className="h-4 w-4 mr-2" />{resetting ? "Resetting..." : "Set New Password"}
+                </Button>
+              </DialogFooter>
             </div>
           )}
         </DialogContent>

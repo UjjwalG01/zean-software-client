@@ -32,6 +32,7 @@ const emptyForm: Partial<Outlet> = {
   serviceTypes: [],
   country: "Nepal", state: "", city: "", street: "",
   tel1: "",
+  imageUrl: "",
   active: true,
 };
 
@@ -112,6 +113,9 @@ export default function OutletsPage() {
             const addr = [o.street, o.city, o.state, o.country].filter(Boolean).join(", ");
             return (
               <div key={o.id} className="glass-card rounded-xl overflow-hidden flex flex-col">
+                {o.imageUrl && (
+                  <img src={o.imageUrl} alt={o.name} className="h-28 w-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                )}
                 <div className="p-4 space-y-2 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -151,15 +155,40 @@ export default function OutletsPage() {
           <DialogHeader><DialogTitle className="font-display">{editing ? "Edit" : "Add"} Outlet</DialogTitle></DialogHeader>
           <div className="space-y-6">
 
-            {/* ── Outlet name ─────────────────────────────────────────── */}
+            {/* ── Outlet name & image ─────────────────────────────────── */}
             <section className="rounded-xl border border-border/50 p-4 space-y-3">
               <div className="flex items-center gap-2 text-primary">
                 <Building2 className="h-4 w-4" />
                 <h3 className="font-semibold text-sm">Outlet</h3>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Outlet Name *</Label>
-                <Input value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="SANCTUARY SPA" />
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-start">
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Outlet Name *</Label>
+                    <Input value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="SANCTUARY SPA" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Cover Image URL</Label>
+                    <Input
+                      value={form.imageUrl || ""}
+                      onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
+                      placeholder="https://… (paste any public image URL)"
+                    />
+                    <p className="text-[10px] text-muted-foreground">Shown on outlet cards and the picker dialog.</p>
+                  </div>
+                </div>
+                {form.imageUrl ? (
+                  <img
+                    src={form.imageUrl}
+                    alt="Outlet preview"
+                    className="h-28 w-28 rounded-lg object-cover border border-border/60"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                  />
+                ) : (
+                  <div className="h-28 w-28 rounded-lg border border-dashed border-border/60 flex items-center justify-center text-[10px] text-muted-foreground">
+                    No image
+                  </div>
+                )}
               </div>
             </section>
 

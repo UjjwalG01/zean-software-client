@@ -1,9 +1,13 @@
-// Local inventory store backed by localStorage. Matches the project's offline-first
-// fallback pattern. Easy to swap for Firestore/Supabase later via the same API.
+// Inventory store — Supabase backend (replaces the localStorage implementation).
+// Keeps the same exported API so the existing hook (`use-inventory.ts`) and
+// pages keep working without changes. Falls back to localStorage for fully
+// offline / unauthenticated demo sessions.
+
+import { supabase } from "./supabase";
 
 export type InventoryStore = { id: string; name: string; location?: string; active: boolean };
-export type ItemGroup = { id: string; name: string; description?: string; active: boolean };
-export type MovementType = "opening" | "purchase" | "issue" | "adjustment";
+export type ItemGroup     = { id: string; name: string; description?: string; active: boolean };
+export type MovementType  = "opening" | "purchase" | "issue" | "adjustment";
 
 export type InventoryItem = {
   id: string;
@@ -11,9 +15,9 @@ export type InventoryItem = {
   name: string;
   groupId: string;
   storeId: string;
-  unit: string; // pcs, kg, ltr...
+  unit: string;
   quantity: number;
-  rate: number; // weighted-average, VAT-inclusive
+  rate: number;
   reorderLevel: number;
   active: boolean;
   createdAt: string;
@@ -23,7 +27,7 @@ export type StockMovement = {
   id: string;
   itemId: string;
   type: MovementType;
-  quantity: number; // positive number; type indicates direction
+  quantity: number;
   rate: number;
   reference?: string;
   note?: string;
@@ -31,142 +35,277 @@ export type StockMovement = {
   createdAt: string;
 };
 
-const K = {
+// ───── Module-level caches (sync API expected by the hook) ────────────────
+let _stores: InventoryStore[] = [];
+let _groups: ItemGroup[] = [];
+let _items: InventoryItem[] = [];
+const _movByItem = new Map<string, StockMovement[]>();
+let _loaded = false;
+let _seeded = false;
+
+const LS = {
   stores: "inv:stores",
   groups: "inv:groups",
-  items: "inv:items",
+  items:  "inv:items",
   movements: "inv:movements",
   seeded: "inv:seeded:v1",
 };
 
-const read = <T>(k: string, fallback: T): T => {
-  try { const v = localStorage.getItem(k); return v ? (JSON.parse(v) as T) : fallback; }
-  catch { return fallback; }
-};
-const write = <T>(k: string, v: T) => localStorage.setItem(k, JSON.stringify(v));
-const uid = () => Math.random().toString(36).slice(2, 10);
-const now = () => new Date().toISOString();
+function lsRead<T>(k: string, fb: T): T {
+  try { const v = localStorage.getItem(k); return v ? JSON.parse(v) as T : fb; } catch { return fb; }
+}
+function lsWrite<T>(k: string, v: T) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* ignore */ } }
 
-/* ---------- Seed ---------- */
-export function seedInventoryIfEmpty() {
-  if (localStorage.getItem(K.seeded)) return;
-  const stores: InventoryStore[] = [
-    { id: "st-main", name: "Main Store", location: "Ground Floor", active: true },
-    { id: "st-spa", name: "Spa Store", location: "First Floor", active: true },
-    { id: "st-cafe", name: "Cafe & F&B", location: "Lobby", active: true },
-  ];
-  const groups: ItemGroup[] = [
-    { id: "gp-supp", name: "Supplements", active: true },
-    { id: "gp-spa", name: "Spa Products", active: true },
-    { id: "gp-bev", name: "Beverages", active: true },
-    { id: "gp-eq", name: "Gym Equipment", active: true },
-  ];
-  const items: InventoryItem[] = [
-    { id: uid(), code: "SUP-001", name: "Whey Protein 2kg", groupId: "gp-supp", storeId: "st-main", unit: "pcs", quantity: 24, rate: 6500, reorderLevel: 5, active: true, createdAt: now() },
-    { id: uid(), code: "SUP-002", name: "Creatine 500g",   groupId: "gp-supp", storeId: "st-main", unit: "pcs", quantity: 12, rate: 2800, reorderLevel: 4, active: true, createdAt: now() },
-    { id: uid(), code: "SPA-001", name: "Massage Oil 1L",  groupId: "gp-spa",  storeId: "st-spa",  unit: "ltr", quantity: 8,  rate: 1800, reorderLevel: 3, active: true, createdAt: now() },
-    { id: uid(), code: "SPA-002", name: "Aromatic Candle", groupId: "gp-spa",  storeId: "st-spa",  unit: "pcs", quantity: 30, rate: 450,  reorderLevel: 10, active: true, createdAt: now() },
-    { id: uid(), code: "BEV-001", name: "Mineral Water 1L",groupId: "gp-bev",  storeId: "st-cafe", unit: "pcs", quantity: 120,rate: 60,   reorderLevel: 50, active: true, createdAt: now() },
-    { id: uid(), code: "BEV-002", name: "Energy Drink",    groupId: "gp-bev",  storeId: "st-cafe", unit: "pcs", quantity: 3,  rate: 220,  reorderLevel: 12, active: true, createdAt: now() },
-    { id: uid(), code: "EQ-001",  name: "Resistance Band", groupId: "gp-eq",   storeId: "st-main", unit: "pcs", quantity: 0,  rate: 850,  reorderLevel: 5, active: true, createdAt: now() },
-  ];
-  const movements: StockMovement[] = items.map((it) => ({
-    id: uid(), itemId: it.id, type: "opening", quantity: it.quantity, rate: it.rate, note: "Opening balance", createdAt: now(),
-  }));
-  write(K.stores, stores); write(K.groups, groups); write(K.items, items); write(K.movements, movements);
-  localStorage.setItem(K.seeded, "1");
+// ───── Mappers ────────────────────────────────────────────────────────────
+const mapStore = (r: any): InventoryStore => ({ id: r.id, name: r.name, location: r.location || "", active: r.active !== false });
+const mapGroup = (r: any): ItemGroup     => ({ id: r.id, name: r.name, description: r.description || "", active: r.active !== false });
+const mapItem  = (r: any): InventoryItem => ({
+  id: r.id, code: r.code, name: r.name,
+  groupId: r.group_id || "", storeId: r.store_id || "",
+  unit: r.unit || "pcs", quantity: Number(r.quantity || 0), rate: Number(r.rate || 0),
+  reorderLevel: Number(r.reorder_level || 0), active: r.active !== false,
+  createdAt: r.created_at || new Date().toISOString(),
+});
+const mapMov = (r: any): StockMovement => ({
+  id: r.id, itemId: r.item_id, type: r.type as MovementType,
+  quantity: Number(r.quantity), rate: Number(r.rate || 0),
+  reference: r.reference || "", note: r.note || "",
+  createdBy: r.created_by || undefined, createdAt: r.created_at,
+});
+
+// ───── Bootstrap: load from Supabase or fall back to localStorage ─────────
+export async function loadInventory(): Promise<void> {
+  if (_loaded) return;
+  try {
+    const [s, g, i] = await Promise.all([
+      supabase.from("inv_stores").select("*").order("name"),
+      supabase.from("inv_item_groups").select("*").order("name"),
+      supabase.from("inv_items").select("*").order("name"),
+    ]);
+    if (!s.error && !g.error && !i.error) {
+      _stores = (s.data || []).map(mapStore);
+      _groups = (g.data || []).map(mapGroup);
+      _items  = (i.data || []).map(mapItem);
+      _loaded = true;
+      if (_stores.length === 0 && _groups.length === 0 && _items.length === 0) {
+        // First-run: seed defaults into the database.
+        await seedDefaultsInDb();
+        await reloadAll();
+      }
+      return;
+    }
+    throw s.error || g.error || i.error;
+  } catch (e) {
+    console.warn("[inventory] Supabase load failed — using localStorage fallback:", (e as Error).message);
+    _stores = lsRead<InventoryStore[]>(LS.stores, []);
+    _groups = lsRead<ItemGroup[]>(LS.groups, []);
+    _items  = lsRead<InventoryItem[]>(LS.items, []);
+    const movs = lsRead<StockMovement[]>(LS.movements, []);
+    _movByItem.clear();
+    for (const m of movs) {
+      const arr = _movByItem.get(m.itemId) || [];
+      arr.push(m); _movByItem.set(m.itemId, arr);
+    }
+    _loaded = true;
+    if (!localStorage.getItem(LS.seeded) && _stores.length === 0) seedLocal();
+  }
 }
 
-/* ---------- Stores ---------- */
-export const getStores = (): InventoryStore[] => read(K.stores, []);
-export const saveStore = (s: Omit<InventoryStore, "id"> & { id?: string }): InventoryStore => {
-  const list = getStores();
-  if (s.id) {
-    const i = list.findIndex((x) => x.id === s.id);
-    if (i >= 0) list[i] = { ...list[i], ...s } as InventoryStore;
-  } else {
-    list.push({ ...s, id: uid() });
-  }
-  write(K.stores, list);
-  return list[list.length - 1];
-};
-export const deleteStore = (id: string) => write(K.stores, getStores().filter((s) => s.id !== id));
+async function reloadAll() {
+  const [s, g, i] = await Promise.all([
+    supabase.from("inv_stores").select("*").order("name"),
+    supabase.from("inv_item_groups").select("*").order("name"),
+    supabase.from("inv_items").select("*").order("name"),
+  ]);
+  _stores = (s.data || []).map(mapStore);
+  _groups = (g.data || []).map(mapGroup);
+  _items  = (i.data || []).map(mapItem);
+}
 
-/* ---------- Groups ---------- */
-export const getGroups = (): ItemGroup[] => read(K.groups, []);
-export const saveGroup = (g: Omit<ItemGroup, "id"> & { id?: string }): ItemGroup => {
-  const list = getGroups();
-  if (g.id) {
-    const i = list.findIndex((x) => x.id === g.id);
-    if (i >= 0) list[i] = { ...list[i], ...g } as ItemGroup;
-  } else {
-    list.push({ ...g, id: uid() });
-  }
-  write(K.groups, list);
-  return list[list.length - 1];
-};
-export const deleteGroup = (id: string) => write(K.groups, getGroups().filter((g) => g.id !== id));
+async function seedDefaultsInDb() {
+  const stores = [
+    { name: "Main Store", location: "Ground Floor" },
+    { name: "Spa Store",  location: "First Floor" },
+    { name: "Cafe & F&B", location: "Lobby" },
+  ];
+  const groups = [
+    { name: "Supplements" }, { name: "Spa Products" },
+    { name: "Beverages" },   { name: "Gym Equipment" },
+  ];
+  await supabase.from("inv_stores").insert(stores);
+  await supabase.from("inv_item_groups").insert(groups);
+}
 
-/* ---------- Items ---------- */
-export const getItems = (): InventoryItem[] => read(K.items, []);
-export const getItem = (id: string): InventoryItem | undefined => getItems().find((i) => i.id === id);
+function seedLocal() {
+  _stores = [
+    { id: rid(), name: "Main Store", location: "Ground Floor", active: true },
+    { id: rid(), name: "Spa Store",  location: "First Floor",  active: true },
+    { id: rid(), name: "Cafe & F&B", location: "Lobby",        active: true },
+  ];
+  _groups = [
+    { id: rid(), name: "Supplements", active: true },
+    { id: rid(), name: "Spa Products", active: true },
+    { id: rid(), name: "Beverages", active: true },
+    { id: rid(), name: "Gym Equipment", active: true },
+  ];
+  _items = []; _movByItem.clear();
+  persistLocal();
+  localStorage.setItem(LS.seeded, "1");
+}
 
-export const createItem = (payload: Omit<InventoryItem, "id" | "createdAt">): InventoryItem => {
-  const list = getItems();
-  const item: InventoryItem = { ...payload, id: uid(), createdAt: now() };
-  list.push(item);
-  write(K.items, list);
-  if (item.quantity > 0) {
-    addMovement({ itemId: item.id, type: "opening", quantity: item.quantity, rate: item.rate, note: "Opening balance" });
-  }
-  return item;
-};
+function persistLocal() {
+  lsWrite(LS.stores, _stores); lsWrite(LS.groups, _groups); lsWrite(LS.items, _items);
+  const all: StockMovement[] = [];
+  _movByItem.forEach((arr) => arr.forEach((m) => all.push(m)));
+  lsWrite(LS.movements, all);
+}
 
-export const updateItem = (id: string, patch: Partial<InventoryItem>) => {
-  const list = getItems();
-  const i = list.findIndex((x) => x.id === id);
-  if (i >= 0) { list[i] = { ...list[i], ...patch }; write(K.items, list); }
-};
-export const deleteItem = (id: string) => {
-  write(K.items, getItems().filter((i) => i.id !== id));
-  write(K.movements, getMovements().filter((m) => m.itemId !== id));
-};
+const rid = () => Math.random().toString(36).slice(2, 10);
+const now = () => new Date().toISOString();
 
-/* ---------- Movements ---------- */
-export const getMovements = (): StockMovement[] => read(K.movements, []);
+/** Back-compat shim — older code triggers seeding via this name. */
+export function seedInventoryIfEmpty() {
+  if (_seeded) return; _seeded = true;
+  // Kick the async loader without blocking. The hook below awaits load() too.
+  loadInventory().catch(() => {});
+}
+
+// ───── Sync getters (consumed by the hook layer) ──────────────────────────
+export const getStores    = (): InventoryStore[] => _stores;
+export const getGroups    = (): ItemGroup[]     => _groups;
+export const getItems     = (): InventoryItem[] => _items;
+export const getItem      = (id: string)        => _items.find((i) => i.id === id);
+export const getMovements = (): StockMovement[] => {
+  const all: StockMovement[] = [];
+  _movByItem.forEach((arr) => all.push(...arr));
+  return all;
+};
 export const getMovementsByItem = (itemId: string): StockMovement[] =>
-  getMovements().filter((m) => m.itemId === itemId).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  (_movByItem.get(itemId) || []).slice().sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
-export const addMovement = (m: Omit<StockMovement, "id" | "createdAt">): StockMovement => {
-  const list = getMovements();
-  const mv: StockMovement = { ...m, id: uid(), createdAt: now() };
-  list.push(mv);
-  write(K.movements, list);
+// ───── Mutations (write-through to Supabase, refresh local cache) ─────────
+async function dbInsert<T>(table: string, payload: any): Promise<T | null> {
+  const { data, error } = await supabase.from(table).insert(payload).select("*").single();
+  if (error) { console.warn(`[inventory] insert ${table} failed:`, error.message); return null; }
+  return data as T;
+}
+async function dbUpdate(table: string, id: string, patch: any): Promise<void> {
+  const { error } = await supabase.from(table).update(patch).eq("id", id);
+  if (error) console.warn(`[inventory] update ${table} failed:`, error.message);
+}
+async function dbDelete(table: string, id: string): Promise<void> {
+  const { error } = await supabase.from(table).delete().eq("id", id);
+  if (error) console.warn(`[inventory] delete ${table} failed:`, error.message);
+}
+
+export async function saveStore(s: Omit<InventoryStore, "id"> & { id?: string }): Promise<InventoryStore> {
+  if (s.id) {
+    await dbUpdate("inv_stores", s.id, { name: s.name, location: s.location || null, active: s.active });
+    const idx = _stores.findIndex((x) => x.id === s.id);
+    if (idx >= 0) _stores[idx] = { ..._stores[idx], ...s } as InventoryStore;
+  } else {
+    const row = await dbInsert<any>("inv_stores", { name: s.name, location: s.location || null, active: s.active });
+    if (row) _stores.push(mapStore(row));
+    else { const local = { ...s, id: rid() } as InventoryStore; _stores.push(local); }
+  }
+  persistLocal();
+  return _stores[_stores.length - 1];
+}
+export async function deleteStore(id: string) {
+  await dbDelete("inv_stores", id);
+  _stores = _stores.filter((s) => s.id !== id); persistLocal();
+}
+
+export async function saveGroup(g: Omit<ItemGroup, "id"> & { id?: string }): Promise<ItemGroup> {
+  if (g.id) {
+    await dbUpdate("inv_item_groups", g.id, { name: g.name, description: g.description || null, active: g.active });
+    const idx = _groups.findIndex((x) => x.id === g.id);
+    if (idx >= 0) _groups[idx] = { ..._groups[idx], ...g } as ItemGroup;
+  } else {
+    const row = await dbInsert<any>("inv_item_groups", { name: g.name, description: g.description || null, active: g.active });
+    if (row) _groups.push(mapGroup(row));
+    else { const local = { ...g, id: rid() } as ItemGroup; _groups.push(local); }
+  }
+  persistLocal();
+  return _groups[_groups.length - 1];
+}
+export async function deleteGroup(id: string) {
+  await dbDelete("inv_item_groups", id);
+  _groups = _groups.filter((g) => g.id !== id); persistLocal();
+}
+
+export async function createItem(payload: Omit<InventoryItem, "id" | "createdAt">): Promise<InventoryItem> {
+  const row = await dbInsert<any>("inv_items", {
+    code: payload.code, name: payload.name,
+    group_id: payload.groupId || null, store_id: payload.storeId || null,
+    unit: payload.unit, quantity: payload.quantity, rate: payload.rate,
+    reorder_level: payload.reorderLevel, active: payload.active,
+  });
+  const item: InventoryItem = row ? mapItem(row) : { ...payload, id: rid(), createdAt: now() };
+  _items.push(item);
+  if (item.quantity > 0) {
+    await addMovement({ itemId: item.id, type: "opening", quantity: item.quantity, rate: item.rate, note: "Opening balance" });
+  }
+  persistLocal();
+  return item;
+}
+
+export async function updateItem(id: string, patch: Partial<InventoryItem>) {
+  const dbPatch: any = {};
+  if (patch.name !== undefined) dbPatch.name = patch.name;
+  if (patch.code !== undefined) dbPatch.code = patch.code;
+  if (patch.groupId !== undefined) dbPatch.group_id = patch.groupId || null;
+  if (patch.storeId !== undefined) dbPatch.store_id = patch.storeId || null;
+  if (patch.unit !== undefined) dbPatch.unit = patch.unit;
+  if (patch.quantity !== undefined) dbPatch.quantity = patch.quantity;
+  if (patch.rate !== undefined) dbPatch.rate = patch.rate;
+  if (patch.reorderLevel !== undefined) dbPatch.reorder_level = patch.reorderLevel;
+  if (patch.active !== undefined) dbPatch.active = patch.active;
+  if (Object.keys(dbPatch).length) await dbUpdate("inv_items", id, dbPatch);
+  const idx = _items.findIndex((x) => x.id === id);
+  if (idx >= 0) _items[idx] = { ..._items[idx], ...patch };
+  persistLocal();
+}
+
+export async function deleteItem(id: string) {
+  await dbDelete("inv_items", id);
+  _items = _items.filter((i) => i.id !== id);
+  _movByItem.delete(id);
+  persistLocal();
+}
+
+export async function addMovement(m: Omit<StockMovement, "id" | "createdAt">): Promise<StockMovement> {
+  const row = await dbInsert<any>("inv_movements", {
+    item_id: m.itemId, type: m.type, quantity: m.quantity, rate: m.rate,
+    reference: m.reference || null, note: m.note || null,
+  });
+  const mv: StockMovement = row ? mapMov(row) : { ...m, id: rid(), createdAt: now() };
+  const arr = _movByItem.get(mv.itemId) || [];
+  arr.push(mv); _movByItem.set(mv.itemId, arr);
+  persistLocal();
   return mv;
-};
+}
 
-/** Purchase: increase qty, weighted-average rate. */
-export const purchaseStock = (itemId: string, qty: number, rate: number, reference?: string, note?: string) => {
+export async function purchaseStock(itemId: string, qty: number, rate: number, reference?: string, note?: string) {
   const item = getItem(itemId);
   if (!item || qty <= 0) return;
   const newQty = item.quantity + qty;
   const newRate = newQty > 0
     ? Math.round((((item.quantity * item.rate) + (qty * rate)) / newQty) * 100) / 100
     : rate;
-  updateItem(itemId, { quantity: newQty, rate: newRate });
-  addMovement({ itemId, type: "purchase", quantity: qty, rate, reference, note });
-};
+  await updateItem(itemId, { quantity: newQty, rate: newRate });
+  await addMovement({ itemId, type: "purchase", quantity: qty, rate, reference, note });
+}
 
-/** Issue: decrease qty (cannot go below 0). */
-export const issueStock = (itemId: string, qty: number, reference?: string, note?: string) => {
+export async function issueStock(itemId: string, qty: number, reference?: string, note?: string) {
   const item = getItem(itemId);
   if (!item || qty <= 0) return;
   const take = Math.min(item.quantity, qty);
-  updateItem(itemId, { quantity: item.quantity - take });
-  addMovement({ itemId, type: "issue", quantity: take, rate: item.rate, reference, note });
-};
+  await updateItem(itemId, { quantity: item.quantity - take });
+  await addMovement({ itemId, type: "issue", quantity: take, rate: item.rate, reference, note });
+}
 
-/* ---------- Aggregates ---------- */
+// ───── Aggregates (unchanged) ─────────────────────────────────────────────
 export const itemValuation = (i: InventoryItem) => i.quantity * i.rate;
 export const totalValuation = () => getItems().reduce((s, i) => s + itemValuation(i), 0);
-export const lowStockCount = () => getItems().filter((i) => i.active && i.quantity <= i.reorderLevel).length;
+export const lowStockCount  = () => getItems().filter((i) => i.active && i.quantity <= i.reorderLevel).length;

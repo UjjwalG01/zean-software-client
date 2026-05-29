@@ -202,11 +202,6 @@ const AddMember = () => {
   const back = () => setStep(Math.max(step - 1, 0));
 
   const handleSubmit = async () => {
-    if (!outlet) {
-      toast.error("Please select an outlet first");
-      setPickerOpen(true);
-      return;
-    }
     if (!validateStep(0) || !validateStep(1)) return;
     setSaving(true);
     try {
@@ -219,7 +214,8 @@ const AddMember = () => {
         emergencyContact: f.emergencyPhone,
         emergencyContactNum: f.emergencyPhone,
         emergencyAddress: f.emergencyAddress,
-        outletId: outlet.id,
+        // Members are NOT bound to a specific outlet — they're visible from any outlet.
+        outletId: null,
         grcNo: memberCode, // legacy field (existing schema)
         memberCode: memberCode, // new field (schema.sql)
       };
