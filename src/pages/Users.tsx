@@ -317,13 +317,13 @@ const UsersPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* RESET PASSWORD POPUP */}
-      <Dialog open={!!resetTarget} onOpenChange={(o) => !o && setResetTarget(null)}>
+      {/* ADMIN RESET PASSWORD */}
+      <Dialog open={!!resetTarget} onOpenChange={(o) => { if (!o) { setResetTarget(null); setResetPwd(""); setResetConfirm(""); } }}>
         <DialogContent className="sm:max-w-[440px]">
           <DialogHeader>
             <DialogTitle className="font-display">Reset Password</DialogTitle>
             <DialogDescription>
-              For security, Firebase requires the user to set their own password via a secure email link. Choose how to reset:
+              Set a new password for this user. They will be prompted to change it again on their next login.
             </DialogDescription>
           </DialogHeader>
           {resetTarget && (
@@ -332,15 +332,20 @@ const UsersPage = () => {
                 <p className="font-medium">{resetTarget.fullName}</p>
                 <p className="text-xs text-muted-foreground font-mono">{resetTarget.email}</p>
               </div>
-              <Button onClick={() => handleSendResetEmail(resetTarget.email)} className="w-full" variant="outline">
-                <Mail className="h-4 w-4 mr-2" /> Send password reset email
-              </Button>
-              <Button onClick={() => handleForceTempPassword(resetTarget)} className="w-full gradient-gold text-primary-foreground">
-                <KeyRound className="h-4 w-4 mr-2" /> Force change on next login
-              </Button>
-              <p className="text-[11px] text-muted-foreground text-center">
-                Both options are secure: the user sets their own new password.
-              </p>
+              <div className="space-y-2">
+                <Label>New Password *</Label>
+                <Input type="password" value={resetPwd} onChange={(e) => setResetPwd(e.target.value)} placeholder="Min 8 characters" autoFocus />
+              </div>
+              <div className="space-y-2">
+                <Label>Confirm Password *</Label>
+                <Input type="password" value={resetConfirm} onChange={(e) => setResetConfirm(e.target.value)} />
+              </div>
+              <DialogFooter className="gap-2">
+                <Button variant="outline" onClick={() => setResetTarget(null)}>Cancel</Button>
+                <Button onClick={handleAdminResetPassword} disabled={resetting} className="gradient-gold text-primary-foreground">
+                  <KeyRound className="h-4 w-4 mr-2" />{resetting ? "Resetting..." : "Set New Password"}
+                </Button>
+              </DialogFooter>
             </div>
           )}
         </DialogContent>
