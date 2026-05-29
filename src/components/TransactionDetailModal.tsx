@@ -1,11 +1,13 @@
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { Receipt, Download, Printer } from "lucide-react";
+import { Receipt, Download, Printer, Ban } from "lucide-react";
 import { formatNPR, type Transaction } from "@/lib/mock-data";
 import { generateReceiptHTML, printHTML, downloadHTML } from "@/lib/print-utils";
-import { useCompanySettings } from "@/hooks/use-firestore";
+import { useCompanySettings, useUpdateTransaction } from "@/hooks/use-firestore";
+import { toast } from "sonner";
 
 interface TransactionDetailModalProps {
   transaction: Transaction | null;
@@ -23,11 +25,14 @@ const methodColors: Record<string, string> = {
 
 export function TransactionDetailModal({ transaction: t, open, onOpenChange }: TransactionDetailModalProps) {
   const { data: settings = {} } = useCompanySettings();
+  const updateTxn = useUpdateTransaction();
+  const [voiding, setVoiding] = useState(false);
   if (!t) return null;
 
   const companyName = settings.companyName || "VitaFit Club";
   const paidAmount = t.total;
   const balanceAmount = 0;
+  const isVoided = t.voided || t.status === "voided";
 
   const handlePrint = () => {
     const html = generateReceiptHTML(t, companyName);
@@ -37,6 +42,29 @@ export function TransactionDetailModal({ transaction: t, open, onOpenChange }: T
   const handleDownload = () => {
     const html = generateReceiptHTML(t, companyName);
     downloadHTML(html, `receipt-${t.receiptNo}.html`);
+  };
+
+  const handleVoid = async () => {
+    const reason = prompt("Reason for voiding this transaction?");
+    if (!reason) return;
+    setVoiding(true);
+    try {
+      await updateTxn.mutateAsync({
+        id: t.id,
+        data: {
+          voided: true,
+          voidReason: reason,
+          voidedAt: new Date().toISOString(),
+          status: "voided" as any,
+        },
+      });
+      toast.success("Transaction voided");
+      onOpenChange(false);
+    } catch {
+      toast.error("Failed to void transaction");
+    } finally {
+      setVoiding(false);
+    }
   };
 
   return (
