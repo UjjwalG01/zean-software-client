@@ -90,13 +90,17 @@ export interface Transaction {
   vat: number;
   total: number;
   method: PaymentMethod;
-  type: "Payment" | "Advance" | "Renewal" | "Registration";
+  type: "Payment" | "Advance" | "Renewal" | "Registration" | "Charge";
   date: string;
   description: string;
   receiptNo: string;
   serviceType?: ServiceType;
-  status?: "paid" | "pending";
+  status?: "paid" | "pending" | "unpaid" | "voided";
   bookingId?: string;
+  chargeHead?: string;
+  voided?: boolean;
+  voidReason?: string;
+  voidedAt?: string;
 }
 
 export interface AttendanceRecord {

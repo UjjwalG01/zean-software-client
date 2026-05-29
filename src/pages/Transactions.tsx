@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TransactionDetailModal } from "@/components/TransactionDetailModal";
+import { RecordChargeModal } from "@/components/RecordChargeModal";
 import { formatNPR, type PaymentMethod, type Transaction } from "@/lib/mock-data";
 import { useTransactions, useAddTransaction, useUpdateTransaction, useMembers, useCompanySettings } from "@/hooks/use-firestore";
 import { generateA5BillHTML, printHTML, exportTableToCSV } from "@/lib/print-utils";
@@ -34,6 +35,7 @@ const Transactions = () => {
   const [methodFilter, setMethodFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [chargeOpen, setChargeOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
@@ -206,6 +208,9 @@ const Transactions = () => {
           }}>
             <Download className="h-4 w-4 mr-1" />Export
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setChargeOpen(true)}>
+            <FileText className="h-4 w-4 mr-1" />Record Charge
+          </Button>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm"><Plus className="h-4 w-4 mr-1" />Record Payment</Button>
@@ -275,6 +280,7 @@ const Transactions = () => {
       </div>
 
       <TransactionDetailModal transaction={selectedTransaction} open={detailOpen} onOpenChange={setDetailOpen} />
+      <RecordChargeModal open={chargeOpen} onOpenChange={setChargeOpen} />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="glass-card rounded-xl p-4">

@@ -27,6 +27,7 @@ const setupItems = [
   { title: "Plans & Services", url: "/setup/plans", icon: Dumbbell },
   { title: "Stores", url: "/setup/stores", icon: Warehouse },
   { title: "Item Groups", url: "/setup/item-groups", icon: Layers },
+  { title: "Charge Heads", url: "/setup/charge-heads", icon: Tag },
   { title: "Users & Roles", url: "/setup/users", icon: UserCog },
   { title: "Email Templates", url: "/setup/email-templates", icon: Mail },
   { title: "Settings", url: "/setup/settings", icon: Settings },

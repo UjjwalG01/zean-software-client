@@ -1,11 +1,13 @@
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { Receipt, Download, Printer } from "lucide-react";
+import { Receipt, Download, Printer, Ban } from "lucide-react";
 import { formatNPR, type Transaction } from "@/lib/mock-data";
 import { generateReceiptHTML, printHTML, downloadHTML } from "@/lib/print-utils";
-import { useCompanySettings } from "@/hooks/use-firestore";
+import { useCompanySettings, useUpdateTransaction } from "@/hooks/use-firestore";
+import { toast } from "sonner";
 
 interface TransactionDetailModalProps {
   transaction: Transaction | null;
@@ -23,11 +25,14 @@ const methodColors: Record<string, string> = {
 
 export function TransactionDetailModal({ transaction: t, open, onOpenChange }: TransactionDetailModalProps) {
   const { data: settings = {} } = useCompanySettings();
+  const updateTxn = useUpdateTransaction();
+  const [voiding, setVoiding] = useState(false);
   if (!t) return null;
 
   const companyName = settings.companyName || "VitaFit Club";
   const paidAmount = t.total;
   const balanceAmount = 0;
+  const isVoided = t.voided || t.status === "voided";
 
   const handlePrint = () => {
     const html = generateReceiptHTML(t, companyName);
@@ -37,6 +42,29 @@ export function TransactionDetailModal({ transaction: t, open, onOpenChange }: T
   const handleDownload = () => {
     const html = generateReceiptHTML(t, companyName);
     downloadHTML(html, `receipt-${t.receiptNo}.html`);
+  };
+
+  const handleVoid = async () => {
+    const reason = prompt("Reason for voiding this transaction?");
+    if (!reason) return;
+    setVoiding(true);
+    try {
+      await updateTxn.mutateAsync({
+        id: t.id,
+        data: {
+          voided: true,
+          voidReason: reason,
+          voidedAt: new Date().toISOString(),
+          status: "voided" as any,
+        },
+      });
+      toast.success("Transaction voided");
+      onOpenChange(false);
+    } catch {
+      toast.error("Failed to void transaction");
+    } finally {
+      setVoiding(false);
+    }
   };
 
   return (
@@ -128,17 +156,26 @@ export function TransactionDetailModal({ transaction: t, open, onOpenChange }: T
             </>
           )}
 
-          {t.status === "pending" ? (
+          {isVoided && (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive text-center">
+              VOIDED{t.voidReason ? ` — ${t.voidReason}` : ""}
+            </div>
+          )}
+
+          {t.status === "pending" || t.status === "unpaid" ? (
             <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-300 text-center">
               Bill cannot be printed until this transaction is settled. Settle it from the Transactions list first.
             </div>
-          ) : (
+          ) : isVoided ? null : (
             <div className="flex gap-2 pt-2">
               <Button variant="outline" size="sm" className="flex-1" onClick={handlePrint}>
                 <Printer className="h-4 w-4 mr-1" />Print
               </Button>
               <Button variant="outline" size="sm" className="flex-1" onClick={handleDownload}>
                 <Download className="h-4 w-4 mr-1" />Download PDF
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleVoid} disabled={voiding} className="text-destructive border-destructive/40 hover:bg-destructive/10">
+                <Ban className="h-4 w-4 mr-1" />{voiding ? "Voiding…" : "Void"}
               </Button>
             </div>
           )}
