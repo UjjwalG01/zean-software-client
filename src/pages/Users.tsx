@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppUsers, useCreateAppUser, useUpdateAppUser, useDeleteAppUser } from "@/hooks/use-app-users";
-import { sendResetPasswordEmail } from "@/lib/firebase-auth";
+import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import type { UserRole, AppUser } from "@/lib/firebase-users";
 import { RolesManager, useRoleDefinitions } from "@/components/RolesManager";
