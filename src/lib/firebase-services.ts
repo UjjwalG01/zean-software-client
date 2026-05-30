@@ -289,6 +289,7 @@ export async function deleteBooking(id: string): Promise<void> {
 // ─── Transactions / Payments ────────────────────────────────────────
 function mapPaymentRow(r: any): Transaction {
   const meta = r.meta && typeof r.meta === "object" ? r.meta : {};
+  const isVoided = r.voided === true || r.status === "voided";
   return {
     id: r.id,
     memberId: r.member_id || "",
@@ -302,9 +303,13 @@ function mapPaymentRow(r: any): Transaction {
     description: r.description || "",
     receiptNo: r.receipt_no || "",
     serviceType: r.service_type || undefined,
-    status: (r.status === "pending" ? "pending" : "paid") as "paid" | "pending",
+    status: (isVoided ? "voided" : r.status === "pending" ? "pending" : "paid") as any,
     bookingId: meta.bookingId || undefined,
-  };
+    voided: isVoided,
+    voidReason: r.void_reason || undefined,
+    voidedAt: r.voided_at || undefined,
+    chargeHead: r.charge_head || undefined,
+  } as Transaction;
 }
 
 export async function getTransactions(): Promise<Transaction[]> {
@@ -341,9 +346,12 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
 export async function updateTransaction(id: string, data: Partial<Transaction>): Promise<void> {
   const patch: any = {};
   if (data.method !== undefined) patch.method = data.method;
-  if (data.status !== undefined) patch.status = data.status;
+  if (data.status !== undefined) patch.status = data.status === "voided" ? "voided" : data.status;
   if (data.description !== undefined) patch.description = data.description;
   if (data.date !== undefined) patch.paid_at = new Date(`${data.date}T00:00:00`).toISOString();
+  if ((data as any).voided !== undefined) patch.voided = (data as any).voided;
+  if ((data as any).voidReason !== undefined) patch.void_reason = (data as any).voidReason;
+  if ((data as any).voidedAt !== undefined) patch.voided_at = (data as any).voidedAt;
   const { error } = await supabase.from("payments").update(patch).eq("id", id);
   if (error) throwDb(error, "payments");
   await maybeAudit("update", "payment", id, null, data);

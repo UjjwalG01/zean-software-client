@@ -90,8 +90,10 @@ const Transactions = () => {
     });
   }, [transactions, search, methodFilter, typeFilter]);
 
-  const totalAmount = filtered.reduce((sum, t) => sum + t.total, 0);
-  const totalVat = filtered.reduce((sum, t) => sum + t.vat, 0);
+  // Voided transactions are excluded from collection totals (and shown as "Voided" in the table).
+  const activeForTotals = filtered.filter((t) => !(t as any).voided && t.status !== "voided");
+  const totalAmount = activeForTotals.reduce((sum, t) => sum + t.total, 0);
+  const totalVat = activeForTotals.reduce((sum, t) => sum + t.vat, 0);
 
   const printBill = (memberName: string, receiptNo: string, desc: string, gross: number, date: Date) => {
     const companyName = settings.companyName || "VitaFit Club";
@@ -353,7 +355,9 @@ const Transactions = () => {
                   <TableCell className="text-right text-sm text-muted-foreground hidden md:table-cell">{formatNPR(t.vat)}</TableCell>
                   <TableCell className="text-right font-medium text-sm">{formatNPR(t.total)}</TableCell>
                   <TableCell>
-                    {t.status === "pending" ? (
+                    {(t as any).voided || t.status === "voided" ? (
+                      <Badge className="text-[10px] border-0 bg-destructive/20 text-destructive">Voided</Badge>
+                    ) : t.status === "pending" ? (
                       <Badge className="text-[10px] border-0 bg-amber-500/20 text-amber-400">Pending</Badge>
                     ) : (
                       <Badge className="text-[10px] border-0 bg-success/20 text-success">Paid</Badge>

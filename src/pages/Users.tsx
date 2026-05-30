@@ -15,6 +15,7 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import type { UserRole, AppUser } from "@/lib/firebase-users";
 import { RolesManager, useRoleDefinitions } from "@/components/RolesManager";
+import { useAssignRole } from "@/hooks/use-permissions";
 
 const roleColors: Record<UserRole, string> = {
   admin: "bg-primary/20 text-primary",
@@ -31,6 +32,7 @@ const UsersPage = () => {
   const updateMutation = useUpdateAppUser();
   const deleteMutation = useDeleteAppUser();
   const { roles: customRoles } = useRoleDefinitions();
+  const assignRoleMutation = useAssignRole();
 
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState("users");
@@ -65,7 +67,7 @@ const UsersPage = () => {
     if (err) { toast.error(err); return; }
     if (!form.role) { toast.error("Please assign a role"); return; }
     try {
-      await createMutation.mutateAsync({
+      const newUserId = await createMutation.mutateAsync({
         username: form.username,
         email: form.email,
         password: form.password,
@@ -75,6 +77,8 @@ const UsersPage = () => {
         role: "staff" as UserRole,
         customRoleId: form.role,
       });
+      // Persist the role assignment to the DB (user_role_assignments)
+      try { await assignRoleMutation.mutateAsync({ userId: newUserId as string, roleId: form.role }); } catch { /* non-fatal */ }
       const created = { email: form.email, password: form.password, fullName: form.fullName };
       setOpen(false);
       reset();
@@ -98,10 +102,10 @@ const UsersPage = () => {
 
   const handleRoleChange = async (id: string, customRoleId: string) => {
     try {
-      // Custom role IDs are stored in extras; system DB role stays "staff" so RLS enums are valid.
       await updateMutation.mutateAsync({ id, data: { customRoleId, role: "staff" as UserRole } });
+      await assignRoleMutation.mutateAsync({ userId: id, roleId: customRoleId });
       toast.success("Role updated");
-    } catch { toast.error("Failed"); }
+    } catch (e: any) { toast.error(e?.message || "Failed"); }
   };
 
   const handleDelete = async (id: string, name: string) => {
@@ -143,6 +147,9 @@ const UsersPage = () => {
     if (!editTarget) return;
     try {
       await updateMutation.mutateAsync({ id: editTarget.id, data: { ...editForm, role: "staff" as UserRole } });
+      if (editForm.customRoleId) {
+        try { await assignRoleMutation.mutateAsync({ userId: editTarget.id, roleId: editForm.customRoleId }); } catch { /* non-fatal */ }
+      }
       toast.success("User updated");
       setEditTarget(null);
     } catch { toast.error("Update failed"); }

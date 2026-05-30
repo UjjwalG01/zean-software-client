@@ -268,6 +268,16 @@ export async function updateItem(id: string, patch: Partial<InventoryItem>) {
 }
 
 export async function deleteItem(id: string) {
+  // Protect items that have any stock movements (purchases, issues, opening balances).
+  const movs = _movByItem.get(id) || [];
+  let dbCount = 0;
+  try {
+    const { count } = await supabase.from("inv_movements").select("id", { count: "exact", head: true }).eq("item_id", id);
+    dbCount = count || 0;
+  } catch { /* fall back to local count */ }
+  if (movs.length > 0 || dbCount > 0) {
+    throw new Error("Cannot delete this item — it has stock movements (purchase/issue) linked to it. Mark it inactive instead.");
+  }
   await dbDelete("inv_items", id);
   _items = _items.filter((i) => i.id !== id);
   _movByItem.delete(id);
