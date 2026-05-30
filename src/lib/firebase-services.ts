@@ -341,9 +341,12 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
 export async function updateTransaction(id: string, data: Partial<Transaction>): Promise<void> {
   const patch: any = {};
   if (data.method !== undefined) patch.method = data.method;
-  if (data.status !== undefined) patch.status = data.status;
+  if (data.status !== undefined) patch.status = data.status === "voided" ? "voided" : data.status;
   if (data.description !== undefined) patch.description = data.description;
   if (data.date !== undefined) patch.paid_at = new Date(`${data.date}T00:00:00`).toISOString();
+  if ((data as any).voided !== undefined) patch.voided = (data as any).voided;
+  if ((data as any).voidReason !== undefined) patch.void_reason = (data as any).voidReason;
+  if ((data as any).voidedAt !== undefined) patch.voided_at = (data as any).voidedAt;
   const { error } = await supabase.from("payments").update(patch).eq("id", id);
   if (error) throwDb(error, "payments");
   await maybeAudit("update", "payment", id, null, data);
