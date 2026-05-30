@@ -8,37 +8,42 @@ import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
+import { useMyPermissions, canView } from "@/hooks/use-permissions";
 
 const mainItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Members", url: "/members", icon: Users },
-  { title: "Bookings", url: "/bookings", icon: CalendarDays },
-  { title: "Attendance", url: "/attendance", icon: UserCheck },
-  { title: "Transactions", url: "/transactions", icon: Receipt },
-  { title: "Inventory", url: "/inventory", icon: Package },
-  { title: "Reports", url: "/reports", icon: BarChart3 },
-  { title: "Forecast", url: "/forecast", icon: TrendingUp },
+  { title: "Dashboard", url: "/", icon: LayoutDashboard, key: "dashboard" },
+  { title: "Members", url: "/members", icon: Users, key: "members" },
+  { title: "Bookings", url: "/bookings", icon: CalendarDays, key: "bookings" },
+  { title: "Attendance", url: "/attendance", icon: UserCheck, key: "attendance" },
+  { title: "Transactions", url: "/transactions", icon: Receipt, key: "transactions" },
+  { title: "Inventory", url: "/inventory", icon: Package, key: "inventory" },
+  { title: "Reports", url: "/reports", icon: BarChart3, key: "reports" },
+  { title: "Forecast", url: "/forecast", icon: TrendingUp, key: "forecast" },
 ];
 
 const setupItems = [
-  { title: "General Setup", url: "/setup/general", icon: Wrench },
-  { title: "Outlets", url: "/setup/outlets", icon: Building2 },
-  { title: "Service Types", url: "/setup/service-types", icon: Tag },
-  { title: "Plans & Services", url: "/setup/plans", icon: Dumbbell },
-  { title: "Stores", url: "/setup/stores", icon: Warehouse },
-  { title: "Item Groups", url: "/setup/item-groups", icon: Layers },
-  { title: "Charge Heads", url: "/setup/charge-heads", icon: Tag },
-  { title: "Users & Roles", url: "/setup/users", icon: UserCog },
-  { title: "Email Templates", url: "/setup/email-templates", icon: Mail },
-  { title: "Settings", url: "/setup/settings", icon: Settings },
+  { title: "General Setup", url: "/setup/general", icon: Wrench, key: "general" },
+  { title: "Outlets", url: "/setup/outlets", icon: Building2, key: "outlets" },
+  { title: "Service Types", url: "/setup/service-types", icon: Tag, key: "service-types" },
+  { title: "Plans & Services", url: "/setup/plans", icon: Dumbbell, key: "plans" },
+  { title: "Stores", url: "/setup/stores", icon: Warehouse, key: "stores" },
+  { title: "Item Groups", url: "/setup/item-groups", icon: Layers, key: "item-groups" },
+  { title: "Charge Heads", url: "/setup/charge-heads", icon: Tag, key: "charge-heads" },
+  { title: "Users & Roles", url: "/setup/users", icon: UserCog, key: "users" },
+  { title: "Email Templates", url: "/setup/email-templates", icon: Mail, key: "email-templates" },
+  { title: "Settings", url: "/setup/settings", icon: Settings, key: "settings" },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
+  const { data: myPerms } = useMyPermissions();
   const isActive = (path: string) =>
     path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
+
+  const visibleMain = mainItems.filter((i) => canView(myPerms, i.key));
+  const visibleSetup = setupItems.filter((i) => canView(myPerms, i.key));
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
@@ -61,7 +66,7 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/60">Main</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainItems.map((item) => (
+              {visibleMain.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
                     <NavLink to={item.url} end={item.url === "/"} activeClassName="bg-sidebar-accent text-sidebar-accent-foreground">
@@ -79,7 +84,7 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/60">Setup</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {setupItems.map((item) => (
+              {visibleSetup.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
                     <NavLink to={item.url} activeClassName="bg-sidebar-accent text-sidebar-accent-foreground">
