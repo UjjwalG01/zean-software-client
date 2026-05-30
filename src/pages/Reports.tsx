@@ -32,7 +32,22 @@ const Reports = () => {
   const { data: settings = {} } = useCompanySettings();
 
   const activeMembers = members.filter((m) => m.status === "Active").length;
-  const totalRevenue = transactions.reduce((sum, t) => sum + t.total, 0);
+  const totalRevenue = transactions.reduce((sum, t) => sum + ((t as any).voided ? 0 : t.total), 0);
+
+  // Lazy-load: each sub-tab renders an empty placeholder with a "Load Report" button
+  // until the user clicks it. This keeps the page fast and avoids heavy upfront work.
+  const [loaded, setLoaded] = useState<Record<string, boolean>>({});
+  const loadTab = (k: string) => setLoaded((p) => ({ ...p, [k]: true }));
+  const LoadGate = ({ k, children }: { k: string; children: React.ReactNode }) => (
+    loaded[k] ? <>{children}</> : (
+      <div className="glass-card rounded-xl p-10 text-center space-y-3">
+        <p className="text-sm text-muted-foreground">Click <strong>Load Report</strong> to fetch and render this report.</p>
+        <Button onClick={() => loadTab(k)} className="gradient-gold text-primary-foreground">
+          <Download className="h-4 w-4 mr-1.5" />Load Report
+        </Button>
+      </div>
+    )
+  );
 
   // ── Daily Sales / Collection / Contribution shared filters ──
   const today = format(new Date(), "yyyy-MM-dd");
@@ -233,7 +248,7 @@ const Reports = () => {
         </Button>
       </div>
 
-      <Tabs defaultValue="daily" className="space-y-4">
+      <Tabs defaultValue="daily" className="space-y-4" onValueChange={(v) => setLoaded((p) => ({ ...p, [v]: p[v] }))}>
         <TabsList className="bg-muted/50 flex-wrap h-auto">
           <TabsTrigger value="daily">Daily Sales</TabsTrigger>
           <TabsTrigger value="collection">Cashier / Collection</TabsTrigger>
