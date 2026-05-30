@@ -355,7 +355,9 @@ const Transactions = () => {
                   <TableCell className="text-right text-sm text-muted-foreground hidden md:table-cell">{formatNPR(t.vat)}</TableCell>
                   <TableCell className="text-right font-medium text-sm">{formatNPR(t.total)}</TableCell>
                   <TableCell>
-                    {t.status === "pending" ? (
+                    {(t as any).voided || t.status === "voided" ? (
+                      <Badge className="text-[10px] border-0 bg-destructive/20 text-destructive">Voided</Badge>
+                    ) : t.status === "pending" ? (
                       <Badge className="text-[10px] border-0 bg-amber-500/20 text-amber-400">Pending</Badge>
                     ) : (
                       <Badge className="text-[10px] border-0 bg-success/20 text-success">Paid</Badge>
