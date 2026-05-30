@@ -289,6 +289,7 @@ export async function deleteBooking(id: string): Promise<void> {
 // ─── Transactions / Payments ────────────────────────────────────────
 function mapPaymentRow(r: any): Transaction {
   const meta = r.meta && typeof r.meta === "object" ? r.meta : {};
+  const isVoided = r.voided === true || r.status === "voided";
   return {
     id: r.id,
     memberId: r.member_id || "",
@@ -302,9 +303,13 @@ function mapPaymentRow(r: any): Transaction {
     description: r.description || "",
     receiptNo: r.receipt_no || "",
     serviceType: r.service_type || undefined,
-    status: (r.status === "pending" ? "pending" : "paid") as "paid" | "pending",
+    status: (isVoided ? "voided" : r.status === "pending" ? "pending" : "paid") as any,
     bookingId: meta.bookingId || undefined,
-  };
+    voided: isVoided,
+    voidReason: r.void_reason || undefined,
+    voidedAt: r.voided_at || undefined,
+    chargeHead: r.charge_head || undefined,
+  } as Transaction;
 }
 
 export async function getTransactions(): Promise<Transaction[]> {
