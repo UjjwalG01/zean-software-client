@@ -90,8 +90,10 @@ const Transactions = () => {
     });
   }, [transactions, search, methodFilter, typeFilter]);
 
-  const totalAmount = filtered.reduce((sum, t) => sum + t.total, 0);
-  const totalVat = filtered.reduce((sum, t) => sum + t.vat, 0);
+  // Voided transactions are excluded from collection totals (and shown as "Voided" in the table).
+  const activeForTotals = filtered.filter((t) => !(t as any).voided && t.status !== "voided");
+  const totalAmount = activeForTotals.reduce((sum, t) => sum + t.total, 0);
+  const totalVat = activeForTotals.reduce((sum, t) => sum + t.vat, 0);
 
   const printBill = (memberName: string, receiptNo: string, desc: string, gross: number, date: Date) => {
     const companyName = settings.companyName || "VitaFit Club";
