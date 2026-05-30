@@ -260,6 +260,7 @@ const Reports = () => {
         </TabsList>
 
         <TabsContent value="daily">
+          <LoadGate k="daily">
           <PremiumReportFrame
             title="Daily Sales Report"
             subtitle="Sales by date and department"
@@ -285,9 +286,11 @@ const Reports = () => {
               },
             }}
           />
+          </LoadGate>
         </TabsContent>
 
         <TabsContent value="collection">
+          <LoadGate k="collection">
           <PremiumReportFrame
             title="Cashier / Collection Report"
             subtitle="Settled payments grouped by date and method"
@@ -311,9 +314,11 @@ const Reports = () => {
               },
             }}
           />
+          </LoadGate>
         </TabsContent>
 
         <TabsContent value="contribution">
+          <LoadGate k="contribution">
           <PremiumReportFrame
             title="Sales Contribution"
             subtitle="Revenue per member with contribution share"
@@ -340,6 +345,7 @@ const Reports = () => {
               },
             }}
           />
+          </LoadGate>
         </TabsContent>
 
         <TabsContent value="ledger">
