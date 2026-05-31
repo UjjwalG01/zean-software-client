@@ -272,13 +272,14 @@ const Bookings_Page = () => {
       });
       toast.success("Membership enrolled — proceed to payment");
       setDialogOpen(false);
+      const finalAmount = useDiscountedRate && discountedRate ? Number(discountedRate) : membershipAmount;
       const params = new URLSearchParams({
         newPayment: "true",
         memberId: bookMember,
         memberName: memberObj?.name || "",
         service: "Membership",
         className: `${selectedPlan.tier} · ${durationLabel}`,
-        amount: String(membershipAmount),
+        amount: String(finalAmount),
         locked: "1",
       });
       setBookMember(""); setMemberSearch(""); setBookPlanId(""); setBookDuration("monthly");
