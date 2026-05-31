@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TierBadge } from "@/components/TierBadge";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -22,6 +23,7 @@ const MembersList = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [serviceFilter, setServiceFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
+  const [photoPreview, setPhotoPreview] = useState<{ url: string; name: string } | null>(null);
   const perPage = 10;
 
   const { data: members = [], isLoading } = useMembers();
@@ -137,7 +139,13 @@ const MembersList = () => {
                 <TableRow key={m.id} className="cursor-pointer" onClick={() => navigate(`/members/${m.id}`)}>
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8">
+                      <Avatar
+                        className="h-8 w-8 cursor-zoom-in ring-1 ring-transparent hover:ring-primary/60"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (m.avatar) setPhotoPreview({ url: m.avatar, name: m.name });
+                        }}
+                      >
                         <AvatarImage src={m.avatar} alt={m.name} />
                         <AvatarFallback className="text-xs">{m.name.split(" ").map((n) => n[0]).join("")}</AvatarFallback>
                       </Avatar>
@@ -173,6 +181,18 @@ const MembersList = () => {
           </div>
         </div>
       )}
+
+      <Dialog open={!!photoPreview} onOpenChange={(o) => !o && setPhotoPreview(null)}>
+        <DialogContent className="max-w-md p-2">
+          {photoPreview && (
+            <div className="space-y-2">
+              <img src={photoPreview.url} alt={photoPreview.name}
+                className="w-full h-auto rounded-lg object-contain max-h-[70vh]" />
+              <p className="text-center text-sm font-medium">{photoPreview.name}</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
