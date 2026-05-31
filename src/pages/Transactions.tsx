@@ -124,7 +124,7 @@ const Transactions = () => {
 
   const resetPayForm = () => {
     setPayMember(""); setPayAmount(""); setPayDesc("");
-    setPayLocked(false); setPayBookingId("");
+    setPayLocked(false); setPayBookingId(""); setPaySplits([]);
   };
 
   const handleRecordPayment = async (markPending = false) => {
@@ -279,15 +279,15 @@ const Transactions = () => {
                     <Input type="number" value={vatPreview} disabled />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Payment Method</Label>
-                  <Select value={payMethod} onValueChange={setPayMethod}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {paymentModes.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <SplitPaymentForm
+                  total={grossPreview}
+                  paymentModes={paymentModes}
+                  value={paySplits}
+                  onChange={setPaySplits}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Tip: Add multiple modes to split the bill (e.g. Cash + Card).
+                </p>
                 <div className="space-y-2"><Label>Description</Label><Input placeholder="e.g. Gold Monthly Payment" value={payDesc} onChange={(e) => setPayDesc(e.target.value)} /></div>
                 {payAmount && (
                   <div className="rounded-lg bg-muted/30 p-3 text-sm space-y-1">
