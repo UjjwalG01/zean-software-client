@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TransactionDetailModal } from "@/components/TransactionDetailModal";
 import { RecordChargeModal } from "@/components/RecordChargeModal";
+import { SplitPaymentForm, type PaymentSplit } from "@/components/SplitPaymentForm";
 import { formatNPR, type PaymentMethod, type Transaction } from "@/lib/mock-data";
 import { useTransactions, useAddTransaction, useUpdateTransaction, useMembers, useCompanySettings } from "@/hooks/use-firestore";
 import { generateA5BillHTML, printHTML, exportTableToCSV } from "@/lib/print-utils";
@@ -46,6 +47,7 @@ const Transactions = () => {
   const [payDesc, setPayDesc] = useState("");
   const [payLocked, setPayLocked] = useState(false);
   const [payBookingId, setPayBookingId] = useState<string>("");
+  const [paySplits, setPaySplits] = useState<PaymentSplit[]>([]);
   const [settleTxn, setSettleTxn] = useState<Transaction | null>(null);
 
   const { data: transactions = [], isLoading } = useTransactions();
@@ -122,7 +124,7 @@ const Transactions = () => {
 
   const resetPayForm = () => {
     setPayMember(""); setPayAmount(""); setPayDesc("");
-    setPayLocked(false); setPayBookingId("");
+    setPayLocked(false); setPayBookingId(""); setPaySplits([]);
   };
 
   const handleRecordPayment = async (markPending = false) => {
@@ -132,27 +134,54 @@ const Transactions = () => {
     }
     const memberObj = members.find((m) => m.id === payMember);
     const amount = Number(payAmount);
-    const receiptNo = `VFC-${Date.now()}`;
+    const splitsSum = paySplits.reduce((a, s) => a + Number(s.amount || 0), 0);
+    const useSplits = !markPending && paySplits.length > 0;
+    if (useSplits && Math.round(splitsSum) !== Math.round(amount)) {
+      toast.error(`Split total (${formatNPR(splitsSum)}) must equal ${formatNPR(amount)}`);
+      return;
+    }
+    const baseReceipt = `VFC-${Date.now()}`;
     try {
-      await addTransactionMutation.mutateAsync({
-        memberId: payMember,
-        memberName: memberObj?.name || "",
-        amount,
-        method: payMethod as PaymentMethod,
-        type: payType as any,
-        description: payDesc,
-        date: new Date().toISOString().split("T")[0],
-        receiptNo,
-        status: markPending ? "pending" : "paid",
-        bookingId: payBookingId || undefined,
-      });
-      setDialogOpen(false);
-      if (markPending) {
-        toast.success("Marked as pending — settle later from this list");
+      if (useSplits && paySplits.length > 1) {
+        // Multi-mode payment: create one transaction per split, linked by receipt root.
+        for (let i = 0; i < paySplits.length; i++) {
+          const s = paySplits[i];
+          await addTransactionMutation.mutateAsync({
+            memberId: payMember,
+            memberName: memberObj?.name || "",
+            amount: Number(s.amount),
+            method: s.method,
+            type: payType as any,
+            description: `${payDesc} [Split ${i + 1}/${paySplits.length}${s.reference ? ` · ${s.reference}` : ""}]`,
+            date: new Date().toISOString().split("T")[0],
+            receiptNo: `${baseReceipt}-${i + 1}`,
+            status: "paid",
+            bookingId: payBookingId || undefined,
+          });
+        }
+        toast.success(`Payment recorded across ${paySplits.length} modes`);
+        printBill(memberObj?.name || "", baseReceipt, payDesc, amount, new Date());
       } else {
-        toast.success("Payment recorded! Generating invoice...");
-        printBill(memberObj?.name || "", receiptNo, payDesc, amount, new Date());
+        const method = useSplits ? paySplits[0].method : (payMethod as PaymentMethod);
+        await addTransactionMutation.mutateAsync({
+          memberId: payMember,
+          memberName: memberObj?.name || "",
+          amount,
+          method,
+          type: payType as any,
+          description: payDesc,
+          date: new Date().toISOString().split("T")[0],
+          receiptNo: baseReceipt,
+          status: markPending ? "pending" : "paid",
+          bookingId: payBookingId || undefined,
+        });
+        if (markPending) toast.success("Marked as pending — settle later from this list");
+        else {
+          toast.success("Payment recorded! Generating invoice...");
+          printBill(memberObj?.name || "", baseReceipt, payDesc, amount, new Date());
+        }
       }
+      setDialogOpen(false);
       resetPayForm();
     } catch {
       toast.error("Failed to record payment");
@@ -250,15 +279,15 @@ const Transactions = () => {
                     <Input type="number" value={vatPreview} disabled />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Payment Method</Label>
-                  <Select value={payMethod} onValueChange={setPayMethod}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {paymentModes.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <SplitPaymentForm
+                  total={grossPreview}
+                  paymentModes={paymentModes}
+                  value={paySplits}
+                  onChange={setPaySplits}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Tip: Add multiple modes to split the bill (e.g. Cash + Card).
+                </p>
                 <div className="space-y-2"><Label>Description</Label><Input placeholder="e.g. Gold Monthly Payment" value={payDesc} onChange={(e) => setPayDesc(e.target.value)} /></div>
                 {payAmount && (
                   <div className="rounded-lg bg-muted/30 p-3 text-sm space-y-1">

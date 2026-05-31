@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { useAddMember, useCompanySettings, useUpdateMember, useMember } from "@/hooks/use-firestore";
+import { useAddMember, useCompanySettings, useUpdateMember, useMember, useMembers } from "@/hooks/use-firestore";
 import { useOutlet } from "@/contexts/OutletContext";
 import { uploadMemberAvatar, generateMemberCode } from "@/lib/firebase-services";
 import PackageSelectionModal from "@/components/PackageSelectionModal";
@@ -53,6 +53,7 @@ const AddMember = () => {
   const addMember = useAddMember();
   const updateMember = useUpdateMember();
   const { data: existing } = useMember(editId);
+  const { data: allMembers = [] } = useMembers();
   const { data: settings = {} } = useCompanySettings();
   const { selected: outlet, setPickerOpen } = useOutlet();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -203,9 +204,22 @@ const AddMember = () => {
 
   const handleSubmit = async () => {
     if (!validateStep(0) || !validateStep(1)) return;
+    const fullName = [f.firstName, f.middleName, f.lastName].filter(Boolean).join(" ").trim();
+    // Duplicate guard: a member with the same name + phone + email is a hard duplicate.
+    if (!isEdit) {
+      const norm = (s: string) => (s || "").trim().toLowerCase();
+      const dup = allMembers.find((m) =>
+        norm(m.name) === norm(fullName) &&
+        norm(m.phone) === norm(f.phone) &&
+        norm(m.email) === norm(f.email)
+      );
+      if (dup) {
+        toast.error(`A member with the same name, phone and email already exists (${dup.name})`);
+        return;
+      }
+    }
     setSaving(true);
     try {
-      const fullName = [f.firstName, f.middleName, f.lastName].filter(Boolean).join(" ");
       const payload: any = {
         ...f,
         name: fullName,

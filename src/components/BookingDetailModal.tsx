@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarDays, Clock, User, Dumbbell, CheckCircle, Printer, Pencil, Trash2, Save, X } from "lucide-react";
+import { CalendarDays, Clock, User, Dumbbell, CheckCircle, Printer, Pencil, Trash2, Save, X, Ban } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import type { Booking, ServiceType } from "@/lib/mock-data";
 import { useUpdateBooking, useDeleteBooking, useCompanySettings } from "@/hooks/use-firestore";
 import { generateA5BillHTML, printHTML } from "@/lib/print-utils";
@@ -50,6 +51,8 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
     date: "", startTime: "", endTime: "", service: "Gym" as ServiceType, className: "", instructor: "",
   });
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
 
   const setupServiceTypes = parseSetup(settings, "setup_serviceTypes", ["Gym", "Spa", "Sauna", "Swimming"]);
 
@@ -128,6 +131,25 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
       onOpenChange(false);
     } catch {
       toast.error("Failed to delete booking");
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!cancelReason.trim()) {
+      toast.error("Please provide a cancellation reason");
+      return;
+    }
+    try {
+      await updateBooking.mutateAsync({
+        id: b.id,
+        data: { status: "Cancelled", cancelReason, cancelledAt: new Date().toISOString() } as any,
+      });
+      toast.success("Booking cancelled");
+      setConfirmCancel(false);
+      setLocalStatus("Cancelled");
+      onOpenChange(false);
+    } catch {
+      toast.error("Failed to cancel booking");
     }
   };
 
@@ -248,7 +270,10 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
                 {canEdit && (
                   <>
                     <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
-                      <Pencil className="h-4 w-4 mr-1" />Edit
+                      <Pencil className="h-4 w-4 mr-1" />Amend
+                    </Button>
+                    <Button size="sm" variant="outline" className="text-amber-500 hover:bg-amber-500/10" onClick={() => setConfirmCancel(true)}>
+                      <Ban className="h-4 w-4 mr-1" />Cancel
                     </Button>
                     <Button size="sm" variant="outline" className="text-destructive hover:bg-destructive/10" onClick={() => setConfirmDelete(true)}>
                       <Trash2 className="h-4 w-4 mr-1" />Delete
@@ -292,6 +317,32 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
             <Button variant="outline" onClick={() => setConfirmDelete(false)}>Cancel</Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleteBooking.isPending}>
               {deleteBooking.isPending ? "Deleting..." : "Delete Booking"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel confirmation */}
+      <Dialog open={confirmCancel} onOpenChange={setConfirmCancel}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle className="font-display flex items-center gap-2">
+              <Ban className="h-4 w-4 text-amber-500" /> Cancel Booking?
+            </DialogTitle>
+            <DialogDescription>
+              Cancel <strong>{b.memberName}</strong>'s booking on {b.date}. The slot will be freed up.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Reason *</Label>
+            <Textarea rows={3} placeholder="e.g. member requested reschedule" value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmCancel(false)}>Keep Booking</Button>
+            <Button onClick={handleCancel} disabled={updateBooking.isPending}
+              className="bg-amber-500 hover:bg-amber-500/90 text-white">
+              {updateBooking.isPending ? "Cancelling..." : "Confirm Cancel"}
             </Button>
           </DialogFooter>
         </DialogContent>

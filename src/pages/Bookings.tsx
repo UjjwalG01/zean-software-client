@@ -13,7 +13,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { BookingDetailModal } from "@/components/BookingDetailModal";
+import { DayTimelineDialog } from "@/components/DayTimelineDialog";
 import { OutletPickerDialog } from "@/components/OutletPickerDialog";
+import { Switch } from "@/components/ui/switch";
 import { useBookings, useAddBooking, useMembers, useServices, useCompanySettings, useMembershipPlans, useUpdateMember } from "@/hooks/use-firestore";
 import { useOutlet } from "@/contexts/OutletContext";
 import { Building2, ChevronDown } from "lucide-react";
@@ -81,6 +83,11 @@ const Bookings_Page = () => {
 
   const [bookPlanId, setBookPlanId] = useState("");
   const [bookDuration, setBookDuration] = useState<"monthly" | "yearly" | "longTerm">("monthly");
+  const [useDiscountedRate, setUseDiscountedRate] = useState(false);
+  const [discountedRate, setDiscountedRate] = useState<string>("");
+  const [timelineOpen, setTimelineOpen] = useState(false);
+  const [bookStartTime, setBookStartTime] = useState<string>("");
+  const [bookEndTime, setBookEndTime] = useState<string>("");
 
   const { data: bookings = [], isLoading } = useBookings();
   const { data: members = [] } = useMembers();
@@ -170,8 +177,12 @@ const Bookings_Page = () => {
   }, [selectedService]);
 
   const handleBook = async () => {
-    if (!bookMember || !selectedService || !bookDate || !bookTimeSlot) {
-      toast.error("Please fill member, service, date and time slot");
+    if (!bookMember || !selectedService || !bookDate) {
+      toast.error("Please fill member, service and date");
+      return;
+    }
+    if (!bookTimeSlot && !bookStartTime) {
+      toast.error("Please pick a time slot (or use 24h timeline)");
       return;
     }
     const today = new Date();
@@ -180,12 +191,16 @@ const Bookings_Page = () => {
       toast.error("Cannot create bookings for past dates");
       return;
     }
-    const start = SLOT_START[bookTimeSlot] || "09:00";
-    const [h, m] = start.split(":").map(Number);
-    const total = h * 60 + m + Number(selectedService.duration || 60);
-    const eh = Math.floor(total / 60) % 24;
-    const em = total % 60;
-    const end = `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`;
+    // Prefer explicit start time (from timeline picker) over coarse time-slot bucket.
+    const start = bookStartTime || SLOT_START[bookTimeSlot] || "09:00";
+    let end = bookEndTime;
+    if (!end) {
+      const [h, m] = start.split(":").map(Number);
+      const total = h * 60 + m + Number(selectedService.duration || 60);
+      const eh = Math.floor(total / 60) % 24;
+      const em = total % 60;
+      end = `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`;
+    }
 
     const memberObj = members.find((m) => m.id === bookMember);
     try {
@@ -200,23 +215,26 @@ const Bookings_Page = () => {
         status: "Pending",
         outletId: selectedOutlet?.id,
         instructor: bookInstructor || selectedService.instructor || "",
-        timeSlot: bookTimeSlot,
+        timeSlot: bookTimeSlot || start,
       } as any);
       toast.success("Booking created — proceed to payment");
       setDialogOpen(false);
-      const price = Number(selectedService.price || 0);
+      const basePrice = Number(selectedService.price || 0);
+      const finalPrice = useDiscountedRate && discountedRate ? Number(discountedRate) : basePrice;
       const params = new URLSearchParams({
         newPayment: "true",
         memberId: bookMember,
         memberName: memberObj?.name || "",
         service: String(selectedService.type),
         className: selectedService.name,
-        amount: String(price),
+        amount: String(finalPrice),
         locked: "1",
         bookingId: String(bookingId || ""),
       });
       setBookMember(""); setMemberSearch(""); setBookServiceId("");
       setBookInstructor(""); setBookTimeSlot("");
+      setBookStartTime(""); setBookEndTime("");
+      setUseDiscountedRate(false); setDiscountedRate("");
       navigate(`/transactions?${params.toString()}`);
     } catch {
       toast.error("Failed to create booking");
@@ -254,13 +272,14 @@ const Bookings_Page = () => {
       });
       toast.success("Membership enrolled — proceed to payment");
       setDialogOpen(false);
+      const finalAmount = useDiscountedRate && discountedRate ? Number(discountedRate) : membershipAmount;
       const params = new URLSearchParams({
         newPayment: "true",
         memberId: bookMember,
         memberName: memberObj?.name || "",
         service: "Membership",
         className: `${selectedPlan.tier} · ${durationLabel}`,
-        amount: String(membershipAmount),
+        amount: String(finalAmount),
         locked: "1",
       });
       setBookMember(""); setMemberSearch(""); setBookPlanId(""); setBookDuration("monthly");
@@ -480,8 +499,22 @@ const Bookings_Page = () => {
                   </div>
                 )}
 
+                {selectedPlan && membershipAmount > 0 && (
+                  <div className="rounded-lg border border-border/60 bg-background/50 px-3 py-2 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Apply Discounted Rate</Label>
+                      <Switch checked={useDiscountedRate} onCheckedChange={(v) => { setUseDiscountedRate(v); if (!v) setDiscountedRate(""); }} />
+                    </div>
+                    {useDiscountedRate && (
+                      <Input type="number" min={0} max={membershipAmount}
+                        value={discountedRate} placeholder={`Max NPR ${membershipAmount.toLocaleString()}`}
+                        onChange={(e) => setDiscountedRate(e.target.value)} />
+                    )}
+                  </div>
+                )}
+
                 <Button onClick={handleEnrollMembership} disabled={updateMemberMutation.isPending || !selectedPlan} className="w-full gradient-gold text-primary-foreground">
-                  {updateMemberMutation.isPending ? "Enrolling..." : `Enroll & Pay NPR ${membershipAmount.toLocaleString()}`}
+                  {updateMemberMutation.isPending ? "Enrolling..." : `Enroll & Pay NPR ${(useDiscountedRate && discountedRate ? Number(discountedRate) : membershipAmount).toLocaleString()}`}
                 </Button>
               </>
             ) : (
@@ -506,10 +539,28 @@ const Bookings_Page = () => {
                 </div>
 
                 {selectedService && (
-                  <div className="rounded-lg border border-border bg-muted/30 p-3 grid grid-cols-3 gap-2 text-sm">
-                    <div><span className="text-muted-foreground text-xs block">Duration</span><span className="font-medium">{selectedService.duration || 0} min</span></div>
-                    <div><span className="text-muted-foreground text-xs block">Rate</span><span className="font-medium">NPR {selectedService.price || 0}</span></div>
-                    <div><span className="text-muted-foreground text-xs block">Instructor</span><span className="font-medium">{selectedService.requiresInstructor ? (selectedService.instructor || "—") : "Not required"}</span></div>
+                  <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2 text-sm">
+                    <div className="grid grid-cols-3 gap-2">
+                      <div><span className="text-muted-foreground text-xs block">Duration</span><span className="font-medium">{selectedService.duration || 0} min</span></div>
+                      <div><span className="text-muted-foreground text-xs block">Instructor</span><span className="font-medium">{selectedService.requiresInstructor ? (selectedService.instructor || "—") : "Not required"}</span></div>
+                      <div>
+                        <span className="text-muted-foreground text-xs block">Standard Rate</span>
+                        <span className="font-medium">NPR {selectedService.price || 0}</span>
+                      </div>
+                    </div>
+                    {/* Discounted-rate toggle, sits right above the rate */}
+                    <div className="flex items-center justify-between rounded-md border border-border/60 bg-background/50 px-3 py-2">
+                      <Label className="text-xs">Apply Discounted Rate</Label>
+                      <Switch checked={useDiscountedRate} onCheckedChange={(v) => { setUseDiscountedRate(v); if (!v) setDiscountedRate(""); }} />
+                    </div>
+                    {useDiscountedRate && (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Discounted Rate (NPR, VAT incl.)</Label>
+                        <Input type="number" min={0} max={Number(selectedService.price || 0)}
+                          value={discountedRate} placeholder={`Max ${selectedService.price || 0}`}
+                          onChange={(e) => setDiscountedRate(e.target.value)} />
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -520,12 +571,22 @@ const Bookings_Page = () => {
                   </div>
                   <div className="space-y-2">
                     <Label>Time Slot *</Label>
-                    <Select value={bookTimeSlot} onValueChange={setBookTimeSlot}>
-                      <SelectTrigger><SelectValue placeholder="Select slot" /></SelectTrigger>
-                      <SelectContent>
-                        {setupTimeSlots.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex gap-2">
+                      <Select value={bookTimeSlot} onValueChange={(v) => { setBookTimeSlot(v); setBookStartTime(""); setBookEndTime(""); }}>
+                        <SelectTrigger><SelectValue placeholder={bookStartTime ? `${bookStartTime}–${bookEndTime}` : "Select slot"} /></SelectTrigger>
+                        <SelectContent>
+                          {setupTimeSlots.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <Button type="button" variant="outline" size="sm" className="shrink-0"
+                        disabled={!bookDate || !selectedService}
+                        onClick={() => setTimelineOpen(true)}>
+                        24h
+                      </Button>
+                    </div>
+                    {bookStartTime && (
+                      <p className="text-[11px] text-success">Picked from timeline: {bookStartTime} – {bookEndTime}</p>
+                    )}
                   </div>
                   {selectedService?.requiresInstructor && (
                     <div className="space-y-2">
@@ -548,6 +609,15 @@ const Bookings_Page = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <DayTimelineDialog
+        open={timelineOpen}
+        onOpenChange={setTimelineOpen}
+        date={bookDate}
+        bookings={filtered.filter((b) => b.date === bookDate)}
+        durationMinutes={Number(selectedService?.duration || 60)}
+        onPick={(s, e) => { setBookStartTime(s); setBookEndTime(e); setBookTimeSlot(""); }}
+      />
 
 
 
