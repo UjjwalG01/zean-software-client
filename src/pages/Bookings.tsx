@@ -177,8 +177,12 @@ const Bookings_Page = () => {
   }, [selectedService]);
 
   const handleBook = async () => {
-    if (!bookMember || !selectedService || !bookDate || !bookTimeSlot) {
-      toast.error("Please fill member, service, date and time slot");
+    if (!bookMember || !selectedService || !bookDate) {
+      toast.error("Please fill member, service and date");
+      return;
+    }
+    if (!bookTimeSlot && !bookStartTime) {
+      toast.error("Please pick a time slot (or use 24h timeline)");
       return;
     }
     const today = new Date();
@@ -187,12 +191,16 @@ const Bookings_Page = () => {
       toast.error("Cannot create bookings for past dates");
       return;
     }
-    const start = SLOT_START[bookTimeSlot] || "09:00";
-    const [h, m] = start.split(":").map(Number);
-    const total = h * 60 + m + Number(selectedService.duration || 60);
-    const eh = Math.floor(total / 60) % 24;
-    const em = total % 60;
-    const end = `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`;
+    // Prefer explicit start time (from timeline picker) over coarse time-slot bucket.
+    const start = bookStartTime || SLOT_START[bookTimeSlot] || "09:00";
+    let end = bookEndTime;
+    if (!end) {
+      const [h, m] = start.split(":").map(Number);
+      const total = h * 60 + m + Number(selectedService.duration || 60);
+      const eh = Math.floor(total / 60) % 24;
+      const em = total % 60;
+      end = `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`;
+    }
 
     const memberObj = members.find((m) => m.id === bookMember);
     try {
@@ -207,23 +215,26 @@ const Bookings_Page = () => {
         status: "Pending",
         outletId: selectedOutlet?.id,
         instructor: bookInstructor || selectedService.instructor || "",
-        timeSlot: bookTimeSlot,
+        timeSlot: bookTimeSlot || start,
       } as any);
       toast.success("Booking created — proceed to payment");
       setDialogOpen(false);
-      const price = Number(selectedService.price || 0);
+      const basePrice = Number(selectedService.price || 0);
+      const finalPrice = useDiscountedRate && discountedRate ? Number(discountedRate) : basePrice;
       const params = new URLSearchParams({
         newPayment: "true",
         memberId: bookMember,
         memberName: memberObj?.name || "",
         service: String(selectedService.type),
         className: selectedService.name,
-        amount: String(price),
+        amount: String(finalPrice),
         locked: "1",
         bookingId: String(bookingId || ""),
       });
       setBookMember(""); setMemberSearch(""); setBookServiceId("");
       setBookInstructor(""); setBookTimeSlot("");
+      setBookStartTime(""); setBookEndTime("");
+      setUseDiscountedRate(false); setDiscountedRate("");
       navigate(`/transactions?${params.toString()}`);
     } catch {
       toast.error("Failed to create booking");
