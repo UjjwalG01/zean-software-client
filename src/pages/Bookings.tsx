@@ -499,8 +499,22 @@ const Bookings_Page = () => {
                   </div>
                 )}
 
+                {selectedPlan && membershipAmount > 0 && (
+                  <div className="rounded-lg border border-border/60 bg-background/50 px-3 py-2 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Apply Discounted Rate</Label>
+                      <Switch checked={useDiscountedRate} onCheckedChange={(v) => { setUseDiscountedRate(v); if (!v) setDiscountedRate(""); }} />
+                    </div>
+                    {useDiscountedRate && (
+                      <Input type="number" min={0} max={membershipAmount}
+                        value={discountedRate} placeholder={`Max NPR ${membershipAmount.toLocaleString()}`}
+                        onChange={(e) => setDiscountedRate(e.target.value)} />
+                    )}
+                  </div>
+                )}
+
                 <Button onClick={handleEnrollMembership} disabled={updateMemberMutation.isPending || !selectedPlan} className="w-full gradient-gold text-primary-foreground">
-                  {updateMemberMutation.isPending ? "Enrolling..." : `Enroll & Pay NPR ${membershipAmount.toLocaleString()}`}
+                  {updateMemberMutation.isPending ? "Enrolling..." : `Enroll & Pay NPR ${(useDiscountedRate && discountedRate ? Number(discountedRate) : membershipAmount).toLocaleString()}`}
                 </Button>
               </>
             ) : (
