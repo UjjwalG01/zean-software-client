@@ -13,7 +13,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { BookingDetailModal } from "@/components/BookingDetailModal";
+import { DayTimelineDialog } from "@/components/DayTimelineDialog";
 import { OutletPickerDialog } from "@/components/OutletPickerDialog";
+import { Switch } from "@/components/ui/switch";
 import { useBookings, useAddBooking, useMembers, useServices, useCompanySettings, useMembershipPlans, useUpdateMember } from "@/hooks/use-firestore";
 import { useOutlet } from "@/contexts/OutletContext";
 import { Building2, ChevronDown } from "lucide-react";
@@ -81,6 +83,11 @@ const Bookings_Page = () => {
 
   const [bookPlanId, setBookPlanId] = useState("");
   const [bookDuration, setBookDuration] = useState<"monthly" | "yearly" | "longTerm">("monthly");
+  const [useDiscountedRate, setUseDiscountedRate] = useState(false);
+  const [discountedRate, setDiscountedRate] = useState<string>("");
+  const [timelineOpen, setTimelineOpen] = useState(false);
+  const [bookStartTime, setBookStartTime] = useState<string>("");
+  const [bookEndTime, setBookEndTime] = useState<string>("");
 
   const { data: bookings = [], isLoading } = useBookings();
   const { data: members = [] } = useMembers();
