@@ -525,10 +525,28 @@ const Bookings_Page = () => {
                 </div>
 
                 {selectedService && (
-                  <div className="rounded-lg border border-border bg-muted/30 p-3 grid grid-cols-3 gap-2 text-sm">
-                    <div><span className="text-muted-foreground text-xs block">Duration</span><span className="font-medium">{selectedService.duration || 0} min</span></div>
-                    <div><span className="text-muted-foreground text-xs block">Rate</span><span className="font-medium">NPR {selectedService.price || 0}</span></div>
-                    <div><span className="text-muted-foreground text-xs block">Instructor</span><span className="font-medium">{selectedService.requiresInstructor ? (selectedService.instructor || "—") : "Not required"}</span></div>
+                  <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2 text-sm">
+                    <div className="grid grid-cols-3 gap-2">
+                      <div><span className="text-muted-foreground text-xs block">Duration</span><span className="font-medium">{selectedService.duration || 0} min</span></div>
+                      <div><span className="text-muted-foreground text-xs block">Instructor</span><span className="font-medium">{selectedService.requiresInstructor ? (selectedService.instructor || "—") : "Not required"}</span></div>
+                      <div>
+                        <span className="text-muted-foreground text-xs block">Standard Rate</span>
+                        <span className="font-medium">NPR {selectedService.price || 0}</span>
+                      </div>
+                    </div>
+                    {/* Discounted-rate toggle, sits right above the rate */}
+                    <div className="flex items-center justify-between rounded-md border border-border/60 bg-background/50 px-3 py-2">
+                      <Label className="text-xs">Apply Discounted Rate</Label>
+                      <Switch checked={useDiscountedRate} onCheckedChange={(v) => { setUseDiscountedRate(v); if (!v) setDiscountedRate(""); }} />
+                    </div>
+                    {useDiscountedRate && (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Discounted Rate (NPR, VAT incl.)</Label>
+                        <Input type="number" min={0} max={Number(selectedService.price || 0)}
+                          value={discountedRate} placeholder={`Max ${selectedService.price || 0}`}
+                          onChange={(e) => setDiscountedRate(e.target.value)} />
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -539,12 +557,22 @@ const Bookings_Page = () => {
                   </div>
                   <div className="space-y-2">
                     <Label>Time Slot *</Label>
-                    <Select value={bookTimeSlot} onValueChange={setBookTimeSlot}>
-                      <SelectTrigger><SelectValue placeholder="Select slot" /></SelectTrigger>
-                      <SelectContent>
-                        {setupTimeSlots.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex gap-2">
+                      <Select value={bookTimeSlot} onValueChange={(v) => { setBookTimeSlot(v); setBookStartTime(""); setBookEndTime(""); }}>
+                        <SelectTrigger><SelectValue placeholder={bookStartTime ? `${bookStartTime}–${bookEndTime}` : "Select slot"} /></SelectTrigger>
+                        <SelectContent>
+                          {setupTimeSlots.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <Button type="button" variant="outline" size="sm" className="shrink-0"
+                        disabled={!bookDate || !selectedService}
+                        onClick={() => setTimelineOpen(true)}>
+                        24h
+                      </Button>
+                    </div>
+                    {bookStartTime && (
+                      <p className="text-[11px] text-success">Picked from timeline: {bookStartTime} – {bookEndTime}</p>
+                    )}
                   </div>
                   {selectedService?.requiresInstructor && (
                     <div className="space-y-2">
@@ -567,6 +595,15 @@ const Bookings_Page = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <DayTimelineDialog
+        open={timelineOpen}
+        onOpenChange={setTimelineOpen}
+        date={bookDate}
+        bookings={filtered.filter((b) => b.date === bookDate)}
+        durationMinutes={Number(selectedService?.duration || 60)}
+        onPick={(s, e) => { setBookStartTime(s); setBookEndTime(e); setBookTimeSlot(""); }}
+      />
 
 
 
