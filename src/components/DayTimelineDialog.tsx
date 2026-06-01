@@ -21,7 +21,8 @@ interface Props {
 export function DayTimelineDialog({ open, onOpenChange, date, bookings, durationMinutes, onPick }: Props) {
   const hours = useMemo(() => Array.from({ length: 24 }, (_, i) => i), []);
 
-  const takenRanges = useMemo(() => bookings.map((b) => {
+  // Cancelled bookings free up their slot — exclude from the busy list.
+  const takenRanges = useMemo(() => bookings.filter((b) => b.status !== "Cancelled").map((b) => {
     const [sh, sm] = (b.startTime || "00:00").split(":").map(Number);
     const [eh, em] = (b.endTime || b.startTime || "00:00").split(":").map(Number);
     return { start: sh * 60 + sm, end: eh * 60 + em, label: `${b.memberName} · ${b.className}` };
