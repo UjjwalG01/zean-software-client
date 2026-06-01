@@ -20,7 +20,7 @@ const MembersList = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [tierFilter, setTierFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("active-set");
   const [serviceFilter, setServiceFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [photoPreview, setPhotoPreview] = useState<{ url: string; name: string } | null>(null);
@@ -33,7 +33,13 @@ const MembersList = () => {
     return members.filter((m) => {
       const matchSearch = m.name.toLowerCase().includes(search.toLowerCase()) || m.email.toLowerCase().includes(search.toLowerCase()) || m.phone.includes(search);
       const matchTier = tierFilter === "all" || m.tier === tierFilter;
-      const matchStatus = statusFilter === "all" || m.status === statusFilter;
+      // Default ("active-set") excludes Inactive; "all" shows everything; explicit value matches exactly.
+      const matchStatus =
+        statusFilter === "active-set"
+          ? m.status !== "Inactive"
+          : statusFilter === "all"
+            ? true
+            : m.status === statusFilter;
       const matchService = serviceFilter === "all" || m.services.includes(serviceFilter as ServiceType);
       return matchSearch && matchTier && matchStatus && matchService;
     });
@@ -96,12 +102,14 @@ const MembersList = () => {
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-          <SelectTrigger className="w-[140px] bg-muted/50 border-0"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectTrigger className="w-[170px] bg-muted/50 border-0"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="Active">Active</SelectItem>
-            <SelectItem value="Expired">Expired</SelectItem>
-            <SelectItem value="Expiring">Expiring</SelectItem>
+            <SelectItem value="active-set">Active + Expiring + Expired</SelectItem>
+            <SelectItem value="all">All (incl. Inactive)</SelectItem>
+            <SelectItem value="Active">Active only</SelectItem>
+            <SelectItem value="Expired">Expired only</SelectItem>
+            <SelectItem value="Expiring">Expiring only</SelectItem>
+            <SelectItem value="Inactive">Inactive only</SelectItem>
           </SelectContent>
         </Select>
         <Select value={serviceFilter} onValueChange={(v) => { setServiceFilter(v); setPage(1); }}>
