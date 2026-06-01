@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Mail, Phone, MapPin, Calendar, CreditCard, Activity, Edit, Power, Save, X, FileText, TrendingUp } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MapPin, Calendar, CreditCard, Activity, Edit, Power, Save, X, FileText, TrendingUp, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { TierBadge } from "@/components/TierBadge";
@@ -9,12 +9,15 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { formatNPR } from "@/lib/mock-data";
 import { useMember, useTransactions, useBookings, useUpdateMember, useCompanySettings } from "@/hooks/use-firestore";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MemberProgress } from "@/components/MemberProgress";
+import { QuickBalanceModal } from "@/components/QuickBalanceModal";
 import { toast } from "sonner";
 
 const MemberProfile = () => {
@@ -28,9 +31,60 @@ const MemberProfile = () => {
 
   const [editOpen, setEditOpen] = useState(false);
   const [deactivateOpen, setDeactivateOpen] = useState(false);
+  const [quickBalanceOpen, setQuickBalanceOpen] = useState(false);
   const [editForm, setEditForm] = useState({
     name: "", email: "", phone: "", address: "", emergencyContact: "",
   });
+
+  // Preferences tab state — wired to members.preferences (jsonb).
+  const [prefsForm, setPrefsForm] = useState({
+    favoriteActivities: "" as string,
+    communicationChannel: "Email",
+    language: "English",
+    marketingOptIn: false,
+    trainerPref: "",
+    dietaryNotes: "",
+  });
+
+  useEffect(() => {
+    if (member) {
+      const p: any = (member as any).preferences;
+      const list: string[] = Array.isArray(p) ? p : Array.isArray(p?.favoriteActivities) ? p.favoriteActivities : member.preferences || [];
+      setPrefsForm({
+        favoriteActivities: list.join(", "),
+        communicationChannel: p?.communicationChannel || "Email",
+        language: p?.language || "English",
+        marketingOptIn: !!p?.marketingOptIn,
+        trainerPref: p?.trainerPref || "",
+        dietaryNotes: p?.dietaryNotes || "",
+      });
+    }
+  }, [member]);
+
+  const handleSavePreferences = async () => {
+    if (!id) return;
+    try {
+      await updateMember.mutateAsync({
+        id,
+        data: {
+          preferences: prefsForm.favoriteActivities.split(",").map((s) => s.trim()).filter(Boolean),
+          // Extra fields kept under preferences jsonb via firebase-services pass-through.
+          ...({
+            preferencesMeta: {
+              communicationChannel: prefsForm.communicationChannel,
+              language: prefsForm.language,
+              marketingOptIn: prefsForm.marketingOptIn,
+              trainerPref: prefsForm.trainerPref,
+              dietaryNotes: prefsForm.dietaryNotes,
+            },
+          } as any),
+        } as any,
+      });
+      toast.success("Preferences saved");
+    } catch {
+      toast.error("Failed to save preferences");
+    }
+  };
 
   useEffect(() => {
     if (member) {
@@ -67,7 +121,9 @@ const MemberProfile = () => {
 
   const handleToggleActive = async () => {
     if (!id || !member) return;
-    const next = member.status === "Active" ? "Expired" : "Active";
+    // Deactivation switches to Inactive (hidden by default in lists);
+    // reactivation restores Active so member appears again.
+    const next = member.status === "Inactive" ? "Active" : "Inactive";
     try {
       await updateMember.mutateAsync({ id, data: { status: next } });
       toast.success(next === "Active" ? "Member reactivated" : "Member deactivated");
