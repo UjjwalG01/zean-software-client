@@ -9,7 +9,7 @@ function parseList(settings: Record<string, string>, key: string, fallback: stri
   try { return settings[key] ? JSON.parse(settings[key]) : fallback; } catch { return fallback; }
 }
 
-const v = (x: any) => (x === undefined || x === null || x === "" || x === false ? "—" : x === true ? "✓" : String(x));
+const v = (x: any) => (x === undefined || x === null || x === "" || x === false ? "" : x === true ? "✓" : String(x));
 
 const MemberGRC = () => {
   const { id } = useParams();

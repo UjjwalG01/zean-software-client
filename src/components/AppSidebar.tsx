@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, CalendarDays, Receipt, BarChart3, Settings, Dumbbell, Crown,
-  UserCheck, TrendingUp, Wrench, UserCog, Mail, Building2, Tag, Package, Warehouse, Layers,
+  UserCheck, TrendingUp, Wrench, UserCog, Mail, Building2, Tag, Package, Warehouse, Layers, ScrollText,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -19,6 +19,7 @@ const mainItems = [
   { title: "Inventory", url: "/inventory", icon: Package, key: "inventory" },
   { title: "Reports", url: "/reports", icon: BarChart3, key: "reports" },
   { title: "Forecast", url: "/forecast", icon: TrendingUp, key: "forecast" },
+  { title: "Audit Logs", url: "/audit-logs", icon: ScrollText, key: "audit-logs" },
 ];
 
 const setupItems = [

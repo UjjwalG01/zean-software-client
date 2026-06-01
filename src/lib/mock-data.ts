@@ -1,6 +1,6 @@
 export type MemberTier = "Basic" | "Silver" | "Gold" | "Platinum";
 export type ServiceType = "Gym" | "Spa" | "Sauna" | "Swimming";
-export type MemberStatus = "Active" | "Expired" | "Expiring";
+export type MemberStatus = "Active" | "Expired" | "Expiring" | "Inactive";
 export type PaymentMethod = "Cash" | "Card" | "Esewa" | "Bank Transfer" | "Mobile Wallet";
 export type BookingStatus = "Confirmed" | "Pending" | "Cancelled" | "Completed";
 
@@ -224,6 +224,7 @@ export const statusColors: Record<MemberStatus, string> = {
   Active: "bg-success/20 text-success",
   Expired: "bg-destructive/20 text-destructive",
   Expiring: "bg-warning/20 text-warning",
+  Inactive: "bg-muted text-muted-foreground",
 };
 
 export function formatNPR(amount: number): string {

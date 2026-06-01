@@ -30,6 +30,7 @@ import Inventory from "./pages/Inventory";
 import StoresPage from "./pages/setup/Stores";
 import ItemGroupsPage from "./pages/setup/ItemGroups";
 import ChargeHeadsPage from "./pages/setup/ChargeHeads";
+import AuditLogs from "./pages/AuditLogs";
 import { OutletProvider } from "./contexts/OutletContext";
 import NotFound from "./pages/NotFound";
 import { useEffect } from "react";
@@ -111,6 +112,7 @@ const App = () => (
                       <Route path="/setup/stores" element={<StoresPage />} />
                       <Route path="/setup/item-groups" element={<ItemGroupsPage />} />
                       <Route path="/setup/charge-heads" element={<ChargeHeadsPage />} />
+                      <Route path="/audit-logs" element={<AuditLogs />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </AppLayout>
