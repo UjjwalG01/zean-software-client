@@ -160,6 +160,9 @@ const MemberProfile = () => {
           <ArrowLeft className="h-4 w-4 mr-1" /> Back to Members
         </Button>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setQuickBalanceOpen(true)}>
+            <Wallet className="h-4 w-4 mr-1" /> Quick Balance
+          </Button>
           <Button variant="outline" size="sm" onClick={() => navigate(`/members/${id}/grc`)}>
             <FileText className="h-4 w-4 mr-1" /> Generate GRC
           </Button>
@@ -167,12 +170,12 @@ const MemberProfile = () => {
             <Edit className="h-4 w-4 mr-1" /> Edit
           </Button>
           <Button
-            variant={member.status === "Active" ? "destructive" : "default"}
+            variant={member.status === "Inactive" ? "default" : "destructive"}
             size="sm"
             onClick={() => setDeactivateOpen(true)}
           >
             <Power className="h-4 w-4 mr-1" />
-            {member.status === "Active" ? "Deactivate" : "Reactivate"}
+            {member.status === "Inactive" ? "Reactivate" : "Deactivate"}
           </Button>
         </div>
       </div>
@@ -280,16 +283,61 @@ const MemberProfile = () => {
         </TabsContent>
 
         <TabsContent value="preferences">
-          <div className="glass-card rounded-xl p-6">
-            <h3 className="font-semibold mb-3">Favorite Activities</h3>
-            <div className="flex flex-wrap gap-2">
-              {member.preferences.map((p) => <Badge key={p} variant="outline" className="text-sm">{p}</Badge>)}
+          <div className="glass-card rounded-xl p-6 space-y-5">
+            <div className="space-y-2">
+              <Label>Favorite Activities <span className="text-xs text-muted-foreground">(comma separated)</span></Label>
+              <Input value={prefsForm.favoriteActivities}
+                onChange={(e) => setPrefsForm((p) => ({ ...p, favoriteActivities: e.target.value }))}
+                placeholder="e.g. Yoga, HIIT, Steam Bath" />
             </div>
-            <h3 className="font-semibold mt-6 mb-3">Emergency Contact</h3>
-            <p className="text-sm text-muted-foreground">{member.emergencyContact}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Preferred Communication Channel</Label>
+                <select className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  value={prefsForm.communicationChannel}
+                  onChange={(e) => setPrefsForm((p) => ({ ...p, communicationChannel: e.target.value }))}>
+                  {["Email", "SMS", "Phone", "WhatsApp"].map((o) => <option key={o}>{o}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Language</Label>
+                <select className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  value={prefsForm.language}
+                  onChange={(e) => setPrefsForm((p) => ({ ...p, language: e.target.value }))}>
+                  {["English", "Nepali"].map((o) => <option key={o}>{o}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Trainer Preference</Label>
+                <Input value={prefsForm.trainerPref}
+                  onChange={(e) => setPrefsForm((p) => ({ ...p, trainerPref: e.target.value }))}
+                  placeholder="e.g. Female trainer / morning slots" />
+              </div>
+              <div className="space-y-2 flex items-end gap-3">
+                <div className="flex items-center gap-2">
+                  <Switch checked={prefsForm.marketingOptIn}
+                    onCheckedChange={(v) => setPrefsForm((p) => ({ ...p, marketingOptIn: v }))} />
+                  <Label className="!mt-0">Marketing / Promo opt-in</Label>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Dietary / Health Notes</Label>
+              <Textarea rows={3} value={prefsForm.dietaryNotes}
+                onChange={(e) => setPrefsForm((p) => ({ ...p, dietaryNotes: e.target.value }))} />
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={handleSavePreferences} disabled={updateMember.isPending} className="gradient-gold text-primary-foreground">
+                <Save className="h-4 w-4 mr-1" />
+                {updateMember.isPending ? "Saving..." : "Save Preferences"}
+              </Button>
+            </div>
           </div>
         </TabsContent>
+
       </Tabs>
+
+      <QuickBalanceModal open={quickBalanceOpen} onOpenChange={setQuickBalanceOpen} member={member} />
 
       {/* Edit Member Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
