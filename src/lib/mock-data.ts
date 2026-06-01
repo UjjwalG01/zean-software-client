@@ -224,6 +224,7 @@ export const statusColors: Record<MemberStatus, string> = {
   Active: "bg-success/20 text-success",
   Expired: "bg-destructive/20 text-destructive",
   Expiring: "bg-warning/20 text-warning",
+  Inactive: "bg-muted text-muted-foreground",
 };
 
 export function formatNPR(amount: number): string {
