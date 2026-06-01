@@ -1,6 +1,6 @@
 export type MemberTier = "Basic" | "Silver" | "Gold" | "Platinum";
 export type ServiceType = "Gym" | "Spa" | "Sauna" | "Swimming";
-export type MemberStatus = "Active" | "Expired" | "Expiring";
+export type MemberStatus = "Active" | "Expired" | "Expiring" | "Inactive";
 export type PaymentMethod = "Cash" | "Card" | "Esewa" | "Bank Transfer" | "Mobile Wallet";
 export type BookingStatus = "Confirmed" | "Pending" | "Cancelled" | "Completed";
 
