@@ -1,104 +1,94 @@
-## Goal
+# Implementation Plan — Bookings, Transactions, Members, GRC, Audit, QR & RBAC
 
-Make VitaFit Club's data, permissions, billing and reporting consistent across every page by replacing the remaining mock layers with real Cloud-backed tables, hardening RBAC, and extending the booking/transaction/reports modules. Ship a single SQL migration the user can apply to the server.
+A large, cross-cutting update. I'll group work into atomic milestones and ship them in order so each change is independently testable. Backend (Supabase) changes ship as one consolidated migration.
 
-## Scope & approach (14 items)
+## 1. Bookings → Payment Flow (Item 1)
+- After "Save Booking", **stay on Bookings page** and open the existing `BookingDetailModal` (no redirect to Transactions).
+- In `BookingDetailModal`:
+  - Keep **Amend**, **Cancel** actions.
+  - **Remove Delete** button.
+  - Add a **Bill / Record Payment** button → opens the existing record-payment dialog pre-filled (member, amount, type=payment locked).
+- Cancelled bookings: filter out of the day calendar / `DayTimelineDialog` (already store `status='Cancelled'`; hide from timeline + day-list views).
+- Clicking a date in the calendar opens a **Day Bookings List dialog** (new `DayBookingsDialog.tsx`) showing all bookings of that day; clicking a row opens `BookingDetailModal`.
 
-### 1. Admin-driven password reset
-- Replace "Send reset link" in `Users.tsx` with **Reset Password** modal: admin types new password (+ confirm), calls a new edge function `admin-reset-password` (service-role `auth.admin.updateUserById`).
-- Set `extras.mustChangePassword = true` on that user. Existing `ForcePasswordChangeModal` already triggers on next login — verify path end-to-end.
+## 2. Transaction & Invoice Rules (Item 2)
+- Add unique DB constraint on `transactions.receipt_no` (= invoice number).
+- Client-side: generate idempotent receipt number (`VFC-{memberId}-{bookingId}-{seq}`) and use Supabase `upsert` with `onConflict: 'receipt_no'` so the same bill can't be recorded twice.
+- On insert failure (network/duplicate) → keep status `pending`, redirect back to Transactions with a toast.
+- Every `pending` row gets a **Settle** action in the Transactions table; settled rows expose **Re-settle** (adjusts method/amount via record-payment modal, writes audit entry).
 
-### 2. Split / multi-mode payments
-- Update `TransactionDetailModal` settle flow + `firebase-services.recordPayment` to accept `payments: [{ mode, amount, reference, note }]`.
-- New table `transaction_payments` (FK → `transactions.id`). UI: repeatable row list with running "Paid / Remaining / Bill" totals; submit blocked when `sum(payments) > bill` or `< bill` (configurable: partial allowed → keeps txn `partial`).
-- Transactions list + Reports read totals via SUM of `transaction_payments`.
+## 3. Automatic Transaction Fields (Item 3)
+- `RecordPaymentModal` for the Payment flow: **member, amount, type=payment** are read-only/disabled (driven by the originating booking/bill).
+- Mode (cash/card/split), reference, date remain editable.
+- Charges/Advances/Refunds keep their own modals (`RecordChargeModal`, new `RecordAdvanceModal`, `RecordRefundModal` — small wrappers around existing transaction insert) where amount IS editable, but `type` is locked per modal.
 
-### 3. Outlet image URL
-- Add `image_url text` to `outlets`; field in `setup/Outlets.tsx` modal (URL input + thumbnail preview). Display thumbnail in outlet picker & cards.
+## 4. Member Ledger & Quick Balance (Item 4)
+- New `member-ledger.ts` selector that combines: bills (charges +), payments (−), advances (+ credit), refunds, voids. Returns chronological rows + running balance + summary {totalCharged, totalPaid, advance, netPayable}.
+- `QuickBalanceModal.tsx` styled per the screenshot: header strip (Adm / Name / Class-Membership), grouped rows by month/date, summary card with Total Billed, Total Paid, Advance, **Net Payable Balance** highlighted.
+- Add **Quick Balance** button to `MemberProfile` header.
 
-### 4. Rename "Record Payment" → "Record Charge"
-- `Transactions.tsx`: rename CTA, open new `RecordChargeModal` with **member picker + charge head dropdown** (damage, license renewal, breakage, misc — sourced from new `charge_heads` table, admin-managed in Setup) + amount + note. No payment mode.
-- Inserts a `transactions` row of `type='charge'`, `status='unpaid'`, `outlet_id` optional, increases member's ledger payable. Member Ledger report & Member Profile balance pick this up automatically.
+## 5. Member Status (Item 5)
+- Extend status enum to include `inactive`.
+- `MembersList`: default filter chips → Active, Expiring, Expired (Inactive hidden). Add Inactive chip; selecting it shows only inactive.
+- Booking member-picker and global search exclude `inactive`.
+- Admin "Deactivate" toggle on member profile sets status=`inactive`.
 
-### 5. Outlet-independent members
-- Remove `outlet_id` requirement from `AddMember.tsx` / `MembersList`. Schema: make `members.outlet_id` nullable; drop "primary outlet" filter on member visibility (members list shows all regardless of selected outlet). Bookings/transactions keep their own `outlet_id`.
+## 6. GRC Form (Item 6)
+- In `MemberGRC.tsx` rendering: replace `value || "N/A"` with `value || ""`. Same in PDF generator.
 
-### 6. Real backend for inventory + remaining mock modules
-- New tables: `stores`, `item_groups`, `inventory_items`, `stock_movements`, `charge_heads`, `booking_statuses` (enum), `transaction_payments`, plus the missing `custom_roles` / `role_permissions` (item 7).
-- Rewrite `inventory-store.ts` → `firebase-inventory.ts` using Supabase; keep the existing hook surface (`use-inventory.ts`) unchanged. Seeding moves to a one-time SQL insert. Audit Log writes on every mutation.
-- Audit any other `mock-data.ts` consumer still doing writes (charge heads, roles) and route through Supabase.
+## 7. GRC PDF & Template Settings (Item 7)
+- PDF: render booleans as ☑/☐ checkboxes; render time slot row.
+- `GeneralSetup` → new **GRC Template** card with switches: `showMembershipDetails`, `showPhysicalDetails`, `showFooter`, `showEmergencyContact`, `showHealthDeclaration` persisted in `companySettings.grcTemplate`.
+- PDF generator reads these flags and conditionally renders sections.
 
-### 7. Enforce RBAC per assigned page
-- `custom_roles(id, name, description)` + `role_permissions(role_id, page_key, can_view, can_create, can_edit, can_delete)`.
-- `RolesManager` saves to DB (replaces localStorage). `useCurrentUserPermissions()` hook resolves `extras.customRoleId` → permission map.
-- `AuthGuard` / `AppSidebar` / route wrapper hide unauthorized routes; per-page action buttons (Add/Edit/Delete) disabled when right missing. Admin role = wildcard.
+## 8. Phone Number Handling (Item 8)
+- Store phone as `text` (already), but enforce input validation (`+\d{1,3}\d{6,14}`), default country `+977`. Prevent any numeric casting (was causing scientific notation when exported).
+- Display via `formatPhone(raw)` helper.
 
-### 8. Sports outlet → 24-hour timeline bookings
-- `Bookings.tsx`: when selected outlet's service type = `sports`, day-click opens **DayTimelineDialog** showing 00–23 hourly rows with existing bookings as blocks.
-- Slot creation form: member, service, start time, duration (hrs), status (`confirmed | provisional | waitlisted`). Server-side overlap check rejects collisions for the same outlet/resource on `confirmed` bookings; `waitlisted` allowed to overlap.
-- Schema: add `start_time timestamptz`, `end_time timestamptz`, `status booking_status` enum to `bookings`; partial unique exclusion via `EXCLUDE USING gist` on `(outlet_id WITH =, tstzrange(start_time,end_time) WITH &&) WHERE status='confirmed'`.
+## 9. Preferences Tab Fix (Item 9)
+- `MemberProfile` Preferences tab currently no-ops on save. Wire it to `useUpdateMember` with fields {communicationChannel, language, marketingOptIn, trainerPref, dietaryNotes}. Persist to `members.preferences` (jsonb).
 
-### 9. Amend / cancel booking
-- Booking detail modal gets **Amend Date** (date+time picker → updates `start_time/end_time`, re-runs overlap check) and **Cancel** (sets `status='cancelled'`, logs reason). Cancelled rows kept for audit, excluded from collection totals.
+## 10. Blank GRC Print (Item 10)
+- `print-utils.printBlankGRC()` — render same GRC template with empty data, **omit form/admission number row entirely**. Fix current bug (was printing last opened member due to stale ref).
 
-### 10. Void / reverse sale
-- Add `voided boolean`, `voided_at`, `voided_by`, `void_reason` to `transactions`.
-- Void action on settled txn: writes a reversing `transaction_payments` entry of equal negative amount, flips `voided=true`. Daily Sales / Cashier / Collection reports filter or net-out voided rows (toggle "Include Voided").
+## 11. Audit Log (Item 11)
+- New table `audit_logs(id, ts, user_id, user_name, module, action, entity_id, old_value jsonb, new_value jsonb)`.
+- Helper `logAudit({module, action, entityId, oldValue, newValue})` called from member/booking/transaction mutations.
+- New page `/audit-logs` with filters (date range, user, module: Members|Bookings|Transactions, action) + search.
 
-### 11. Discounted rate toggle in booking
-- In booking service line: switch labeled "Discounted Rate" above the rate input. Off → rate locked to service master price. On → rate editable, persist `original_rate`, `discount_amount`, `discount_reason` on the booking line (extend bookings table accordingly).
+## 12. QR Check-in (Item 12)
+- Existing `Attendance` page → add **QR Check-in** mode using `html5-qrcode`.
+- DB: unique index `(member_id, date)` on `attendance`. Insert with `onConflict: do nothing`; if conflict → toast "Already checked in today".
+- Stores `check_in_time` (timestamptz). Show member name + status toast on scan.
 
-### 12. New reports
-- Add three sub-tabs in `Reports.tsx` reusing `PremiumReportFrame`:
-  1. **Daily Sales Report** — grouped by date → sales department, Sales / VAT Payable / Total Sales rows + month roll-up (image 1).
-  2. **Cashier / Collection Report** — receipt/advance + settlements, group by date, totals per day (image 2).
-  3. **Sales Contribution** — by company/member, room nights, contribution %, ARR, room/other/total revenue (image 3).
-- All filters above; all support Excel + Print; reflect split payments, charges, voids.
+## 13. RBAC Enforcement (Item 13)
+- Already have `useMyPermissions` / `canView`. Now also:
+  - `AppLayout` route guard: if non-admin lacks `view` on the page key, redirect to first allowed page.
+  - Sidebar already filters; verify every page registers a permission key in `PERMISSION_PAGES`.
 
-### 13. One attendance mark per member per day
-- DB: `UNIQUE (member_id, date(check_in_at))` via generated column `check_in_date` + unique index.
-- `Attendance.tsx`: check-in button records `check_in_at = now()`, disabled if already marked today; shows existing check-in time.
+## Backend — single consolidated migration
+`db/migrations/2026-06-01_bookings_audit_qr.sql`:
+- `ALTER TABLE transactions ADD CONSTRAINT transactions_receipt_no_unique UNIQUE (receipt_no);`
+- `CREATE INDEX ON transactions(member_id, date);`
+- `ALTER TABLE members ADD COLUMN IF NOT EXISTS preferences jsonb DEFAULT '{}'::jsonb;`
+- Extend member status check to allow `inactive`.
+- `CREATE TABLE attendance(... UNIQUE(member_id, date))` + RLS + GRANT.
+- `CREATE TABLE audit_logs(...)` + RLS (admin read all, users read own) + GRANT.
+- `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS cancelled_at timestamptz, cancel_reason text;`
+- Indexes on `bookings(date)`, `audit_logs(ts, module)`.
 
-### 14. Consolidated SQL
-- Produce `db/migrations/2026-05-29_full_update.sql` containing every schema change above with explicit `GRANT`s, RLS policies, enum creations, seed for default charge heads and booking statuses. Idempotent (`IF NOT EXISTS`).
+## Technical risk & shortcomings to watch
+- **Receipt uniqueness retro-fit**: if existing data has duplicate receipts, the constraint will fail. Migration will dedupe via `... WHERE NOT EXISTS` + suffix.
+- **Audit log volume**: index on `(ts desc)` + page-level pagination.
+- **QR camera permission** on iOS Safari requires HTTPS — preview is HTTPS, ok.
+- **Cancelled booking calendar hiding**: ensure aggregation queries still count them for stats but filter for display.
+- **Preferences jsonb migration** must be idempotent (`IF NOT EXISTS`).
+- **Re-settle** must write an audit entry and never duplicate a receipt — implemented as UPDATE not INSERT.
 
-## Technical details
+## Files (new)
+`src/components/DayBookingsDialog.tsx`, `src/components/QuickBalanceModal.tsx`, `src/components/RecordAdvanceModal.tsx`, `src/components/RecordRefundModal.tsx`, `src/components/QRCheckInScanner.tsx`, `src/lib/member-ledger.ts`, `src/lib/audit-log.ts`, `src/pages/AuditLogs.tsx`, `db/migrations/2026-06-01_bookings_audit_qr.sql`.
 
-### New / changed tables (summary)
-```text
-custom_roles(id, name, description, active, created_at)
-role_permissions(role_id, page_key, can_view, can_create, can_edit, can_delete)
-charge_heads(id, name, default_amount?, active)
-transaction_payments(id, transaction_id, mode, amount, reference, note, created_at, created_by)
-stores / item_groups / inventory_items / stock_movements        -- mirrors inventory-store.ts shape
-booking_status enum('confirmed','provisional','waitlisted','cancelled','amended')
-bookings + start_time, end_time, status, original_rate, discount_amount, discount_reason, amended_from
-transactions + type('sale'|'charge'), voided, voided_at, voided_by, void_reason, charge_head_id
-outlets + image_url
-members.outlet_id  -> nullable
-attendance + check_in_date generated, UNIQUE(member_id, check_in_date)
-```
+## Files (edited)
+`src/pages/Bookings.tsx`, `src/components/BookingDetailModal.tsx`, `src/components/DayTimelineDialog.tsx`, `src/pages/Transactions.tsx`, `src/pages/MembersList.tsx`, `src/pages/MemberProfile.tsx`, `src/pages/MemberGRC.tsx`, `src/pages/Attendance.tsx`, `src/pages/GeneralSetup.tsx`, `src/lib/print-utils.ts`, `src/lib/firebase-services.ts`, `src/lib/mock-data.ts`, `src/components/AppLayout.tsx`, `src/components/AppSidebar.tsx`, `src/App.tsx`.
 
-### Edge function
-- `supabase/functions/admin-reset-password` — verifies caller is admin via `has_role`, then `auth.admin.updateUserById(targetId, { password })` + sets `mustChangePassword`.
-
-### Front-end touchpoints
-`Users.tsx`, `RolesManager.tsx`, `AuthGuard`, `AppSidebar`, `AppLayout`, `AddMember.tsx`, `MembersList.tsx`, `Bookings.tsx` (+ new `DayTimelineDialog`, `AmendBookingDialog`), `BookingDetailModal`, `Transactions.tsx` (+ `RecordChargeModal`, `VoidTransactionDialog`, `SplitPaymentForm`), `TransactionDetailModal`, `setup/Outlets.tsx`, new `setup/ChargeHeads.tsx`, `Reports.tsx` (3 new sub-tabs), `Attendance.tsx`, replace `inventory-store.ts` with `firebase-inventory.ts`.
-
-### Data consistency safeguards
-- Single source of truth for totals: views `v_transaction_totals` (bill, paid, balance, voided) consumed by Reports + Member Ledger + Member Profile.
-- All mutations go through `firebase-*` services that also write to `audit_logs`.
-- Currency stays NPR, 13% VAT inclusive (no change to setup prices).
-- Mock fallback kept only for read-only demo when Supabase unreachable; writes always hit DB.
-
-### Shortcomings to watch
-- Overlap exclusion needs `btree_gist` extension — included in migration.
-- Voiding a partially-paid txn must reverse only the paid portion; UI confirms before posting.
-- Removing `members.outlet_id` requires backfilling existing rows (`SET NULL` if outlet deleted later — already cascades).
-- RBAC changes can lock out the admin if `customRoleId` is mis-set; migration seeds an "Administrator" role with wildcard and forces existing admins to it.
-- Split payments + voids change every report aggregation — all report queries refactored to use the new view in one pass.
-
-### Deliverables
-- All code changes above.
-- One runnable SQL file at `db/migrations/2026-05-29_full_update.sql`.
-- Updated `DATABASE.md` describing new tables.
+Once approved I'll implement in this order: migration → ledger/quick-balance → bookings flow → transactions rules → GRC fixes → audit log → QR check-in → RBAC guard → final smoke build.
