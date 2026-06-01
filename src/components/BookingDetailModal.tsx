@@ -7,10 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarDays, Clock, User, Dumbbell, CheckCircle, Printer, Pencil, Trash2, Save, X, Ban } from "lucide-react";
+import { CalendarDays, Clock, User, Dumbbell, Printer, Pencil, Save, X, Ban, Receipt } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import type { Booking, ServiceType } from "@/lib/mock-data";
-import { useUpdateBooking, useDeleteBooking, useCompanySettings } from "@/hooks/use-firestore";
+import { useUpdateBooking, useCompanySettings } from "@/hooks/use-firestore";
 import { generateA5BillHTML, printHTML } from "@/lib/print-utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -41,7 +41,6 @@ function isFutureBooking(b: Booking): boolean {
 export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDetailModalProps) {
   const navigate = useNavigate();
   const updateBooking = useUpdateBooking();
-  const deleteBooking = useDeleteBooking();
   const { data: settings = {} } = useCompanySettings();
   const [localStatus, setLocalStatus] = useState<string | null>(null);
 
@@ -50,7 +49,6 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
   const [editForm, setEditForm] = useState({
     date: "", startTime: "", endTime: "", service: "Gym" as ServiceType, className: "", instructor: "",
   });
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
 
@@ -63,7 +61,6 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
         service: b.service, className: b.className, instructor: b.instructor || "",
       });
       setEditing(false);
-      setConfirmDelete(false);
     }
   }, [b]);
 
@@ -72,24 +69,20 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
   const status = localStatus || b.status;
   const canEdit = isFutureBooking(b) && status !== "Completed" && status !== "Cancelled";
 
-  const handleComplete = async () => {
-    try {
-      await updateBooking.mutateAsync({ id: b.id, data: { status: "Completed" } });
-      setLocalStatus("Completed");
-      toast.success("Booking marked as completed! Redirecting to record payment...");
-      onOpenChange(false);
-      const params = new URLSearchParams({
-        newPayment: "true",
-        memberName: b.memberName,
-        memberId: b.memberId,
-        service: b.service,
-        className: b.className,
-        bookingId: b.id,
-      });
-      navigate(`/transactions?${params.toString()}`);
-    } catch {
-      toast.error("Failed to update booking");
-    }
+  // "Bill" — keep the booking on this page, send the user to record payment
+  // for it; the booking stays in its current status until a real payment is settled.
+  const handleBillNow = () => {
+    onOpenChange(false);
+    const params = new URLSearchParams({
+      newPayment: "true",
+      memberName: b.memberName,
+      memberId: b.memberId,
+      service: b.service,
+      className: b.className,
+      bookingId: b.id,
+      locked: "1",
+    });
+    navigate(`/transactions?${params.toString()}`);
   };
 
   const handleSaveEdit = async () => {
@@ -123,16 +116,7 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
     }
   };
 
-  const handleDelete = async () => {
-    try {
-      await deleteBooking.mutateAsync(b.id);
-      toast.success("Booking deleted");
-      setConfirmDelete(false);
-      onOpenChange(false);
-    } catch {
-      toast.error("Failed to delete booking");
-    }
-  };
+  // (Delete removed — bookings may only be cancelled, never hard-deleted.)
 
   const handleCancel = async () => {
     if (!cancelReason.trim()) {
@@ -275,20 +259,16 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
                     <Button size="sm" variant="outline" className="text-amber-500 hover:bg-amber-500/10" onClick={() => setConfirmCancel(true)}>
                       <Ban className="h-4 w-4 mr-1" />Cancel
                     </Button>
-                    <Button size="sm" variant="outline" className="text-destructive hover:bg-destructive/10" onClick={() => setConfirmDelete(true)}>
-                      <Trash2 className="h-4 w-4 mr-1" />Delete
-                    </Button>
                   </>
                 )}
-                {status !== "Completed" && status !== "Cancelled" && (
+                {status !== "Cancelled" && (
                   <Button
                     size="sm"
                     className="flex-1 gradient-gold text-primary-foreground"
-                    onClick={handleComplete}
-                    disabled={updateBooking.isPending}
+                    onClick={handleBillNow}
                   >
-                    <CheckCircle className="h-4 w-4 mr-1" />
-                    {updateBooking.isPending ? "Updating..." : "Mark Completed"}
+                    <Receipt className="h-4 w-4 mr-1" />
+                    Bill / Record Payment
                   </Button>
                 )}
                 {status === "Completed" && (
@@ -302,25 +282,8 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirmation */}
-      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle className="font-display flex items-center gap-2">
-              <Trash2 className="h-4 w-4 text-destructive" /> Delete Booking?
-            </DialogTitle>
-            <DialogDescription>
-              This permanently removes the booking for <strong>{b.memberName}</strong> on {b.date}. This cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDelete(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleteBooking.isPending}>
-              {deleteBooking.isPending ? "Deleting..." : "Delete Booking"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* (Delete confirmation removed — bookings are cancelled, not deleted) */}
+
 
       {/* Cancel confirmation */}
       <Dialog open={confirmCancel} onOpenChange={setConfirmCancel}>
