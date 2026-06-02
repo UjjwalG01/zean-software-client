@@ -50,7 +50,7 @@ export function QRCheckInScanner({ open, onOpenChange, onDetected }: Props) {
           (decoded) => {
             if (cancelled) return;
             onDetected(decoded.trim());
-            scanner?.stop().catch(() => {}).finally(() => onOpenChange(false));
+            safeStop(scanner).finally(() => onOpenChange(false));
           },
           () => {}
         );
@@ -65,10 +65,8 @@ export function QRCheckInScanner({ open, onOpenChange, onDetected }: Props) {
     return () => {
       cancelled = true;
       const s = scannerRef.current;
-      if (s) {
-        s.stop().catch(() => {}).finally(() => { try { s.clear(); } catch {} });
-        scannerRef.current = null;
-      }
+      scannerRef.current = null;
+      safeStop(s).then(() => { try { s?.clear(); } catch {} });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
