@@ -23,6 +23,7 @@ const Attendance = () => {
   const [filterStatus, setFilterStatus] = useState<"all" | "present" | "absent">("all");
   const [filterMonth, setFilterMonth] = useState(format(new Date(), "yyyy-MM"));
   const [filterMember, setFilterMember] = useState("all");
+  const [scanOpen, setScanOpen] = useState(false);
 
   const isLoading = membersLoading || checkInsLoading;
 
