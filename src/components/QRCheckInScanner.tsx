@@ -15,6 +15,16 @@ interface Props {
  * QR check-in scanner. Encodes member id (e.g. "VFC-MBR-0001") in the QR.
  * Uses html5-qrcode (camera). Closes on first successful decode.
  */
+// Only stop the scanner when it's actually running/paused — otherwise html5-qrcode throws.
+function safeStop(s: Html5Qrcode | null): Promise<void> {
+  if (!s) return Promise.resolve();
+  try {
+    const state = s.getState?.();
+    // 2 = SCANNING, 3 = PAUSED in Html5QrcodeScannerState
+    if (state === 2 || state === 3) return s.stop().catch(() => {});
+  } catch { /* ignore */ }
+  return Promise.resolve();
+}
 export function QRCheckInScanner({ open, onOpenChange, onDetected }: Props) {
   const containerId = "qr-checkin-region";
   const scannerRef = useRef<Html5Qrcode | null>(null);
