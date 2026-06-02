@@ -36,13 +36,16 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
         {/* Header strip */}
         <div className="grid grid-cols-1 sm:grid-cols-3 rounded-md overflow-hidden bg-primary text-primary-foreground">
           <div className="px-4 py-2 text-sm">
-            <span className="opacity-80">Member ID:</span> <strong>{member.id}</strong>
+            <span className="opacity-80">Member No:</span> <strong>{member.grc_no}</strong>
           </div>
           <div className="px-4 py-2 text-sm border-l border-primary-foreground/20">
             <span className="opacity-80">Name:</span> <strong>{member.name}</strong>
           </div>
           <div className="px-4 py-2 text-sm border-l border-primary-foreground/20">
-            <span className="opacity-80">Plan:</span> <strong>{member.tier} · {member.plan}</strong>
+            <span className="opacity-80">Plan:</span>{" "}
+            <strong>
+              {member.tier} · {member.plan}
+            </strong>
           </div>
         </div>
 
@@ -68,13 +71,19 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
                     <TableCell className="text-xs">{r.date}</TableCell>
                     <TableCell className="text-sm">
                       {r.description}
-                      {r.receiptNo && <span className="block text-[10px] text-muted-foreground font-mono">{r.receiptNo}</span>}
+                      {r.receiptNo && (
+                        <span className="block text-[10px] text-muted-foreground font-mono">{r.receiptNo}</span>
+                      )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="text-[10px]">{r.kind}</Badge>
+                      <Badge variant="outline" className="text-[10px]">
+                        {r.kind}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-right text-sm">{r.debit ? formatNPR(r.debit) : "—"}</TableCell>
-                    <TableCell className="text-right text-sm text-success">{r.credit ? formatNPR(r.credit) : "—"}</TableCell>
+                    <TableCell className="text-right text-sm text-success">
+                      {r.credit ? formatNPR(r.credit) : "—"}
+                    </TableCell>
                     <TableCell className="text-right text-sm font-semibold">{formatNPR(r.balance)}</TableCell>
                   </TableRow>
                 ))}
@@ -85,9 +94,18 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
 
         {/* Summary */}
         <div className="ml-auto w-full sm:w-[360px] rounded-md border border-border/60 bg-muted/30 p-3 text-sm space-y-1">
-          <div className="flex justify-between"><span className="text-muted-foreground">Total Billed:</span><strong>{formatNPR(summary.totalCharged)}</strong></div>
-          <div className="flex justify-between"><span className="text-muted-foreground">Total Paid:</span><strong className="text-success">{formatNPR(summary.totalPaid)}</strong></div>
-          <div className="flex justify-between"><span className="text-muted-foreground">Advance Balance (deducted):</span><strong className="text-primary">- {formatNPR(summary.advance)}</strong></div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Total Billed:</span>
+            <strong>{formatNPR(summary.totalCharged)}</strong>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Total Paid:</span>
+            <strong className="text-success">{formatNPR(summary.totalPaid)}</strong>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Advance Balance (deducted):</span>
+            <strong className="text-primary">- {formatNPR(summary.advance)}</strong>
+          </div>
           <div className="border-t border-border/60 mt-1 pt-1 flex justify-between text-base">
             <strong className="text-destructive">Net Payable Balance:</strong>
             <strong className="text-destructive">{formatNPR(summary.netPayable)}</strong>
