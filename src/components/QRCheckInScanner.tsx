@@ -15,6 +15,16 @@ interface Props {
  * QR check-in scanner. Encodes member id (e.g. "VFC-MBR-0001") in the QR.
  * Uses html5-qrcode (camera). Closes on first successful decode.
  */
+// Only stop the scanner when it's actually running/paused — otherwise html5-qrcode throws.
+function safeStop(s: Html5Qrcode | null): Promise<void> {
+  if (!s) return Promise.resolve();
+  try {
+    const state = s.getState?.();
+    // 2 = SCANNING, 3 = PAUSED in Html5QrcodeScannerState
+    if (state === 2 || state === 3) return s.stop().catch(() => {});
+  } catch { /* ignore */ }
+  return Promise.resolve();
+}
 export function QRCheckInScanner({ open, onOpenChange, onDetected }: Props) {
   const containerId = "qr-checkin-region";
   const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -50,7 +60,7 @@ export function QRCheckInScanner({ open, onOpenChange, onDetected }: Props) {
           (decoded) => {
             if (cancelled) return;
             onDetected(decoded.trim());
-            scanner?.stop().catch(() => {}).finally(() => onOpenChange(false));
+            safeStop(scanner).finally(() => onOpenChange(false));
           },
           () => {}
         );
@@ -65,10 +75,8 @@ export function QRCheckInScanner({ open, onOpenChange, onDetected }: Props) {
     return () => {
       cancelled = true;
       const s = scannerRef.current;
-      if (s) {
-        s.stop().catch(() => {}).finally(() => { try { s.clear(); } catch {} });
-        scannerRef.current = null;
-      }
+      scannerRef.current = null;
+      safeStop(s).then(() => { try { s?.clear(); } catch {} });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
