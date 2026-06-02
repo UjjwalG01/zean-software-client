@@ -36,7 +36,7 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
         {/* Header strip */}
         <div className="grid grid-cols-1 sm:grid-cols-3 rounded-md overflow-hidden bg-primary text-primary-foreground">
           <div className="px-4 py-2 text-sm">
-            <span className="opacity-80">Member No:</span> <strong>{member.grc_no}</strong>
+            <span className="opacity-80">Member No:</span> <strong>{member.member_code}</strong>
           </div>
           <div className="px-4 py-2 text-sm border-l border-primary-foreground/20">
             <span className="opacity-80">Name:</span> <strong>{member.name}</strong>
