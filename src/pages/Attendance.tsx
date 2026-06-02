@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { UserCheck, UserX, Search, Filter, Download, Calendar } from "lucide-react";
+import { UserCheck, UserX, Search, Filter, Download, Calendar, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import { useMembers, useCheckIns, useAddCheckIn, useCompanySettings } from "@/ho
 import { toast } from "sonner";
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns";
 import { exportTableToCSV } from "@/lib/print-utils";
+import { QRCheckInScanner } from "@/components/QRCheckInScanner";
 
 const Attendance = () => {
   const { data: members = [], isLoading: membersLoading } = useMembers();
@@ -22,6 +23,7 @@ const Attendance = () => {
   const [filterStatus, setFilterStatus] = useState<"all" | "present" | "absent">("all");
   const [filterMonth, setFilterMonth] = useState(format(new Date(), "yyyy-MM"));
   const [filterMember, setFilterMember] = useState("all");
+  const [scanOpen, setScanOpen] = useState(false);
 
   const isLoading = membersLoading || checkInsLoading;
 
@@ -57,6 +59,18 @@ const Attendance = () => {
     } catch {
       toast.error("Failed to record check-in");
     }
+  };
+
+  // Resolve a scanned QR payload to a member. Accepts a member id or admission code.
+  const handleScanned = (code: string) => {
+    const member = members.find(
+      (m) => m.id === code || (m as any).admissionNo === code || (m as any).code === code
+    );
+    if (!member) {
+      toast.error(`No member matched QR: ${code}`);
+      return;
+    }
+    handleCheckIn(member.id, member.name);
   };
 
   // Report data
@@ -107,7 +121,12 @@ const Attendance = () => {
             {todayCheckIns.length} present today • {activeMembers.length - todayCheckIns.length} absent
           </p>
         </div>
+        <Button onClick={() => setScanOpen(true)} className="gradient-gold text-primary-foreground">
+          <QrCode className="h-4 w-4 mr-2" /> Scan QR Check-in
+        </Button>
       </div>
+
+      <QRCheckInScanner open={scanOpen} onOpenChange={setScanOpen} onDetected={handleScanned} />
 
       <Tabs defaultValue="checkin" className="space-y-4">
         <TabsList className="bg-muted/50">
