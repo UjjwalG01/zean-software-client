@@ -35,7 +35,7 @@ BEGIN
   END IF;
 END $$;
 
-CREATE INDEX IF NOT EXISTS idx_payments_member_date ON public.payments (member_id, payment_date);
+CREATE INDEX IF NOT EXISTS idx_payments_member_date ON public.payments (member_id, paid_at);
 CREATE INDEX IF NOT EXISTS idx_payments_status ON public.payments (status);
 
 -- 2. Members - preferences + inactive status ---------------------------------
@@ -57,12 +57,27 @@ ALTER TABLE public.members
   CHECK (status IN ('active','expired','expiring','inactive'));
 
 -- 3. Bookings - cancellation metadata ----------------------------------------
+-- 3. Bookings - cancellation metadata + improved indexing
 ALTER TABLE public.bookings
   ADD COLUMN IF NOT EXISTS cancelled_at timestamptz,
   ADD COLUMN IF NOT EXISTS cancel_reason text;
 
-CREATE INDEX IF NOT EXISTS idx_bookings_date ON public.bookings (booking_date);
+-- Drop old index if it exists (in case it was created with booking_date)
+DROP INDEX IF EXISTS idx_bookings_date;
+
+-- Recommended Indexes for start_date + end_date
+CREATE INDEX IF NOT EXISTS idx_bookings_start_at ON public.bookings (start_at);
+CREATE INDEX IF NOT EXISTS idx_bookings_end_at   ON public.bookings (end_at);
+
+-- Composite index (very useful for range queries)
+CREATE INDEX IF NOT EXISTS idx_bookings_date_range ON public.bookings (start_at, end_at);
+
+-- Status index (already good)
 CREATE INDEX IF NOT EXISTS idx_bookings_status ON public.bookings (status);
+
+-- Additional useful indexes
+CREATE INDEX IF NOT EXISTS idx_bookings_member_id ON public.bookings (member_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_cancelled_at ON public.bookings (cancelled_at);
 
 -- 4. Attendance dedup --------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.attendance (
@@ -92,8 +107,8 @@ CREATE POLICY attendance_write ON public.attendance
 -- 5. Audit log ---------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.audit_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  ts timestamptz NOT NULL DEFAULT now(),
-  user_id uuid,
+created_at timestamptz NOT NULL DEFAULT now(),
+  actor_id uuid,
   user_email text,
   module text NOT NULL,
   action text NOT NULL,
@@ -102,9 +117,9 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
   new_value jsonb
 );
 
-CREATE INDEX IF NOT EXISTS idx_audit_ts ON public.audit_logs (ts DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_created_at ON public.audit_logs (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_module ON public.audit_logs (module);
-CREATE INDEX IF NOT EXISTS idx_audit_user ON public.audit_logs (user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_actor ON public.audit_logs (actor_id);
 
 GRANT SELECT, INSERT ON public.audit_logs TO authenticated;
 GRANT ALL ON public.audit_logs TO service_role;
