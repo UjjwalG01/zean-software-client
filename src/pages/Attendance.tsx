@@ -61,6 +61,18 @@ const Attendance = () => {
     }
   };
 
+  // Resolve a scanned QR payload to a member. Accepts a member id or admission code.
+  const handleScanned = (code: string) => {
+    const member = members.find(
+      (m) => m.id === code || (m as any).admissionNo === code || (m as any).code === code
+    );
+    if (!member) {
+      toast.error(`No member matched QR: ${code}`);
+      return;
+    }
+    handleCheckIn(member.id, member.name);
+  };
+
   // Report data
   const reportMonth = useMemo(() => {
     const [y, m] = filterMonth.split("-").map(Number);
