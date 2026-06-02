@@ -121,7 +121,12 @@ const Attendance = () => {
             {todayCheckIns.length} present today • {activeMembers.length - todayCheckIns.length} absent
           </p>
         </div>
+        <Button onClick={() => setScanOpen(true)} className="gradient-gold text-primary-foreground">
+          <QrCode className="h-4 w-4 mr-2" /> Scan QR Check-in
+        </Button>
       </div>
+
+      <QRCheckInScanner open={scanOpen} onOpenChange={setScanOpen} onDetected={handleScanned} />
 
       <Tabs defaultValue="checkin" className="space-y-4">
         <TabsList className="bg-muted/50">
