@@ -23,30 +23,52 @@ export function QRCheckInScanner({ open, onOpenChange, onDetected }: Props) {
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
+    let scanner: Html5Qrcode | null = null;
+
+    // Wait until the portal-rendered target div is in the DOM
+    const waitForEl = (): Promise<HTMLElement> =>
+      new Promise((resolve, reject) => {
+        const started = Date.now();
+        const tick = () => {
+          const el = document.getElementById(containerId);
+          if (el) return resolve(el);
+          if (Date.now() - started > 3000) return reject(new Error("scanner container not mounted"));
+          requestAnimationFrame(tick);
+        };
+        tick();
+      });
+
     setStarting(true);
-    const scanner = new Html5Qrcode(containerId);
-    scannerRef.current = scanner;
-    scanner
-      .start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 240, height: 240 } },
-        (decoded) => {
-          if (cancelled) return;
-          onDetected(decoded.trim());
-          scanner.stop().catch(() => {}).finally(() => onOpenChange(false));
-        },
-        () => {}
-      )
+    waitForEl()
+      .then(() => {
+        if (cancelled) return;
+        scanner = new Html5Qrcode(containerId);
+        scannerRef.current = scanner;
+        return scanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 240, height: 240 } },
+          (decoded) => {
+            if (cancelled) return;
+            onDetected(decoded.trim());
+            scanner?.stop().catch(() => {}).finally(() => onOpenChange(false));
+          },
+          () => {}
+        );
+      })
       .then(() => !cancelled && setStarting(false))
       .catch((err) => {
+        if (cancelled) return;
         toast.error("Camera unavailable: " + (err?.message || "permission denied"));
         onOpenChange(false);
       });
 
     return () => {
       cancelled = true;
-      scanner.stop().catch(() => {});
-      scanner.clear();
+      const s = scannerRef.current;
+      if (s) {
+        s.stop().catch(() => {}).finally(() => { try { s.clear(); } catch {} });
+        scannerRef.current = null;
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
