@@ -261,19 +261,19 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
                     </Button>
                   </>
                 )}
-                {status !== "Cancelled" && (
+                {/* Completed bookings: print bill only, no further billing/payment redirect */}
+                {status === "Completed" ? (
+                  <Button size="sm" variant="outline" className="flex-1" onClick={handleGenerateBill}>
+                    <Printer className="h-4 w-4 mr-1" />Print Bill
+                  </Button>
+                ) : status !== "Cancelled" && (
                   <Button
                     size="sm"
                     className="flex-1 gradient-gold text-primary-foreground"
                     onClick={handleBillNow}
                   >
                     <Receipt className="h-4 w-4 mr-1" />
-                    Bill / Record Payment
-                  </Button>
-                )}
-                {status === "Completed" && (
-                  <Button size="sm" variant="outline" className="flex-1" onClick={handleGenerateBill}>
-                    <Printer className="h-4 w-4 mr-1" />Generate A5 Bill
+                    Billing / Record Payment
                   </Button>
                 )}
               </div>

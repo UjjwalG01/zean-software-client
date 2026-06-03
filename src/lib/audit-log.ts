@@ -1,14 +1,25 @@
 import { supabase } from "./supabase";
+import { getModuleIdBySlug } from "./modules";
 
 export type AuditModule = "Members" | "Bookings" | "Transactions" | "Users" | "Settings";
 
 export interface AuditEntry {
   module: AuditModule;
+  /** Optional slug from `modules` table — used to populate audit_logs.module_id. */
+  moduleSlug?: string;
   action: string;        // e.g. "create", "update", "cancel", "void", "settle"
   entityId?: string;
   oldValue?: any;
   newValue?: any;
 }
+
+const MODULE_TO_SLUG: Record<AuditModule, string> = {
+  Members: "members",
+  Bookings: "bookings",
+  Transactions: "transactions",
+  Users: "users",
+  Settings: "settings",
+};
 
 /**
  * Best-effort audit log writer. Failures are swallowed so they never break
@@ -17,10 +28,13 @@ export interface AuditEntry {
 export async function logAudit(entry: AuditEntry): Promise<void> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
+    const slug = entry.moduleSlug || MODULE_TO_SLUG[entry.module];
+    const module_id = slug ? await getModuleIdBySlug(slug) : null;
     await supabase.from("audit_logs").insert({
       user_id: user?.id ?? null,
       user_email: user?.email ?? null,
       module: entry.module,
+      module_id,
       action: entry.action,
       entity_id: entry.entityId ?? null,
       old_value: entry.oldValue ?? null,
