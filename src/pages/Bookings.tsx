@@ -16,7 +16,7 @@ import { BookingDetailModal } from "@/components/BookingDetailModal";
 import { DayTimelineDialog } from "@/components/DayTimelineDialog";
 import { OutletPickerDialog } from "@/components/OutletPickerDialog";
 import { Switch } from "@/components/ui/switch";
-import { useBookings, useAddBooking, useMembers, useServices, useCompanySettings, useMembershipPlans, useUpdateMember } from "@/hooks/use-firestore";
+import { useBookings, useAddBooking, useMembers, useServices, useCompanySettings, useMembershipPlans, useUpdateMember, useAddTransaction } from "@/hooks/use-firestore";
 import { useOutlet } from "@/contexts/OutletContext";
 import { Building2, ChevronDown } from "lucide-react";
 import type { Booking, ServiceType } from "@/lib/mock-data";
@@ -96,6 +96,7 @@ const Bookings_Page = () => {
   const { data: settings = {} } = useCompanySettings();
   const addBookingMutation = useAddBooking();
   const updateMemberMutation = useUpdateMember();
+  const addTransactionMutation = useAddTransaction();
 
   // Outlet is "membership" type when the flag is on OR when its service types include the membership slug
   const isMembershipOutlet = !!selectedOutlet && (
@@ -177,6 +178,12 @@ const Bookings_Page = () => {
   }, [selectedService]);
 
   const handleBook = async () => {
+    // Hard block: an outlet must be chosen before any booking can be created.
+    if (!selectedOutlet?.id) {
+      toast.error("Please select an outlet before creating a booking");
+      setPickerOpen(true);
+      return;
+    }
     if (!bookMember || !selectedService || !bookDate) {
       toast.error("Please fill member, service and date");
       return;
@@ -213,29 +220,44 @@ const Bookings_Page = () => {
         startTime: start,
         endTime: end,
         status: "Pending",
-        outletId: selectedOutlet?.id,
+        outletId: selectedOutlet.id,
         instructor: bookInstructor || selectedService.instructor || "",
         timeSlot: bookTimeSlot || start,
       } as any);
-      toast.success("Booking created — proceed to payment");
-      setDialogOpen(false);
+
+      // CHARGING-FIRST: post a pending Charge so the member's due balance
+      // is updated the moment the booking is created.
       const basePrice = Number(selectedService.price || 0);
       const finalPrice = useDiscountedRate && discountedRate ? Number(discountedRate) : basePrice;
-      const params = new URLSearchParams({
-        newPayment: "true",
-        memberId: bookMember,
-        memberName: memberObj?.name || "",
-        service: String(selectedService.type),
-        className: selectedService.name,
-        amount: String(finalPrice),
-        locked: "1",
-        bookingId: String(bookingId || ""),
-      });
+      if (finalPrice > 0) {
+        try {
+          const { createChargeForBooking } = await import("@/lib/charges");
+          await createChargeForBooking(
+            (d) => addTransactionMutation.mutateAsync(d) as Promise<string>,
+            {
+              memberId: bookMember,
+              memberName: memberObj?.name || "",
+              bookingId: String(bookingId || ""),
+              service: selectedService.type,
+              className: selectedService.name,
+              amount: finalPrice,
+              chargeHead: selectedService.type,
+            },
+          );
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.warn("[bookings] failed to post charge", e);
+        }
+      }
+
+      toast.success("Booking created — charge posted to member ledger");
+      setDialogOpen(false);
       setBookMember(""); setMemberSearch(""); setBookServiceId("");
       setBookInstructor(""); setBookTimeSlot("");
       setBookStartTime(""); setBookEndTime("");
       setUseDiscountedRate(false); setDiscountedRate("");
-      navigate(`/transactions?${params.toString()}`);
+      // Stay on the bookings page — the new pending charge can be settled
+      // from Transactions whenever the member is ready to pay.
     } catch {
       toast.error("Failed to create booking");
     }
