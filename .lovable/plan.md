@@ -1,94 +1,77 @@
-# Implementation Plan — Bookings, Transactions, Members, GRC, Audit, QR & RBAC
+# Implementation Plan
 
-A large, cross-cutting update. I'll group work into atomic milestones and ship them in order so each change is independently testable. Backend (Supabase) changes ship as one consolidated migration.
+Large multi-area refactor. Will land in 6 phases, each shippable on its own.
 
-## 1. Bookings → Payment Flow (Item 1)
-- After "Save Booking", **stay on Bookings page** and open the existing `BookingDetailModal` (no redirect to Transactions).
-- In `BookingDetailModal`:
-  - Keep **Amend**, **Cancel** actions.
-  - **Remove Delete** button.
-  - Add a **Bill / Record Payment** button → opens the existing record-payment dialog pre-filled (member, amount, type=payment locked).
-- Cancelled bookings: filter out of the day calendar / `DayTimelineDialog` (already store `status='Cancelled'`; hide from timeline + day-list views).
-- Clicking a date in the calendar opens a **Day Bookings List dialog** (new `DayBookingsDialog.tsx`) showing all bookings of that day; clicking a row opens `BookingDetailModal`.
+## Phase 1 — Charging-first core (the foundation)
 
-## 2. Transaction & Invoice Rules (Item 2)
-- Add unique DB constraint on `transactions.receipt_no` (= invoice number).
-- Client-side: generate idempotent receipt number (`VFC-{memberId}-{bookingId}-{seq}`) and use Supabase `upsert` with `onConflict: 'receipt_no'` so the same bill can't be recorded twice.
-- On insert failure (network/duplicate) → keep status `pending`, redirect back to Transactions with a toast.
-- Every `pending` row gets a **Settle** action in the Transactions table; settled rows expose **Re-settle** (adjusts method/amount via record-payment modal, writes audit entry).
+Establish a single source of truth: **charges raise due balance, advances/payments reduce it**. Everything else reads from this.
 
-## 3. Automatic Transaction Fields (Item 3)
-- `RecordPaymentModal` for the Payment flow: **member, amount, type=payment** are read-only/disabled (driven by the originating booking/bill).
-- Mode (cash/card/split), reference, date remain editable.
-- Charges/Advances/Refunds keep their own modals (`RecordChargeModal`, new `RecordAdvanceModal`, `RecordRefundModal` — small wrappers around existing transaction insert) where amount IS editable, but `type` is locked per modal.
+- Extend `Transaction` type with canonical `type`s: `Charge`, `Advance`, `Payment`, `Refund`, `Void`. Add `status: 'pending' | 'settled' | 'voided'` and `linkedBookingId?`, `linkedChargeIds?: string[]`.
+- New helper `src/lib/charges.ts`:
+  - `createChargeForBooking(booking, services[])` → writes one `Charge` row per service head (uses Charge Heads from setup, maps service → head, falls back to "Service Charge").
+  - `createChargeManual(memberId, headId, amount, note)` (used by Record Charge modal).
+  - `applyAdvance(memberId, amount, method, note)` → writes an `Advance` row, then runs `settleOldestCharges(memberId)` which marks charges `settled` FIFO until advance exhausted; leftover becomes a credit balance row.
+- `buildMemberLedger` already supports Charge/Advance/Payment — extend its summary to include `dueBalance = totalCharged − totalPaid − advance` and expose per-charge settlement state.
+- Hook into `useAddBooking` to call `createChargeForBooking` on create (only when `outletId` is present and status ≠ cancelled). On `cancel` → void linked charges. On `complete` → leave charges as-is.
+- Member profile + Quick Balance modal + Members list "Due" column all read from `summary.dueBalance` (one helper, no per-page math).
 
-## 4. Member Ledger & Quick Balance (Item 4)
-- New `member-ledger.ts` selector that combines: bills (charges +), payments (−), advances (+ credit), refunds, voids. Returns chronological rows + running balance + summary {totalCharged, totalPaid, advance, netPayable}.
-- `QuickBalanceModal.tsx` styled per the screenshot: header strip (Adm / Name / Class-Membership), grouped rows by month/date, summary card with Total Billed, Total Paid, Advance, **Net Payable Balance** highlighted.
-- Add **Quick Balance** button to `MemberProfile` header.
+## Phase 2 — Modules + RBAC + Audit module linking
 
-## 5. Member Status (Item 5)
-- Extend status enum to include `inactive`.
-- `MembersList`: default filter chips → Active, Expiring, Expired (Inactive hidden). Add Inactive chip; selecting it shows only inactive.
-- Booking member-picker and global search exclude `inactive`.
-- Admin "Deactivate" toggle on member profile sets status=`inactive`.
+- New Supabase migration:
+  - `modules` table (`id, name, slug, description, parent_id, route, icon, order_index, active`).
+  - Seed with existing app pages (Dashboard, Members, Bookings, Transactions, Inventory, Reports, Forecast, Audit Logs, Users, Roles, Email Templates, Setup → Outlets/Stores/Item Groups/Service Types/Charge Heads, Settings).
+  - Add `module_id uuid references modules(id)` to `audit_logs`.
+  - GRANT + RLS as per project rules.
+- `src/lib/modules.ts` — fetch + cache modules; provides slug→id map.
+- Update `logAudit()` to accept `moduleSlug` and resolve `module_id` server-side (lookup once, cached).
+- Replace every existing `logAudit({ module: "..." })` callsite to use slug form. Keep `module` text column for backwards compat.
+- `RolesManager.tsx` rebuilt to render permission rows from the `modules` table (instead of the hardcoded `PERMISSION_PAGES`). Each module row gets View / Create / Edit / Delete toggles.
+- Update `firebase-roles.ts` permission shape to be keyed by module slug; `useMyPermissions` + `canView` unchanged (already slug-based).
+- `RouteGuard` ROUTE_KEYS rebuilt from modules (route prefix → slug).
+- Audit Logs page gets a Module dropdown sourced from `modules` (not hardcoded enum).
 
-## 6. GRC Form (Item 6)
-- In `MemberGRC.tsx` rendering: replace `value || "N/A"` with `value || ""`. Same in PDF generator.
+## Phase 3 — Booking restrictions & completed-state behavior
 
-## 7. GRC PDF & Template Settings (Item 7)
-- PDF: render booleans as ☑/☐ checkboxes; render time slot row.
-- `GeneralSetup` → new **GRC Template** card with switches: `showMembershipDetails`, `showPhysicalDetails`, `showFooter`, `showEmergencyContact`, `showHealthDeclaration` persisted in `companySettings.grcTemplate`.
-- PDF generator reads these flags and conditionally renders sections.
+- `AddBooking` / Bookings page "New Booking" dialog: hard-block submission if `outletId` is empty. Disable submit button + show inline error. Validate again inside `useAddBooking` (throws with toast).
+- `BookingDetailModal`:
+  - If `status === "completed"`: hide "Billing / Record Payment" button, do NOT navigate to Transactions, only show "Print Bill" (renders existing receipt print).
+  - Keep Amend + Cancel visible for non-completed bookings.
 
-## 8. Phone Number Handling (Item 8)
-- Store phone as `text` (already), but enforce input validation (`+\d{1,3}\d{6,14}`), default country `+977`. Prevent any numeric casting (was causing scientific notation when exported).
-- Display via `formatPhone(raw)` helper.
+## Phase 4 — Transactions redesign
 
-## 9. Preferences Tab Fix (Item 9)
-- `MemberProfile` Preferences tab currently no-ops on save. Wire it to `useUpdateMember` with fields {communicationChannel, language, marketingOptIn, trainerPref, dietaryNotes}. Persist to `members.preferences` (jsonb).
+- Rename "Record Payment" → "Add Advance" everywhere (button labels, modal title, page header, toast strings). Modal collapses to: member, amount, method, note. On submit → `applyAdvance(...)`.
+- New transactions table columns: **Receipt · Date · Member · Method · Type · Status · Total · Actions**.
+  - Status badge: `pending` (amber) / `settled` (green) / `voided` (muted).
+  - Actions:
+    - `pending` → **Settle** button (opens SplitPaymentForm prefilled with outstanding amount; on success marks the charge settled).
+    - `settled` → **Print** + **Resettle** (re-opens settle form to record an additional payment, e.g. refund/top-up adjustment, configurable).
+- Drop legacy "Delete" action.
 
-## 10. Blank GRC Print (Item 10)
-- `print-utils.printBlankGRC()` — render same GRC template with empty data, **omit form/admission number row entirely**. Fix current bug (was printing last opened member due to stale ref).
+## Phase 5 — Audit Logs UI
 
-## 11. Audit Log (Item 11)
-- New table `audit_logs(id, ts, user_id, user_name, module, action, entity_id, old_value jsonb, new_value jsonb)`.
-- Helper `logAudit({module, action, entityId, oldValue, newValue})` called from member/booking/transaction mutations.
-- New page `/audit-logs` with filters (date range, user, module: Members|Bookings|Transactions, action) + search.
+- Default `from` and `to` filter to today's date on mount.
+- Move the date range into a single visible "Date" row with Today / Yesterday / Last 7d quick chips.
+- Add Module dropdown (from `modules` table) replacing the hardcoded MODULES const.
 
-## 12. QR Check-in (Item 12)
-- Existing `Attendance` page → add **QR Check-in** mode using `html5-qrcode`.
-- DB: unique index `(member_id, date)` on `attendance`. Insert with `onConflict: do nothing`; if conflict → toast "Already checked in today".
-- Stores `check_in_time` (timestamptz). Show member name + status toast on scan.
+## Phase 6 — Email cleanup + Resend audit
 
-## 13. RBAC Enforcement (Item 13)
-- Already have `useMyPermissions` / `canView`. Now also:
-  - `AppLayout` route guard: if non-admin lacks `view` on the page key, redirect to first allowed page.
-  - Sidebar already filters; verify every page registers a permission key in `PERMISSION_PAGES`.
+- Remove `react-email-editor` from `package.json`, delete `src/components/UnlayerEditor.tsx`, strip all imports + usages from `EmailTemplates.tsx`.
+- Keep the existing manual editor: subject + body textareas + variable chips ({{member_name}}, {{booking_id}}, {{plan_name}}, {{amount}}, {{due_date}}, {{outlet_name}}). Add an Edit/Preview tab switch — Preview renders the merged HTML with sample variables.
+- Resend audit (read-only report, no code changes unless something is actually broken):
+  - Verify `supabase/functions/send-email/index.ts` deploys (CORS, env, error envelope).
+  - Confirm `RESEND_API_KEY` secret is set.
+  - Confirm `email_reminders` table exists + has correct grants.
+  - List any gaps in the final response.
 
-## Backend — single consolidated migration
-`db/migrations/2026-06-01_bookings_audit_qr.sql`:
-- `ALTER TABLE transactions ADD CONSTRAINT transactions_receipt_no_unique UNIQUE (receipt_no);`
-- `CREATE INDEX ON transactions(member_id, date);`
-- `ALTER TABLE members ADD COLUMN IF NOT EXISTS preferences jsonb DEFAULT '{}'::jsonb;`
-- Extend member status check to allow `inactive`.
-- `CREATE TABLE attendance(... UNIQUE(member_id, date))` + RLS + GRANT.
-- `CREATE TABLE audit_logs(...)` + RLS (admin read all, users read own) + GRANT.
-- `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS cancelled_at timestamptz, cancel_reason text;`
-- Indexes on `bookings(date)`, `audit_logs(ts, module)`.
+## Technical notes
 
-## Technical risk & shortcomings to watch
-- **Receipt uniqueness retro-fit**: if existing data has duplicate receipts, the constraint will fail. Migration will dedupe via `... WHERE NOT EXISTS` + suffix.
-- **Audit log volume**: index on `(ts desc)` + page-level pagination.
-- **QR camera permission** on iOS Safari requires HTTPS — preview is HTTPS, ok.
-- **Cancelled booking calendar hiding**: ensure aggregation queries still count them for stats but filter for display.
-- **Preferences jsonb migration** must be idempotent (`IF NOT EXISTS`).
-- **Re-settle** must write an audit entry and never duplicate a receipt — implemented as UPDATE not INSERT.
+- All schema work in one migration: `db/migrations/2026-06-03_charging_modules_audit.sql`.
+- Type changes consolidated in `src/lib/mock-data.ts` (`Transaction` type) and propagated.
+- Mock data fallback: extend mock transactions to include a few `Charge` + `Advance` rows so the UI demos correctly when Firebase is offline.
+- Tests: extend `src/test/example.test.ts` with a small ledger settlement test (charge 1000 → advance 600 → due 400; advance 500 more → settled).
 
-## Files (new)
-`src/components/DayBookingsDialog.tsx`, `src/components/QuickBalanceModal.tsx`, `src/components/RecordAdvanceModal.tsx`, `src/components/RecordRefundModal.tsx`, `src/components/QRCheckInScanner.tsx`, `src/lib/member-ledger.ts`, `src/lib/audit-log.ts`, `src/pages/AuditLogs.tsx`, `db/migrations/2026-06-01_bookings_audit_qr.sql`.
+## Out of scope for this pass (will be listed as pending)
 
-## Files (edited)
-`src/pages/Bookings.tsx`, `src/components/BookingDetailModal.tsx`, `src/components/DayTimelineDialog.tsx`, `src/pages/Transactions.tsx`, `src/pages/MembersList.tsx`, `src/pages/MemberProfile.tsx`, `src/pages/MemberGRC.tsx`, `src/pages/Attendance.tsx`, `src/pages/GeneralSetup.tsx`, `src/lib/print-utils.ts`, `src/lib/firebase-services.ts`, `src/lib/mock-data.ts`, `src/components/AppLayout.tsx`, `src/components/AppSidebar.tsx`, `src/App.tsx`.
-
-Once approved I'll implement in this order: migration → ledger/quick-balance → bookings flow → transactions rules → GRC fixes → audit log → QR check-in → RBAC guard → final smoke build.
+- Per-charge partial-settle history view inside Member Profile (current pass shows aggregate due only).
+- Twilio SMS verification (only Resend was requested).
+- Backfilling audit_logs.module_id for historical rows (new rows only).
