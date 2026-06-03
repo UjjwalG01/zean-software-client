@@ -17,6 +17,9 @@ export interface LedgerSummary {
   totalPaid: number;
   advance: number;
   netPayable: number;
+  /** Alias for netPayable — explicit "due balance" name used by Quick Balance + profile cards. */
+  dueBalance: number;
+  isSettled: boolean;
 }
 
 const isVoided = (t: Transaction) => (t as any).voided || t.status === "voided";
@@ -84,6 +87,6 @@ export function buildMemberLedger(
 
   return {
     rows,
-    summary: { totalCharged, totalPaid, advance, netPayable },
+    summary: { totalCharged, totalPaid, advance, netPayable, dueBalance: netPayable, isSettled: netPayable <= 0 },
   };
 }
