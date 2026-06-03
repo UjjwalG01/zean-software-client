@@ -23,6 +23,7 @@ export const PAGE_GROUPS: { group: string; pages: { key: string; label: string }
       { key: "inventory", label: "Inventory" },
       { key: "reports", label: "Reports" },
       { key: "forecast", label: "Forecast" },
+      { key: "audit-logs", label: "Audit Logs" },
     ],
   },
   {

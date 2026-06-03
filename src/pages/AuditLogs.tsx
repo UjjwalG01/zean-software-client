@@ -5,19 +5,30 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { listAuditLogs, type AuditRow } from "@/lib/audit-log";
+import { getModules, type AppModule } from "@/lib/modules";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 
-const MODULES = ["all", "Members", "Bookings", "Transactions", "Users", "Settings"];
+const todayISO = () => format(new Date(), "yyyy-MM-dd");
+const daysAgoISO = (n: number) => {
+  const d = new Date(); d.setDate(d.getDate() - n);
+  return format(d, "yyyy-MM-dd");
+};
 
 const AuditLogs = () => {
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [modules, setModules] = useState<AppModule[]>([]);
   const [moduleFilter, setModuleFilter] = useState("all");
   const [actionFilter, setActionFilter] = useState("all");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  // Default to today's date range
+  const [from, setFrom] = useState(todayISO());
+  const [to, setTo] = useState(todayISO());
   const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    getModules().then(setModules).catch(() => setModules([]));
+  }, []);
 
   const load = async () => {
     setLoading(true);
@@ -40,18 +51,27 @@ const AuditLogs = () => {
     return Array.from(s);
   }, [rows]);
 
+  const applyQuickRange = (n: number) => {
+    if (n === 0) { setFrom(todayISO()); setTo(todayISO()); }
+    else { setFrom(daysAgoISO(n)); setTo(todayISO()); }
+    setTimeout(load, 0);
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-2xl font-bold font-display">Audit Log</h1>
-        <p className="text-muted-foreground text-sm">Track changes across members, bookings and transactions.</p>
+        <p className="text-muted-foreground text-sm">Track changes across the application. Default view: today.</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-6 gap-3">
         <Input placeholder="Search user / id / action" value={search} onChange={(e) => setSearch(e.target.value)} className="sm:col-span-2 bg-muted/50 border-0" />
         <Select value={moduleFilter} onValueChange={setModuleFilter}>
           <SelectTrigger className="bg-muted/50 border-0"><SelectValue placeholder="Module" /></SelectTrigger>
-          <SelectContent>{MODULES.map((m) => <SelectItem key={m} value={m}>{m === "all" ? "All Modules" : m}</SelectItem>)}</SelectContent>
+          <SelectContent>
+            <SelectItem value="all">All Modules</SelectItem>
+            {modules.map((m) => <SelectItem key={m.slug} value={m.name}>{m.name}</SelectItem>)}
+          </SelectContent>
         </Select>
         <Select value={actionFilter} onValueChange={setActionFilter}>
           <SelectTrigger className="bg-muted/50 border-0"><SelectValue placeholder="Action" /></SelectTrigger>
@@ -59,7 +79,13 @@ const AuditLogs = () => {
         </Select>
         <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="bg-muted/50 border-0" />
         <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="bg-muted/50 border-0" />
-        <div className="sm:col-span-6"><Button size="sm" onClick={load}>Apply Filters</Button></div>
+        <div className="sm:col-span-6 flex items-center gap-2 flex-wrap">
+          <Button size="sm" onClick={load}>Apply Filters</Button>
+          <Button size="sm" variant="outline" onClick={() => applyQuickRange(0)}>Today</Button>
+          <Button size="sm" variant="outline" onClick={() => { setFrom(daysAgoISO(1)); setTo(daysAgoISO(1)); setTimeout(load, 0); }}>Yesterday</Button>
+          <Button size="sm" variant="outline" onClick={() => applyQuickRange(6)}>Last 7d</Button>
+          <Button size="sm" variant="outline" onClick={() => applyQuickRange(29)}>Last 30d</Button>
+        </div>
       </div>
 
       <div className="glass-card rounded-xl overflow-hidden">
