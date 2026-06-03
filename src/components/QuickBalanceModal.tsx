@@ -20,7 +20,7 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
   const { data: transactions = [] } = useTransactions();
 
   const { rows, summary } = useMemo(() => {
-    if (!member) return { rows: [], summary: { totalCharged: 0, totalPaid: 0, advance: 0, netPayable: 0 } };
+    if (!member) return { rows: [], summary: { totalCharged: 0, totalPaid: 0, advance: 0, netPayable: 0, dueBalance: 0, isSettled: true } };
     return buildMemberLedger(member.id, transactions, member.openingBalance || 0);
   }, [member, transactions]);
 
@@ -36,7 +36,7 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
         {/* Header strip */}
         <div className="grid grid-cols-1 sm:grid-cols-3 rounded-md overflow-hidden bg-primary text-primary-foreground">
           <div className="px-4 py-2 text-sm">
-            <span className="opacity-80">Member No:</span> <strong>{member.member_code}</strong>
+            <span className="opacity-80">Member No:</span> <strong>{(member as any).memberCode || (member as any).grcNo || member.id}</strong>
           </div>
           <div className="px-4 py-2 text-sm border-l border-primary-foreground/20">
             <span className="opacity-80">Name:</span> <strong>{member.name}</strong>
