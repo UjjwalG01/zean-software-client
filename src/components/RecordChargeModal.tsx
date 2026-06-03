@@ -52,9 +52,18 @@ export function RecordChargeModal({ open, onOpenChange }: Props) {
   const vat = gross ? Math.round((gross - net) * 100) / 100 : 0;
 
   const submit = async () => {
-    if (!memberId) { toast.error("Select a member"); return; }
-    if (!selectedHead) { toast.error("Select a charge head"); return; }
-    if (!gross || gross <= 0) { toast.error("Enter a valid amount"); return; }
+    if (!memberId) {
+      toast.error("Select a member");
+      return;
+    }
+    if (!selectedHead) {
+      toast.error("Select a charge head");
+      return;
+    }
+    if (!gross || gross <= 0) {
+      toast.error("Enter a valid amount");
+      return;
+    }
     const member = members.find((m) => m.id === memberId);
     try {
       await addTransaction.mutateAsync({
@@ -63,7 +72,7 @@ export function RecordChargeModal({ open, onOpenChange }: Props) {
         amount: net,
         vat,
         total: gross,
-        method: "Cash",
+        // method: "Cash",
         type: "Charge" as any,
         date: new Date().toISOString().split("T")[0],
         description: `${selectedHead.name}${note ? ` — ${note}` : ""}`,
@@ -88,10 +97,14 @@ export function RecordChargeModal({ open, onOpenChange }: Props) {
           <div className="space-y-2">
             <Label>Member *</Label>
             <Select value={memberId} onValueChange={setMemberId}>
-              <SelectTrigger><SelectValue placeholder="Select member" /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder="Select member" />
+              </SelectTrigger>
               <SelectContent>
                 {members.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -100,7 +113,9 @@ export function RecordChargeModal({ open, onOpenChange }: Props) {
           <div className="space-y-2">
             <Label>Charge Head *</Label>
             <Select value={headId} onValueChange={setHeadId}>
-              <SelectTrigger><SelectValue placeholder="Select head" /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder="Select head" />
+              </SelectTrigger>
               <SelectContent>
                 {heads.length === 0 ? (
                   <div className="px-2 py-4 text-xs text-muted-foreground">
@@ -108,7 +123,9 @@ export function RecordChargeModal({ open, onOpenChange }: Props) {
                   </div>
                 ) : (
                   heads.map((h) => (
-                    <SelectItem key={h.id} value={h.id}>{h.name}</SelectItem>
+                    <SelectItem key={h.id} value={h.id}>
+                      {h.name}
+                    </SelectItem>
                   ))
                 )}
               </SelectContent>
@@ -122,19 +139,35 @@ export function RecordChargeModal({ open, onOpenChange }: Props) {
 
           <div className="space-y-2">
             <Label>Note</Label>
-            <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Optional context (locker #, equipment, etc.)" />
+            <Textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={2}
+              placeholder="Optional context (locker #, equipment, etc.)"
+            />
           </div>
 
           {gross > 0 && (
             <div className="rounded-lg bg-muted/30 p-3 text-sm space-y-1">
-              <div className="flex justify-between"><span className="text-muted-foreground">Net</span><span>{formatNPR(net)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">VAT (13% incl.)</span><span>{formatNPR(vat)}</span></div>
-              <div className="flex justify-between font-bold"><span>Total Payable</span><span className="text-primary">{formatNPR(gross)}</span></div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Net</span>
+                <span>{formatNPR(net)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">VAT (13% incl.)</span>
+                <span>{formatNPR(vat)}</span>
+              </div>
+              <div className="flex justify-between font-bold">
+                <span>Total Payable</span>
+                <span className="text-primary">{formatNPR(gross)}</span>
+              </div>
             </div>
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
           <Button onClick={submit} disabled={addTransaction.isPending}>
             {addTransaction.isPending ? "Posting…" : "Post Charge"}
           </Button>
