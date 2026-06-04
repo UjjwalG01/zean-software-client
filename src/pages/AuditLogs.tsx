@@ -171,18 +171,7 @@ const AuditLogs = () => {
                   </TableCell>
                   <TableCell className="font-mono text-[11px] text-muted-foreground">{r.entity || "—"}</TableCell>
                   <TableCell className="text-[11px] max-w-[420px]">
-                    {r.module ?? "Module"} has been {r.action}d by {r.user_email || r.user_id || "someone"}. /*{" "}
-                    {r.old_value || r.new_value ? (
-                      <details>
-                        <summary className="cursor-pointer text-muted-foreground">view diff</summary>
-                        <pre className="whitespace-pre-wrap break-all bg-muted/30 p-2 rounded mt-1">
-                          {JSON.stringify({ old: r.old_value, new: r.new_value }, null, 2)}
-                        </pre>
-                      </details>
-                    ) : (
-                      "—"
-                    )}{" "}
-                    */
+                    {r.module ?? "Module"} has been {r.action}d by {r.user_email || r.user_id || "someone"}.
                   </TableCell>
                 </TableRow>
               ))}
