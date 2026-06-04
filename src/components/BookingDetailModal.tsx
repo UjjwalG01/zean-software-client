@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CalendarDays, Clock, User, Dumbbell, Printer, Pencil, Save, X, Ban, Receipt } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import type { Booking, ServiceType } from "@/lib/mock-data";
-import { useUpdateBooking, useCompanySettings } from "@/hooks/use-firestore";
+import { useUpdateBooking, useCompanySettings, useTransactions, useUpdateTransaction } from "@/hooks/use-firestore";
 import { generateA5BillHTML, printHTML } from "@/lib/print-utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -41,6 +41,8 @@ function isFutureBooking(b: Booking): boolean {
 export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDetailModalProps) {
   const navigate = useNavigate();
   const updateBooking = useUpdateBooking();
+  const updateTransaction = useUpdateTransaction();
+  const { data: transactions = [] } = useTransactions();
   const { data: settings = {} } = useCompanySettings();
   const [localStatus, setLocalStatus] = useState<string | null>(null);
 
@@ -128,7 +130,19 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
         id: b.id,
         data: { status: "Cancelled", cancelReason, cancelledAt: new Date().toISOString() } as any,
       });
-      toast.success("Booking cancelled");
+      // Auto-void any pending charge tied to this booking so the member's
+      // due balance is rolled back (charging-first integrity).
+      const linkedCharges = transactions.filter(
+        (t) => t.bookingId === b.id && t.type === "Charge" && t.status === "pending",
+      );
+      for (const c of linkedCharges) {
+        await updateTransaction.mutateAsync({ id: c.id, data: { status: "voided" } as any });
+      }
+      toast.success(
+        linkedCharges.length
+          ? `Booking cancelled — ${linkedCharges.length} linked charge(s) voided`
+          : "Booking cancelled",
+      );
       setConfirmCancel(false);
       setLocalStatus("Cancelled");
       onOpenChange(false);
