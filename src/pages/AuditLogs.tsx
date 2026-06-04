@@ -11,7 +11,8 @@ import { format } from "date-fns";
 
 const todayISO = () => format(new Date(), "yyyy-MM-dd");
 const daysAgoISO = (n: number) => {
-  const d = new Date(); d.setDate(d.getDate() - n);
+  const d = new Date();
+  d.setDate(d.getDate() - n);
   return format(d, "yyyy-MM-dd");
 };
 
@@ -27,7 +28,9 @@ const AuditLogs = () => {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    getModules().then(setModules).catch(() => setModules([]));
+    getModules()
+      .then(setModules)
+      .catch(() => setModules([]));
   }, []);
 
   const load = async () => {
@@ -43,7 +46,9 @@ const AuditLogs = () => {
     setLoading(false);
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => {
+    load(); /* eslint-disable-next-line */
+  }, []);
 
   const actions = useMemo(() => {
     const s = new Set<string>(["all"]);
@@ -52,8 +57,13 @@ const AuditLogs = () => {
   }, [rows]);
 
   const applyQuickRange = (n: number) => {
-    if (n === 0) { setFrom(todayISO()); setTo(todayISO()); }
-    else { setFrom(daysAgoISO(n)); setTo(todayISO()); }
+    if (n === 0) {
+      setFrom(todayISO());
+      setTo(todayISO());
+    } else {
+      setFrom(daysAgoISO(n));
+      setTo(todayISO());
+    }
     setTimeout(load, 0);
   };
 
@@ -65,32 +75,73 @@ const AuditLogs = () => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-6 gap-3">
-        <Input placeholder="Search user / id / action" value={search} onChange={(e) => setSearch(e.target.value)} className="sm:col-span-2 bg-muted/50 border-0" />
+        <Input
+          placeholder="Search user / id / action"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="sm:col-span-2 bg-muted/50 border-0"
+        />
         <Select value={moduleFilter} onValueChange={setModuleFilter}>
-          <SelectTrigger className="bg-muted/50 border-0"><SelectValue placeholder="Module" /></SelectTrigger>
+          <SelectTrigger className="bg-muted/50 border-0">
+            <SelectValue placeholder="Module" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Modules</SelectItem>
-            {modules.map((m) => <SelectItem key={m.slug} value={m.name}>{m.name}</SelectItem>)}
+            {modules.map((m) => (
+              <SelectItem key={m.slug} value={m.name}>
+                {m.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Select value={actionFilter} onValueChange={setActionFilter}>
-          <SelectTrigger className="bg-muted/50 border-0"><SelectValue placeholder="Action" /></SelectTrigger>
-          <SelectContent>{actions.map((a) => <SelectItem key={a} value={a}>{a === "all" ? "All Actions" : a}</SelectItem>)}</SelectContent>
+          <SelectTrigger className="bg-muted/50 border-0">
+            <SelectValue placeholder="Action" />
+          </SelectTrigger>
+          <SelectContent>
+            {actions.map((a) => (
+              <SelectItem key={a} value={a}>
+                {a === "all" ? "All Actions" : a}
+              </SelectItem>
+            ))}
+          </SelectContent>
         </Select>
         <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="bg-muted/50 border-0" />
         <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="bg-muted/50 border-0" />
         <div className="sm:col-span-6 flex items-center gap-2 flex-wrap">
-          <Button size="sm" onClick={load}>Apply Filters</Button>
-          <Button size="sm" variant="outline" onClick={() => applyQuickRange(0)}>Today</Button>
-          <Button size="sm" variant="outline" onClick={() => { setFrom(daysAgoISO(1)); setTo(daysAgoISO(1)); setTimeout(load, 0); }}>Yesterday</Button>
-          <Button size="sm" variant="outline" onClick={() => applyQuickRange(6)}>Last 7d</Button>
-          <Button size="sm" variant="outline" onClick={() => applyQuickRange(29)}>Last 30d</Button>
+          <Button size="sm" onClick={load}>
+            Apply Filters
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => applyQuickRange(0)}>
+            Today
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setFrom(daysAgoISO(1));
+              setTo(daysAgoISO(1));
+              setTimeout(load, 0);
+            }}
+          >
+            Yesterday
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => applyQuickRange(6)}>
+            Last 7d
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => applyQuickRange(29)}>
+            Last 30d
+          </Button>
         </div>
       </div>
 
       <div className="glass-card rounded-xl overflow-hidden">
         {loading ? (
-          <div className="p-4 space-y-2">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-10 rounded" />)}</div>
+          <div className="p-4 space-y-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 rounded" />
+            ))}
+          </div>
         ) : rows.length === 0 ? (
           <p className="text-center text-muted-foreground py-10 text-sm">No audit entries match your filters.</p>
         ) : (
@@ -110,18 +161,28 @@ const AuditLogs = () => {
                 <TableRow key={r.id}>
                   <TableCell className="text-xs">{format(new Date(r.ts), "yyyy-MM-dd HH:mm:ss")}</TableCell>
                   <TableCell className="text-sm">{r.user_email || r.user_id || "—"}</TableCell>
-                  <TableCell><Badge variant="outline" className="text-[10px]">{r.module}</Badge></TableCell>
-                  <TableCell><Badge className="text-[10px] bg-primary/20 text-primary border-0">{r.action}</Badge></TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-[10px]">
+                      {r.module}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge className="text-[10px] bg-primary/20 text-primary border-0">{r.action}</Badge>
+                  </TableCell>
                   <TableCell className="font-mono text-[11px] text-muted-foreground">{r.entity_id || "—"}</TableCell>
                   <TableCell className="text-[11px] max-w-[420px]">
+                    {r.module ?? "Module"} has been {r.action}d by {r.user_email || r.user_id || "someone"}. /*{" "}
                     {r.old_value || r.new_value ? (
                       <details>
                         <summary className="cursor-pointer text-muted-foreground">view diff</summary>
                         <pre className="whitespace-pre-wrap break-all bg-muted/30 p-2 rounded mt-1">
-{JSON.stringify({ old: r.old_value, new: r.new_value }, null, 2)}
+                          {JSON.stringify({ old: r.old_value, new: r.new_value }, null, 2)}
                         </pre>
                       </details>
-                    ) : "—"}
+                    ) : (
+                      "—"
+                    )}{" "}
+                    */
                   </TableCell>
                 </TableRow>
               ))}
