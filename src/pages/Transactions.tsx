@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Search, Plus, Download, Receipt, FileText, Printer, RotateCcw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -56,6 +57,9 @@ const Transactions = () => {
   const [settleTxn, setSettleTxn] = useState<Transaction | null>(null);
   const [settleMethod, setSettleMethod] = useState<PaymentMethod>("Cash");
   const [settleNote, setSettleNote] = useState("");
+  const [isSettlement, setIsSettlement] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
 
   const { data: transactions = [], isLoading } = useTransactions();
   const { data: members = [] } = useMembers();
@@ -137,11 +141,31 @@ const Transactions = () => {
   };
 
   // ─── Settle / Resettle ────────────────────────────────────────────
-  const openSettle = (t: Transaction) => {
+  const openSettle = (t: Transaction, settlement = false) => {
     setSettleMethod("Cash");
     setSettleNote("");
+    setIsSettlement(settlement);
     setSettleTxn(t);
   };
+
+  // Auto-open the settlement dialog when redirected from a booking.
+  useEffect(() => {
+    if (searchParams.get("newPayment") !== "true") return;
+    const bookingId = searchParams.get("bookingId");
+    if (!bookingId || !transactions.length) return;
+    const charge = transactions.find(
+      (t) => t.bookingId === bookingId && t.type === "Charge" && t.status === "pending",
+    );
+    if (charge) {
+      openSettle(charge, true);
+    } else {
+      toast.error("No pending charge found for this booking");
+    }
+    // Clear params so it doesn't re-trigger
+    const next = new URLSearchParams(searchParams);
+    ["newPayment", "memberName", "memberId", "service", "className", "bookingId", "locked"].forEach((k) => next.delete(k));
+    setSearchParams(next, { replace: true });
+  }, [transactions, searchParams, setSearchParams]);
 
   const handleSettle = async () => {
     if (!settleTxn) return;
@@ -355,23 +379,39 @@ const Transactions = () => {
       </div>
 
       {/* Settle / Resettle dialog */}
-      <Dialog open={!!settleTxn} onOpenChange={(o) => !o && setSettleTxn(null)}>
+      <Dialog open={!!settleTxn} onOpenChange={(o) => { if (!o) { setSettleTxn(null); setIsSettlement(false); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="font-display">
-              {settleTxn && statusLabel(settleTxn) === "Settled" ? "Resettle Payment" : "Settle Pending Payment"}
+              {isSettlement
+                ? "Record Payment — Settlement"
+                : settleTxn && statusLabel(settleTxn) === "Settled"
+                  ? "Resettle Payment"
+                  : "Settle Pending Payment"}
             </DialogTitle>
           </DialogHeader>
           {settleTxn && (
             <div className="space-y-4">
-              <div className="rounded-lg bg-muted/30 p-3 text-sm space-y-1">
-                <div className="flex justify-between"><span className="text-muted-foreground">Member</span><span className="font-medium">{settleTxn.memberName}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Description</span><span>{settleTxn.description}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Receipt</span><span className="font-mono text-xs">{settleTxn.receiptNo}</span></div>
-                <div className="flex justify-between font-bold"><span>Total</span><span className="text-primary">{formatNPR(settleTxn.total)}</span></div>
+              <div className="space-y-2">
+                <Label className="text-xs">Member</Label>
+                <Input value={settleTxn.memberName} readOnly className="bg-muted/40" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-xs">Type</Label>
+                  <Input value={isSettlement ? "Settlement" : "Payment"} readOnly className="bg-muted/40" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">Amount (NPR)</Label>
+                  <Input value={settleTxn.total} readOnly className="bg-muted/40 font-semibold text-primary" />
+                </div>
               </div>
               <div className="space-y-2">
-                <Label>Payment Method</Label>
+                <Label className="text-xs">Description</Label>
+                <Input value={settleTxn.description} readOnly className="bg-muted/40" />
+              </div>
+              <div className="space-y-2">
+                <Label>Payment Method *</Label>
                 <Select value={settleMethod} onValueChange={(v) => setSettleMethod(v as PaymentMethod)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
