@@ -217,101 +217,89 @@ const Transactions = () => {
   //   setSearchParams(next, { replace: true });
   // }, [transactions, isLoading, searchParams, setSearchParams]);
 
-  // Auto-open the settlement dialog when redirected from a booking.
+  // Auto-open settlement dialog when redirected from booking
   useEffect(() => {
-    if (searchParams.get("newPayment") !== "true") return;
-    // Wait until transactions have finished loading.
-    if (isLoading) return;
-
-    const chargeId = searchParams.get("chargeId");
+    const newPayment = searchParams.get("newPayment");
     const bookingId = searchParams.get("bookingId");
+    const chargeId = searchParams.get("chargeId");
     const memberId = searchParams.get("memberId");
+
+    if (newPayment !== "true") return;
+
+    // Wait until transactions are fully loaded before declaring a failure
+    if (isLoading) return;
 
     let charge: Transaction | undefined;
 
-    // 1. Try to match by explicit chargeId
-    if (chargeId) {
-      charge = transactions.find((t) => t.id === chargeId);
+    // 1. Try matching by explicit chargeId if passed via BookingDetailModal
+    if (chargeId && transactions.length > 0) {
+      charge = transactions.find(
+        (t) => String(t.id) === String(chargeId) || String((t as any).chargeRowId) === String(chargeId),
+      );
     }
 
-    // 2. Fallback to matching by bookingId
-    if (!charge && bookingId) {
-      charge = transactions.find((t) => t.bookingId === bookingId && t.type === "Charge" && t.status === "pending");
+    // 2. Fallback: Match by bookingId (handling cross-case mutations)
+    if (!charge && bookingId && transactions.length > 0) {
+      charge = transactions.find((t) => {
+        const matchBooking =
+          String(t.bookingId) === String(bookingId) ||
+          (t.meta && String((t.meta as any).bookingId) === String(bookingId));
+        const isPending = t.status === "pending" || t.status === "unpaid" || t.status === "unsettled";
+        const isChargeType = t.type?.toLowerCase() === "charge";
+
+        return matchBooking && isPending && isChargeType;
+      });
     }
 
-    // 3. Fallback to the oldest pending charge for the member
-    if (!charge && memberId) {
-      charge = transactions.find((t) => t.memberId === memberId && t.type === "Charge" && t.status === "pending");
+    // 3. Fallback: Grab the oldest pending record for this member
+    if (!charge && memberId && transactions.length > 0) {
+      charge = transactions.find(
+        (t) =>
+          String(t.memberId) === String(memberId) &&
+          t.type?.toLowerCase() === "charge" &&
+          (t.status === "pending" || t.status === "unpaid"),
+      );
     }
 
+    // CRITICAL EXECUTION CYCLE CONTROL
     if (charge) {
       openSettle(charge, true);
+      toast.success("Settlement modal opened for booking");
 
-      // Clear params ONLY after successfully finding and opening the charge
+      // Clear parameters only on success so we don't clear on temporary empty array frames
       const next = new URLSearchParams(searchParams);
-      [
-        "newPayment",
-        "memberName",
-        "memberId",
-        "service",
-        "className",
-        "bookingId",
-        "chargeId",
-        "amount",
-        "locked",
-      ].forEach((k) => next.delete(k));
+      ["newPayment", "bookingId", "chargeId", "memberName", "memberId", "service", "className", "locked"].forEach((k) =>
+        next.delete(k),
+      );
       setSearchParams(next, { replace: true });
-    } else {
-      // Optional: Only toast an error if transactions data is populated but still missing the target
-      if (transactions.length > 0) {
-        toast.error("No pending charge found to settle");
+    } else if (transactions.length > 0) {
+      // We have data loaded completely, but absolutely no transaction row matches our query definitions
+      toast.error("No pending charge found for this booking");
 
-        // Clear params anyway so it doesn't infinite loop toast on state changes
-        const next = new URLSearchParams(searchParams);
-        [
-          "newPayment",
-          "memberName",
-          "memberId",
-          "service",
-          "className",
-          "bookingId",
-          "chargeId",
-          "amount",
-          "locked",
-        ].forEach((k) => next.delete(k));
-        setSearchParams(next, { replace: true });
-      }
+      const next = new URLSearchParams(searchParams);
+      ["newPayment", "bookingId", "chargeId", "memberName", "memberId", "service", "className", "locked"].forEach((k) =>
+        next.delete(k),
+      );
+      setSearchParams(next, { replace: true });
     }
-  }, [transactions, isLoading, searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, transactions, isLoading, openSettle]);
 
   const handleSettle = async () => {
     if (!settleTxn) return;
     try {
-      const paidAt = new Date();
-      // 1. Flip the canonical row in the dedicated `charges` table.
-      const chargeRowId = (settleTxn as any).chargeRowId as string | undefined;
-      if (chargeRowId) {
-        const { supabase } = await import("@/lib/supabase");
-        const { error } = await supabase
-          .from("charges")
-          .update({ status: "paid", paid_at: paidAt.toISOString() })
-          .eq("id", chargeRowId);
-        if (error) throw error;
-      }
-      // 2. Mirror the status on the legacy transactions row so the list UI updates.
       await updateTransactionMutation.mutateAsync({
         id: settleTxn.id,
         data: {
           status: "paid",
           method: settleMethod,
-          date: paidAt.toISOString().split("T")[0],
+          date: new Date().toISOString().split("T")[0],
         },
       });
-      toast.success(chargeRowId ? "Charge settled — marked paid" : "Payment settled");
-      printBill(settleTxn.memberName, settleTxn.receiptNo, settleTxn.description, settleTxn.total, paidAt);
+      toast.success("Payment settled");
+      printBill(settleTxn.memberName, settleTxn.receiptNo, settleTxn.description, settleTxn.total, new Date());
       setSettleTxn(null);
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to settle payment");
+    } catch {
+      toast.error("Failed to settle payment");
     }
   };
 
