@@ -184,105 +184,44 @@ const Transactions = () => {
   };
 
   // Auto-open the settlement dialog when redirected from a booking.
-  // useEffect(() => {
-  //   if (searchParams.get("newPayment") !== "true") return;
-  //   // Wait until transactions have loaded before deciding.
-  //   if (isLoading) return;
-  //   const chargeId = searchParams.get("chargeId");
-  //   const bookingId = searchParams.get("bookingId");
-  //   const memberId = searchParams.get("memberId");
-  //   let charge: Transaction | undefined;
-  //   if (chargeId) {
-  //     charge = transactions.find((t) => t.id === chargeId);
-  //   }
-  //   if (!charge && bookingId) {
-  //     charge = transactions.find(
-  //       (t) => t.bookingId === bookingId && t.type === "Charge" && t.status === "pending",
-  //     );
-  //   }
-  //   if (!charge && memberId) {
-  //     // Fallback: settle the oldest pending charge for the member.
-  //     charge = transactions.find(
-  //       (t) => t.memberId === memberId && t.type === "Charge" && t.status === "pending",
-  //     );
-  //   }
-  //   if (charge) {
-  //     openSettle(charge, true);
-  //   } else {
-  //     toast.error("No pending charge found to settle");
-  //   }
-  //   // Clear params so it doesn't re-trigger on refresh / state change.
-  //   const next = new URLSearchParams(searchParams);
-  //   ["newPayment", "memberName", "memberId", "service", "className", "bookingId", "chargeId", "amount", "locked"].forEach((k) => next.delete(k));
-  //   setSearchParams(next, { replace: true });
-  // }, [transactions, isLoading, searchParams, setSearchParams]);
-
-  // Auto-open settlement dialog when redirected from booking
   useEffect(() => {
-    const newPayment = searchParams.get("newPayment");
-    const bookingId = searchParams.get("bookingId");
-    const chargeId = searchParams.get("chargeId");
-    const memberId = searchParams.get("memberId");
-
-    if (newPayment !== "true") return;
-
-    // Wait until transactions are fully loaded before declaring a failure
+    if (searchParams.get("newPayment") !== "true") return;
+    // Wait until transactions have loaded before deciding.
     if (isLoading) return;
-
+    const chargeId = searchParams.get("chargeId");
+    const bookingId = searchParams.get("bookingId");
+    const memberId = searchParams.get("memberId");
     let charge: Transaction | undefined;
-
-    // 1. Try matching by explicit chargeId if passed via BookingDetailModal
-    if (chargeId && transactions.length > 0) {
-      charge = transactions.find(
-        (t) => String(t.id) === String(chargeId) || String((t as any).chargeRowId) === String(chargeId),
-      );
+    if (chargeId) {
+      charge = transactions.find((t) => t.id === chargeId);
     }
-
-    // 2. Fallback: Match by bookingId (handling cross-case mutations)
-    if (!charge && bookingId && transactions.length > 0) {
-      charge = transactions.find((t) => {
-        const matchBooking =
-          String(t.bookingId) === String(bookingId) ||
-          (t.meta && String((t.meta as any).bookingId) === String(bookingId));
-        const isPending = t.status === "pending" || t.status === "unpaid" || t.status === "unsettled";
-        const isChargeType = t.type?.toLowerCase() === "charge";
-
-        return matchBooking && isPending && isChargeType;
-      });
+    if (!charge && bookingId) {
+      charge = transactions.find((t) => t.bookingId === bookingId && t.type === "Charge" && t.status === "pending");
     }
-
-    // 3. Fallback: Grab the oldest pending record for this member
-    if (!charge && memberId && transactions.length > 0) {
-      charge = transactions.find(
-        (t) =>
-          String(t.memberId) === String(memberId) &&
-          t.type?.toLowerCase() === "charge" &&
-          (t.status === "pending" || t.status === "unpaid"),
-      );
+    if (!charge && memberId) {
+      // Fallback: settle the oldest pending charge for the member.
+      charge = transactions.find((t) => t.memberId === memberId && t.type === "Charge" && t.status === "pending");
     }
-
-    // CRITICAL EXECUTION CYCLE CONTROL
     if (charge) {
       openSettle(charge, true);
-      toast.success("Settlement modal opened for booking");
-
-      // Clear parameters only on success so we don't clear on temporary empty array frames
-      const next = new URLSearchParams(searchParams);
-      ["newPayment", "bookingId", "chargeId", "memberName", "memberId", "service", "className", "locked"].forEach((k) =>
-        next.delete(k),
-      );
-      setSearchParams(next, { replace: true });
-    } else if (transactions.length > 0) {
-      // We have data loaded completely, but absolutely no transaction row matches our query definitions
-      toast.error("No pending charge found for this booking");
-
-      const next = new URLSearchParams(searchParams);
-      ["newPayment", "bookingId", "chargeId", "memberName", "memberId", "service", "className", "locked"].forEach((k) =>
-        next.delete(k),
-      );
-      setSearchParams(next, { replace: true });
+    } else {
+      toast.error("No pending charge found to settle");
     }
-  }, [searchParams, setSearchParams, transactions, isLoading, openSettle]);
+    // Clear params so it doesn't re-trigger on refresh / state change.
+    const next = new URLSearchParams(searchParams);
+    [
+      "newPayment",
+      "memberName",
+      "memberId",
+      "service",
+      "className",
+      "bookingId",
+      "chargeId",
+      "amount",
+      "locked",
+    ].forEach((k) => next.delete(k));
+    setSearchParams(next, { replace: true });
+  }, [transactions, isLoading, searchParams, setSearchParams]);
 
   const handleSettle = async () => {
     if (!settleTxn) return;
