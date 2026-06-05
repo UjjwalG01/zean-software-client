@@ -287,19 +287,31 @@ const Transactions = () => {
   const handleSettle = async () => {
     if (!settleTxn) return;
     try {
+      const paidAt = new Date();
+      // 1. Flip the canonical row in the dedicated `charges` table.
+      const chargeRowId = (settleTxn as any).chargeRowId as string | undefined;
+      if (chargeRowId) {
+        const { supabase } = await import("@/lib/supabase");
+        const { error } = await supabase
+          .from("charges")
+          .update({ status: "paid", paid_at: paidAt.toISOString() })
+          .eq("id", chargeRowId);
+        if (error) throw error;
+      }
+      // 2. Mirror the status on the legacy transactions row so the list UI updates.
       await updateTransactionMutation.mutateAsync({
         id: settleTxn.id,
         data: {
           status: "paid",
           method: settleMethod,
-          date: new Date().toISOString().split("T")[0],
+          date: paidAt.toISOString().split("T")[0],
         },
       });
-      toast.success("Payment settled");
-      printBill(settleTxn.memberName, settleTxn.receiptNo, settleTxn.description, settleTxn.total, new Date());
+      toast.success(chargeRowId ? "Charge settled — marked paid" : "Payment settled");
+      printBill(settleTxn.memberName, settleTxn.receiptNo, settleTxn.description, settleTxn.total, paidAt);
       setSettleTxn(null);
-    } catch {
-      toast.error("Failed to settle payment");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to settle payment");
     }
   };
 
