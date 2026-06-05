@@ -11,6 +11,8 @@
 // consistent with the existing Firestore/Supabase storage layer.
 import type { Transaction, PaymentMethod, ServiceType } from "./mock-data";
 
+import { supabase } from "./supabase";
+
 type AddFn = (data: Partial<Transaction>) => Promise<string>;
 type UpdateFn = (args: { id: string; data: Partial<Transaction> }) => Promise<unknown>;
 
@@ -27,11 +29,46 @@ export interface ChargeForBookingInput {
   chargeHead?: string;     // service head name (defaults to the service)
 }
 
-/** Create one pending charge row for a freshly-created booking. */
+/**
+ * Create one pending charge row for a freshly-created booking.
+ *
+ * Source of truth: the dedicated `charges` table. We also mirror the row in
+ * the legacy `transactions` table so the Transactions list UI keeps showing
+ * it without a parallel data source. The mirror carries `chargeRowId` so
+ * settlement can flip the canonical `charges` row to `paid`.
+ */
 export async function createChargeForBooking(
   add: AddFn,
   input: ChargeForBookingInput,
 ): Promise<string> {
+  const gross = input.amount;
+  const net = Math.round((gross / 1.13) * 100) / 100;
+  const vat = Math.round((gross - net) * 100) / 100;
+
+  let chargeRowId: string | undefined;
+  try {
+    const { data, error } = await supabase
+      .from("charges")
+      .insert({
+        member_id: input.memberId,
+        member_name: input.memberName,
+        charge_head: input.chargeHead || String(input.service),
+        description: `${input.service} — ${input.className}`,
+        amount: net,
+        vat_amount: vat,
+        total: gross,
+        status: "unpaid",
+        meta: { type: "booking", bookingId: input.bookingId },
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    chargeRowId = data?.id as string;
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn("[charges] failed to insert into charges table; legacy mirror only", e);
+  }
+
   return add({
     memberId: input.memberId,
     memberName: input.memberName,
@@ -44,6 +81,7 @@ export async function createChargeForBooking(
     status: "pending",
     bookingId: input.bookingId,
     chargeHead: input.chargeHead || String(input.service),
+    chargeRowId,
   });
 }
 
