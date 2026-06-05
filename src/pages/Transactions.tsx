@@ -13,7 +13,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TransactionDetailModal } from "@/components/TransactionDetailModal";
 import { RecordChargeModal } from "@/components/RecordChargeModal";
 import { formatNPR, type PaymentMethod, type Transaction } from "@/lib/mock-data";
-import { useTransactions, useAddTransaction, useUpdateTransaction, useMembers, useCompanySettings } from "@/hooks/use-firestore";
+import {
+  useTransactions,
+  useAddTransaction,
+  useUpdateTransaction,
+  useMembers,
+  useCompanySettings,
+} from "@/hooks/use-firestore";
 import { generateA5BillHTML, printHTML, exportTableToCSV } from "@/lib/print-utils";
 import { applyAdvance, settleOldestCharges } from "@/lib/charges";
 import { toast } from "sonner";
@@ -28,7 +34,11 @@ const methodColors: Record<PaymentMethod, string> = {
 };
 
 function parseSetup(settings: Record<string, string>, key: string, fallback: string[]): string[] {
-  try { return settings[key] ? JSON.parse(settings[key]) : fallback; } catch { return fallback; }
+  try {
+    return settings[key] ? JSON.parse(settings[key]) : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 /** Charges that have been paid count as "settled"; pending charges remain due. */
@@ -60,21 +70,34 @@ const Transactions = () => {
   const [isSettlement, setIsSettlement] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
-
   const { data: transactions = [], isLoading } = useTransactions();
   const { data: members = [] } = useMembers();
   const { data: settings = {} } = useCompanySettings();
   const addTransactionMutation = useAddTransaction();
   const updateTransactionMutation = useUpdateTransaction();
 
-  const paymentModes = parseSetup(settings, "setup_paymentModes", ["Cash", "Card", "Esewa", "Bank Transfer", "Mobile Wallet"]);
-  const paymentTypes = parseSetup(settings, "setup_paymentTypes", ["Payment", "Charge", "Advance", "Renewal", "Registration", "Refund"]);
+  const paymentModes = parseSetup(settings, "setup_paymentModes", [
+    "Cash",
+    "Card",
+    "Esewa",
+    "Bank Transfer",
+    "Mobile Wallet",
+  ]);
+  const paymentTypes = parseSetup(settings, "setup_paymentTypes", [
+    "Payment",
+    "Charge",
+    "Advance",
+    "Renewal",
+    "Registration",
+    "Refund",
+  ]);
 
   const filtered = useMemo(() => {
     return transactions.filter((t) => {
-      const matchSearch = t.memberName.toLowerCase().includes(search.toLowerCase())
-        || t.receiptNo.toLowerCase().includes(search.toLowerCase())
-        || (t.description || "").toLowerCase().includes(search.toLowerCase());
+      const matchSearch =
+        t.memberName.toLowerCase().includes(search.toLowerCase()) ||
+        t.receiptNo.toLowerCase().includes(search.toLowerCase()) ||
+        (t.description || "").toLowerCase().includes(search.toLowerCase());
       const matchMethod = methodFilter === "all" || t.method === methodFilter;
       const matchType = typeFilter === "all" || t.type === typeFilter;
       const matchStatus = statusFilter === "all" || statusLabel(t).toLowerCase() === statusFilter;
@@ -112,15 +135,24 @@ const Transactions = () => {
 
   // ─── Add Advance ──────────────────────────────────────────────────
   const handleAddAdvance = async () => {
-    if (!advMember || !advAmount) { toast.error("Please select member and enter amount"); return; }
+    if (!advMember || !advAmount) {
+      toast.error("Please select member and enter amount");
+      return;
+    }
     const memberObj = members.find((m) => m.id === advMember);
     const amount = Number(advAmount);
-    if (amount <= 0) { toast.error("Amount must be greater than zero"); return; }
+    if (amount <= 0) {
+      toast.error("Amount must be greater than zero");
+      return;
+    }
     try {
-      await applyAdvance(
-        (d) => addTransactionMutation.mutateAsync(d) as Promise<string>,
-        { memberId: advMember, memberName: memberObj?.name || "", amount, method: advMethod, note: advNote },
-      );
+      await applyAdvance((d) => addTransactionMutation.mutateAsync(d) as Promise<string>, {
+        memberId: advMember,
+        memberName: memberObj?.name || "",
+        amount,
+        method: advMethod,
+        note: advNote,
+      });
       // Auto-settle oldest pending charges from the (just-paid) advance.
       const leftover = await settleOldestCharges(
         (a) => updateTransactionMutation.mutateAsync(a),
@@ -134,7 +166,10 @@ const Transactions = () => {
           : `Advance of ${formatNPR(amount)} applied to pending charges`,
       );
       setAdvanceOpen(false);
-      setAdvMember(""); setAdvAmount(""); setAdvNote(""); setAdvMethod("Cash");
+      setAdvMember("");
+      setAdvAmount("");
+      setAdvNote("");
+      setAdvMethod("Cash");
     } catch {
       toast.error("Failed to record advance");
     }
@@ -149,37 +184,104 @@ const Transactions = () => {
   };
 
   // Auto-open the settlement dialog when redirected from a booking.
+  // useEffect(() => {
+  //   if (searchParams.get("newPayment") !== "true") return;
+  //   // Wait until transactions have loaded before deciding.
+  //   if (isLoading) return;
+  //   const chargeId = searchParams.get("chargeId");
+  //   const bookingId = searchParams.get("bookingId");
+  //   const memberId = searchParams.get("memberId");
+  //   let charge: Transaction | undefined;
+  //   if (chargeId) {
+  //     charge = transactions.find((t) => t.id === chargeId);
+  //   }
+  //   if (!charge && bookingId) {
+  //     charge = transactions.find(
+  //       (t) => t.bookingId === bookingId && t.type === "Charge" && t.status === "pending",
+  //     );
+  //   }
+  //   if (!charge && memberId) {
+  //     // Fallback: settle the oldest pending charge for the member.
+  //     charge = transactions.find(
+  //       (t) => t.memberId === memberId && t.type === "Charge" && t.status === "pending",
+  //     );
+  //   }
+  //   if (charge) {
+  //     openSettle(charge, true);
+  //   } else {
+  //     toast.error("No pending charge found to settle");
+  //   }
+  //   // Clear params so it doesn't re-trigger on refresh / state change.
+  //   const next = new URLSearchParams(searchParams);
+  //   ["newPayment", "memberName", "memberId", "service", "className", "bookingId", "chargeId", "amount", "locked"].forEach((k) => next.delete(k));
+  //   setSearchParams(next, { replace: true });
+  // }, [transactions, isLoading, searchParams, setSearchParams]);
+
+  // Auto-open the settlement dialog when redirected from a booking.
   useEffect(() => {
     if (searchParams.get("newPayment") !== "true") return;
-    // Wait until transactions have loaded before deciding.
+    // Wait until transactions have finished loading.
     if (isLoading) return;
+
     const chargeId = searchParams.get("chargeId");
     const bookingId = searchParams.get("bookingId");
     const memberId = searchParams.get("memberId");
+
     let charge: Transaction | undefined;
+
+    // 1. Try to match by explicit chargeId
     if (chargeId) {
       charge = transactions.find((t) => t.id === chargeId);
     }
+
+    // 2. Fallback to matching by bookingId
     if (!charge && bookingId) {
-      charge = transactions.find(
-        (t) => t.bookingId === bookingId && t.type === "Charge" && t.status === "pending",
-      );
+      charge = transactions.find((t) => t.bookingId === bookingId && t.type === "Charge" && t.status === "pending");
     }
+
+    // 3. Fallback to the oldest pending charge for the member
     if (!charge && memberId) {
-      // Fallback: settle the oldest pending charge for the member.
-      charge = transactions.find(
-        (t) => t.memberId === memberId && t.type === "Charge" && t.status === "pending",
-      );
+      charge = transactions.find((t) => t.memberId === memberId && t.type === "Charge" && t.status === "pending");
     }
+
     if (charge) {
       openSettle(charge, true);
+
+      // Clear params ONLY after successfully finding and opening the charge
+      const next = new URLSearchParams(searchParams);
+      [
+        "newPayment",
+        "memberName",
+        "memberId",
+        "service",
+        "className",
+        "bookingId",
+        "chargeId",
+        "amount",
+        "locked",
+      ].forEach((k) => next.delete(k));
+      setSearchParams(next, { replace: true });
     } else {
-      toast.error("No pending charge found to settle");
+      // Optional: Only toast an error if transactions data is populated but still missing the target
+      if (transactions.length > 0) {
+        toast.error("No pending charge found to settle");
+
+        // Clear params anyway so it doesn't infinite loop toast on state changes
+        const next = new URLSearchParams(searchParams);
+        [
+          "newPayment",
+          "memberName",
+          "memberId",
+          "service",
+          "className",
+          "bookingId",
+          "chargeId",
+          "amount",
+          "locked",
+        ].forEach((k) => next.delete(k));
+        setSearchParams(next, { replace: true });
+      }
     }
-    // Clear params so it doesn't re-trigger on refresh / state change.
-    const next = new URLSearchParams(searchParams);
-    ["newPayment", "memberName", "memberId", "service", "className", "bookingId", "chargeId", "amount", "locked"].forEach((k) => next.delete(k));
-    setSearchParams(next, { replace: true });
   }, [transactions, isLoading, searchParams, setSearchParams]);
 
   const handleSettle = async () => {
@@ -206,71 +308,118 @@ const Transactions = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold font-display">Transactions</h1>
-          <p className="text-muted-foreground text-sm">{filtered.length} transactions • Total: {formatNPR(totalAmount)}</p>
+          <p className="text-muted-foreground text-sm">
+            {filtered.length} transactions • Total: {formatNPR(totalAmount)}
+          </p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" size="sm" onClick={() => {
-            const headers = ["Receipt #", "Date", "Member", "Method", "Type", "Status", "VAT", "Total"];
-            const rows = filtered.map((t) => [t.receiptNo, t.date, t.memberName, t.method, t.type, statusLabel(t), String(t.vat), String(t.total)]);
-            exportTableToCSV(headers, rows, `transactions-${format(new Date(), "yyyyMMdd")}.csv`, {
-              propertyName: settings.companyName || "VitaFit Club",
-              reportTitle: "Transactions Report",
-              dateRange: format(new Date(), "PPP"),
-              filters: {
-                Search: search || "—",
-                Method: methodFilter === "all" ? "All" : methodFilter,
-                Type: typeFilter === "all" ? "All" : typeFilter,
-                Status: statusFilter === "all" ? "All" : statusFilter,
-                "Total Records": String(filtered.length),
-                "Total Amount (NPR)": String(totalAmount),
-                "Total VAT (NPR)": String(totalVat),
-              },
-            });
-            toast.success(`Exported ${filtered.length} transactions to CSV`);
-          }}>
-            <Download className="h-4 w-4 mr-1" />Export
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const headers = ["Receipt #", "Date", "Member", "Method", "Type", "Status", "VAT", "Total"];
+              const rows = filtered.map((t) => [
+                t.receiptNo,
+                t.date,
+                t.memberName,
+                t.method,
+                t.type,
+                statusLabel(t),
+                String(t.vat),
+                String(t.total),
+              ]);
+              exportTableToCSV(headers, rows, `transactions-${format(new Date(), "yyyyMMdd")}.csv`, {
+                propertyName: settings.companyName || "VitaFit Club",
+                reportTitle: "Transactions Report",
+                dateRange: format(new Date(), "PPP"),
+                filters: {
+                  Search: search || "—",
+                  Method: methodFilter === "all" ? "All" : methodFilter,
+                  Type: typeFilter === "all" ? "All" : typeFilter,
+                  Status: statusFilter === "all" ? "All" : statusFilter,
+                  "Total Records": String(filtered.length),
+                  "Total Amount (NPR)": String(totalAmount),
+                  "Total VAT (NPR)": String(totalVat),
+                },
+              });
+              toast.success(`Exported ${filtered.length} transactions to CSV`);
+            }}
+          >
+            <Download className="h-4 w-4 mr-1" />
+            Export
           </Button>
           <Button variant="outline" size="sm" onClick={() => setChargeOpen(true)}>
-            <FileText className="h-4 w-4 mr-1" />Record Charge
+            <FileText className="h-4 w-4 mr-1" />
+            Record Charge
           </Button>
           <Dialog open={advanceOpen} onOpenChange={setAdvanceOpen}>
             <DialogTrigger asChild>
-              <Button size="sm"><Plus className="h-4 w-4 mr-1" />Add Advance</Button>
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-1" />
+                Add Advance
+              </Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle className="font-display">Add Advance</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle className="font-display">Add Advance</DialogTitle>
+              </DialogHeader>
               <div className="space-y-4">
                 <p className="text-xs text-muted-foreground">
-                  Advances are deducted from the member's outstanding due balance.
-                  Any leftover is kept as credit.
+                  Advances are deducted from the member's outstanding due balance. Any leftover is kept as credit.
                 </p>
                 <div className="space-y-2">
                   <Label>Member *</Label>
                   <Select value={advMember} onValueChange={setAdvMember}>
-                    <SelectTrigger><SelectValue placeholder="Select member" /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select member" />
+                    </SelectTrigger>
                     <SelectContent>
-                      {members.map((m) => (<SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>))}
+                      {members.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Advance Amount (NPR) *</Label>
-                  <Input type="number" placeholder="0" value={advAmount} onChange={(e) => setAdvAmount(e.target.value)} />
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={advAmount}
+                    onChange={(e) => setAdvAmount(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Payment Method</Label>
                   <Select value={advMethod} onValueChange={(v) => setAdvMethod(v as PaymentMethod)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      {paymentModes.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
+                      {paymentModes.map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {m}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Note</Label>
-                  <Textarea rows={2} value={advNote} onChange={(e) => setAdvNote(e.target.value)} placeholder="Optional context" />
+                  <Textarea
+                    rows={2}
+                    value={advNote}
+                    onChange={(e) => setAdvNote(e.target.value)}
+                    placeholder="Optional context"
+                  />
                 </div>
-                <Button onClick={handleAddAdvance} disabled={addTransactionMutation.isPending} className="w-full gradient-gold text-primary-foreground">
+                <Button
+                  onClick={handleAddAdvance}
+                  disabled={addTransactionMutation.isPending}
+                  className="w-full gradient-gold text-primary-foreground"
+                >
                   <Receipt className="h-4 w-4 mr-1" />
                   {addTransactionMutation.isPending ? "Saving..." : "Record Advance"}
                 </Button>
@@ -301,24 +450,43 @@ const Transactions = () => {
       <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search by member, receipt, description..." className="pl-9 bg-muted/50 border-0" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Input
+            placeholder="Search by member, receipt, description..."
+            className="pl-9 bg-muted/50 border-0"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
         <Select value={methodFilter} onValueChange={setMethodFilter}>
-          <SelectTrigger className="w-[140px] bg-muted/50 border-0"><SelectValue placeholder="Method" /></SelectTrigger>
+          <SelectTrigger className="w-[140px] bg-muted/50 border-0">
+            <SelectValue placeholder="Method" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Methods</SelectItem>
-            {paymentModes.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+            {paymentModes.map((m) => (
+              <SelectItem key={m} value={m}>
+                {m}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-[130px] bg-muted/50 border-0"><SelectValue placeholder="Type" /></SelectTrigger>
+          <SelectTrigger className="w-[130px] bg-muted/50 border-0">
+            <SelectValue placeholder="Type" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Types</SelectItem>
-            {paymentTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+            {paymentTypes.map((t) => (
+              <SelectItem key={t} value={t}>
+                {t}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[130px] bg-muted/50 border-0"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectTrigger className="w-[130px] bg-muted/50 border-0">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
@@ -330,7 +498,11 @@ const Transactions = () => {
 
       <div className="glass-card rounded-xl overflow-hidden">
         {isLoading ? (
-          <div className="p-4 space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}</div>
+          <div className="p-4 space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-12 rounded-lg" />
+            ))}
+          </div>
         ) : (
           <Table>
             <TableHeader>
@@ -349,14 +521,29 @@ const Transactions = () => {
               {filtered.map((t) => {
                 const sl = statusLabel(t);
                 return (
-                  <TableRow key={t.id} className="cursor-pointer" onClick={() => { setSelectedTransaction(t); setDetailOpen(true); }}>
+                  <TableRow
+                    key={t.id}
+                    className="cursor-pointer"
+                    onClick={() => {
+                      setSelectedTransaction(t);
+                      setDetailOpen(true);
+                    }}
+                  >
                     <TableCell className="font-mono text-xs text-muted-foreground">{t.receiptNo}</TableCell>
                     <TableCell className="text-sm">{t.date}</TableCell>
                     <TableCell className="text-sm font-medium">{t.memberName}</TableCell>
                     <TableCell>
-                      <Badge className={`text-[10px] border-0 ${methodColors[t.method] || "bg-muted text-muted-foreground"}`}>{t.method}</Badge>
+                      <Badge
+                        className={`text-[10px] border-0 ${methodColors[t.method] || "bg-muted text-muted-foreground"}`}
+                      >
+                        {t.method}
+                      </Badge>
                     </TableCell>
-                    <TableCell><Badge variant="outline" className="text-[10px]">{t.type}</Badge></TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-[10px]">
+                        {t.type}
+                      </Badge>
+                    </TableCell>
                     <TableCell>
                       {sl === "Voided" ? (
                         <Badge className="text-[10px] border-0 bg-destructive/20 text-destructive">Voided</Badge>
@@ -375,10 +562,24 @@ const Transactions = () => {
                           </Button>
                         ) : sl === "Settled" ? (
                           <>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Print" onClick={() => printBill(t.memberName, t.receiptNo, t.description, t.total, new Date(t.date))}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title="Print"
+                              onClick={() =>
+                                printBill(t.memberName, t.receiptNo, t.description, t.total, new Date(t.date))
+                              }
+                            >
                               <Printer className="h-3.5 w-3.5" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Resettle" onClick={() => openSettle(t)}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title="Resettle"
+                              onClick={() => openSettle(t)}
+                            >
                               <RotateCcw className="h-3.5 w-3.5" />
                             </Button>
                           </>
@@ -394,7 +595,15 @@ const Transactions = () => {
       </div>
 
       {/* Settle / Resettle dialog */}
-      <Dialog open={!!settleTxn} onOpenChange={(o) => { if (!o) { setSettleTxn(null); setIsSettlement(false); } }}>
+      <Dialog
+        open={!!settleTxn}
+        onOpenChange={(o) => {
+          if (!o) {
+            setSettleTxn(null);
+            setIsSettlement(false);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="font-display">
@@ -428,17 +637,32 @@ const Transactions = () => {
               <div className="space-y-2">
                 <Label>Payment Method *</Label>
                 <Select value={settleMethod} onValueChange={(v) => setSettleMethod(v as PaymentMethod)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {paymentModes.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                    {paymentModes.map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {m}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label>Note</Label>
-                <Textarea rows={2} value={settleNote} onChange={(e) => setSettleNote(e.target.value)} placeholder="Optional" />
+                <Textarea
+                  rows={2}
+                  value={settleNote}
+                  onChange={(e) => setSettleNote(e.target.value)}
+                  placeholder="Optional"
+                />
               </div>
-              <Button onClick={handleSettle} disabled={updateTransactionMutation.isPending} className="w-full gradient-gold text-primary-foreground">
+              <Button
+                onClick={handleSettle}
+                disabled={updateTransactionMutation.isPending}
+                className="w-full gradient-gold text-primary-foreground"
+              >
                 <Receipt className="h-4 w-4 mr-1" />
                 {updateTransactionMutation.isPending ? "Saving..." : "Settle & Print Bill"}
               </Button>
