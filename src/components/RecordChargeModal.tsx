@@ -24,7 +24,8 @@ interface Props {
  */
 export function RecordChargeModal({ open, onOpenChange }: Props) {
   const { data: members = [] } = useMembers();
-  const addTransaction = useAddTransaction();
+  const qc = useQueryClient();
+  const [submitting, setSubmitting] = useState(false);
   const [heads, setHeads] = useState<ChargeHead[]>([]);
   const [memberId, setMemberId] = useState("");
   const [headId, setHeadId] = useState("");
