@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
@@ -29,7 +36,11 @@ const serviceColors: Record<string, string> = {
 };
 
 function parseSetup(settings: Record<string, string>, key: string, fallback: string[]): string[] {
-  try { return settings[key] ? JSON.parse(settings[key]) : fallback; } catch { return fallback; }
+  try {
+    return settings[key] ? JSON.parse(settings[key]) : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 function isFutureBooking(b: Booking): boolean {
@@ -49,7 +60,12 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
   // Edit state
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({
-    date: "", startTime: "", endTime: "", service: "Gym" as ServiceType, className: "", instructor: "",
+    date: "",
+    startTime: "",
+    endTime: "",
+    service: "Gym" as ServiceType,
+    className: "",
+    instructor: "",
   });
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
@@ -59,8 +75,12 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
   useEffect(() => {
     if (b) {
       setEditForm({
-        date: b.date, startTime: b.startTime, endTime: b.endTime,
-        service: b.service, className: b.className, instructor: b.instructor || "",
+        date: b.date,
+        startTime: b.startTime,
+        endTime: b.endTime,
+        service: b.service,
+        className: b.className,
+        instructor: b.instructor || "",
       });
       setEditing(false);
     }
@@ -73,11 +93,11 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
 
   // "Bill" — keep the booking on this page, send the user to record payment
   // for it; the booking stays in its current status until a real payment is settled.
-  const handleBillNow = () => {
+  const handleBillNow = async () => {
     // Look up the pending charge already posted for this booking so we can
     // pass its id directly — the Transactions page will open the settlement
     // dialog immediately without depending on data refetch timing.
-    const linkedCharge = transactions.find(
+    const linkedCharge = await transactions.find(
       (t) => t.bookingId === b.id && t.type === "Charge" && t.status === "pending",
     );
     onOpenChange(false);
@@ -188,7 +208,16 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setLocalStatus(null); setEditing(false); } }}>
+      <Dialog
+        open={open}
+        onOpenChange={(v) => {
+          onOpenChange(v);
+          if (!v) {
+            setLocalStatus(null);
+            setEditing(false);
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-[460px]">
           <DialogHeader>
             <DialogTitle className="font-display flex items-center gap-2">
@@ -201,30 +230,74 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label>Class / Session</Label>
-                <Input value={editForm.className} onChange={(e) => setEditForm((p) => ({ ...p, className: e.target.value }))} />
+                <Input
+                  value={editForm.className}
+                  onChange={(e) => setEditForm((p) => ({ ...p, className: e.target.value }))}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Service</Label>
-                <Select value={editForm.service} onValueChange={(v) => setEditForm((p) => ({ ...p, service: v as ServiceType }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select
+                  value={editForm.service}
+                  onValueChange={(v) => setEditForm((p) => ({ ...p, service: v as ServiceType }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {setupServiceTypes.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    {setupServiceTypes.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1.5"><Label>Date</Label><Input type="date" value={editForm.date} onChange={(e) => setEditForm((p) => ({ ...p, date: e.target.value }))} /></div>
-                <div className="space-y-1.5"><Label>Start</Label><Input type="time" value={editForm.startTime} onChange={(e) => setEditForm((p) => ({ ...p, startTime: e.target.value }))} /></div>
-                <div className="space-y-1.5"><Label>End</Label><Input type="time" value={editForm.endTime} onChange={(e) => setEditForm((p) => ({ ...p, endTime: e.target.value }))} /></div>
+                <div className="space-y-1.5">
+                  <Label>Date</Label>
+                  <Input
+                    type="date"
+                    value={editForm.date}
+                    onChange={(e) => setEditForm((p) => ({ ...p, date: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Start</Label>
+                  <Input
+                    type="time"
+                    value={editForm.startTime}
+                    onChange={(e) => setEditForm((p) => ({ ...p, startTime: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>End</Label>
+                  <Input
+                    type="time"
+                    value={editForm.endTime}
+                    onChange={(e) => setEditForm((p) => ({ ...p, endTime: e.target.value }))}
+                  />
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label>Instructor</Label>
-                <Input value={editForm.instructor} onChange={(e) => setEditForm((p) => ({ ...p, instructor: e.target.value }))} />
+                <Input
+                  value={editForm.instructor}
+                  onChange={(e) => setEditForm((p) => ({ ...p, instructor: e.target.value }))}
+                />
               </div>
               <DialogFooter className="pt-2">
-                <Button variant="outline" onClick={() => setEditing(false)}><X className="h-4 w-4 mr-1" />Cancel</Button>
-                <Button onClick={handleSaveEdit} disabled={updateBooking.isPending} className="gradient-gold text-primary-foreground">
-                  <Save className="h-4 w-4 mr-1" />{updateBooking.isPending ? "Saving..." : "Save Changes"}
+                <Button variant="outline" onClick={() => setEditing(false)}>
+                  <X className="h-4 w-4 mr-1" />
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSaveEdit}
+                  disabled={updateBooking.isPending}
+                  className="gradient-gold text-primary-foreground"
+                >
+                  <Save className="h-4 w-4 mr-1" />
+                  {updateBooking.isPending ? "Saving..." : "Save Changes"}
                 </Button>
               </DialogFooter>
             </div>
@@ -251,7 +324,9 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
                 <div className="flex items-center gap-3 text-sm">
                   <Clock className="h-4 w-4 text-muted-foreground" />
                   <span className="text-muted-foreground">Time</span>
-                  <span className="ml-auto font-medium">{b.startTime} – {b.endTime}</span>
+                  <span className="ml-auto font-medium">
+                    {b.startTime} – {b.endTime}
+                  </span>
                 </div>
                 <Separator />
                 <div className="flex items-center gap-3 text-sm">
@@ -263,7 +338,15 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
                 <div className="flex items-center gap-3 text-sm">
                   <span className="text-muted-foreground ml-7">Status</span>
                   <Badge
-                    variant={status === "Confirmed" ? "default" : status === "Completed" ? "default" : status === "Pending" ? "secondary" : "destructive"}
+                    variant={
+                      status === "Confirmed"
+                        ? "default"
+                        : status === "Completed"
+                          ? "default"
+                          : status === "Pending"
+                            ? "secondary"
+                            : "destructive"
+                    }
                     className={`ml-auto text-xs ${status === "Completed" ? "bg-success/20 text-success border-0" : ""}`}
                   >
                     {status}
@@ -275,27 +358,33 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
                 {canEdit && (
                   <>
                     <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
-                      <Pencil className="h-4 w-4 mr-1" />Amend
+                      <Pencil className="h-4 w-4 mr-1" />
+                      Amend
                     </Button>
-                    <Button size="sm" variant="outline" className="text-amber-500 hover:bg-amber-500/10" onClick={() => setConfirmCancel(true)}>
-                      <Ban className="h-4 w-4 mr-1" />Cancel
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-amber-500 hover:bg-amber-500/10"
+                      onClick={() => setConfirmCancel(true)}
+                    >
+                      <Ban className="h-4 w-4 mr-1" />
+                      Cancel
                     </Button>
                   </>
                 )}
                 {/* Completed bookings: print bill only, no further billing/payment redirect */}
                 {status === "Completed" ? (
                   <Button size="sm" variant="outline" className="flex-1" onClick={handleGenerateBill}>
-                    <Printer className="h-4 w-4 mr-1" />Print Bill
+                    <Printer className="h-4 w-4 mr-1" />
+                    Print Bill
                   </Button>
-                ) : status !== "Cancelled" && (
-                  <Button
-                    size="sm"
-                    className="flex-1 gradient-gold text-primary-foreground"
-                    onClick={handleBillNow}
-                  >
-                    <Receipt className="h-4 w-4 mr-1" />
-                    Billing / Record Payment
-                  </Button>
+                ) : (
+                  status !== "Cancelled" && (
+                    <Button size="sm" className="flex-1 gradient-gold text-primary-foreground" onClick={handleBillNow}>
+                      <Receipt className="h-4 w-4 mr-1" />
+                      Billing / Record Payment
+                    </Button>
+                  )
                 )}
               </div>
             </div>
@@ -304,7 +393,6 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
       </Dialog>
 
       {/* (Delete confirmation removed — bookings are cancelled, not deleted) */}
-
 
       {/* Cancel confirmation */}
       <Dialog open={confirmCancel} onOpenChange={setConfirmCancel}>
@@ -319,13 +407,22 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
           </DialogHeader>
           <div className="space-y-2">
             <Label>Reason *</Label>
-            <Textarea rows={3} placeholder="e.g. member requested reschedule" value={cancelReason}
-              onChange={(e) => setCancelReason(e.target.value)} />
+            <Textarea
+              rows={3}
+              placeholder="e.g. member requested reschedule"
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+            />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmCancel(false)}>Keep Booking</Button>
-            <Button onClick={handleCancel} disabled={updateBooking.isPending}
-              className="bg-amber-500 hover:bg-amber-500/90 text-white">
+            <Button variant="outline" onClick={() => setConfirmCancel(false)}>
+              Keep Booking
+            </Button>
+            <Button
+              onClick={handleCancel}
+              disabled={updateBooking.isPending}
+              className="bg-amber-500 hover:bg-amber-500/90 text-white"
+            >
               {updateBooking.isPending ? "Cancelling..." : "Confirm Cancel"}
             </Button>
           </DialogFooter>
