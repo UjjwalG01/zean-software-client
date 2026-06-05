@@ -24,7 +24,7 @@ interface SendBody {
 }
 
 function escapeHtml(s: string) {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
 
 Deno.serve(async (req) => {
@@ -33,24 +33,35 @@ Deno.serve(async (req) => {
   const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
   if (!RESEND_API_KEY) {
     return new Response(JSON.stringify({ error: "RESEND_API_KEY is not configured" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
   let body: SendBody;
-  try { body = await req.json(); } catch {
-    return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  try {
+    body = await req.json();
+  } catch {
+    return new Response(JSON.stringify({ error: "Invalid JSON" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   const { to, subject, html, text, from, templateKey, recipientName } = body;
   if (!to || !subject || (!html && !text)) {
     return new Response(JSON.stringify({ error: "to, subject, and html|text are required" }), {
-      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  const renderedHtml = html ?? (text ?? "")
-    .split("\n").map((l) => l.length === 0 ? "<br/>" : `<p style="margin:0 0 8px">${escapeHtml(l)}</p>`).join("");
+  const renderedHtml =
+    html ??
+    (text ?? "")
+      .split("\n")
+      .map((l) => (l.length === 0 ? "<br/>" : `<p style="margin:0 0 8px">${escapeHtml(l)}</p>`))
+      .join("");
 
   const supa = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -65,7 +76,7 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${RESEND_API_KEY}` },
       body: JSON.stringify({
-        from: from || "VitaFit Club <onboarding@resend.dev>",
+        from: from || "ZeanFit Club <onboarding@resend.dev>",
         to: [to],
         subject,
         html: renderedHtml,
@@ -82,16 +93,22 @@ Deno.serve(async (req) => {
   }
 
   // Log (best-effort — never block the response)
-  await supa.from("email_reminders").insert({
-    recipient_email: to,
-    recipient_name: recipientName ?? null,
-    template_key: templateKey ?? null,
-    subject,
-    body: text ?? renderedHtml,
-    channel: "resend",
-    status,
-    error_message: errorMessage ?? null,
-  }).then(() => {}, () => {});
+  await supa
+    .from("email_reminders")
+    .insert({
+      recipient_email: to,
+      recipient_name: recipientName ?? null,
+      template_key: templateKey ?? null,
+      subject,
+      body: text ?? renderedHtml,
+      channel: "resend",
+      status,
+      error_message: errorMessage ?? null,
+    })
+    .then(
+      () => {},
+      () => {},
+    );
 
   return new Response(JSON.stringify({ ok: status === "sent", status, error: errorMessage }), {
     status: status === "sent" ? 200 : 502,
