@@ -151,21 +151,36 @@ const Transactions = () => {
   // Auto-open the settlement dialog when redirected from a booking.
   useEffect(() => {
     if (searchParams.get("newPayment") !== "true") return;
+    // Wait until transactions have loaded before deciding.
+    if (isLoading) return;
+    const chargeId = searchParams.get("chargeId");
     const bookingId = searchParams.get("bookingId");
-    if (!bookingId || !transactions.length) return;
-    const charge = transactions.find(
-      (t) => t.bookingId === bookingId && t.type === "Charge" && t.status === "pending",
-    );
+    const memberId = searchParams.get("memberId");
+    let charge: Transaction | undefined;
+    if (chargeId) {
+      charge = transactions.find((t) => t.id === chargeId);
+    }
+    if (!charge && bookingId) {
+      charge = transactions.find(
+        (t) => t.bookingId === bookingId && t.type === "Charge" && t.status === "pending",
+      );
+    }
+    if (!charge && memberId) {
+      // Fallback: settle the oldest pending charge for the member.
+      charge = transactions.find(
+        (t) => t.memberId === memberId && t.type === "Charge" && t.status === "pending",
+      );
+    }
     if (charge) {
       openSettle(charge, true);
     } else {
-      toast.error("No pending charge found for this booking");
+      toast.error("No pending charge found to settle");
     }
-    // Clear params so it doesn't re-trigger
+    // Clear params so it doesn't re-trigger on refresh / state change.
     const next = new URLSearchParams(searchParams);
-    ["newPayment", "memberName", "memberId", "service", "className", "bookingId", "locked"].forEach((k) => next.delete(k));
+    ["newPayment", "memberName", "memberId", "service", "className", "bookingId", "chargeId", "amount", "locked"].forEach((k) => next.delete(k));
     setSearchParams(next, { replace: true });
-  }, [transactions, searchParams, setSearchParams]);
+  }, [transactions, isLoading, searchParams, setSearchParams]);
 
   const handleSettle = async () => {
     if (!settleTxn) return;

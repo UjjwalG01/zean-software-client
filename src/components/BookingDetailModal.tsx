@@ -74,6 +74,12 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
   // "Bill" — keep the booking on this page, send the user to record payment
   // for it; the booking stays in its current status until a real payment is settled.
   const handleBillNow = () => {
+    // Look up the pending charge already posted for this booking so we can
+    // pass its id directly — the Transactions page will open the settlement
+    // dialog immediately without depending on data refetch timing.
+    const linkedCharge = transactions.find(
+      (t) => t.bookingId === b.id && t.type === "Charge" && t.status === "pending",
+    );
     onOpenChange(false);
     const params = new URLSearchParams({
       newPayment: "true",
@@ -84,6 +90,7 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
       bookingId: b.id,
       locked: "1",
     });
+    if (linkedCharge) params.set("chargeId", linkedCharge.id);
     navigate(`/transactions?${params.toString()}`);
   };
 
