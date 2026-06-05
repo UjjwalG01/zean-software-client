@@ -174,8 +174,8 @@ export function RecordChargeModal({ open, onOpenChange }: Props) {
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={addTransaction.isPending}>
-            {addTransaction.isPending ? "Posting…" : "Post Charge"}
+          <Button onClick={submit} disabled={submitting}>
+            {submitting ? "Posting…" : "Post Charge"}
           </Button>
         </DialogFooter>
       </DialogContent>
