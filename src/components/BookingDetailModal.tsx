@@ -164,6 +164,17 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
       );
       for (const c of linkedCharges) {
         await updateTransaction.mutateAsync({ id: c.id, data: { status: "voided" } as any });
+        // Also void the canonical row in the dedicated `charges` table.
+        const chargeRowId = (c as any).chargeRowId as string | undefined;
+        if (chargeRowId) {
+          try {
+            const { supabase } = await import("@/lib/supabase");
+            await supabase.from("charges").update({ status: "unpaid", meta: { voided: true, bookingId: b.id } }).eq("id", chargeRowId);
+          } catch (err) {
+            // eslint-disable-next-line no-console
+            console.warn("[bookings] failed to void canonical charge row", err);
+          }
+        }
       }
       toast.success(
         linkedCharges.length

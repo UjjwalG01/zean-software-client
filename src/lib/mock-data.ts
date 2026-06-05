@@ -104,6 +104,8 @@ export interface Transaction {
   /** Bookings → charge → payment linkage */
   linkedBookingId?: string;
   linkedChargeIds?: string[];
+  /** Row id in the dedicated `charges` table (when this tx mirrors a charge row). */
+  chargeRowId?: string;
 }
 
 export interface AttendanceRecord {
