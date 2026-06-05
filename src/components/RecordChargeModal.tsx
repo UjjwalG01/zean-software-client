@@ -6,9 +6,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { useMembers, useAddTransaction } from "@/hooks/use-firestore";
+import { useMembers } from "@/hooks/use-firestore";
 import { chargeHeadsStore, type ChargeHead } from "@/lib/charge-heads-store";
 import { formatNPR } from "@/lib/mock-data";
+import { supabase } from "@/lib/supabase";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface Props {
   open: boolean;
