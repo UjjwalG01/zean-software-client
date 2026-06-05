@@ -229,10 +229,11 @@ const Bookings_Page = () => {
       // is updated the moment the booking is created.
       const basePrice = Number(selectedService.price || 0);
       const finalPrice = useDiscountedRate && discountedRate ? Number(discountedRate) : basePrice;
+      let chargeId = "";
       if (finalPrice > 0) {
         try {
           const { createChargeForBooking } = await import("@/lib/charges");
-          await createChargeForBooking(
+          chargeId = await createChargeForBooking(
             (d) => addTransactionMutation.mutateAsync(d) as Promise<string>,
             {
               memberId: bookMember,
@@ -250,14 +251,24 @@ const Bookings_Page = () => {
         }
       }
 
-      toast.success("Booking created — charge posted to member ledger");
+      toast.success("Booking created — redirecting to payment");
       setDialogOpen(false);
+      const params = new URLSearchParams({
+        newPayment: "true",
+        memberId: bookMember,
+        memberName: memberObj?.name || "",
+        service: selectedService.type,
+        className: selectedService.name,
+        amount: String(finalPrice),
+        bookingId: String(bookingId || ""),
+        chargeId: chargeId,
+        locked: "1",
+      });
       setBookMember(""); setMemberSearch(""); setBookServiceId("");
       setBookInstructor(""); setBookTimeSlot("");
       setBookStartTime(""); setBookEndTime("");
       setUseDiscountedRate(false); setDiscountedRate("");
-      // Stay on the bookings page — the new pending charge can be settled
-      // from Transactions whenever the member is ready to pay.
+      navigate(`/transactions?${params.toString()}`);
     } catch {
       toast.error("Failed to create booking");
     }

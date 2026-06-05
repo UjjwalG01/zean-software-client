@@ -202,6 +202,30 @@ const Transactions = () => {
       // Fallback: settle the oldest pending charge for the member.
       charge = transactions.find((t) => t.memberId === memberId && t.type === "Charge" && t.status === "pending");
     }
+    if (!charge && memberId) {
+      // Dynamic fallback: construct a temporary charge transaction so the modal can open.
+      const amountStr = searchParams.get("amount");
+      const serviceStr = searchParams.get("service") || "Service";
+      const classNameStr = searchParams.get("className") || "";
+      const memberNameStr = searchParams.get("memberName") || "";
+      if (amountStr) {
+        charge = {
+          id: `TEMP-${Date.now()}`,
+          memberId,
+          memberName: memberNameStr,
+          amount: Number(amountStr),
+          vat: Math.round((Number(amountStr) - (Number(amountStr) / 1.13)) * 100) / 100,
+          total: Number(amountStr),
+          method: "Cash",
+          type: "Charge",
+          date: new Date().toISOString().split("T")[0],
+          description: `${serviceStr} — ${classNameStr}`,
+          receiptNo: `VFC-${Date.now()}`,
+          status: "pending",
+          bookingId: bookingId || undefined,
+        };
+      }
+    }
     if (charge) {
       openSettle(charge, true);
     } else {
@@ -226,18 +250,36 @@ const Transactions = () => {
   const handleSettle = async () => {
     if (!settleTxn) return;
     try {
-      await updateTransactionMutation.mutateAsync({
-        id: settleTxn.id,
-        data: {
-          status: "paid",
+      if (settleTxn.id.startsWith("TEMP-")) {
+        // Book a sale and make a settlement in one go
+        await addTransactionMutation.mutateAsync({
+          memberId: settleTxn.memberId,
+          memberName: settleTxn.memberName,
+          amount: settleTxn.amount,
+          vat: settleTxn.vat,
+          total: settleTxn.total,
           method: settleMethod,
+          type: "Charge",
           date: new Date().toISOString().split("T")[0],
-        },
-      });
+          description: settleTxn.description,
+          receiptNo: settleTxn.receiptNo,
+          status: "paid",
+          bookingId: settleTxn.bookingId,
+        });
+      } else {
+        await updateTransactionMutation.mutateAsync({
+          id: settleTxn.id,
+          data: {
+            status: "paid",
+            method: settleMethod,
+            date: new Date().toISOString().split("T")[0],
+          },
+        });
+      }
       toast.success("Payment settled");
       printBill(settleTxn.memberName, settleTxn.receiptNo, settleTxn.description, settleTxn.total, new Date());
       setSettleTxn(null);
-    } catch {
+    } catch (e) {
       toast.error("Failed to settle payment");
     }
   };

@@ -94,8 +94,21 @@ export function useAddBooking() {
   return useMutation({
     mutationFn: async (data: Partial<Booking>) => {
       if (!firebaseEnabled) {
+        const newBooking = {
+          id: `B-${Date.now()}`,
+          memberId: data.memberId || "",
+          memberName: data.memberName || "",
+          service: data.service || "Gym",
+          className: data.className || "",
+          date: data.date || "",
+          startTime: data.startTime || "",
+          endTime: data.endTime || "",
+          status: data.status || "Pending",
+          instructor: data.instructor || "",
+        } as Booking;
+        mockBookings.push(newBooking);
         toast.success("Booking created (mock mode)");
-        return "mock-id";
+        return newBooking.id;
       }
       return fbServices.addBooking(data);
     },
@@ -107,7 +120,13 @@ export function useUpdateBooking() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Record<string, any>> }) => {
-      if (!firebaseEnabled) return;
+      if (!firebaseEnabled) {
+        const b = mockBookings.find((x) => x.id === id);
+        if (b) {
+          Object.assign(b, data);
+        }
+        return;
+      }
       return fbServices.updateBooking(id, data);
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["bookings"] }); },
@@ -118,7 +137,11 @@ export function useDeleteBooking() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!firebaseEnabled) return;
+      if (!firebaseEnabled) {
+        const idx = mockBookings.findIndex((x) => x.id === id);
+        if (idx !== -1) mockBookings.splice(idx, 1);
+        return;
+      }
       return fbServices.deleteBooking(id);
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["bookings"] }); },
@@ -141,8 +164,26 @@ export function useAddTransaction() {
   return useMutation({
     mutationFn: async (data: Partial<Transaction>) => {
       if (!firebaseEnabled) {
+        const newTx = {
+          id: `T-${Date.now()}`,
+          receiptNo: data.receiptNo || `VFC-${Date.now()}`,
+          memberId: data.memberId || "",
+          memberName: data.memberName || "",
+          amount: data.amount || 0,
+          vat: data.vat || Math.round((Number(data.amount || 0) - (Number(data.amount || 0) / 1.13)) * 100) / 100,
+          total: data.total || data.amount || 0,
+          method: data.method || "Cash",
+          type: data.type || "Charge",
+          date: data.date || new Date().toISOString().split("T")[0],
+          description: data.description || "",
+          status: data.status || "pending",
+          bookingId: data.bookingId,
+          chargeHead: data.chargeHead,
+          chargeRowId: data.chargeRowId,
+        } as Transaction;
+        mockTransactions.push(newTx);
         toast.success("Payment recorded (mock mode)");
-        return "mock-id";
+        return newTx.id;
       }
       return fbServices.addTransaction(data);
     },
@@ -154,7 +195,14 @@ export function useUpdateTransaction() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Transaction> }) => {
-      if (!firebaseEnabled) return;
+      if (!firebaseEnabled) {
+        const tx = mockTransactions.find((t) => t.id === id);
+        if (tx) {
+          Object.assign(tx, data);
+          toast.success("Transaction updated (mock mode)");
+        }
+        return;
+      }
       return fbServices.updateTransaction(id, data);
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["transactions"] }); },

@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CalendarDays, Clock, User, Dumbbell, Printer, Pencil, Save, X, Ban, Receipt } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import type { Booking, ServiceType } from "@/lib/mock-data";
-import { useUpdateBooking, useCompanySettings, useTransactions, useUpdateTransaction } from "@/hooks/use-firestore";
+import { useUpdateBooking, useCompanySettings, useTransactions, useUpdateTransaction, useServices } from "@/hooks/use-firestore";
 import { generateA5BillHTML, printHTML } from "@/lib/print-utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -55,6 +55,7 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
   const updateTransaction = useUpdateTransaction();
   const { data: transactions = [] } = useTransactions();
   const { data: settings = {} } = useCompanySettings();
+  const { data: services = [] } = useServices();
   const [localStatus, setLocalStatus] = useState<string | null>(null);
 
   // Edit state
@@ -97,9 +98,13 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
     // Look up the pending charge already posted for this booking so we can
     // pass its id directly — the Transactions page will open the settlement
     // dialog immediately without depending on data refetch timing.
-    const linkedCharge = await transactions.find(
+    const linkedCharge = transactions.find(
       (t) => t.bookingId === b.id && t.type === "Charge" && t.status === "pending",
     );
+    // Look up default price
+    const svc = services.find((s) => s.name === b.className || s.type === b.service);
+    const amount = svc ? String(svc.price || 0) : "0";
+
     onOpenChange(false);
     const params = new URLSearchParams({
       newPayment: "true",
@@ -108,6 +113,7 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
       service: b.service,
       className: b.className,
       bookingId: b.id,
+      amount,
       locked: "1",
     });
     if (linkedCharge) params.set("chargeId", linkedCharge.id);
