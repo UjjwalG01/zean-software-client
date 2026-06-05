@@ -68,25 +68,28 @@ export function RecordChargeModal({ open, onOpenChange }: Props) {
       return;
     }
     const member = members.find((m) => m.id === memberId);
+    setSubmitting(true);
     try {
-      await addTransaction.mutateAsync({
-        memberId,
-        memberName: member?.name || "",
+      const { error } = await supabase.from("charges").insert({
+        member_id: memberId,
+        member_name: member?.name || "",
+        charge_head: selectedHead.name,
+        description: note || null,
         amount: net,
-        vat,
+        vat_amount: vat,
         total: gross,
-        // method: "Cash",
-        type: "Charge" as any,
-        date: new Date().toISOString().split("T")[0],
-        description: `${selectedHead.name}${note ? ` — ${note}` : ""}`,
-        receiptNo: `CHG-${Date.now()}`,
         status: "unpaid",
-        chargeHead: selectedHead.name,
+        meta: { type: "manual" },
       });
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ["charges"] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
       toast.success(`Charge of ${formatNPR(gross)} posted to ${member?.name}`);
       onOpenChange(false);
-    } catch {
-      toast.error("Failed to record charge");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to record charge");
+    } finally {
+      setSubmitting(false);
     }
   };
 
