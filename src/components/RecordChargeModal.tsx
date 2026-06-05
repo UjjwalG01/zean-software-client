@@ -6,9 +6,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { useMembers, useAddTransaction } from "@/hooks/use-firestore";
+import { useMembers } from "@/hooks/use-firestore";
 import { chargeHeadsStore, type ChargeHead } from "@/lib/charge-heads-store";
 import { formatNPR } from "@/lib/mock-data";
+import { supabase } from "@/lib/supabase";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface Props {
   open: boolean;
@@ -22,7 +24,8 @@ interface Props {
  */
 export function RecordChargeModal({ open, onOpenChange }: Props) {
   const { data: members = [] } = useMembers();
-  const addTransaction = useAddTransaction();
+  const qc = useQueryClient();
+  const [submitting, setSubmitting] = useState(false);
   const [heads, setHeads] = useState<ChargeHead[]>([]);
   const [memberId, setMemberId] = useState("");
   const [headId, setHeadId] = useState("");
@@ -65,25 +68,28 @@ export function RecordChargeModal({ open, onOpenChange }: Props) {
       return;
     }
     const member = members.find((m) => m.id === memberId);
+    setSubmitting(true);
     try {
-      await addTransaction.mutateAsync({
-        memberId,
-        memberName: member?.name || "",
+      const { error } = await supabase.from("charges").insert({
+        member_id: memberId,
+        member_name: member?.name || "",
+        charge_head: selectedHead.name,
+        description: note || null,
         amount: net,
-        vat,
+        vat_amount: vat,
         total: gross,
-        // method: "Cash",
-        type: "Charge" as any,
-        date: new Date().toISOString().split("T")[0],
-        description: `${selectedHead.name}${note ? ` — ${note}` : ""}`,
-        receiptNo: `CHG-${Date.now()}`,
         status: "unpaid",
-        chargeHead: selectedHead.name,
+        meta: { type: "manual" },
       });
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ["charges"] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
       toast.success(`Charge of ${formatNPR(gross)} posted to ${member?.name}`);
       onOpenChange(false);
-    } catch {
-      toast.error("Failed to record charge");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to record charge");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -168,8 +174,8 @@ export function RecordChargeModal({ open, onOpenChange }: Props) {
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={addTransaction.isPending}>
-            {addTransaction.isPending ? "Posting…" : "Post Charge"}
+          <Button onClick={submit} disabled={submitting}>
+            {submitting ? "Posting…" : "Post Charge"}
           </Button>
         </DialogFooter>
       </DialogContent>
