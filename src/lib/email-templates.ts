@@ -10,9 +10,9 @@ export type ReminderTemplateKey =
 export interface EmailTemplate {
   key: ReminderTemplateKey;
   subject: string;
-  body: string;          // plain-text fallback / source
-  html?: string;         // rendered HTML from Unlayer
-  design?: any;          // Unlayer JSON design (for re-editing)
+  body: string; // plain-text fallback / source
+  html?: string; // rendered HTML from Unlayer
+  design?: any; // Unlayer JSON design (for re-editing)
   enabled: boolean;
 }
 
@@ -96,7 +96,10 @@ Warm regards,
 export async function getEmailTemplates(): Promise<Record<ReminderTemplateKey, EmailTemplate>> {
   const result: Record<string, EmailTemplate> = { ...DEFAULT_TEMPLATES };
   const { data, error } = await supabase.from("email_templates").select("*");
-  if (error) { console.warn("[email_templates] read failed:", error.message); return result as any; }
+  if (error) {
+    console.warn("[email_templates] read failed:", error.message);
+    return result as any;
+  }
   (data || []).forEach((row: any) => {
     if (!row?.key) return;
     result[row.key] = {
@@ -112,15 +115,18 @@ export async function getEmailTemplates(): Promise<Record<ReminderTemplateKey, E
 }
 
 export async function saveEmailTemplate(template: EmailTemplate): Promise<void> {
-  const { error } = await supabase.from("email_templates").upsert({
-    key: template.key,
-    subject: template.subject,
-    body: template.body,
-    html: template.html ?? null,
-    design: template.design ?? null,
-    enabled: template.enabled,
-    updated_at: new Date().toISOString(),
-  }, { onConflict: "key" });
+  const { error } = await supabase.from("email_templates").upsert(
+    {
+      key: template.key,
+      subject: template.subject,
+      body: template.body,
+      html: template.html ?? null,
+      design: template.design ?? null,
+      enabled: template.enabled,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "key" },
+  );
   if (error) throw error;
 }
 
@@ -147,16 +153,20 @@ export interface ReminderLogEntry {
 }
 
 export async function logReminder(entry: Omit<ReminderLogEntry, "id" | "sentAt">): Promise<string> {
-  const { data, error } = await supabase.from("email_reminders").insert({
-    recipient_email: entry.recipientEmail,
-    recipient_name: entry.recipientName,
-    template_key: entry.templateKey,
-    subject: entry.subject,
-    body: entry.body,
-    channel: entry.channel,
-    status: entry.status,
-    error_message: entry.errorMessage ?? null,
-  }).select("id").single();
+  const { data, error } = await supabase
+    .from("email_reminders")
+    .insert({
+      recipient_email: entry.recipientEmail,
+      recipient_name: entry.recipientName,
+      template_key: entry.templateKey,
+      subject: entry.subject,
+      body: entry.body,
+      channel: entry.channel,
+      status: entry.status,
+      error_message: entry.errorMessage ?? null,
+    })
+    .select("id")
+    .single();
   if (error) throw error;
   return data.id as string;
 }
@@ -167,7 +177,10 @@ export async function getReminderLog(max = 100): Promise<ReminderLogEntry[]> {
     .select("*")
     .order("sent_at", { ascending: false })
     .limit(max);
-  if (error) { console.warn("[email_reminders] read failed:", error.message); return []; }
+  if (error) {
+    console.warn("[email_reminders] read failed:", error.message);
+    return [];
+  }
   return (data || []).map((r: any) => ({
     id: r.id,
     recipientEmail: r.recipient_email || "",
@@ -186,11 +199,7 @@ export async function getReminderLog(max = 100): Promise<ReminderLogEntry[]> {
  * Open the user's mail client with a pre-filled message.
  * This is a frontend-only fallback that always works without backend setup.
  */
-export function openMailtoReminder(opts: {
-  to: string;
-  subject: string;
-  body: string;
-}): void {
+export function openMailtoReminder(opts: { to: string; subject: string; body: string }): void {
   const params = new URLSearchParams({
     subject: opts.subject,
     body: opts.body,
@@ -220,13 +229,17 @@ export async function sendEmailViaResend(opts: {
     const { supabase } = await import("./supabase");
     const html = body
       .split("\n")
-      .map((l) => l.length === 0 ? "<br/>" : `<p style="margin:0 0 8px">${escapeHtml(l)}</p>`)
+      .map((l) => (l.length === 0 ? "<br/>" : `<p style="margin:0 0 8px">${escapeHtml(l)}</p>`))
       .join("");
-    const { data, error } = await supabase.functions.invoke("send-email", {
+    const { data, error } = await supabase.functions.invoke("resend-email", {
       body: {
-        to, subject, html, text: body,
+        to,
+        subject,
+        html,
+        text: body,
         from: fromEmail ? (fromName ? `${fromName} <${fromEmail}>` : fromEmail) : undefined,
-        templateKey, recipientName,
+        templateKey,
+        recipientName,
       },
     });
     if (error) return { ok: false, channel: "resend", error: error.message };
