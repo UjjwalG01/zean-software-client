@@ -108,23 +108,47 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
           )}
         </div>
 
-        {/* Summary — + Total Billed - Total Paid - Advance = Net Payable */}
-        <div className="ml-auto w-full sm:w-[380px] rounded-md border border-border/60 bg-muted/30 p-3 text-sm space-y-1">
+        {/* Detailed breakdown: charges → VAT → discount → advance → net payable */}
+        <div className="ml-auto w-full sm:w-[420px] rounded-md border border-border/60 bg-muted/30 p-3 text-sm space-y-1">
+          <div className="text-[11px] uppercase tracking-wide text-muted-foreground/80 font-semibold mb-1">
+            Billing Breakdown
+          </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">＋ Total Billed (Charges)</span>
+            <span className="text-muted-foreground">Charges (Net, pre-VAT)</span>
+            <span>{formatNPR(summary.totalChargedNet)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">＋ VAT (13%)</span>
+            <span>{formatNPR(summary.totalVat)}</span>
+          </div>
+          <div className="flex justify-between border-t border-border/60 pt-1">
+            <strong>＝ Total Billed (Gross)</strong>
             <strong>{formatNPR(summary.totalCharged)}</strong>
           </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">－ Total Paid (Settlements)</span>
-            <strong className="text-success">{formatNPR(summary.totalPaid)}</strong>
+
+          <div className="border-t border-border/60 mt-2 pt-2 text-[11px] uppercase tracking-wide text-muted-foreground/80 font-semibold">
+            Adjustments
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">－ Advance Balance</span>
-            <strong className="text-primary">{formatNPR(summary.advance)}</strong>
+            <span className="text-muted-foreground">－ Settlements / Payments</span>
+            <span className="text-success">{formatNPR(summary.totalPaid)}</span>
           </div>
-          <div className="border-t border-border/60 mt-1 pt-1 flex justify-between text-base">
-            <strong className="text-destructive">＝ Net Payable Balance</strong>
-            <strong className="text-destructive">{formatNPR(summary.netPayable)}</strong>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">－ Advance Applied</span>
+            <span className="text-primary">{formatNPR(summary.advance)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">－ Discount Granted</span>
+            <span className="text-amber-500">{formatNPR(summary.totalDiscount)}</span>
+          </div>
+
+          <div className="border-t border-border/60 mt-2 pt-2 flex justify-between text-base">
+            <strong className={summary.netPayable > 0 ? "text-destructive" : "text-success"}>
+              ＝ Net Payable Balance
+            </strong>
+            <strong className={summary.netPayable > 0 ? "text-destructive" : "text-success"}>
+              {formatNPR(summary.netPayable)}
+            </strong>
           </div>
         </div>
       </DialogContent>
