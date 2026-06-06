@@ -106,6 +106,8 @@ export interface Transaction {
   linkedChargeIds?: string[];
   /** Row id in the dedicated `charges` table (when this tx mirrors a charge row). */
   chargeRowId?: string;
+  /** Discount applied at settlement time (NPR, VAT-inclusive). Reduces cash collected. */
+  discount?: number;
 }
 
 export interface AttendanceRecord {
