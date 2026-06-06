@@ -665,6 +665,27 @@ const Transactions = () => {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Discount (NPR)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={settleTxn.total}
+                    placeholder="0"
+                    value={settleDiscount}
+                    onChange={(e) => setSettleDiscount(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Net Collectible</Label>
+                  <Input
+                    readOnly
+                    className="bg-muted/40 font-semibold text-success"
+                    value={formatNPR(Math.max(0, settleTxn.total - (Number(settleDiscount) || 0)))}
+                  />
+                </div>
+              </div>
               <div className="space-y-2">
                 <Label>Note</Label>
                 <Textarea
