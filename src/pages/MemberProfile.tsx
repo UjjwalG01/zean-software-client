@@ -155,6 +155,8 @@ const MemberProfile = () => {
 
   const memberTx = allTransactions.filter((t) => t.memberId === member.id);
   const memberBookings = allBookings.filter((b) => b.memberId === member.id);
+  const memberLedger = buildMemberLedger(member.id, allTransactions, (member as any).openingBalance || 0, allCharges);
+
 
   return (
     <div className="space-y-6 animate-fade-in">
