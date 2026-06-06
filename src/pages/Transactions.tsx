@@ -67,6 +67,7 @@ const Transactions = () => {
   const [settleTxn, setSettleTxn] = useState<Transaction | null>(null);
   const [settleMethod, setSettleMethod] = useState<PaymentMethod>("Cash");
   const [settleNote, setSettleNote] = useState("");
+  const [settleDiscount, setSettleDiscount] = useState("");
   const [isSettlement, setIsSettlement] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
