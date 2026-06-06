@@ -214,7 +214,7 @@ const Transactions = () => {
           memberId,
           memberName: memberNameStr,
           amount: Number(amountStr),
-          vat: Math.round((Number(amountStr) - (Number(amountStr) / 1.13)) * 100) / 100,
+          vat: Math.round((Number(amountStr) - Number(amountStr) / 1.13) * 100) / 100,
           total: Number(amountStr),
           method: "Cash",
           type: "Charge",
@@ -413,7 +413,7 @@ const Transactions = () => {
       <TransactionDetailModal transaction={selectedTransaction} open={detailOpen} onOpenChange={setDetailOpen} />
       <RecordChargeModal open={chargeOpen} onOpenChange={setChargeOpen} />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="glass-card rounded-xl p-4">
           <p className="text-xs text-muted-foreground">Total Collections</p>
           <p className="text-xl font-bold font-display mt-1">{formatNPR(totalAmount)}</p>
@@ -426,7 +426,7 @@ const Transactions = () => {
           <p className="text-xs text-muted-foreground">Net Amount</p>
           <p className="text-xl font-bold font-display mt-1">{formatNPR(totalAmount - totalVat)}</p>
         </div>
-      </div>
+      </div> */}
 
       <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
