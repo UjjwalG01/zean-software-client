@@ -110,7 +110,7 @@ const Transactions = () => {
   const totalVat = activeForTotals.reduce((sum, t) => sum + t.vat, 0);
 
   const printBill = (memberName: string, receiptNo: string, desc: string, gross: number, date: Date) => {
-    const companyName = settings.companyName || "VitaFit Club";
+    const companyName = settings.companyName || ".............";
     const net = Math.round((gross / 1.13) * 100) / 100;
     const vat = Math.round((gross - net) * 100) / 100;
     const html = generateA5BillHTML({
@@ -311,7 +311,7 @@ const Transactions = () => {
                 String(t.total),
               ]);
               exportTableToCSV(headers, rows, `transactions-${format(new Date(), "yyyyMMdd")}.csv`, {
-                propertyName: settings.companyName || "VitaFit Club",
+                propertyName: settings.companyName || ".............",
                 reportTitle: "Transactions Report",
                 dateRange: format(new Date(), "PPP"),
                 filters: {

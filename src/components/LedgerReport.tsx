@@ -40,7 +40,7 @@ export default function LedgerReport() {
   const [loaded, setLoaded] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  const propertyName = settings.companyName || "VitaFit Club";
+  const propertyName = settings.companyName || ".............";
   const todayLabel = format(new Date(asOfDate), "yyyy-MM-dd");
 
   const ledger: MemberLedger[] = useMemo(() => {
@@ -71,17 +71,28 @@ export default function LedgerReport() {
         balance,
         txCount: memberTx.length,
         payments: memberTx.map((t) => ({
-          date: t.date, receiptNo: t.receiptNo, method: t.method,
-          description: t.description, amount: t.total,
+          date: t.date,
+          receiptNo: t.receiptNo,
+          method: t.method,
+          description: t.description,
+          amount: t.total,
         })),
       };
     });
 
     switch (sortBy) {
-      case "name-asc": result.sort((a, b) => a.memberName.localeCompare(b.memberName)); break;
-      case "name-desc": result.sort((a, b) => b.memberName.localeCompare(a.memberName)); break;
-      case "balance-desc": result.sort((a, b) => b.balance - a.balance); break;
-      case "paid-desc": result.sort((a, b) => b.totalPaid - a.totalPaid); break;
+      case "name-asc":
+        result.sort((a, b) => a.memberName.localeCompare(b.memberName));
+        break;
+      case "name-desc":
+        result.sort((a, b) => b.memberName.localeCompare(a.memberName));
+        break;
+      case "balance-desc":
+        result.sort((a, b) => b.balance - a.balance);
+        break;
+      case "paid-desc":
+        result.sort((a, b) => b.totalPaid - a.totalPaid);
+        break;
     }
     return result;
   }, [members, transactions, loaded, asOfDate, tierFilter, statusFilter, searchQ, sortBy]);
@@ -93,7 +104,8 @@ export default function LedgerReport() {
   const toggleExpand = (id: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
@@ -105,10 +117,23 @@ export default function LedgerReport() {
   };
 
   const handleExport = () => {
-    const headers = ["Member", "Tier", "Status", "Total Billed (NPR)", "Total Paid (NPR)", "Balance (NPR)", "Payment Count"];
+    const headers = [
+      "Member",
+      "Tier",
+      "Status",
+      "Total Billed (NPR)",
+      "Total Paid (NPR)",
+      "Balance (NPR)",
+      "Payment Count",
+    ];
     const rows = ledger.map((m) => [
-      m.memberName, m.tier, m.status,
-      String(m.totalBilled), String(m.totalPaid), String(m.balance), String(m.txCount),
+      m.memberName,
+      m.tier,
+      m.status,
+      String(m.totalBilled),
+      String(m.totalPaid),
+      String(m.balance),
+      String(m.txCount),
     ]);
     exportTableToCSV(headers, rows, `member-ledger-${asOfDate}.csv`, {
       propertyName,
@@ -134,14 +159,28 @@ export default function LedgerReport() {
       <div className="bg-gradient-to-r from-[hsl(220,70%,28%)] via-[hsl(220,70%,32%)] to-[hsl(220,70%,28%)] text-white px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="font-display font-bold text-lg leading-tight">Member Ledger Report</h2>
-          <p className="text-white/80 text-xs">As on: <span className="font-medium">{todayLabel}</span> · {propertyName}</p>
+          <p className="text-white/80 text-xs">
+            As on: <span className="font-medium">{todayLabel}</span> · {propertyName}
+          </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" size="sm" onClick={() => setShowFilters((p) => !p)} className="bg-white/10 hover:bg-white/20 text-white border-white/20">
-            <Filter className="h-4 w-4 mr-1.5" />{showFilters ? "Hide Filters" : "Show Filters"}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setShowFilters((p) => !p)}
+            className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+          >
+            <Filter className="h-4 w-4 mr-1.5" />
+            {showFilters ? "Hide Filters" : "Show Filters"}
           </Button>
-          <Button size="sm" onClick={handleExport} disabled={!loaded || ledger.length === 0} className="bg-success hover:bg-success/90 text-white">
-            <Download className="h-4 w-4 mr-1.5" />Export CSV
+          <Button
+            size="sm"
+            onClick={handleExport}
+            disabled={!loaded || ledger.length === 0}
+            className="bg-success hover:bg-success/90 text-white"
+          >
+            <Download className="h-4 w-4 mr-1.5" />
+            Export CSV
           </Button>
         </div>
       </div>
@@ -149,16 +188,25 @@ export default function LedgerReport() {
       {/* Filters strip */}
       {showFilters && (
         <div className="bg-[hsl(214,100%,97%)] dark:bg-muted/20 px-5 py-4 border-b border-border/50">
-          <p className="text-[11px] tracking-wider font-bold text-[hsl(220,70%,28%)] dark:text-primary mb-3">FILTER — MEMBER LEDGER</p>
+          <p className="text-[11px] tracking-wider font-bold text-[hsl(220,70%,28%)] dark:text-primary mb-3">
+            FILTER — MEMBER LEDGER
+          </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">As On Date</Label>
-              <Input type="date" value={asOfDate} onChange={(e) => setAsOfDate(e.target.value)} className="bg-background" />
+              <Input
+                type="date"
+                value={asOfDate}
+                onChange={(e) => setAsOfDate(e.target.value)}
+                className="bg-background"
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Tier</Label>
               <Select value={tierFilter} onValueChange={setTierFilter}>
-                <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="bg-background">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Tiers</SelectItem>
                   <SelectItem value="Basic">Basic</SelectItem>
@@ -171,7 +219,9 @@ export default function LedgerReport() {
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Member Status</Label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="bg-background">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
                   <SelectItem value="Active">Active</SelectItem>
@@ -183,7 +233,9 @@ export default function LedgerReport() {
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Sort By</Label>
               <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
-                <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="bg-background">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="name-asc">Name (A-Z)</SelectItem>
                   <SelectItem value="name-desc">Name (Z-A)</SelectItem>
@@ -194,10 +246,19 @@ export default function LedgerReport() {
             </div>
             <div className="space-y-1.5 lg:col-span-3">
               <Label className="text-xs text-muted-foreground">Search Member</Label>
-              <Input placeholder="Name or email..." value={searchQ} onChange={(e) => setSearchQ(e.target.value)} className="bg-background" />
+              <Input
+                placeholder="Name or email..."
+                value={searchQ}
+                onChange={(e) => setSearchQ(e.target.value)}
+                className="bg-background"
+              />
             </div>
             <div className="flex items-end justify-end">
-              <Button onClick={handleLoad} disabled={isLoading} className="bg-[hsl(220,70%,28%)] hover:bg-[hsl(220,70%,32%)] text-white">
+              <Button
+                onClick={handleLoad}
+                disabled={isLoading}
+                className="bg-[hsl(220,70%,28%)] hover:bg-[hsl(220,70%,32%)] text-white"
+              >
                 {isLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
                 Load Report
               </Button>
@@ -209,33 +270,61 @@ export default function LedgerReport() {
       {/* Filter summary line */}
       {loaded && (
         <div className="px-5 py-3 border-b border-border/50 bg-muted/20 text-xs text-muted-foreground flex flex-wrap gap-x-4">
-          <span>As on Date: <strong className="text-foreground">{asOfDate}</strong></span>
+          <span>
+            As on Date: <strong className="text-foreground">{asOfDate}</strong>
+          </span>
           <span>/</span>
-          <span>Tier: <strong className="text-foreground">{tierFilter === "all" ? "ALL" : tierFilter}</strong></span>
+          <span>
+            Tier: <strong className="text-foreground">{tierFilter === "all" ? "ALL" : tierFilter}</strong>
+          </span>
           <span>/</span>
-          <span>Status: <strong className="text-foreground">{statusFilter === "all" ? "ALL" : statusFilter}</strong></span>
+          <span>
+            Status: <strong className="text-foreground">{statusFilter === "all" ? "ALL" : statusFilter}</strong>
+          </span>
           <span>/</span>
-          <span>Sort By: <strong className="text-foreground">{sortBy}</strong></span>
+          <span>
+            Sort By: <strong className="text-foreground">{sortBy}</strong>
+          </span>
         </div>
       )}
 
       {/* Summary cards */}
       {loaded && (
         <div className="grid grid-cols-1 sm:grid-cols-3 border-b border-border/50">
-          <SummaryCard color="hsl(220,70%,28%)" label="Total Billed" sub={`${ledger.length} members`} value={formatNPR(totalBilled)} />
-          <SummaryCard color="hsl(142,71%,38%)" label="Total Paid" sub={`${ledger.length} members`} value={formatNPR(totalPaid)} />
-          <SummaryCard color={totalBalance > 0 ? "hsl(0,84%,55%)" : "hsl(142,71%,38%)"} label="Total Balance" sub={`${ledger.length} members`} value={formatNPR(totalBalance)} />
+          <SummaryCard
+            color="hsl(220,70%,28%)"
+            label="Total Billed"
+            sub={`${ledger.length} members`}
+            value={formatNPR(totalBilled)}
+          />
+          <SummaryCard
+            color="hsl(142,71%,38%)"
+            label="Total Paid"
+            sub={`${ledger.length} members`}
+            value={formatNPR(totalPaid)}
+          />
+          <SummaryCard
+            color={totalBalance > 0 ? "hsl(0,84%,55%)" : "hsl(142,71%,38%)"}
+            label="Total Balance"
+            sub={`${ledger.length} members`}
+            value={formatNPR(totalBalance)}
+          />
         </div>
       )}
 
       {/* Body */}
       {!loaded ? (
         <div className="p-12 text-center text-muted-foreground">
-          <p className="text-sm">Set your filters and click <strong className="text-foreground">Load Report</strong> to view the member ledger.</p>
+          <p className="text-sm">
+            Set your filters and click <strong className="text-foreground">Load Report</strong> to view the member
+            ledger.
+          </p>
         </div>
       ) : isLoading ? (
         <div className="p-4 space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 rounded" />)}
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 rounded" />
+          ))}
         </div>
       ) : ledger.length === 0 ? (
         <div className="p-12 text-center text-muted-foreground text-sm">No members match the current filters.</div>
@@ -259,10 +348,16 @@ export default function LedgerReport() {
                   onClick={() => toggleExpand(m.memberId)}
                 >
                   <div className="col-span-5 flex items-center gap-2">
-                    {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                    {isOpen ? (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    )}
                     <div>
                       <span className="font-semibold text-[hsl(220,70%,28%)] dark:text-primary">{m.memberName}</span>
-                      <Badge variant="outline" className="text-[10px] ml-2">{m.tier}</Badge>
+                      <Badge variant="outline" className="text-[10px] ml-2">
+                        {m.tier}
+                      </Badge>
                       <span className="text-xs text-muted-foreground ml-2">· {m.status}</span>
                     </div>
                   </div>
@@ -284,11 +379,15 @@ export default function LedgerReport() {
                           Payment Receipts ({m.payments.length})
                         </div>
                         {m.payments.map((p, i) => (
-                          <div key={i} className="grid grid-cols-12 gap-2 py-2 text-xs border-b border-border/20 last:border-b-0">
+                          <div
+                            key={i}
+                            className="grid grid-cols-12 gap-2 py-2 text-xs border-b border-border/20 last:border-b-0"
+                          >
                             <div className="col-span-5 text-muted-foreground pl-6">{p.date}</div>
                             <div className="col-span-1"></div>
                             <div className="col-span-2 text-right">
-                              <span className="text-primary">{p.receiptNo}</span> — <span className="text-muted-foreground">{p.method}</span>
+                              <span className="text-primary">{p.receiptNo}</span> —{" "}
+                              <span className="text-muted-foreground">{p.method}</span>
                             </div>
                             <div className="col-span-2 text-right text-muted-foreground">{p.description}</div>
                             <div className="col-span-2 text-right font-medium text-success">{formatNPR(p.amount)}</div>
@@ -318,9 +417,19 @@ export default function LedgerReport() {
 
 function SummaryCard({ color, label, sub, value }: { color: string; label: string; sub: string; value: string }) {
   return (
-    <div className="px-5 py-4 border-r border-border/40 last:border-r-0" style={{ background: `linear-gradient(180deg, ${color}10, transparent)` }}>
-      <div className="font-bold text-lg" style={{ color }}>{value}</div>
-      <div className="text-xs text-muted-foreground mt-0.5"><span className="font-medium" style={{ color }}>{label}</span> · {sub}</div>
+    <div
+      className="px-5 py-4 border-r border-border/40 last:border-r-0"
+      style={{ background: `linear-gradient(180deg, ${color}10, transparent)` }}
+    >
+      <div className="font-bold text-lg" style={{ color }}>
+        {value}
+      </div>
+      <div className="text-xs text-muted-foreground mt-0.5">
+        <span className="font-medium" style={{ color }}>
+          {label}
+        </span>{" "}
+        · {sub}
+      </div>
     </div>
   );
 }

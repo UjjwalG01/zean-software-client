@@ -146,7 +146,7 @@ export default function Inventory() {
       <PremiumReportFrame
         title="Current Stock Position"
         subtitle="Valuation = Quantity × Avg Rate (VAT inclusive)"
-        propertyName="VitaFit Club"
+        propertyName="............."
         filters={
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div>

@@ -125,7 +125,7 @@ export default function EmailTemplatesPage() {
             <TemplateEditor
               template={templates[k]}
               meta={templateMeta[k]}
-              companyName={settings.companyName || "VitaFit Club"}
+              companyName={settings.companyName || "............."}
               companyPhone={settings.companyPhone || ""}
               companyEmail={settings.companyEmail || ""}
               onSave={(t) => saveMutation.mutate(t)}

@@ -31,7 +31,10 @@ const MembersList = () => {
 
   const filtered = useMemo(() => {
     return members.filter((m) => {
-      const matchSearch = m.name.toLowerCase().includes(search.toLowerCase()) || m.email.toLowerCase().includes(search.toLowerCase()) || m.phone.includes(search);
+      const matchSearch =
+        m.name.toLowerCase().includes(search.toLowerCase()) ||
+        m.email.toLowerCase().includes(search.toLowerCase()) ||
+        m.phone.includes(search);
       const matchTier = tierFilter === "all" || m.tier === tierFilter;
       // Default ("active-set") excludes Inactive; "all" shows everything; explicit value matches exactly.
       const matchStatus =
@@ -51,11 +54,19 @@ const MembersList = () => {
   const handleExport = () => {
     const headers = ["Name", "Email", "Phone", "Tier", "Status", "Services", "Plan", "Total Paid", "Due", "Expiry"];
     const rows = filtered.map((m) => [
-      m.name, m.email, m.phone, m.tier, m.status,
-      m.services.join("; "), m.plan, String(m.totalPaid), String(m.dueAmount), m.expiryDate,
+      m.name,
+      m.email,
+      m.phone,
+      m.tier,
+      m.status,
+      m.services.join("; "),
+      m.plan,
+      String(m.totalPaid),
+      String(m.dueAmount),
+      m.expiryDate,
     ]);
     exportTableToCSV(headers, rows, `members-${format(new Date(), "yyyyMMdd")}.csv`, {
-      propertyName: settings.companyName || "VitaFit Club",
+      propertyName: settings.companyName || ".............",
       reportTitle: "Members Report",
       dateRange: format(new Date(), "PPP"),
       filters: {
@@ -77,11 +88,18 @@ const MembersList = () => {
           <p className="text-muted-foreground text-sm">{filtered.length} members found</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleExport}><Download className="h-4 w-4 mr-1" />Export</Button>
-          <Button variant="outline" size="sm" onClick={() => window.open("/members/blank/grc", "_blank")}>
-            <FileText className="h-4 w-4 mr-1" />Generate Blank GRC
+          <Button variant="outline" size="sm" onClick={handleExport}>
+            <Download className="h-4 w-4 mr-1" />
+            Export
           </Button>
-          <Button size="sm" onClick={() => navigate("/members/new")}><Plus className="h-4 w-4 mr-1" />Add Member</Button>
+          <Button variant="outline" size="sm" onClick={() => window.open("/members/blank/grc", "_blank")}>
+            <FileText className="h-4 w-4 mr-1" />
+            Generate Blank GRC
+          </Button>
+          <Button size="sm" onClick={() => navigate("/members/new")}>
+            <Plus className="h-4 w-4 mr-1" />
+            Add Member
+          </Button>
         </div>
       </div>
 
@@ -89,10 +107,26 @@ const MembersList = () => {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search by name, email, phone..." className="pl-9 bg-muted/50 border-0" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
+          <Input
+            placeholder="Search by name, email, phone..."
+            className="pl-9 bg-muted/50 border-0"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+          />
         </div>
-        <Select value={tierFilter} onValueChange={(v) => { setTierFilter(v); setPage(1); }}>
-          <SelectTrigger className="w-[140px] bg-muted/50 border-0"><SelectValue placeholder="Tier" /></SelectTrigger>
+        <Select
+          value={tierFilter}
+          onValueChange={(v) => {
+            setTierFilter(v);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-[140px] bg-muted/50 border-0">
+            <SelectValue placeholder="Tier" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Tiers</SelectItem>
             <SelectItem value="Basic">Basic</SelectItem>
@@ -101,8 +135,16 @@ const MembersList = () => {
             <SelectItem value="Platinum">Platinum</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-          <SelectTrigger className="w-[170px] bg-muted/50 border-0"><SelectValue placeholder="Status" /></SelectTrigger>
+        <Select
+          value={statusFilter}
+          onValueChange={(v) => {
+            setStatusFilter(v);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-[170px] bg-muted/50 border-0">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="active-set">Active + Expiring + Expired</SelectItem>
             <SelectItem value="all">All (incl. Inactive)</SelectItem>
@@ -112,8 +154,16 @@ const MembersList = () => {
             <SelectItem value="Inactive">Inactive only</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={serviceFilter} onValueChange={(v) => { setServiceFilter(v); setPage(1); }}>
-          <SelectTrigger className="w-[140px] bg-muted/50 border-0"><SelectValue placeholder="Service" /></SelectTrigger>
+        <Select
+          value={serviceFilter}
+          onValueChange={(v) => {
+            setServiceFilter(v);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-[140px] bg-muted/50 border-0">
+            <SelectValue placeholder="Service" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Services</SelectItem>
             <SelectItem value="Gym">Gym</SelectItem>
@@ -127,7 +177,11 @@ const MembersList = () => {
       {/* Table */}
       <div className="glass-card rounded-xl overflow-hidden">
         {isLoading ? (
-          <div className="p-4 space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}</div>
+          <div className="p-4 space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-12 rounded-lg" />
+            ))}
+          </div>
         ) : (
           <Table>
             <TableHeader>
@@ -155,7 +209,12 @@ const MembersList = () => {
                         }}
                       >
                         <AvatarImage src={m.avatar} alt={m.name} />
-                        <AvatarFallback className="text-xs">{m.name.split(" ").map((n) => n[0]).join("")}</AvatarFallback>
+                        <AvatarFallback className="text-xs">
+                          {m.name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")}
+                        </AvatarFallback>
                       </Avatar>
                       <div>
                         <p className="font-medium text-sm">{m.name}</p>
@@ -164,12 +223,22 @@ const MembersList = () => {
                     </div>
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{m.phone}</TableCell>
-                  <TableCell><TierBadge tier={m.tier} /></TableCell>
+                  <TableCell>
+                    <TierBadge tier={m.tier} />
+                  </TableCell>
                   <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">{m.plan}</TableCell>
                   <TableCell className="hidden lg:table-cell">
-                    <div className="flex gap-1 flex-wrap">{m.services.map((s) => <span key={s} className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full">{s}</span>)}</div>
+                    <div className="flex gap-1 flex-wrap">
+                      {m.services.map((s) => (
+                        <span key={s} className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full">
+                          {s}
+                        </span>
+                      ))}
+                    </div>
                   </TableCell>
-                  <TableCell><StatusBadge status={m.status} /></TableCell>
+                  <TableCell>
+                    <StatusBadge status={m.status} />
+                  </TableCell>
                   <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{m.joinDate}</TableCell>
                   <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{m.expiryDate}</TableCell>
                 </TableRow>
@@ -182,10 +251,16 @@ const MembersList = () => {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">Page {page} of {totalPages}</p>
+          <p className="text-xs text-muted-foreground">
+            Page {page} of {totalPages}
+          </p>
           <div className="flex gap-1">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button>
-            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</Button>
+            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+              Previous
+            </Button>
+            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
+              Next
+            </Button>
           </div>
         </div>
       )}
@@ -194,8 +269,11 @@ const MembersList = () => {
         <DialogContent className="max-w-md p-2">
           {photoPreview && (
             <div className="space-y-2">
-              <img src={photoPreview.url} alt={photoPreview.name}
-                className="w-full h-auto rounded-lg object-contain max-h-[70vh]" />
+              <img
+                src={photoPreview.url}
+                alt={photoPreview.name}
+                className="w-full h-auto rounded-lg object-contain max-h-[70vh]"
+              />
               <p className="text-center text-sm font-medium">{photoPreview.name}</p>
             </div>
           )}

@@ -5,8 +5,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatNPR } from "@/lib/mock-data";
 import { useMembers, useTransactions, useBookings, useCompanySettings } from "@/hooks/use-firestore";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, AreaChart, Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  AreaChart,
+  Area,
 } from "recharts";
 import { toast } from "sonner";
 import { useMemo, lazy, Suspense, useState } from "react";
@@ -38,16 +48,20 @@ const Reports = () => {
   // until the user clicks it. This keeps the page fast and avoids heavy upfront work.
   const [loaded, setLoaded] = useState<Record<string, boolean>>({});
   const loadTab = (k: string) => setLoaded((p) => ({ ...p, [k]: true }));
-  const LoadGate = ({ k, children }: { k: string; children: React.ReactNode }) => (
-    loaded[k] ? <>{children}</> : (
+  const LoadGate = ({ k, children }: { k: string; children: React.ReactNode }) =>
+    loaded[k] ? (
+      <>{children}</>
+    ) : (
       <div className="glass-card rounded-xl p-10 text-center space-y-3">
-        <p className="text-sm text-muted-foreground">Click <strong>Load Report</strong> to fetch and render this report.</p>
+        <p className="text-sm text-muted-foreground">
+          Click <strong>Load Report</strong> to fetch and render this report.
+        </p>
         <Button onClick={() => loadTab(k)} className="gradient-gold text-primary-foreground">
-          <Download className="h-4 w-4 mr-1.5" />Load Report
+          <Download className="h-4 w-4 mr-1.5" />
+          Load Report
         </Button>
       </div>
-    )
-  );
+    );
 
   // ── Daily Sales / Collection / Contribution shared filters ──
   const today = format(new Date(), "yyyy-MM-dd");
@@ -78,15 +92,13 @@ const Reports = () => {
       acc[key].vat += sign * (t.vat || 0);
       acc[key].total += sign * (t.total || 0);
     });
-    return Object.values(acc).sort((a, b) =>
-      a.date.localeCompare(b.date) || a.department.localeCompare(b.department)
-    );
+    return Object.values(acc).sort((a, b) => a.date.localeCompare(b.date) || a.department.localeCompare(b.department));
   }, [txInRange]);
 
   const dailySalesTotals = useMemo(() => {
     return dailySalesRows.reduce(
       (a, r) => ({ sales: a.sales + r.sales, vat: a.vat + r.vat, total: a.total + r.total }),
-      { sales: 0, vat: 0, total: 0 }
+      { sales: 0, vat: 0, total: 0 },
     );
   }, [dailySalesRows]);
 
@@ -101,16 +113,14 @@ const Reports = () => {
         acc[key].count += 1;
         acc[key].collected += ((t as any).voided ? -1 : 1) * (t.total || 0);
       });
-    return Object.values(acc).sort((a, b) =>
-      a.date.localeCompare(b.date) || a.method.localeCompare(b.method)
-    );
+    return Object.values(acc).sort((a, b) => a.date.localeCompare(b.date) || a.method.localeCompare(b.method));
   }, [txInRange]);
 
   const collectionTotals = useMemo(() => {
-    return collectionRows.reduce(
-      (a, r) => ({ count: a.count + r.count, collected: a.collected + r.collected }),
-      { count: 0, collected: 0 }
-    );
+    return collectionRows.reduce((a, r) => ({ count: a.count + r.count, collected: a.collected + r.collected }), {
+      count: 0,
+      collected: 0,
+    });
   }, [collectionRows]);
 
   // ── 3. Sales Contribution (by member → revenue + %) ──
@@ -132,10 +142,10 @@ const Reports = () => {
   }, [txInRange]);
 
   const contributionTotals = useMemo(() => {
-    return contributionRows.reduce(
-      (a, r) => ({ txns: a.txns + r.txns, total: a.total + r.total }),
-      { txns: 0, total: 0 }
-    );
+    return contributionRows.reduce((a, r) => ({ txns: a.txns + r.txns, total: a.total + r.total }), {
+      txns: 0,
+      total: 0,
+    });
   }, [contributionRows]);
 
   // ── Charts (existing) ──
@@ -171,7 +181,9 @@ const Reports = () => {
 
   const paymentMethodsData = useMemo(() => {
     const counts: Record<string, number> = {};
-    transactions.forEach((t) => { counts[t.method] = (counts[t.method] || 0) + 1; });
+    transactions.forEach((t) => {
+      counts[t.method] = (counts[t.method] || 0) + 1;
+    });
     const total = transactions.length || 1;
     const fills: Record<string, string> = {
       Card: "hsl(38, 92%, 50%)",
@@ -181,7 +193,8 @@ const Reports = () => {
       "Mobile Wallet": "hsl(280, 60%, 55%)",
     };
     return Object.entries(counts).map(([name, count]) => ({
-      name, value: Math.round((count / total) * 100),
+      name,
+      value: Math.round((count / total) * 100),
       fill: fills[name] || "hsl(220, 10%, 55%)",
     }));
   }, [transactions]);
@@ -199,7 +212,9 @@ const Reports = () => {
       <div className="space-y-1.5">
         <Label className="text-xs">Voided Transactions</Label>
         <Select value={includeVoided} onValueChange={(v) => setIncludeVoided(v as any)}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="exclude">Exclude Voided</SelectItem>
             <SelectItem value="include">Include Voided</SelectItem>
@@ -208,18 +223,18 @@ const Reports = () => {
       </div>
       <div className="space-y-1.5">
         <Label className="text-xs">&nbsp;</Label>
-        <div className="text-xs text-muted-foreground py-2">
-          {txInRange.length} transactions in range
-        </div>
+        <div className="text-xs text-muted-foreground py-2">{txInRange.length} transactions in range</div>
       </div>
     </div>
   );
 
   const filterSummary = (
-    <>Range: <b>{from}</b> → <b>{to}</b> · Voided: <b>{includeVoided}</b></>
+    <>
+      Range: <b>{from}</b> → <b>{to}</b> · Voided: <b>{includeVoided}</b>
+    </>
   );
 
-  const propertyName = settings.companyName || "VitaFit Club";
+  const propertyName = settings.companyName || ".............";
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -237,14 +252,17 @@ const Reports = () => {
               const headers = ["Member", "Status", "Tier", "Total Paid", "Due"];
               const rows = members.map((m) => [m.name, m.status, m.tier, String(m.totalPaid), String(m.dueAmount)]);
               exportTableToCSV(headers, rows, `members-report-${format(new Date(), "yyyyMMdd")}.csv`, {
-                propertyName, reportTitle: "Members Report", dateRange,
+                propertyName,
+                reportTitle: "Members Report",
+                dateRange,
                 filters: { "Total Members": String(members.length), "Active Members": String(activeMembers) },
               });
               toast.success("Members report exported");
             });
           }}
         >
-          <Download className="h-4 w-4 mr-1" />Export Members
+          <Download className="h-4 w-4 mr-1" />
+          Export Members
         </Button>
       </div>
 
@@ -261,90 +279,138 @@ const Reports = () => {
 
         <TabsContent value="daily">
           <LoadGate k="daily">
-          <PremiumReportFrame
-            title="Daily Sales Report"
-            subtitle="Sales by date and department"
-            propertyName={propertyName}
-            filters={filters}
-            filterSummary={filterSummary}
-            exportFilename={`daily-sales-${from}_to_${to}.csv`}
-            exportMeta={{ dateRange: `${from} → ${to}`, filters: { Voided: includeVoided } }}
-            groupBy={{ key: "date", label: "Date" }}
-            columns={[
-              { key: "department", label: "Department" },
-              { key: "sales", label: "Sales (Net)", align: "right", format: (r) => formatNPR(r.sales), exportFormat: (r) => String(r.sales) },
-              { key: "vat", label: "VAT Payable", align: "right", format: (r) => formatNPR(r.vat), exportFormat: (r) => String(r.vat) },
-              { key: "total", label: "Total Sales", align: "right", format: (r) => formatNPR(r.total), exportFormat: (r) => String(r.total) },
-            ]}
-            rows={dailySalesRows}
-            footerTotals={{
-              label: "Grand Total",
-              cells: {
-                sales: formatNPR(dailySalesTotals.sales),
-                vat: formatNPR(dailySalesTotals.vat),
-                total: formatNPR(dailySalesTotals.total),
-              },
-            }}
-          />
+            <PremiumReportFrame
+              title="Daily Sales Report"
+              subtitle="Sales by date and department"
+              propertyName={propertyName}
+              filters={filters}
+              filterSummary={filterSummary}
+              exportFilename={`daily-sales-${from}_to_${to}.csv`}
+              exportMeta={{ dateRange: `${from} → ${to}`, filters: { Voided: includeVoided } }}
+              groupBy={{ key: "date", label: "Date" }}
+              columns={[
+                { key: "department", label: "Department" },
+                {
+                  key: "sales",
+                  label: "Sales (Net)",
+                  align: "right",
+                  format: (r) => formatNPR(r.sales),
+                  exportFormat: (r) => String(r.sales),
+                },
+                {
+                  key: "vat",
+                  label: "VAT Payable",
+                  align: "right",
+                  format: (r) => formatNPR(r.vat),
+                  exportFormat: (r) => String(r.vat),
+                },
+                {
+                  key: "total",
+                  label: "Total Sales",
+                  align: "right",
+                  format: (r) => formatNPR(r.total),
+                  exportFormat: (r) => String(r.total),
+                },
+              ]}
+              rows={dailySalesRows}
+              footerTotals={{
+                label: "Grand Total",
+                cells: {
+                  sales: formatNPR(dailySalesTotals.sales),
+                  vat: formatNPR(dailySalesTotals.vat),
+                  total: formatNPR(dailySalesTotals.total),
+                },
+              }}
+            />
           </LoadGate>
         </TabsContent>
 
         <TabsContent value="collection">
           <LoadGate k="collection">
-          <PremiumReportFrame
-            title="Cashier / Collection Report"
-            subtitle="Settled payments grouped by date and method"
-            propertyName={propertyName}
-            filters={filters}
-            filterSummary={filterSummary}
-            exportFilename={`collection-${from}_to_${to}.csv`}
-            exportMeta={{ dateRange: `${from} → ${to}` }}
-            groupBy={{ key: "date", label: "Date" }}
-            columns={[
-              { key: "method", label: "Payment Method" },
-              { key: "count", label: "# Receipts", align: "right" },
-              { key: "collected", label: "Collected", align: "right", format: (r) => formatNPR(r.collected), exportFormat: (r) => String(r.collected) },
-            ]}
-            rows={collectionRows}
-            footerTotals={{
-              label: "Grand Total",
-              cells: {
-                count: String(collectionTotals.count),
-                collected: formatNPR(collectionTotals.collected),
-              },
-            }}
-          />
+            <PremiumReportFrame
+              title="Cashier / Collection Report"
+              subtitle="Settled payments grouped by date and method"
+              propertyName={propertyName}
+              filters={filters}
+              filterSummary={filterSummary}
+              exportFilename={`collection-${from}_to_${to}.csv`}
+              exportMeta={{ dateRange: `${from} → ${to}` }}
+              groupBy={{ key: "date", label: "Date" }}
+              columns={[
+                { key: "method", label: "Payment Method" },
+                { key: "count", label: "# Receipts", align: "right" },
+                {
+                  key: "collected",
+                  label: "Collected",
+                  align: "right",
+                  format: (r) => formatNPR(r.collected),
+                  exportFormat: (r) => String(r.collected),
+                },
+              ]}
+              rows={collectionRows}
+              footerTotals={{
+                label: "Grand Total",
+                cells: {
+                  count: String(collectionTotals.count),
+                  collected: formatNPR(collectionTotals.collected),
+                },
+              }}
+            />
           </LoadGate>
         </TabsContent>
 
         <TabsContent value="contribution">
           <LoadGate k="contribution">
-          <PremiumReportFrame
-            title="Sales Contribution"
-            subtitle="Revenue per member with contribution share"
-            propertyName={propertyName}
-            filters={filters}
-            filterSummary={filterSummary}
-            exportFilename={`contribution-${from}_to_${to}.csv`}
-            exportMeta={{ dateRange: `${from} → ${to}` }}
-            columns={[
-              { key: "member", label: "Member" },
-              { key: "txns", label: "Txns", align: "right" },
-              { key: "sales", label: "Sales (Net)", align: "right", format: (r) => formatNPR(r.sales), exportFormat: (r) => String(r.sales) },
-              { key: "vat", label: "VAT", align: "right", format: (r) => formatNPR(r.vat), exportFormat: (r) => String(r.vat) },
-              { key: "total", label: "Total Revenue", align: "right", format: (r) => formatNPR(r.total), exportFormat: (r) => String(r.total) },
-              { key: "share", label: "Contribution %", align: "right", format: (r) => `${r.share.toFixed(2)}%`, exportFormat: (r) => r.share.toFixed(2) },
-            ]}
-            rows={contributionRows}
-            footerTotals={{
-              label: "Grand Total",
-              cells: {
-                txns: String(contributionTotals.txns),
-                total: formatNPR(contributionTotals.total),
-                share: "100.00%",
-              },
-            }}
-          />
+            <PremiumReportFrame
+              title="Sales Contribution"
+              subtitle="Revenue per member with contribution share"
+              propertyName={propertyName}
+              filters={filters}
+              filterSummary={filterSummary}
+              exportFilename={`contribution-${from}_to_${to}.csv`}
+              exportMeta={{ dateRange: `${from} → ${to}` }}
+              columns={[
+                { key: "member", label: "Member" },
+                { key: "txns", label: "Txns", align: "right" },
+                {
+                  key: "sales",
+                  label: "Sales (Net)",
+                  align: "right",
+                  format: (r) => formatNPR(r.sales),
+                  exportFormat: (r) => String(r.sales),
+                },
+                {
+                  key: "vat",
+                  label: "VAT",
+                  align: "right",
+                  format: (r) => formatNPR(r.vat),
+                  exportFormat: (r) => String(r.vat),
+                },
+                {
+                  key: "total",
+                  label: "Total Revenue",
+                  align: "right",
+                  format: (r) => formatNPR(r.total),
+                  exportFormat: (r) => String(r.total),
+                },
+                {
+                  key: "share",
+                  label: "Contribution %",
+                  align: "right",
+                  format: (r) => `${r.share.toFixed(2)}%`,
+                  exportFormat: (r) => r.share.toFixed(2),
+                },
+              ]}
+              rows={contributionRows}
+              footerTotals={{
+                label: "Grand Total",
+                cells: {
+                  txns: String(contributionTotals.txns),
+                  total: formatNPR(contributionTotals.total),
+                  share: "100.00%",
+                },
+              }}
+            />
           </LoadGate>
         </TabsContent>
 
@@ -363,8 +429,18 @@ const Reports = () => {
               <ResponsiveContainer width="100%" height={400}>
                 <BarChart data={revenueByService}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(224, 15%, 18%)" />
-                  <XAxis dataKey="month" tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 12 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 12 }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                  />
                   <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [formatNPR(v)]} />
                   <Bar dataKey="Gym" fill="hsl(38, 92%, 50%)" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="Spa" fill="hsl(45, 93%, 65%)" radius={[4, 4, 0, 0]} />
@@ -391,11 +467,30 @@ const Reports = () => {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(224, 15%, 18%)" />
-                  <XAxis dataKey="month" tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 12 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
                   <YAxis tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 12 }} axisLine={false} tickLine={false} />
                   <Tooltip contentStyle={tooltipStyle} />
-                  <Area type="monotone" dataKey="total" stroke="hsl(38, 92%, 50%)" strokeWidth={2} fill="url(#growthGrad)" name="Total Members" />
-                  <Area type="monotone" dataKey="newMembers" stroke="hsl(142, 71%, 45%)" strokeWidth={2} fill="transparent" name="New Members" />
+                  <Area
+                    type="monotone"
+                    dataKey="total"
+                    stroke="hsl(38, 92%, 50%)"
+                    strokeWidth={2}
+                    fill="url(#growthGrad)"
+                    name="Total Members"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="newMembers"
+                    stroke="hsl(142, 71%, 45%)"
+                    strokeWidth={2}
+                    fill="transparent"
+                    name="New Members"
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             )}
@@ -411,8 +506,17 @@ const Reports = () => {
               <div className="flex flex-col lg:flex-row items-center justify-center gap-8">
                 <ResponsiveContainer width="100%" height={350}>
                   <PieChart>
-                    <Pie data={paymentMethodsData} innerRadius={80} outerRadius={130} paddingAngle={3} dataKey="value" stroke="none">
-                      {paymentMethodsData.map((entry, i) => (<Cell key={i} fill={entry.fill} />))}
+                    <Pie
+                      data={paymentMethodsData}
+                      innerRadius={80}
+                      outerRadius={130}
+                      paddingAngle={3}
+                      dataKey="value"
+                      stroke="none"
+                    >
+                      {paymentMethodsData.map((entry, i) => (
+                        <Cell key={i} fill={entry.fill} />
+                      ))}
                     </Pie>
                     <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v}%`]} />
                   </PieChart>

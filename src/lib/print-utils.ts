@@ -13,20 +13,52 @@ function escHtml(s: unknown): string {
 
 // Number to words for NPR
 function numberToWords(n: number): string {
-  const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
-    "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+  const ones = [
+    "",
+    "One",
+    "Two",
+    "Three",
+    "Four",
+    "Five",
+    "Six",
+    "Seven",
+    "Eight",
+    "Nine",
+    "Ten",
+    "Eleven",
+    "Twelve",
+    "Thirteen",
+    "Fourteen",
+    "Fifteen",
+    "Sixteen",
+    "Seventeen",
+    "Eighteen",
+    "Nineteen",
+  ];
   const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
 
   if (n === 0) return "Zero";
   if (n < 0) return "Minus " + numberToWords(-n);
 
   let words = "";
-  if (Math.floor(n / 100000) > 0) { words += numberToWords(Math.floor(n / 100000)) + " Lakh "; n %= 100000; }
-  if (Math.floor(n / 1000) > 0) { words += numberToWords(Math.floor(n / 1000)) + " Thousand "; n %= 1000; }
-  if (Math.floor(n / 100) > 0) { words += ones[Math.floor(n / 100)] + " Hundred "; n %= 100; }
+  if (Math.floor(n / 100000) > 0) {
+    words += numberToWords(Math.floor(n / 100000)) + " Lakh ";
+    n %= 100000;
+  }
+  if (Math.floor(n / 1000) > 0) {
+    words += numberToWords(Math.floor(n / 1000)) + " Thousand ";
+    n %= 1000;
+  }
+  if (Math.floor(n / 100) > 0) {
+    words += ones[Math.floor(n / 100)] + " Hundred ";
+    n %= 100;
+  }
   if (n > 0) {
     if (n < 20) words += ones[n];
-    else { words += tens[Math.floor(n / 10)]; if (n % 10 > 0) words += " " + ones[n % 10]; }
+    else {
+      words += tens[Math.floor(n / 10)];
+      if (n % 10 > 0) words += " " + ones[n % 10];
+    }
   }
   return words.trim();
 }
@@ -166,7 +198,7 @@ function csvEscape(v: unknown): string {
 }
 
 export interface CSVExportMeta {
-  /** Property/Company name (e.g. "VitaFit Club") */
+  /** Property/Company name (e.g. ".............") */
   propertyName?: string;
   /** Title of the report */
   reportTitle?: string;
@@ -178,12 +210,7 @@ export interface CSVExportMeta {
   filters?: Record<string, string>;
 }
 
-export function exportTableToCSV(
-  headers: string[],
-  rows: string[][],
-  filename: string,
-  meta?: CSVExportMeta
-) {
+export function exportTableToCSV(headers: string[], rows: string[][], filename: string, meta?: CSVExportMeta) {
   const lines: string[] = [];
   if (meta) {
     if (meta.propertyName) lines.push(csvEscape(meta.propertyName));
@@ -223,7 +250,7 @@ export function generateReceiptHTML(
     memberClass?: string;
     paymentMethod?: string;
     remarks?: string;
-  }
+  },
 ): string {
   return generateA5BillHTML({
     companyName,

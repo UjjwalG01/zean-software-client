@@ -29,7 +29,7 @@ export function TransactionDetailModal({ transaction: t, open, onOpenChange }: T
   const [voiding, setVoiding] = useState(false);
   if (!t) return null;
 
-  const companyName = settings.companyName || "VitaFit Club";
+  const companyName = settings.companyName || ".............";
   const paidAmount = t.total;
   const balanceAmount = 0;
   const isVoided = t.voided || t.status === "voided";
@@ -91,7 +91,9 @@ export function TransactionDetailModal({ transaction: t, open, onOpenChange }: T
             </div>
             <div className="text-right">
               <p className="text-xs text-muted-foreground mb-1">Type</p>
-              <Badge variant="outline" className="text-xs">{t.type}</Badge>
+              <Badge variant="outline" className="text-xs">
+                {t.type}
+              </Badge>
             </div>
           </div>
 
@@ -140,7 +142,9 @@ export function TransactionDetailModal({ transaction: t, open, onOpenChange }: T
                 {t.status === "pending" ? (
                   <Badge className="text-[10px] bg-amber-500/20 text-amber-400 border-0">Pending</Badge>
                 ) : (
-                  <Badge variant="default" className="text-[10px] bg-success/20 text-success border-0">Paid</Badge>
+                  <Badge variant="default" className="text-[10px] bg-success/20 text-success border-0">
+                    Paid
+                  </Badge>
                 )}
               </div>
             </div>
@@ -169,13 +173,22 @@ export function TransactionDetailModal({ transaction: t, open, onOpenChange }: T
           ) : isVoided ? null : (
             <div className="flex gap-2 pt-2">
               <Button variant="outline" size="sm" className="flex-1" onClick={handlePrint}>
-                <Printer className="h-4 w-4 mr-1" />Print
+                <Printer className="h-4 w-4 mr-1" />
+                Print
               </Button>
               <Button variant="outline" size="sm" className="flex-1" onClick={handleDownload}>
-                <Download className="h-4 w-4 mr-1" />Download PDF
+                <Download className="h-4 w-4 mr-1" />
+                Download PDF
               </Button>
-              <Button variant="outline" size="sm" onClick={handleVoid} disabled={voiding} className="text-destructive border-destructive/40 hover:bg-destructive/10">
-                <Ban className="h-4 w-4 mr-1" />{voiding ? "Voiding…" : "Void"}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleVoid}
+                disabled={voiding}
+                className="text-destructive border-destructive/40 hover:bg-destructive/10"
+              >
+                <Ban className="h-4 w-4 mr-1" />
+                {voiding ? "Voiding…" : "Void"}
               </Button>
             </div>
           )}

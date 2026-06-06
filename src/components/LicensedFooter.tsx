@@ -8,11 +8,9 @@ interface LicensedFooterProps {
 
 export function LicensedFooter({ className = "", variant = "default" }: LicensedFooterProps) {
   const { data: settings = {} } = useCompanySettings();
-  const companyName = settings.companyName || "VitaFit Club";
+  const companyName = settings.companyName || ".............";
 
-  const colorClass = variant === "muted"
-    ? "text-muted-foreground/60"
-    : "text-muted-foreground/70";
+  const colorClass = variant === "muted" ? "text-muted-foreground/60" : "text-muted-foreground/70";
 
   return (
     <div className={`text-[11px] font-medium ${colorClass} ${className}`}>

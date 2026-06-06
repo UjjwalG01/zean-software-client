@@ -118,7 +118,7 @@ const Attendance = () => {
     const memberFilterLabel =
       filterMember === "all" ? "All Members" : activeMembers.find((m) => m.id === filterMember)?.name || filterMember;
     exportTableToCSV(headers, rows, `attendance-${filterMonth}.csv`, {
-      propertyName: settings.companyName || "VitaFit Club",
+      propertyName: settings.companyName || ".............",
       reportTitle: "Attendance Report",
       dateRange: format(reportMonth.start, "MMMM yyyy"),
       filters: {

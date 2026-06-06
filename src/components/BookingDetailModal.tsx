@@ -17,7 +17,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CalendarDays, Clock, User, Dumbbell, Printer, Pencil, Save, X, Ban, Receipt } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import type { Booking, ServiceType } from "@/lib/mock-data";
-import { useUpdateBooking, useCompanySettings, useTransactions, useUpdateTransaction, useServices } from "@/hooks/use-firestore";
+import {
+  useUpdateBooking,
+  useCompanySettings,
+  useTransactions,
+  useUpdateTransaction,
+  useServices,
+} from "@/hooks/use-firestore";
 import { generateA5BillHTML, printHTML } from "@/lib/print-utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -175,7 +181,10 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
         if (chargeRowId) {
           try {
             const { supabase } = await import("@/lib/supabase");
-            await supabase.from("charges").update({ status: "unpaid", meta: { voided: true, bookingId: b.id } }).eq("id", chargeRowId);
+            await supabase
+              .from("charges")
+              .update({ status: "unpaid", meta: { voided: true, bookingId: b.id } })
+              .eq("id", chargeRowId);
           } catch (err) {
             // eslint-disable-next-line no-console
             console.warn("[bookings] failed to void canonical charge row", err);
@@ -196,7 +205,7 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
   };
 
   const handleGenerateBill = () => {
-    const companyName = settings.companyName || "VitaFit Club";
+    const companyName = settings.companyName || ".............";
     const rate = 500;
     const amount = rate;
     const taxableAmount = amount;

@@ -3,8 +3,19 @@ import { Activity, Calendar as CalIcon, CreditCard, TrendingUp, Award, Download 
 import { Button } from "@/components/ui/button";
 import { formatNPR, type Member, type Booking, type Transaction } from "@/lib/mock-data";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, PieChart, Pie, Cell, Legend,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
 } from "recharts";
 import { format, parseISO, startOfMonth, subMonths, isAfter } from "date-fns";
 import { printHTML } from "@/lib/print-utils";
@@ -17,7 +28,13 @@ const tooltipStyle = {
   color: "hsl(40, 20%, 95%)",
 };
 
-const COLORS = ["hsl(38, 92%, 50%)", "hsl(280, 60%, 55%)", "hsl(15, 80%, 55%)", "hsl(200, 80%, 50%)", "hsl(142, 71%, 45%)"];
+const COLORS = [
+  "hsl(38, 92%, 50%)",
+  "hsl(280, 60%, 55%)",
+  "hsl(15, 80%, 55%)",
+  "hsl(200, 80%, 50%)",
+  "hsl(142, 71%, 45%)",
+];
 
 interface Props {
   member: Member;
@@ -27,15 +44,21 @@ interface Props {
 }
 
 function safeDate(s: string): Date | null {
-  try { const d = parseISO(s); return Number.isNaN(d.getTime()) ? null : d; } catch { return null; }
+  try {
+    const d = parseISO(s);
+    return Number.isNaN(d.getTime()) ? null : d;
+  } catch {
+    return null;
+  }
 }
 
-export function MemberProgress({ member, bookings, transactions, propertyName = "VitaFit Club" }: Props) {
+export function MemberProgress({ member, bookings, transactions, propertyName = "............." }: Props) {
   const stats = useMemo(() => {
     const total = bookings.length;
     const completed = bookings.filter((b) => b.status === "Completed").length;
     const upcoming = bookings.filter((b) => {
-      const d = safeDate(b.date); return d && isAfter(d, new Date());
+      const d = safeDate(b.date);
+      return d && isAfter(d, new Date());
     }).length;
     const totalSpent = transactions.reduce((s, t) => s + (t.total || 0), 0);
     const txCount = transactions.length;
@@ -52,12 +75,14 @@ export function MemberProgress({ member, bookings, transactions, propertyName = 
       map[key] = { month: key, visits: 0, spend: 0 };
     }
     bookings.forEach((b) => {
-      const d = safeDate(b.date); if (!d) return;
+      const d = safeDate(b.date);
+      if (!d) return;
       const key = format(d, "MMM");
       if (map[key]) map[key].visits += 1;
     });
     transactions.forEach((t) => {
-      const d = safeDate(t.date); if (!d) return;
+      const d = safeDate(t.date);
+      if (!d) return;
       const key = format(d, "MMM");
       if (map[key]) map[key].spend += t.total || 0;
     });
@@ -66,7 +91,9 @@ export function MemberProgress({ member, bookings, transactions, propertyName = 
 
   const serviceMix = useMemo(() => {
     const counts: Record<string, number> = {};
-    bookings.forEach((b) => { counts[b.service] = (counts[b.service] || 0) + 1; });
+    bookings.forEach((b) => {
+      counts[b.service] = (counts[b.service] || 0) + 1;
+    });
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
   }, [bookings]);
 
@@ -114,11 +141,13 @@ td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
 
   <div class="section">
     <div class="section-title">Last 6 Months — Visits</div>
-    ${monthlyTrend.map((m) => {
-      const max = Math.max(1, ...monthlyTrend.map((x) => x.visits));
-      const w = Math.round((m.visits / max) * 100);
-      return `<div class="bar-row"><div class="label">${m.month}</div><div class="bar"><div style="width:${w}%"></div></div><div class="val">${m.visits}</div></div>`;
-    }).join("")}
+    ${monthlyTrend
+      .map((m) => {
+        const max = Math.max(1, ...monthlyTrend.map((x) => x.visits));
+        const w = Math.round((m.visits / max) * 100);
+        return `<div class="bar-row"><div class="label">${m.month}</div><div class="bar"><div style="width:${w}%"></div></div><div class="val">${m.visits}</div></div>`;
+      })
+      .join("")}
   </div>
 
   <div class="section">
@@ -126,8 +155,16 @@ td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
     <table>
       <thead><tr><th>Service</th><th style="text-align:right">Sessions</th><th style="text-align:right">Share</th></tr></thead>
       <tbody>
-        ${serviceMix.length === 0 ? `<tr><td colspan="3" style="text-align:center;color:#94a3b8">No sessions yet</td></tr>` :
-          serviceMix.map((s) => `<tr><td>${s.name}</td><td style="text-align:right">${s.value}</td><td style="text-align:right">${Math.round((s.value/stats.total)*100)}%</td></tr>`).join("")}
+        ${
+          serviceMix.length === 0
+            ? `<tr><td colspan="3" style="text-align:center;color:#94a3b8">No sessions yet</td></tr>`
+            : serviceMix
+                .map(
+                  (s) =>
+                    `<tr><td>${s.name}</td><td style="text-align:right">${s.value}</td><td style="text-align:right">${Math.round((s.value / stats.total) * 100)}%</td></tr>`,
+                )
+                .join("")
+        }
       </tbody>
     </table>
   </div>
@@ -137,7 +174,15 @@ td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
     <table>
       <thead><tr><th>Date</th><th>Receipt</th><th>Description</th><th>Method</th><th style="text-align:right">Amount</th></tr></thead>
       <tbody>
-        ${transactions.slice(0, 10).map((t) => `<tr><td>${t.date}</td><td>${t.receiptNo}</td><td>${t.description}</td><td>${t.method}</td><td style="text-align:right">${formatNPR(t.total)}</td></tr>`).join("") || `<tr><td colspan="5" style="text-align:center;color:#94a3b8">No payments</td></tr>`}
+        ${
+          transactions
+            .slice(0, 10)
+            .map(
+              (t) =>
+                `<tr><td>${t.date}</td><td>${t.receiptNo}</td><td>${t.description}</td><td>${t.method}</td><td style="text-align:right">${formatNPR(t.total)}</td></tr>`,
+            )
+            .join("") || `<tr><td colspan="5" style="text-align:center;color:#94a3b8">No payments</td></tr>`
+        }
       </tbody>
     </table>
   </div>
@@ -153,7 +198,9 @@ td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-display font-bold flex items-center gap-2"><TrendingUp className="h-4 w-4 text-primary" /> Progress Overview</h3>
+          <h3 className="font-display font-bold flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-primary" /> Progress Overview
+          </h3>
           <p className="text-xs text-muted-foreground">Track sessions, attendance and spend over time.</p>
         </div>
         <Button onClick={generateReportCard} size="sm" className="gradient-gold text-primary-foreground">
@@ -165,9 +212,21 @@ td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { label: "Total Sessions", value: stats.total, sub: "All-time", icon: CalIcon, color: "text-primary" },
-          { label: "Completed", value: stats.completed, sub: `${stats.attendance}% attendance`, icon: Award, color: "text-success" },
+          {
+            label: "Completed",
+            value: stats.completed,
+            sub: `${stats.attendance}% attendance`,
+            icon: Award,
+            color: "text-success",
+          },
           { label: "Upcoming", value: stats.upcoming, sub: "Future bookings", icon: Activity, color: "text-blue-400" },
-          { label: "Total Spend", value: formatNPR(stats.totalSpent), sub: `${stats.txCount} payments`, icon: CreditCard, color: "text-amber-400" },
+          {
+            label: "Total Spend",
+            value: formatNPR(stats.totalSpent),
+            sub: `${stats.txCount} payments`,
+            icon: CreditCard,
+            color: "text-amber-400",
+          },
         ].map((s) => (
           <div key={s.label} className="glass-card rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
@@ -185,17 +244,50 @@ td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="glass-card rounded-xl p-4 lg:col-span-2">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">Visits &amp; Spend — Last 6 Months</p>
+          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
+            Visits &amp; Spend — Last 6 Months
+          </p>
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={monthlyTrend}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(224, 15%, 18%)" />
-              <XAxis dataKey="month" tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis yAxisId="left" tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis yAxisId="right" orientation="right" tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+              <XAxis
+                dataKey="month"
+                tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                yAxisId="left"
+                tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+              />
               <Tooltip contentStyle={tooltipStyle} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Line yAxisId="left" type="monotone" dataKey="visits" stroke="hsl(38, 92%, 50%)" strokeWidth={2.5} name="Visits" />
-              <Line yAxisId="right" type="monotone" dataKey="spend" stroke="hsl(200, 80%, 50%)" strokeWidth={2.5} name="Spend (NPR)" />
+              <Line
+                yAxisId="left"
+                type="monotone"
+                dataKey="visits"
+                stroke="hsl(38, 92%, 50%)"
+                strokeWidth={2.5}
+                name="Visits"
+              />
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="spend"
+                stroke="hsl(200, 80%, 50%)"
+                strokeWidth={2.5}
+                name="Spend (NPR)"
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -208,7 +300,9 @@ td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
             <ResponsiveContainer width="100%" height={240}>
               <PieChart>
                 <Pie data={serviceMix} innerRadius={50} outerRadius={90} dataKey="value" paddingAngle={3} stroke="none">
-                  {serviceMix.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  {serviceMix.map((_, i) => (
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                  ))}
                 </Pie>
                 <Tooltip contentStyle={tooltipStyle} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />

@@ -2,14 +2,28 @@
 // File name is kept for compatibility with existing imports; no Firestore writes happen here.
 
 import { supabase } from "./supabase";
-import type { Member, Booking, Transaction, MemberTier, MemberStatus, ServiceType, PaymentMethod, BookingStatus } from "./mock-data";
+import type {
+  Member,
+  Booking,
+  Transaction,
+  MemberTier,
+  MemberStatus,
+  ServiceType,
+  PaymentMethod,
+  BookingStatus,
+} from "./mock-data";
 
-const avatarUrl = (seed: string) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed || "member")}`;
+const avatarUrl = (seed: string) =>
+  `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed || "member")}`;
 
 function dateOnly(value: any): string {
   if (!value) return "";
   if (typeof value === "string") return value.split("T")[0];
-  try { return new Date(value).toISOString().split("T")[0]; } catch { return ""; }
+  try {
+    return new Date(value).toISOString().split("T")[0];
+  } catch {
+    return "";
+  }
 }
 
 function timeOnly(value: any): string {
@@ -26,28 +40,69 @@ function at(date?: string, time?: string): string {
 }
 
 async function maybeAudit(action: string, entityType: string, entityId: string, oldValue?: any, newValue?: any) {
-  try { await addAuditLog(null, action, entityType, entityId, oldValue, newValue); } catch { /* audit must never block CRUD */ }
+  try {
+    await addAuditLog(null, action, entityType, entityId, oldValue, newValue);
+  } catch {
+    /* audit must never block CRUD */
+  }
 }
 
 function throwDb(error: any, table: string): never {
   const message = error?.message || String(error);
   if (/row-level security|RLS/i.test(message)) {
-    throw new Error(`${table}: Supabase RLS blocked this save. Run db/0003_supabase_crud_policies.sql or sign in with a Supabase admin user.`);
+    throw new Error(
+      `${table}: Supabase RLS blocked this save. Run db/0003_supabase_crud_policies.sql or sign in with a Supabase admin user.`,
+    );
   }
   if (/column .* does not exist|schema cache/i.test(message)) {
-    throw new Error(`${table}: Supabase schema is missing a required column. Run db/0003_supabase_crud_policies.sql, then refresh the app.`);
+    throw new Error(
+      `${table}: Supabase schema is missing a required column. Run db/0003_supabase_crud_policies.sql, then refresh the app.`,
+    );
   }
   throw error;
 }
 
 // ─── Members ────────────────────────────────────────────────────────
 const EXTRA_KEYS = [
-  "firstName","middleName","lastName","dob","gender","nationality","religion","maritalStatus",
-  "residenceStatus","nationalId","tinNo","fatherName","occupation","officeName","officeAddress",
-  "permanentAddress","temporaryAddress","contactAlt","bloodGroup","height","weight","chest","arms",
-  "thigh","waistInch","hipInch","shoulder","heartStroke","breathingDifficulty","skinDisease",
-  "doctorName","doctorContact","emergencyName","emergencyContactNum","notifyPhone","notifyEmail",
-  "notifySMS","timeSlot","packages",
+  "firstName",
+  "middleName",
+  "lastName",
+  "dob",
+  "gender",
+  "nationality",
+  "religion",
+  "maritalStatus",
+  "residenceStatus",
+  "nationalId",
+  "tinNo",
+  "fatherName",
+  "occupation",
+  "officeName",
+  "officeAddress",
+  "permanentAddress",
+  "temporaryAddress",
+  "contactAlt",
+  "bloodGroup",
+  "height",
+  "weight",
+  "chest",
+  "arms",
+  "thigh",
+  "waistInch",
+  "hipInch",
+  "shoulder",
+  "heartStroke",
+  "breathingDifficulty",
+  "skinDisease",
+  "doctorName",
+  "doctorContact",
+  "emergencyName",
+  "emergencyContactNum",
+  "notifyPhone",
+  "notifyEmail",
+  "notifySMS",
+  "timeSlot",
+  "packages",
 ] as const;
 
 function mapMemberRow(r: any): Member {
@@ -62,7 +117,7 @@ function mapMemberRow(r: any): Member {
     avatar: r.avatar_url || prefs.avatar || avatarUrl(r.full_name || r.email || r.id),
     tier: (r.tier || "Basic") as MemberTier,
     services: services as ServiceType[],
-    status: ((r.status || "active").replace(/^./, (c: string) => c.toUpperCase())) as MemberStatus,
+    status: (r.status || "active").replace(/^./, (c: string) => c.toUpperCase()) as MemberStatus,
     joinDate: dateOnly(r.join_date),
     expiryDate: dateOnly(r.expiry_date),
     plan: r.plan || prefs.plan || "Monthly",
@@ -115,12 +170,19 @@ function memberPayload(data: Partial<Member>) {
   };
 }
 
-export async function getMembers(filters?: { tier?: MemberTier; status?: MemberStatus; service?: ServiceType }): Promise<Member[]> {
+export async function getMembers(filters?: {
+  tier?: MemberTier;
+  status?: MemberStatus;
+  service?: ServiceType;
+}): Promise<Member[]> {
   let q = supabase.from("members").select("*").order("created_at", { ascending: false });
   if (filters?.tier) q = q.eq("tier", filters.tier);
   if (filters?.status) q = q.eq("status", filters.status.toLowerCase());
   const { data, error } = await q;
-  if (error) { console.warn("[members] read failed:", error.message); return []; }
+  if (error) {
+    console.warn("[members] read failed:", error.message);
+    return [];
+  }
   let results = (data || []).map(mapMemberRow);
   if (filters?.service) results = results.filter((m) => m.services.includes(filters.service!));
   return results;
@@ -128,7 +190,10 @@ export async function getMembers(filters?: { tier?: MemberTier; status?: MemberS
 
 export async function getMember(id: string): Promise<Member | null> {
   const { data, error } = await supabase.from("members").select("*").eq("id", id).maybeSingle();
-  if (error) { console.warn("[members] read one failed:", error.message); return null; }
+  if (error) {
+    console.warn("[members] read one failed:", error.message);
+    return null;
+  }
   return data ? mapMemberRow(data) : null;
 }
 
@@ -156,7 +221,9 @@ export async function generateMemberCode(): Promise<string> {
       const n = parseInt(last.slice(prefix.length), 10);
       if (!Number.isNaN(n)) return `${prefix}${String(n + 1).padStart(5, "0")}`;
     }
-  } catch { /* column may not exist on legacy DBs — fall through */ }
+  } catch {
+    /* column may not exist on legacy DBs — fall through */
+  }
   // Legacy fallback: use grc_no or total count
   const { count } = await supabase.from("members").select("id", { count: "exact", head: true });
   return `${prefix}${String((count || 0) + 1).padStart(5, "0")}`;
@@ -198,17 +265,44 @@ export async function updateMember(id: string, data: Partial<Record<string, any>
   if (data.avatar !== undefined) payload.avatar_url = data.avatar;
   if (data.outletId !== undefined) payload.outlet_id = data.outletId || null;
   if (data.grcNo !== undefined) payload.grc_no = data.grcNo;
-  const prefs = { ...(current ? { preferences: current.preferences, plan: current.plan, address: current.address, emergencyContact: current.emergencyContact, services: current.services, autoRenew: current.autoRenew } : {}) } as any;
-  for (const k of ["preferences", "plan", "address", "emergencyContact", "services", "openingBalance", "totalPaid", "dueAmount", "membershipYears", "discount", "autoRenew"]) {
+  const prefs = {
+    ...(current
+      ? {
+          preferences: current.preferences,
+          plan: current.plan,
+          address: current.address,
+          emergencyContact: current.emergencyContact,
+          services: current.services,
+          autoRenew: current.autoRenew,
+        }
+      : {}),
+  } as any;
+  for (const k of [
+    "preferences",
+    "plan",
+    "address",
+    "emergencyContact",
+    "services",
+    "openingBalance",
+    "totalPaid",
+    "dueAmount",
+    "membershipYears",
+    "discount",
+    "autoRenew",
+  ]) {
     if (data[k] !== undefined) prefs[k] = data[k];
   }
   if (Object.keys(prefs).length) payload.preferences = prefs;
   // extras merge
   const extras: Record<string, any> = {};
   let touched = false;
-  for (const k of EXTRA_KEYS) if (data[k] !== undefined) { extras[k] = data[k]; touched = true; }
+  for (const k of EXTRA_KEYS)
+    if (data[k] !== undefined) {
+      extras[k] = data[k];
+      touched = true;
+    }
   if (touched) {
-    const merged = { ...(current as any || {}) };
+    const merged = { ...((current as any) || {}) };
     for (const k of EXTRA_KEYS) if (extras[k] === undefined) extras[k] = merged[k];
     payload.extras = extras;
   }
@@ -225,7 +319,13 @@ export async function deleteMember(id: string): Promise<void> {
 
 // ─── Bookings ───────────────────────────────────────────────────────
 function mapBookingRow(r: any): Booking {
-  const notes = (() => { try { return r.notes ? JSON.parse(r.notes) : {}; } catch { return {}; } })();
+  const notes = (() => {
+    try {
+      return r.notes ? JSON.parse(r.notes) : {};
+    } catch {
+      return {};
+    }
+  })();
   return {
     id: r.id,
     memberId: r.member_id || "",
@@ -235,7 +335,7 @@ function mapBookingRow(r: any): Booking {
     date: dateOnly(r.start_at),
     startTime: timeOnly(r.start_at),
     endTime: timeOnly(r.end_at),
-    status: ((r.status || "Pending").replace(/^./, (c: string) => c.toUpperCase())) as BookingStatus,
+    status: (r.status || "Pending").replace(/^./, (c: string) => c.toUpperCase()) as BookingStatus,
     instructor: notes.instructor || "",
     outletId: r.outlet_id || null,
   } as any;
@@ -243,23 +343,34 @@ function mapBookingRow(r: any): Booking {
 
 export async function getBookings(filters?: { service?: ServiceType }): Promise<Booking[]> {
   const { data, error } = await supabase.from("bookings").select("*").order("start_at", { ascending: true });
-  if (error) { console.warn("[bookings] read failed:", error.message); return []; }
+  if (error) {
+    console.warn("[bookings] read failed:", error.message);
+    return [];
+  }
   let rows = (data || []).map(mapBookingRow);
   if (filters?.service) rows = rows.filter((b) => b.service === filters.service);
   return rows;
 }
 
 export async function addBooking(data: Partial<Booking> & { outletId?: string }): Promise<string> {
-  const { data: row, error } = await supabase.from("bookings").insert({
-    member_id: data.memberId || null,
-    member_name: data.memberName || null,
-    service_name: data.className || data.service || null,
-    outlet_id: data.outletId || null,
-    start_at: at(data.date, data.startTime),
-    end_at: at(data.date, data.endTime || data.startTime),
-    status: (data.status || "Pending").toLowerCase(),
-    notes: JSON.stringify({ service: data.service || "Gym", className: data.className || "", instructor: data.instructor || "" }),
-  }).select("id").single();
+  const { data: row, error } = await supabase
+    .from("bookings")
+    .insert({
+      member_id: data.memberId || null,
+      member_name: data.memberName || null,
+      service_name: data.className || data.service || null,
+      outlet_id: data.outletId || null,
+      start_at: at(data.date, data.startTime),
+      end_at: at(data.date, data.endTime || data.startTime),
+      status: (data.status || "Pending").toLowerCase(),
+      notes: JSON.stringify({
+        service: data.service || "Gym",
+        className: data.className || "",
+        instructor: data.instructor || "",
+      }),
+    })
+    .select("id")
+    .single();
   if (error) throwDb(error, "bookings");
   await maybeAudit("create", "booking", row.id, null, data);
   return row.id;
@@ -272,9 +383,11 @@ export async function updateBooking(id: string, data: Partial<Record<string, any
   if (data.className !== undefined) patch.service_name = data.className;
   if (data.outletId !== undefined) patch.outlet_id = data.outletId || null;
   if (data.date !== undefined || data.startTime !== undefined) patch.start_at = at(data.date, data.startTime);
-  if (data.date !== undefined || data.endTime !== undefined) patch.end_at = at(data.date, data.endTime || data.startTime);
+  if (data.date !== undefined || data.endTime !== undefined)
+    patch.end_at = at(data.date, data.endTime || data.startTime);
   if (data.status !== undefined) patch.status = String(data.status).toLowerCase();
-  if (data.service !== undefined || data.instructor !== undefined || data.className !== undefined) patch.notes = JSON.stringify({ service: data.service, instructor: data.instructor, className: data.className });
+  if (data.service !== undefined || data.instructor !== undefined || data.className !== undefined)
+    patch.notes = JSON.stringify({ service: data.service, instructor: data.instructor, className: data.className });
   const { error } = await supabase.from("bookings").update(patch).eq("id", id);
   if (error) throwDb(error, "bookings");
   await maybeAudit("update", "booking", id, null, data);
@@ -314,7 +427,10 @@ function mapPaymentRow(r: any): Transaction {
 
 export async function getTransactions(): Promise<Transaction[]> {
   const { data, error } = await supabase.from("payments").select("*").order("paid_at", { ascending: false });
-  if (error) { console.warn("[payments] read failed:", error.message); return []; }
+  if (error) {
+    console.warn("[payments] read failed:", error.message);
+    return [];
+  }
   return (data || []).map(mapPaymentRow);
 }
 
@@ -324,20 +440,24 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
   const net = Math.round((gross / 1.13) * 100) / 100;
   const vat = Math.round((gross - net) * 100) / 100;
   const status = data.status === "pending" ? "pending" : "paid";
-  const { data: row, error } = await supabase.from("payments").insert({
-    receipt_no: data.receiptNo || `VFC-${Date.now()}`,
-    member_id: data.memberId || null,
-    member_name: data.memberName || null,
-    amount: net,
-    vat_amount: vat,
-    total: gross,
-    method: data.method || "Cash",
-    service_type: data.serviceType || null,
-    description: data.description || "",
-    paid_at: data.date ? new Date(`${data.date}T00:00:00`).toISOString() : new Date().toISOString(),
-    status,
-    meta: { type: data.type || "Payment", bookingId: data.bookingId || null },
-  }).select("id").single();
+  const { data: row, error } = await supabase
+    .from("payments")
+    .insert({
+      receipt_no: data.receiptNo || `VFC-${Date.now()}`,
+      member_id: data.memberId || null,
+      member_name: data.memberName || null,
+      amount: net,
+      vat_amount: vat,
+      total: gross,
+      method: data.method || "Cash",
+      service_type: data.serviceType || null,
+      description: data.description || "",
+      paid_at: data.date ? new Date(`${data.date}T00:00:00`).toISOString() : new Date().toISOString(),
+      status,
+      meta: { type: data.type || "Payment", bookingId: data.bookingId || null },
+    })
+    .select("id")
+    .single();
   if (error) throwDb(error, "payments");
   await maybeAudit("create", "payment", row.id, null, data);
   return row.id;
@@ -358,34 +478,77 @@ export async function updateTransaction(id: string, data: Partial<Transaction>):
 }
 
 // ─── Services ───────────────────────────────────────────────────────
-export interface FirestoreService { id: string; name: string; type: string; duration: number; price: number; isActive: boolean; description?: string; capacity?: number; instructor?: string; outletId?: string; requiresInstructor?: boolean; }
+export interface FirestoreService {
+  id: string;
+  name: string;
+  type: string;
+  duration: number;
+  price: number;
+  isActive: boolean;
+  description?: string;
+  capacity?: number;
+  instructor?: string;
+  outletId?: string;
+  requiresInstructor?: boolean;
+}
 
 function mapServiceRow(r: any): FirestoreService {
-  const meta = (() => { try { return r.description?.startsWith("{") ? JSON.parse(r.description) : {}; } catch { return {}; } })();
-  return { id: r.id, name: r.name || "", type: r.service_type || "Gym", duration: Number(r.duration_min || 0), price: Number(r.price || 0), isActive: r.active !== false, description: meta.description || r.description || "", capacity: Number(meta.capacity || 0), instructor: meta.instructor || "", outletId: meta.outletId || "", requiresInstructor: meta.requiresInstructor === true };
+  const meta = (() => {
+    try {
+      return r.description?.startsWith("{") ? JSON.parse(r.description) : {};
+    } catch {
+      return {};
+    }
+  })();
+  return {
+    id: r.id,
+    name: r.name || "",
+    type: r.service_type || "Gym",
+    duration: Number(r.duration_min || 0),
+    price: Number(r.price || 0),
+    isActive: r.active !== false,
+    description: meta.description || r.description || "",
+    capacity: Number(meta.capacity || 0),
+    instructor: meta.instructor || "",
+    outletId: meta.outletId || "",
+    requiresInstructor: meta.requiresInstructor === true,
+  };
 }
 
 export async function getServices(filters?: { outletId?: string }): Promise<FirestoreService[]> {
   const { data, error } = await supabase.from("services").select("*").order("name", { ascending: true });
-  if (error) { console.warn("[services] read failed:", error.message); return []; }
+  if (error) {
+    console.warn("[services] read failed:", error.message);
+    return [];
+  }
   let rows = (data || []).map(mapServiceRow);
   if (filters?.outletId) rows = rows.filter((s) => s.outletId === filters.outletId);
   return rows;
 }
 
 function encodeServiceMeta(data: Partial<FirestoreService>) {
-  return JSON.stringify({ description: data.description || "", capacity: data.capacity || 1, instructor: data.instructor || "", outletId: data.outletId || "", requiresInstructor: data.requiresInstructor === true });
+  return JSON.stringify({
+    description: data.description || "",
+    capacity: data.capacity || 1,
+    instructor: data.instructor || "",
+    outletId: data.outletId || "",
+    requiresInstructor: data.requiresInstructor === true,
+  });
 }
 
 export async function addService(data: Partial<FirestoreService>): Promise<string> {
-  const { data: row, error } = await supabase.from("services").insert({
-    name: data.name || "",
-    service_type: data.type || "Gym",
-    duration_min: data.duration || 60,
-    price: data.price || 0,
-    active: data.isActive !== false,
-    description: encodeServiceMeta(data),
-  }).select("id").single();
+  const { data: row, error } = await supabase
+    .from("services")
+    .insert({
+      name: data.name || "",
+      service_type: data.type || "Gym",
+      duration_min: data.duration || 60,
+      price: data.price || 0,
+      active: data.isActive !== false,
+      description: encodeServiceMeta(data),
+    })
+    .select("id")
+    .single();
   if (error) throwDb(error, "services");
   return row.id;
 }
@@ -397,7 +560,13 @@ export async function updateService(id: string, data: Partial<Record<string, any
   if (data.duration !== undefined) patch.duration_min = data.duration;
   if (data.price !== undefined) patch.price = data.price;
   if (data.isActive !== undefined) patch.active = data.isActive;
-  if (data.description !== undefined || data.capacity !== undefined || data.instructor !== undefined || data.outletId !== undefined || data.requiresInstructor !== undefined) {
+  if (
+    data.description !== undefined ||
+    data.capacity !== undefined ||
+    data.instructor !== undefined ||
+    data.outletId !== undefined ||
+    data.requiresInstructor !== undefined
+  ) {
     patch.description = encodeServiceMeta(data as Partial<FirestoreService>);
   }
   const { error } = await supabase.from("services").update(patch).eq("id", id);
@@ -410,28 +579,69 @@ export async function deleteService(id: string): Promise<void> {
 }
 
 // ─── Membership Plans ───────────────────────────────────────────────
-export interface FirestoreMembershipPlan { id: string; name: string; tier: string; price: number; yearlyPrice?: number; longTermPrice?: number; durationInMonths?: number; membershipTypeId?: string; includes?: string; autoRenew?: boolean; }
+export interface FirestoreMembershipPlan {
+  id: string;
+  name: string;
+  tier: string;
+  price: number;
+  yearlyPrice?: number;
+  longTermPrice?: number;
+  durationInMonths?: number;
+  membershipTypeId?: string;
+  includes?: string;
+  autoRenew?: boolean;
+}
 
 function mapPlanRow(r: any): FirestoreMembershipPlan {
-  const meta = (() => { try { return r.description?.startsWith("{") ? JSON.parse(r.description) : {}; } catch { return {}; } })();
-  return { id: r.id, name: r.name || "", tier: r.tier || "Basic", price: Number(r.price || 0), yearlyPrice: Number(meta.yearlyPrice || 0), longTermPrice: Number(meta.longTermPrice || 0), durationInMonths: Math.round(Number(r.duration_days || 30) / 30), membershipTypeId: meta.membershipTypeId || "", includes: meta.includes || r.description || "", autoRenew: Boolean(meta.autoRenew || false) };
+  const meta = (() => {
+    try {
+      return r.description?.startsWith("{") ? JSON.parse(r.description) : {};
+    } catch {
+      return {};
+    }
+  })();
+  return {
+    id: r.id,
+    name: r.name || "",
+    tier: r.tier || "Basic",
+    price: Number(r.price || 0),
+    yearlyPrice: Number(meta.yearlyPrice || 0),
+    longTermPrice: Number(meta.longTermPrice || 0),
+    durationInMonths: Math.round(Number(r.duration_days || 30) / 30),
+    membershipTypeId: meta.membershipTypeId || "",
+    includes: meta.includes || r.description || "",
+    autoRenew: Boolean(meta.autoRenew || false),
+  };
 }
 
 export async function getMembershipPlans(): Promise<FirestoreMembershipPlan[]> {
   const { data, error } = await supabase.from("membership_plans").select("*").order("price", { ascending: true });
-  if (error) { console.warn("[membership_plans] read failed:", error.message); return []; }
+  if (error) {
+    console.warn("[membership_plans] read failed:", error.message);
+    return [];
+  }
   return (data || []).map(mapPlanRow);
 }
 
 export async function addMembershipPlan(data: Partial<FirestoreMembershipPlan>): Promise<string> {
-  const { data: row, error } = await supabase.from("membership_plans").insert({
-    name: data.name || data.tier || "Plan",
-    tier: data.tier || "Basic",
-    price: data.price || 0,
-    duration_days: (data.durationInMonths || 1) * 30,
-    active: true,
-    description: JSON.stringify({ yearlyPrice: data.yearlyPrice || 0, longTermPrice: data.longTermPrice || 0, includes: data.includes || "", autoRenew: data.autoRenew || false, membershipTypeId: data.membershipTypeId || "" }),
-  }).select("id").single();
+  const { data: row, error } = await supabase
+    .from("membership_plans")
+    .insert({
+      name: data.name || data.tier || "Plan",
+      tier: data.tier || "Basic",
+      price: data.price || 0,
+      duration_days: (data.durationInMonths || 1) * 30,
+      active: true,
+      description: JSON.stringify({
+        yearlyPrice: data.yearlyPrice || 0,
+        longTermPrice: data.longTermPrice || 0,
+        includes: data.includes || "",
+        autoRenew: data.autoRenew || false,
+        membershipTypeId: data.membershipTypeId || "",
+      }),
+    })
+    .select("id")
+    .single();
   if (error) throwDb(error, "membership_plans");
   return row.id;
 }
@@ -443,7 +653,14 @@ export async function updateMembershipPlan(id: string, data: Partial<Record<stri
   if (data.tier !== undefined) patch.tier = data.tier;
   if (data.price !== undefined) patch.price = data.price;
   if (data.durationInMonths !== undefined) patch.duration_days = data.durationInMonths * 30;
-  const meta = { yearlyPrice: current?.yearlyPrice || 0, longTermPrice: current?.longTermPrice || 0, includes: current?.includes || "", autoRenew: current?.autoRenew || false, membershipTypeId: current?.membershipTypeId || "", ...data };
+  const meta = {
+    yearlyPrice: current?.yearlyPrice || 0,
+    longTermPrice: current?.longTermPrice || 0,
+    includes: current?.includes || "",
+    autoRenew: current?.autoRenew || false,
+    membershipTypeId: current?.membershipTypeId || "",
+    ...data,
+  };
   patch.description = JSON.stringify(meta);
   const { error } = await supabase.from("membership_plans").update(patch).eq("id", id);
   if (error) throwDb(error, "membership_plans");
@@ -456,13 +673,28 @@ export async function deleteMembershipPlan(id: string): Promise<void> {
 
 // ─── Dashboard Stats ────────────────────────────────────────────────
 export async function getDashboardStats() {
-  const [members, bookings, transactions, checkIns] = await Promise.all([getMembers(), getBookings(), getTransactions(), getCheckIns()]);
+  const [members, bookings, transactions, checkIns] = await Promise.all([
+    getMembers(),
+    getBookings(),
+    getTransactions(),
+    getCheckIns(),
+  ]);
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const todayKey = now.toISOString().split("T")[0];
   const inMonth = (d: string) => d && new Date(d) >= startOfMonth;
   const currRevenue = transactions.filter((t) => inMonth(t.date)).reduce((s, t) => s + t.total, 0);
-  return { totalMembers: members.length, activeMembers: members.filter((m) => m.status === "Active").length, membersChange: members.filter((m) => inMonth(m.joinDate)).length, monthlyRevenue: currRevenue, revenueChange: 0, activeBookings: bookings.filter((b) => ["Confirmed", "Pending"].includes(b.status)).length, bookingsChange: 0, todayCheckins: checkIns.filter((c) => c.date === todayKey).length, checkinsChange: 0 };
+  return {
+    totalMembers: members.length,
+    activeMembers: members.filter((m) => m.status === "Active").length,
+    membersChange: members.filter((m) => inMonth(m.joinDate)).length,
+    monthlyRevenue: currRevenue,
+    revenueChange: 0,
+    activeBookings: bookings.filter((b) => ["Confirmed", "Pending"].includes(b.status)).length,
+    bookingsChange: 0,
+    todayCheckins: checkIns.filter((c) => c.date === todayKey).length,
+    checkinsChange: 0,
+  };
 }
 
 // ─── Company Settings ───────────────────────────────────────────────
@@ -470,7 +702,7 @@ function mapSettingsRow(row: any): Record<string, string> {
   const extras = row?.extras && typeof row.extras === "object" ? row.extras : {};
   return {
     ...extras,
-    companyName: row?.company_name || extras.companyName || "VitaFit Club",
+    companyName: row?.company_name || extras.companyName || ".............",
     companyAddress: row?.address || extras.companyAddress || "",
     companyPhone: row?.phone || extras.companyPhone || "",
     companyEmail: row?.email || extras.companyEmail || "",
@@ -486,15 +718,23 @@ function mapSettingsRow(row: any): Record<string, string> {
 
 export async function getCompanySettings(): Promise<Record<string, string>> {
   const { data, error } = await supabase.from("company_settings").select("*").eq("id", "main").maybeSingle();
-  if (error) { console.warn("[company_settings] read failed:", error.message); return {}; }
+  if (error) {
+    console.warn("[company_settings] read failed:", error.message);
+    return {};
+  }
   return mapSettingsRow(data || {});
 }
 
-export async function setCompanySetting(key: string, value: string): Promise<void> { await saveCompanySettings({ [key]: value }); }
+export async function setCompanySetting(key: string, value: string): Promise<void> {
+  await saveCompanySettings({ [key]: value });
+}
 
 export async function saveCompanySettings(settings: Record<string, string>): Promise<void> {
   const { data: existing } = await supabase.from("company_settings").select("*").eq("id", "main").maybeSingle();
-  const extras = { ...((existing?.extras && typeof existing.extras === "object") ? existing.extras : {}) } as Record<string, string>;
+  const extras = { ...(existing?.extras && typeof existing.extras === "object" ? existing.extras : {}) } as Record<
+    string,
+    string
+  >;
   const payload: Record<string, any> = { id: "main", updated_at: new Date().toISOString() };
   for (const [key, value] of Object.entries(settings)) {
     if (key === "companyName") payload.company_name = value;
@@ -502,8 +742,10 @@ export async function saveCompanySettings(settings: Record<string, string>): Pro
     else if (key === "companyPhone") payload.phone = value;
     else if (key === "companyEmail") payload.email = value;
     else if (key === "logoUrl") payload.logo_url = value;
-    else if (key === "vatNo" || key === "panNumber") { payload.vat_no = value; extras[key] = value; }
-    else if (key === "currency") payload.currency = value;
+    else if (key === "vatNo" || key === "panNumber") {
+      payload.vat_no = value;
+      extras[key] = value;
+    } else if (key === "currency") payload.currency = value;
     else if (key === "vatRate") payload.vat_rate = Number(value) || 13;
     else if (key === "maxOutlets") payload.max_outlets = value;
     else if (key === "resendEndpoint") payload.resend_endpoint = value;
@@ -515,40 +757,99 @@ export async function saveCompanySettings(settings: Record<string, string>): Pro
 }
 
 // ─── Check-ins ──────────────────────────────────────────────────────
-export async function addCheckIn(memberId: string): Promise<string> { return addCheckInRecord({ memberId, memberName: "", date: new Date().toISOString().split("T")[0] }); }
+export async function addCheckIn(memberId: string): Promise<string> {
+  return addCheckInRecord({ memberId, memberName: "", date: new Date().toISOString().split("T")[0] });
+}
 
-export interface CheckInRecord { id: string; memberId: string; memberName: string; date: string; checkInTime: string; checkOutTime?: string; }
+export interface CheckInRecord {
+  id: string;
+  memberId: string;
+  memberName: string;
+  date: string;
+  checkInTime: string;
+  checkOutTime?: string;
+}
 
 export async function getCheckIns(): Promise<CheckInRecord[]> {
   const { data, error } = await supabase.from("check_ins").select("*").order("check_in_at", { ascending: false });
-  if (error) { console.warn("[check_ins] read failed:", error.message); return []; }
-  return (data || []).map((r: any) => ({ id: r.id, memberId: r.member_id || "", memberName: r.member_name || "", date: dateOnly(r.check_in_at), checkInTime: timeOnly(r.check_in_at), checkOutTime: r.check_out_at ? timeOnly(r.check_out_at) : undefined }));
+  if (error) {
+    console.warn("[check_ins] read failed:", error.message);
+    return [];
+  }
+  return (data || []).map((r: any) => ({
+    id: r.id,
+    memberId: r.member_id || "",
+    memberName: r.member_name || "",
+    date: dateOnly(r.check_in_at),
+    checkInTime: timeOnly(r.check_in_at),
+    checkOutTime: r.check_out_at ? timeOnly(r.check_out_at) : undefined,
+  }));
 }
 
 export async function addCheckInRecord(data: { memberId: string; memberName: string; date: string }): Promise<string> {
-  const { data: row, error } = await supabase.from("check_ins").insert({ member_id: data.memberId || null, member_name: data.memberName || null, check_in_at: at(data.date, new Date().toTimeString().slice(0, 5)) }).select("id").single();
+  const { data: row, error } = await supabase
+    .from("check_ins")
+    .insert({
+      member_id: data.memberId || null,
+      member_name: data.memberName || null,
+      check_in_at: at(data.date, new Date().toTimeString().slice(0, 5)),
+    })
+    .select("id")
+    .single();
   if (error) throwDb(error, "check_ins");
   return row.id;
 }
 
 // ─── Discount Rules ─────────────────────────────────────────────────
-export interface DiscountRule { years: number; discount: number; }
+export interface DiscountRule {
+  years: number;
+  discount: number;
+}
 
 export async function getDiscountRules(): Promise<DiscountRule[]> {
-  const { data, error } = await supabase.from("company_settings").select("discount_rules, extras").eq("id", "main").maybeSingle();
-  if (error) { console.warn("[discount_rules] read failed:", error.message); return []; }
+  const { data, error } = await supabase
+    .from("company_settings")
+    .select("discount_rules, extras")
+    .eq("id", "main")
+    .maybeSingle();
+  if (error) {
+    console.warn("[discount_rules] read failed:", error.message);
+    return [];
+  }
   if (Array.isArray(data?.discount_rules)) return data.discount_rules as DiscountRule[];
-  try { return data?.extras?.discountRules ? JSON.parse(data.extras.discountRules) : []; } catch { return []; }
+  try {
+    return data?.extras?.discountRules ? JSON.parse(data.extras.discountRules) : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function saveDiscountRules(rules: DiscountRule[]): Promise<void> {
-  const { error } = await supabase.from("company_settings").upsert({ id: "main", discount_rules: rules, updated_at: new Date().toISOString() }, { onConflict: "id" });
+  const { error } = await supabase
+    .from("company_settings")
+    .upsert({ id: "main", discount_rules: rules, updated_at: new Date().toISOString() }, { onConflict: "id" });
   if (error) throwDb(error, "company_settings");
 }
 
 // ─── Audit Log ──────────────────────────────────────────────────────
-export async function addAuditLog(userId: string | null, action: string, entityType: string, entityId: string, oldValue?: any, newValue?: any): Promise<void> {
+export async function addAuditLog(
+  userId: string | null,
+  action: string,
+  entityType: string,
+  entityId: string,
+  oldValue?: any,
+  newValue?: any,
+): Promise<void> {
   const { data: auth } = await supabase.auth.getUser();
-  const { error } = await supabase.from("audit_logs").insert({ actor_id: auth?.user?.id || userId || null, actor_email: auth?.user?.email || null, action, entity_type: entityType, entity_id: entityId, diff: { oldValue: oldValue ?? null, newValue: newValue ?? null } });
+  const { error } = await supabase
+    .from("audit_logs")
+    .insert({
+      actor_id: auth?.user?.id || userId || null,
+      actor_email: auth?.user?.email || null,
+      action,
+      entity_type: entityType,
+      entity_id: entityId,
+      diff: { oldValue: oldValue ?? null, newValue: newValue ?? null },
+    });
   if (error) console.warn("[audit_logs] insert failed:", error.message);
 }

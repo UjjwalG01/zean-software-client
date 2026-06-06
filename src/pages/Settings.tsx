@@ -15,10 +15,10 @@ const Settings = () => {
   const saveMutation = useSaveCompanySettings();
 
   const [company, setCompany] = useState({
-    companyName: "VitaFit Club",
+    companyName: ".............",
     registrationNumber: "REG-2018-KTM-4521",
-    companyEmail: "info@vitafitclub.com",
-    companyPhone: "+977-01-4567890",
+    companyEmail: "info@zeansoftware.com",
+    companyPhone: "+977-xx-xxxxxxx",
     companyAddress: "Thamel, Kathmandu, Nepal",
   });
 
@@ -132,21 +132,67 @@ const Settings = () => {
               <h3 className="font-semibold font-display">Company Information</h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>Company Name</Label><Input value={company.companyName} onChange={(e) => setCompany((p) => ({ ...p, companyName: e.target.value }))} /></div>
-              <div className="space-y-2"><Label>Registration Number</Label><Input value={company.registrationNumber} onChange={(e) => setCompany((p) => ({ ...p, registrationNumber: e.target.value }))} /></div>
-              <div className="space-y-2"><Label>Email</Label><Input type="email" value={company.companyEmail} onChange={(e) => setCompany((p) => ({ ...p, companyEmail: e.target.value }))} /></div>
-              <div className="space-y-2"><Label>Phone</Label><Input value={company.companyPhone} onChange={(e) => setCompany((p) => ({ ...p, companyPhone: e.target.value }))} /></div>
-              <div className="space-y-2 sm:col-span-2"><Label>Address</Label><Input value={company.companyAddress} onChange={(e) => setCompany((p) => ({ ...p, companyAddress: e.target.value }))} /></div>
+              <div className="space-y-2">
+                <Label>Company Name</Label>
+                <Input
+                  value={company.companyName}
+                  onChange={(e) => setCompany((p) => ({ ...p, companyName: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Registration Number</Label>
+                <Input
+                  value={company.registrationNumber}
+                  onChange={(e) => setCompany((p) => ({ ...p, registrationNumber: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  value={company.companyEmail}
+                  onChange={(e) => setCompany((p) => ({ ...p, companyEmail: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Phone</Label>
+                <Input
+                  value={company.companyPhone}
+                  onChange={(e) => setCompany((p) => ({ ...p, companyPhone: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Address</Label>
+                <Input
+                  value={company.companyAddress}
+                  onChange={(e) => setCompany((p) => ({ ...p, companyAddress: e.target.value }))}
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Company Logo</Label>
               <div className="flex items-center gap-4">
-                <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center text-xl font-bold text-primary">VF</div>
-                <Button variant="outline" size="sm" onClick={() => toast.info("Upload logo via Firebase Storage")}>Upload Logo</Button>
+                <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center text-xl font-bold text-primary">
+                  VF
+                </div>
+                <Button variant="outline" size="sm" onClick={() => toast.info("Upload logo via Firebase Storage")}>
+                  Upload Logo
+                </Button>
               </div>
             </div>
-            <Button onClick={handleSaveCompany} disabled={saveMutation.isPending} className="gradient-gold text-primary-foreground">
-              {saveMutation.isPending ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Saving...</> : "Save Changes"}
+            <Button
+              onClick={handleSaveCompany}
+              disabled={saveMutation.isPending}
+              className="gradient-gold text-primary-foreground"
+            >
+              {saveMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
             </Button>
           </div>
         </TabsContent>
@@ -158,12 +204,24 @@ const Settings = () => {
               <h3 className="font-semibold font-display">Tax & VAT Configuration</h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>VAT Rate (%)</Label><Input type="number" value={tax.vatRate} onChange={(e) => setTax((p) => ({ ...p, vatRate: e.target.value }))} /></div>
-              <div className="space-y-2"><Label>PAN Number</Label><Input value={tax.panNumber} onChange={(e) => setTax((p) => ({ ...p, panNumber: e.target.value }))} /></div>
+              <div className="space-y-2">
+                <Label>VAT Rate (%)</Label>
+                <Input
+                  type="number"
+                  value={tax.vatRate}
+                  onChange={(e) => setTax((p) => ({ ...p, vatRate: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>PAN Number</Label>
+                <Input value={tax.panNumber} onChange={(e) => setTax((p) => ({ ...p, panNumber: e.target.value }))} />
+              </div>
               <div className="space-y-2">
                 <Label>Tax Year Start</Label>
                 <Select value={tax.taxYearStart} onValueChange={(v) => setTax((p) => ({ ...p, taxYearStart: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="shrawan">Shrawan (Jul-Aug)</SelectItem>
                     <SelectItem value="january">January</SelectItem>
@@ -173,7 +231,9 @@ const Settings = () => {
               <div className="space-y-2">
                 <Label>Currency</Label>
                 <Select value={tax.currency} onValueChange={(v) => setTax((p) => ({ ...p, currency: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="NPR">NPR (Nepali Rupees)</SelectItem>
                     <SelectItem value="USD">USD (US Dollar)</SelectItem>
@@ -184,10 +244,24 @@ const Settings = () => {
             </div>
             <div className="rounded-lg border border-border/50 bg-muted/30 p-4 text-sm text-muted-foreground">
               <p className="font-medium text-foreground mb-1">VAT Calculation</p>
-              <p>All invoices automatically include {tax.vatRate}% VAT. Monthly VAT reports are available in the Reports section.</p>
+              <p>
+                All invoices automatically include {tax.vatRate}% VAT. Monthly VAT reports are available in the Reports
+                section.
+              </p>
             </div>
-            <Button onClick={handleSaveTax} disabled={saveMutation.isPending} className="gradient-gold text-primary-foreground">
-              {saveMutation.isPending ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Saving...</> : "Save Changes"}
+            <Button
+              onClick={handleSaveTax}
+              disabled={saveMutation.isPending}
+              className="gradient-gold text-primary-foreground"
+            >
+              {saveMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
             </Button>
           </div>
         </TabsContent>
@@ -200,13 +274,36 @@ const Settings = () => {
             </div>
             <div className="space-y-1">
               {[
-                { key: "expiryReminders" as const, label: "Expiry Reminders", desc: "Send email 15 days before membership expires" },
-                { key: "failedPayments" as const, label: "Failed Payment Alerts", desc: "Notify admin & member on failed recurring payments" },
-                { key: "newRegistration" as const, label: "New Registration", desc: "Email admin when a new member registers" },
-                { key: "bookingConfirmations" as const, label: "Booking Confirmations", desc: "Send confirmation email after successful booking" },
-                { key: "smsNotifications" as const, label: "SMS Notifications", desc: "Send SMS reminders (via Twilio)" },
+                {
+                  key: "expiryReminders" as const,
+                  label: "Expiry Reminders",
+                  desc: "Send email 15 days before membership expires",
+                },
+                {
+                  key: "failedPayments" as const,
+                  label: "Failed Payment Alerts",
+                  desc: "Notify admin & member on failed recurring payments",
+                },
+                {
+                  key: "newRegistration" as const,
+                  label: "New Registration",
+                  desc: "Email admin when a new member registers",
+                },
+                {
+                  key: "bookingConfirmations" as const,
+                  label: "Booking Confirmations",
+                  desc: "Send confirmation email after successful booking",
+                },
+                {
+                  key: "smsNotifications" as const,
+                  label: "SMS Notifications",
+                  desc: "Send SMS reminders (via Twilio)",
+                },
               ].map((item) => (
-                <div key={item.key} className="flex items-center justify-between py-4 border-b border-border/30 last:border-0">
+                <div
+                  key={item.key}
+                  className="flex items-center justify-between py-4 border-b border-border/30 last:border-0"
+                >
                   <div>
                     <p className="font-medium text-sm">{item.label}</p>
                     <p className="text-xs text-muted-foreground">{item.desc}</p>
@@ -225,7 +322,9 @@ const Settings = () => {
               <div className="space-y-2">
                 <Label>Language</Label>
                 <Select value={general.language} onValueChange={(v) => setGeneral((p) => ({ ...p, language: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="en">English</SelectItem>
                     <SelectItem value="ne">नेपाली (Nepali)</SelectItem>
@@ -235,7 +334,9 @@ const Settings = () => {
               <div className="space-y-2">
                 <Label>Timezone</Label>
                 <Select value={general.timezone} onValueChange={(v) => setGeneral((p) => ({ ...p, timezone: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="asia-kathmandu">Asia/Kathmandu (NPT +5:45)</SelectItem>
                     <SelectItem value="asia-kolkata">Asia/Kolkata (IST +5:30)</SelectItem>
@@ -246,7 +347,9 @@ const Settings = () => {
               <div className="space-y-2">
                 <Label>Date Format</Label>
                 <Select value={general.dateFormat} onValueChange={(v) => setGeneral((p) => ({ ...p, dateFormat: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="yyyy-mm-dd">YYYY-MM-DD</SelectItem>
                     <SelectItem value="dd-mm-yyyy">DD-MM-YYYY</SelectItem>
@@ -256,8 +359,13 @@ const Settings = () => {
               </div>
               <div className="space-y-2">
                 <Label>Default Member View</Label>
-                <Select value={general.defaultMemberView} onValueChange={(v) => setGeneral((p) => ({ ...p, defaultMemberView: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select
+                  value={general.defaultMemberView}
+                  onValueChange={(v) => setGeneral((p) => ({ ...p, defaultMemberView: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="table">Table</SelectItem>
                     <SelectItem value="grid">Grid</SelectItem>
@@ -275,7 +383,10 @@ const Settings = () => {
                   { name: "Resend (Email)", status: "Not Connected", color: "text-muted-foreground" },
                   { name: "Twilio (SMS)", status: "Not Connected", color: "text-muted-foreground" },
                 ].map((api) => (
-                  <div key={api.name} className="flex items-center justify-between rounded-lg border border-border/30 p-3">
+                  <div
+                    key={api.name}
+                    className="flex items-center justify-between rounded-lg border border-border/30 p-3"
+                  >
                     <span>{api.name}</span>
                     <span className={`text-xs ${api.color}`}>{api.status}</span>
                   </div>
@@ -283,8 +394,19 @@ const Settings = () => {
               </div>
             </div>
 
-            <Button onClick={handleSaveGeneral} disabled={saveMutation.isPending} className="gradient-gold text-primary-foreground">
-              {saveMutation.isPending ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Saving...</> : "Save Changes"}
+            <Button
+              onClick={handleSaveGeneral}
+              disabled={saveMutation.isPending}
+              className="gradient-gold text-primary-foreground"
+            >
+              {saveMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
             </Button>
           </div>
         </TabsContent>
