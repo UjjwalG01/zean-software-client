@@ -94,22 +94,22 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
           )}
         </div>
 
-        {/* Summary */}
-        <div className="ml-auto w-full sm:w-[360px] rounded-md border border-border/60 bg-muted/30 p-3 text-sm space-y-1">
+        {/* Summary — + Total Billed - Total Paid - Advance = Net Payable */}
+        <div className="ml-auto w-full sm:w-[380px] rounded-md border border-border/60 bg-muted/30 p-3 text-sm space-y-1">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Total Billed:</span>
+            <span className="text-muted-foreground">＋ Total Billed (Charges)</span>
             <strong>{formatNPR(summary.totalCharged)}</strong>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Total Paid:</span>
+            <span className="text-muted-foreground">－ Total Paid (Settlements)</span>
             <strong className="text-success">{formatNPR(summary.totalPaid)}</strong>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Advance Balance (deducted):</span>
-            <strong className="text-primary">- {formatNPR(summary.advance)}</strong>
+            <span className="text-muted-foreground">－ Advance Balance</span>
+            <strong className="text-primary">{formatNPR(summary.advance)}</strong>
           </div>
           <div className="border-t border-border/60 mt-1 pt-1 flex justify-between text-base">
-            <strong className="text-destructive">Net Payable Balance:</strong>
+            <strong className="text-destructive">＝ Net Payable Balance</strong>
             <strong className="text-destructive">{formatNPR(summary.netPayable)}</strong>
           </div>
         </div>
