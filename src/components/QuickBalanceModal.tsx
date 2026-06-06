@@ -4,6 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { formatNPR, type Member } from "@/lib/mock-data";
 import { useTransactions } from "@/hooks/use-firestore";
+import { useCharges } from "@/hooks/use-charges";
 import { buildMemberLedger } from "@/lib/member-ledger";
 
 interface Props {
@@ -18,11 +19,12 @@ interface Props {
  */
 export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
   const { data: transactions = [] } = useTransactions();
+  const { data: charges = [] } = useCharges();
 
   const { rows, summary } = useMemo(() => {
     if (!member) return { rows: [], summary: { totalCharged: 0, totalPaid: 0, advance: 0, netPayable: 0, dueBalance: 0, isSettled: true } };
-    return buildMemberLedger(member.id, transactions, member.openingBalance || 0);
-  }, [member, transactions]);
+    return buildMemberLedger(member.id, transactions, member.openingBalance || 0, charges);
+  }, [member, transactions, charges]);
 
   if (!member) return null;
 
@@ -92,22 +94,22 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
           )}
         </div>
 
-        {/* Summary */}
-        <div className="ml-auto w-full sm:w-[360px] rounded-md border border-border/60 bg-muted/30 p-3 text-sm space-y-1">
+        {/* Summary — + Total Billed - Total Paid - Advance = Net Payable */}
+        <div className="ml-auto w-full sm:w-[380px] rounded-md border border-border/60 bg-muted/30 p-3 text-sm space-y-1">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Total Billed:</span>
+            <span className="text-muted-foreground">＋ Total Billed (Charges)</span>
             <strong>{formatNPR(summary.totalCharged)}</strong>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Total Paid:</span>
+            <span className="text-muted-foreground">－ Total Paid (Settlements)</span>
             <strong className="text-success">{formatNPR(summary.totalPaid)}</strong>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Advance Balance (deducted):</span>
-            <strong className="text-primary">- {formatNPR(summary.advance)}</strong>
+            <span className="text-muted-foreground">－ Advance Balance</span>
+            <strong className="text-primary">{formatNPR(summary.advance)}</strong>
           </div>
           <div className="border-t border-border/60 mt-1 pt-1 flex justify-between text-base">
-            <strong className="text-destructive">Net Payable Balance:</strong>
+            <strong className="text-destructive">＝ Net Payable Balance</strong>
             <strong className="text-destructive">{formatNPR(summary.netPayable)}</strong>
           </div>
         </div>
