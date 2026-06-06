@@ -1,14 +1,43 @@
 import {
-  LayoutDashboard, Users, CalendarDays, Receipt, BarChart3, Settings, Dumbbell, Crown,
-  UserCheck, TrendingUp, Wrench, UserCog, Mail, Building2, Tag, Package, Warehouse, Layers, ScrollText,
+  LayoutDashboard,
+  Users,
+  CalendarDays,
+  Receipt,
+  BarChart3,
+  Settings,
+  Dumbbell,
+  Crown,
+  UserCheck,
+  TrendingUp,
+  Wrench,
+  UserCog,
+  Mail,
+  Building2,
+  Tag,
+  Package,
+  Warehouse,
+  Layers,
+  ScrollText,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
-  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
-  SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar,
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarHeader,
+  SidebarFooter,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { useMyPermissions, canView } from "@/hooks/use-permissions";
+
+const softwareName = "ZEAN";
+const softwareVersion = "2.0.1";
 
 const mainItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard, key: "dashboard" },
@@ -40,8 +69,7 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { data: myPerms } = useMyPermissions();
-  const isActive = (path: string) =>
-    path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
+  const isActive = (path: string) => (path === "/" ? location.pathname === "/" : location.pathname.startsWith(path));
 
   const visibleMain = mainItems.filter((i) => canView(myPerms, i.key));
   const visibleSetup = setupItems.filter((i) => canView(myPerms, i.key));
@@ -55,8 +83,8 @@ export function AppSidebar() {
           </div>
           {!collapsed && (
             <div>
-              <h1 className="text-lg font-bold font-display text-gradient-gold">VitaFit</h1>
-              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Club</p>
+              <h1 className="text-lg font-extrabold font-display text-gradient-gold">{softwareName}</h1>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Software</p>
             </div>
           )}
         </div>
@@ -64,13 +92,19 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/60">Main</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/60">
+            Main
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {visibleMain.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
-                    <NavLink to={item.url} end={item.url === "/"} activeClassName="bg-sidebar-accent text-sidebar-accent-foreground">
+                    <NavLink
+                      to={item.url}
+                      end={item.url === "/"}
+                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
+                    >
                       <item.icon className="h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
                     </NavLink>
@@ -82,7 +116,9 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/60">Setup</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/60">
+            Setup
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {visibleSetup.map((item) => (
@@ -103,8 +139,8 @@ export function AppSidebar() {
       <SidebarFooter className="p-4">
         {!collapsed && (
           <div className="rounded-lg border border-border/50 bg-muted/30 p-3">
-            <p className="text-xs text-muted-foreground">Version 1.0.0</p>
-            <p className="text-[10px] text-muted-foreground/60">© 2026 VitaFit Club</p>
+            <p className="text-xs text-muted-foreground">Version {softwareVersion}</p>
+            <p className="text-[10px] text-muted-foreground/60">© 2026 {softwareName} Software</p>
           </div>
         )}
       </SidebarFooter>
