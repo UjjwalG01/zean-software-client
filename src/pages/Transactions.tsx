@@ -128,7 +128,8 @@ const Transactions = () => {
       taxableAmount: net,
       vatAmount: vat,
       grandTotal: gross,
-      attendant: "admin",
+      attendant: "user",
+      paymentMethod: settleMethod,
     });
     printHTML(html);
   };
