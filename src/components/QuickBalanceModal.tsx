@@ -22,7 +22,21 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
   const { data: charges = [] } = useCharges();
 
   const { rows, summary } = useMemo(() => {
-    if (!member) return { rows: [], summary: { totalCharged: 0, totalPaid: 0, advance: 0, netPayable: 0, dueBalance: 0, isSettled: true } };
+    if (!member)
+      return {
+        rows: [],
+        summary: {
+          totalChargedNet: 0,
+          totalVat: 0,
+          totalCharged: 0,
+          totalPaid: 0,
+          advance: 0,
+          totalDiscount: 0,
+          netPayable: 0,
+          dueBalance: 0,
+          isSettled: true,
+        },
+      };
     return buildMemberLedger(member.id, transactions, member.openingBalance || 0, charges);
   }, [member, transactions, charges]);
 
