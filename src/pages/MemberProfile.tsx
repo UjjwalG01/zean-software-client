@@ -244,23 +244,52 @@ const MemberProfile = () => {
 
         <TabsContent value="payments">
           <div className="glass-card rounded-xl overflow-hidden">
-            {memberTx.length === 0 ? (
+            {memberLedger.rows.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">No payment records</p>
             ) : (
               <Table>
-                <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Description</TableHead><TableHead>Method</TableHead><TableHead className="text-right">Amount</TableHead></TableRow></TableHeader>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[110px]">Date</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="w-[110px]">Type</TableHead>
+                    <TableHead className="w-[110px]">Method</TableHead>
+                    <TableHead className="text-right w-[120px]">Charge</TableHead>
+                    <TableHead className="text-right w-[120px]">Paid</TableHead>
+                    <TableHead className="text-right w-[130px]">Balance</TableHead>
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
-                  {memberTx.map((t) => (
-                    <TableRow key={t.id}>
-                      <TableCell className="text-sm">{t.date}</TableCell>
-                      <TableCell className="text-sm">{t.description}</TableCell>
-                      <TableCell><Badge variant="secondary" className="text-[10px]">{t.method}</Badge></TableCell>
-                      <TableCell className="text-right font-medium text-sm">{formatNPR(t.total)}</TableCell>
+                  {memberLedger.rows.map((r, i) => (
+                    <TableRow key={i} className={r.voided ? "opacity-50 line-through" : ""}>
+                      <TableCell className="text-xs">{r.date}</TableCell>
+                      <TableCell className="text-sm">
+                        {r.description}
+                        {r.receiptNo && (
+                          <span className="block text-[10px] text-muted-foreground font-mono">{r.receiptNo}</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-[10px]">{r.kind}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        {r.method ? <Badge variant="secondary" className="text-[10px]">{r.method}</Badge> : <span className="text-muted-foreground text-xs">—</span>}
+                      </TableCell>
+                      <TableCell className="text-right text-sm">{r.debit ? formatNPR(r.debit) : "—"}</TableCell>
+                      <TableCell className="text-right text-sm text-success">{r.credit ? formatNPR(r.credit) : "—"}</TableCell>
+                      <TableCell className="text-right text-sm font-semibold">{formatNPR(r.balance)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             )}
+            {/* Summary footer mirrors Quick Balance */}
+            <div className="border-t border-border/50 p-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm bg-muted/20">
+              <div><span className="text-muted-foreground">＋ Total Billed</span><div className="font-semibold">{formatNPR(memberLedger.summary.totalCharged)}</div></div>
+              <div><span className="text-muted-foreground">－ Total Paid</span><div className="font-semibold text-success">{formatNPR(memberLedger.summary.totalPaid)}</div></div>
+              <div><span className="text-muted-foreground">－ Advance</span><div className="font-semibold text-primary">{formatNPR(memberLedger.summary.advance)}</div></div>
+              <div><span className="text-muted-foreground">＝ Net Payable</span><div className="font-bold text-destructive">{formatNPR(memberLedger.summary.netPayable)}</div></div>
+            </div>
           </div>
         </TabsContent>
 
