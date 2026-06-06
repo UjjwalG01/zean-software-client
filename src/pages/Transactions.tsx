@@ -67,6 +67,7 @@ const Transactions = () => {
   const [settleTxn, setSettleTxn] = useState<Transaction | null>(null);
   const [settleMethod, setSettleMethod] = useState<PaymentMethod>("Cash");
   const [settleNote, setSettleNote] = useState("");
+  const [settleDiscount, setSettleDiscount] = useState("");
   const [isSettlement, setIsSettlement] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -179,6 +180,7 @@ const Transactions = () => {
   const openSettle = (t: Transaction, settlement = false) => {
     setSettleMethod("Cash");
     setSettleNote("");
+    setSettleDiscount("");
     setIsSettlement(settlement);
     setSettleTxn(t);
   };
@@ -249,9 +251,10 @@ const Transactions = () => {
 
   const handleSettle = async () => {
     if (!settleTxn) return;
+    const discount = Math.max(0, Math.min(Number(settleDiscount) || 0, settleTxn.total));
+    const paidAmount = Math.max(0, settleTxn.total - discount);
     try {
       if (settleTxn.id.startsWith("TEMP-")) {
-        // Book a sale and make a settlement in one go
         await addTransactionMutation.mutateAsync({
           memberId: settleTxn.memberId,
           memberName: settleTxn.memberName,
@@ -261,23 +264,55 @@ const Transactions = () => {
           method: settleMethod,
           type: "Charge",
           date: new Date().toISOString().split("T")[0],
-          description: settleTxn.description,
+          description: settleTxn.description + (discount > 0 ? ` (Discount ${formatNPR(discount)})` : ""),
           receiptNo: settleTxn.receiptNo,
           status: "paid",
           bookingId: settleTxn.bookingId,
+          discount,
         });
       } else {
+        // Flip the canonical charges row to paid (with discount in meta) when present.
+        if ((settleTxn as any).chargeRowId) {
+          try {
+            const { supabase } = await import("@/lib/supabase");
+            await supabase
+              .from("charges")
+              .update({
+                status: "paid",
+                paid_at: new Date().toISOString(),
+                meta: {
+                  ...(settleTxn as any).meta,
+                  bookingId: settleTxn.bookingId,
+                  discount,
+                  settlementMethod: settleMethod,
+                },
+              })
+              .eq("id", (settleTxn as any).chargeRowId);
+          } catch (e) {
+            console.warn("[settle] charges table update failed", e);
+          }
+        }
         await updateTransactionMutation.mutateAsync({
           id: settleTxn.id,
           data: {
             status: "paid",
             method: settleMethod,
             date: new Date().toISOString().split("T")[0],
+            discount,
+            description:
+              settleTxn.description +
+              (discount > 0 && !/Discount/i.test(settleTxn.description)
+                ? ` (Discount ${formatNPR(discount)})`
+                : ""),
           },
         });
       }
-      toast.success("Payment settled");
-      printBill(settleTxn.memberName, settleTxn.receiptNo, settleTxn.description, settleTxn.total, new Date());
+      toast.success(
+        discount > 0
+          ? `Settled — ${formatNPR(paidAmount)} collected, ${formatNPR(discount)} discount applied`
+          : "Payment settled",
+      );
+      printBill(settleTxn.memberName, settleTxn.receiptNo, settleTxn.description, paidAmount, new Date());
       setSettleTxn(null);
     } catch (e) {
       toast.error("Failed to settle payment");
@@ -629,6 +664,27 @@ const Transactions = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Discount (NPR)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={settleTxn.total}
+                    placeholder="0"
+                    value={settleDiscount}
+                    onChange={(e) => setSettleDiscount(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Net Collectible</Label>
+                  <Input
+                    readOnly
+                    className="bg-muted/40 font-semibold text-success"
+                    value={formatNPR(Math.max(0, settleTxn.total - (Number(settleDiscount) || 0)))}
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Note</Label>
