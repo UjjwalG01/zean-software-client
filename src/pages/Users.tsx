@@ -1,5 +1,20 @@
 import { useState } from "react";
-import { Plus, Trash2, UserCog, Eye, EyeOff, KeyRound, CheckCircle2, Copy, Mail, Pencil, ShieldCheck, Users as UsersIcon, ShieldAlert, ShieldQuestion } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  UserCog,
+  Eye,
+  EyeOff,
+  KeyRound,
+  CheckCircle2,
+  Copy,
+  Mail,
+  Pencil,
+  ShieldCheck,
+  Users as UsersIcon,
+  ShieldAlert,
+  ShieldQuestion,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,7 +22,15 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppUsers, useCreateAppUser, useUpdateAppUser, useDeleteAppUser } from "@/hooks/use-app-users";
@@ -46,8 +69,14 @@ const UsersPage = () => {
   const [editForm, setEditForm] = useState<Partial<AppUser>>({});
 
   const initialForm = () => ({
-    username: "", email: "", password: DEFAULT_TEMP_PASSWORD, confirmPassword: DEFAULT_TEMP_PASSWORD,
-    fullName: "", phone: "", address: "", role: "" as unknown as UserRole,
+    username: "",
+    email: "",
+    password: DEFAULT_TEMP_PASSWORD,
+    confirmPassword: DEFAULT_TEMP_PASSWORD,
+    fullName: "",
+    phone: "",
+    address: "",
+    role: "" as unknown as UserRole,
   });
   const [form, setForm] = useState(initialForm());
   const reset = () => setForm(initialForm());
@@ -64,8 +93,14 @@ const UsersPage = () => {
 
   const handleCreate = async () => {
     const err = validate();
-    if (err) { toast.error(err); return; }
-    if (!form.role) { toast.error("Please assign a role"); return; }
+    if (err) {
+      toast.error(err);
+      return;
+    }
+    if (!form.role) {
+      toast.error("Please assign a role");
+      return;
+    }
     try {
       const newUserId = await createMutation.mutateAsync({
         username: form.username,
@@ -78,7 +113,11 @@ const UsersPage = () => {
         customRoleId: form.role,
       });
       // Persist the role assignment to the DB (user_role_assignments)
-      try { await assignRoleMutation.mutateAsync({ userId: newUserId as string, roleId: form.role }); } catch { /* non-fatal */ }
+      try {
+        await assignRoleMutation.mutateAsync({ userId: newUserId as string, roleId: form.role });
+      } catch {
+        /* non-fatal */
+      }
       const created = { email: form.email, password: form.password, fullName: form.fullName };
       setOpen(false);
       reset();
@@ -86,9 +125,10 @@ const UsersPage = () => {
       setSuccessUser(created);
       toast.success(`User "${created.fullName}" created successfully`);
     } catch (e: any) {
-      const msg = e?.code === "auth/email-already-in-use"
-        ? "A user with this email already exists in Firebase Auth"
-        : e?.message || "Failed to create user";
+      const msg =
+        e?.code === "auth/email-already-in-use"
+          ? "A user with this email already exists in Firebase Auth"
+          : e?.message || "Failed to create user";
       toast.error(msg);
     }
   };
@@ -97,7 +137,9 @@ const UsersPage = () => {
     try {
       await updateMutation.mutateAsync({ id, data: { isActive: !current } });
       toast.success(current ? "User deactivated" : "User activated");
-    } catch { toast.error("Update failed"); }
+    } catch {
+      toast.error("Update failed");
+    }
   };
 
   const handleRoleChange = async (id: string, customRoleId: string) => {
@@ -105,21 +147,36 @@ const UsersPage = () => {
       await updateMutation.mutateAsync({ id, data: { customRoleId, role: "staff" as UserRole } });
       await assignRoleMutation.mutateAsync({ userId: id, roleId: customRoleId });
       toast.success("Role updated");
-    } catch (e: any) { toast.error(e?.message || "Failed"); }
+    } catch (e: any) {
+      toast.error(e?.message || "Failed");
+    }
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Remove user "${name}"? This only removes their access record. The Firebase Auth account is not deleted.`)) return;
+    if (
+      !confirm(
+        `Remove user "${name}"? This only removes their access record. The Firebase Auth account is not deleted.`,
+      )
+    )
+      return;
     try {
       await deleteMutation.mutateAsync(id);
       toast.success("User removed");
-    } catch { toast.error("Failed"); }
+    } catch {
+      toast.error("Failed");
+    }
   };
 
   const handleAdminResetPassword = async () => {
     if (!resetTarget) return;
-    if (resetPwd.length < 8) { toast.error("Password must be at least 8 characters"); return; }
-    if (resetPwd !== resetConfirm) { toast.error("Passwords do not match"); return; }
+    if (resetPwd.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
+    if (resetPwd !== resetConfirm) {
+      toast.error("Passwords do not match");
+      return;
+    }
     setResetting(true);
     try {
       const { data, error } = await supabase.functions.invoke("admin-reset-password", {
@@ -127,10 +184,14 @@ const UsersPage = () => {
       });
       if (error || (data as any)?.error) throw new Error(error?.message || (data as any)?.error);
       toast.success(`Password reset for ${resetTarget.fullName}. They'll be prompted to change it at next login.`);
-      setResetTarget(null); setResetPwd(""); setResetConfirm("");
+      setResetTarget(null);
+      setResetPwd("");
+      setResetConfirm("");
     } catch (e: any) {
       toast.error(e?.message || "Failed to reset password");
-    } finally { setResetting(false); }
+    } finally {
+      setResetting(false);
+    }
   };
 
   const copyCreds = (creds: { email: string; password: string }) => {
@@ -140,7 +201,13 @@ const UsersPage = () => {
 
   const openEdit = (u: AppUser) => {
     setEditTarget(u);
-    setEditForm({ fullName: u.fullName, username: u.username, phone: u.phone, address: u.address, customRoleId: u.customRoleId || "" });
+    setEditForm({
+      fullName: u.fullName,
+      username: u.username,
+      phone: u.phone,
+      address: u.address,
+      customRoleId: u.customRoleId || "",
+    });
   };
 
   const handleSaveEdit = async () => {
@@ -148,11 +215,17 @@ const UsersPage = () => {
     try {
       await updateMutation.mutateAsync({ id: editTarget.id, data: { ...editForm, role: "staff" as UserRole } });
       if (editForm.customRoleId) {
-        try { await assignRoleMutation.mutateAsync({ userId: editTarget.id, roleId: editForm.customRoleId }); } catch { /* non-fatal */ }
+        try {
+          await assignRoleMutation.mutateAsync({ userId: editTarget.id, roleId: editForm.customRoleId });
+        } catch {
+          /* non-fatal */
+        }
       }
       toast.success("User updated");
       setEditTarget(null);
-    } catch { toast.error("Update failed"); }
+    } catch {
+      toast.error("Update failed");
+    }
   };
 
   const counts = {
@@ -169,56 +242,101 @@ const UsersPage = () => {
           <h1 className="text-2xl font-bold font-display">User Management</h1>
           <p className="text-muted-foreground text-sm">Create users, assign roles, and manage access</p>
         </div>
-        <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
+        <Dialog
+          open={open}
+          onOpenChange={(o) => {
+            setOpen(o);
+            if (!o) reset();
+          }}
+        >
           <DialogTrigger asChild>
-            <Button size="sm"><Plus className="h-4 w-4 mr-1" />Create User</Button>
+            <Button size="sm">
+              <Plus className="h-4 w-4 mr-1" />
+              Create User
+            </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="font-display">Create New User</DialogTitle>
               <DialogDescription>
-                Default password is <strong>{DEFAULT_TEMP_PASSWORD}</strong>. The user will be forced to change it on first login.
+                Default password is <strong>{DEFAULT_TEMP_PASSWORD}</strong>. The user will be forced to change it on
+                first login.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>Username *</Label>
-                  <Input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder="rajesh.k" />
+                  <Input
+                    value={form.username}
+                    onChange={(e) => setForm({ ...form, username: e.target.value })}
+                    placeholder="rajesh.k"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Full Name *</Label>
-                  <Input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} placeholder="Rajesh Karki" />
+                  <Input
+                    value={form.fullName}
+                    onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+                    placeholder="Rajesh Karki"
+                  />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label>Email *</Label>
-                <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="rajesh@vitafitclub.com" />
+                <Input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  placeholder="rajesh@vitafitclub.com"
+                />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>Phone</Label>
-                  <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+977-984XXXXXXX" />
+                  <Input
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    placeholder="+977-984XXXXXXX"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Role *</Label>
                   <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as UserRole })}>
                     <SelectTrigger>
-                      <SelectValue placeholder={customRoles.filter(r => r.active).length === 0 ? "No roles — create one first" : "Select role"} />
+                      <SelectValue
+                        placeholder={
+                          customRoles.filter((r) => r.active).length === 0
+                            ? "No roles — create one first"
+                            : "Select role"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      {customRoles.filter(r => r.active).length === 0 ? (
-                        <div className="px-3 py-2 text-xs text-muted-foreground">Create roles in the Roles &amp; Permissions tab.</div>
-                      ) : customRoles.filter(r => r.active).map(r => (
-                        <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                      ))}
+                      {customRoles.filter((r) => r.active).length === 0 ? (
+                        <div className="px-3 py-2 text-xs text-muted-foreground">
+                          Create roles in the Roles &amp; Permissions tab.
+                        </div>
+                      ) : (
+                        customRoles
+                          .filter((r) => r.active)
+                          .map((r) => (
+                            <SelectItem key={r.id} value={r.id}>
+                              {r.name}
+                            </SelectItem>
+                          ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <div className="space-y-2">
                 <Label>Address</Label>
-                <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Kathmandu, Nepal" />
+                <Input
+                  value={form.address}
+                  onChange={(e) => setForm({ ...form, address: e.target.value })}
+                  placeholder="Kathmandu, Nepal"
+                />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
@@ -231,20 +349,34 @@ const UsersPage = () => {
                       placeholder="Min 8 characters"
                       className="pr-10"
                     />
-                    <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShowPwd(!showPwd)}>
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
+                      onClick={() => setShowPwd(!showPwd)}
+                    >
                       {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Confirm Password *</Label>
-                  <Input type={showPwd ? "text" : "password"} value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} />
+                  <Input
+                    type={showPwd ? "text" : "password"}
+                    value={form.confirmPassword}
+                    onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+                  />
                 </div>
               </div>
               <div className="rounded-lg bg-muted/30 p-3 text-xs text-muted-foreground">
-                <strong className="text-foreground">Security:</strong> Username & password are pre-filled with the email and the default temp password ({DEFAULT_TEMP_PASSWORD}). The user must change their password on first login.
+                <strong className="text-foreground">Security:</strong> Username & password are pre-filled with the email
+                and the default temp password ({DEFAULT_TEMP_PASSWORD}). The user must change their password on first
+                login.
               </div>
-              <Button onClick={handleCreate} disabled={createMutation.isPending} className="w-full gradient-gold text-primary-foreground">
+              <Button
+                onClick={handleCreate}
+                disabled={createMutation.isPending}
+                className="w-full gradient-gold text-primary-foreground"
+              >
                 {createMutation.isPending ? "Creating..." : "Create User"}
               </Button>
             </div>
@@ -253,7 +385,7 @@ const UsersPage = () => {
       </div>
 
       {/* STATS + ROLES LEGEND */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           { label: "Total users", value: counts.total, icon: UsersIcon, color: "text-primary" },
           { label: "Admins", value: counts.admin, icon: ShieldCheck, color: "text-amber-400" },
@@ -270,13 +402,14 @@ const UsersPage = () => {
             </div>
           </div>
         ))}
-      </div>
+      </div> */}
 
       {customRoles.length === 0 && (
         <div className="glass-card rounded-xl p-4 border border-warning/30 bg-warning/5">
           <p className="text-xs uppercase tracking-wider text-warning font-semibold mb-1">No roles defined</p>
           <p className="text-sm text-muted-foreground">
-            Create roles with custom permissions in the <strong>Roles &amp; Permissions</strong> tab below, then assign them to each user.
+            Create roles with custom permissions in the <strong>Roles &amp; Permissions</strong> tab below, then assign
+            them to each user.
           </p>
         </div>
       )}
@@ -319,13 +452,24 @@ const UsersPage = () => {
             <Button variant="outline" onClick={() => successUser && copyCreds(successUser)}>
               <Copy className="h-4 w-4 mr-1" /> Copy
             </Button>
-            <Button onClick={() => setSuccessUser(null)} className="gradient-gold text-primary-foreground">Done</Button>
+            <Button onClick={() => setSuccessUser(null)} className="gradient-gold text-primary-foreground">
+              Done
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* ADMIN RESET PASSWORD */}
-      <Dialog open={!!resetTarget} onOpenChange={(o) => { if (!o) { setResetTarget(null); setResetPwd(""); setResetConfirm(""); } }}>
+      <Dialog
+        open={!!resetTarget}
+        onOpenChange={(o) => {
+          if (!o) {
+            setResetTarget(null);
+            setResetPwd("");
+            setResetConfirm("");
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-[440px]">
           <DialogHeader>
             <DialogTitle className="font-display">Reset Password</DialogTitle>
@@ -341,16 +485,29 @@ const UsersPage = () => {
               </div>
               <div className="space-y-2">
                 <Label>New Password *</Label>
-                <Input type="password" value={resetPwd} onChange={(e) => setResetPwd(e.target.value)} placeholder="Min 8 characters" autoFocus />
+                <Input
+                  type="password"
+                  value={resetPwd}
+                  onChange={(e) => setResetPwd(e.target.value)}
+                  placeholder="Min 8 characters"
+                  autoFocus
+                />
               </div>
               <div className="space-y-2">
                 <Label>Confirm Password *</Label>
                 <Input type="password" value={resetConfirm} onChange={(e) => setResetConfirm(e.target.value)} />
               </div>
               <DialogFooter className="gap-2">
-                <Button variant="outline" onClick={() => setResetTarget(null)}>Cancel</Button>
-                <Button onClick={handleAdminResetPassword} disabled={resetting} className="gradient-gold text-primary-foreground">
-                  <KeyRound className="h-4 w-4 mr-2" />{resetting ? "Resetting..." : "Set New Password"}
+                <Button variant="outline" onClick={() => setResetTarget(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleAdminResetPassword}
+                  disabled={resetting}
+                  className="gradient-gold text-primary-foreground"
+                >
+                  <KeyRound className="h-4 w-4 mr-2" />
+                  {resetting ? "Resetting..." : "Set New Password"}
                 </Button>
               </DialogFooter>
             </div>
@@ -366,7 +523,11 @@ const UsersPage = () => {
         <TabsContent value="users" className="space-y-4">
           <div className="glass-card rounded-xl overflow-hidden">
             {isLoading ? (
-              <div className="p-4 space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}</div>
+              <div className="p-4 space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-12 rounded-lg" />
+                ))}
+              </div>
             ) : users.length === 0 ? (
               <div className="p-12 text-center">
                 <UserCog className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
@@ -389,54 +550,88 @@ const UsersPage = () => {
                   <TableBody>
                     {users.map((u) => {
                       const assignedId = u.customRoleId || u.role;
-                      const custom = customRoles.find(r => r.id === assignedId);
-                      const colorClass = custom ? "bg-accent/20 text-accent-foreground" : "bg-muted text-muted-foreground";
+                      const custom = customRoles.find((r) => r.id === assignedId);
+                      const colorClass = custom
+                        ? "bg-accent/20 text-accent-foreground"
+                        : "bg-muted text-muted-foreground";
                       return (
-                      <TableRow key={u.id}>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium text-sm">{u.fullName}</p>
-                            <p className="text-xs text-muted-foreground">@{u.username}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{u.email}</TableCell>
-                        <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">{u.phone || "—"}</TableCell>
-                        <TableCell>
-                          <Select value={assignedId} onValueChange={(v) => handleRoleChange(u.id, v as UserRole)}>
-                            <SelectTrigger className={`h-8 w-[160px] text-[11px] border-0 ${colorClass}`}>
-                              <SelectValue placeholder="Unassigned" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {customRoles.filter(r => r.active).length === 0 ? (
-                                <div className="px-3 py-2 text-xs text-muted-foreground">Create a role first</div>
-                              ) : customRoles.filter(r => r.active).map(r => (
-                                <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          {u.mustChangePassword
-                            ? <Badge className="text-[10px] bg-warning/20 text-warning border-0">Pending password change</Badge>
-                            : <Badge className="text-[10px] bg-success/20 text-success border-0">Active</Badge>}
-                        </TableCell>
-                        <TableCell>
-                          <Switch checked={u.isActive} onCheckedChange={() => toggleActive(u.id, u.isActive)} />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-muted" title="Edit user" onClick={() => openEdit(u)}>
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/10" title="Reset password" onClick={() => setResetTarget(u)}>
-                              <KeyRound className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" title="Remove user" onClick={() => handleDelete(u.id, u.fullName)}>
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
+                        <TableRow key={u.id}>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium text-sm">{u.fullName}</p>
+                              <p className="text-xs text-muted-foreground">@{u.username}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                            {u.email}
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
+                            {u.phone || "—"}
+                          </TableCell>
+                          <TableCell>
+                            <Select value={assignedId} onValueChange={(v) => handleRoleChange(u.id, v as UserRole)}>
+                              <SelectTrigger className={`h-8 w-[160px] text-[11px] border-0 ${colorClass}`}>
+                                <SelectValue placeholder="Unassigned" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {customRoles.filter((r) => r.active).length === 0 ? (
+                                  <div className="px-3 py-2 text-xs text-muted-foreground">Create a role first</div>
+                                ) : (
+                                  customRoles
+                                    .filter((r) => r.active)
+                                    .map((r) => (
+                                      <SelectItem key={r.id} value={r.id}>
+                                        {r.name}
+                                      </SelectItem>
+                                    ))
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            {u.mustChangePassword ? (
+                              <Badge className="text-[10px] bg-warning/20 text-warning border-0">
+                                Pending password change
+                              </Badge>
+                            ) : (
+                              <Badge className="text-[10px] bg-success/20 text-success border-0">Active</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Switch checked={u.isActive} onCheckedChange={() => toggleActive(u.id, u.isActive)} />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 hover:bg-muted"
+                                title="Edit user"
+                                onClick={() => openEdit(u)}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-primary hover:bg-primary/10"
+                                title="Reset password"
+                                onClick={() => setResetTarget(u)}
+                              >
+                                <KeyRound className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                                title="Remove user"
+                                onClick={() => handleDelete(u.id, u.fullName)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
                       );
                     })}
                   </TableBody>
@@ -462,11 +657,17 @@ const UsersPage = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>Full name</Label>
-                  <Input value={editForm.fullName || ""} onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })} />
+                  <Input
+                    value={editForm.fullName || ""}
+                    onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Username</Label>
-                  <Input value={editForm.username || ""} onChange={(e) => setEditForm({ ...editForm, username: e.target.value })} />
+                  <Input
+                    value={editForm.username || ""}
+                    onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
+                  />
                 </div>
               </div>
               <div className="space-y-2">
@@ -476,29 +677,58 @@ const UsersPage = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>Phone</Label>
-                  <Input value={editForm.phone || ""} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
+                  <Input
+                    value={editForm.phone || ""}
+                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Role</Label>
-                  <Select value={(editForm as any).customRoleId || ""} onValueChange={(v) => setEditForm({ ...editForm, customRoleId: v } as any)}>
-                    <SelectTrigger><SelectValue placeholder={customRoles.filter(r => r.active).length === 0 ? "No roles available" : "Select role"} /></SelectTrigger>
+                  <Select
+                    value={(editForm as any).customRoleId || ""}
+                    onValueChange={(v) => setEditForm({ ...editForm, customRoleId: v } as any)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={
+                          customRoles.filter((r) => r.active).length === 0 ? "No roles available" : "Select role"
+                        }
+                      />
+                    </SelectTrigger>
                     <SelectContent>
-                      {customRoles.filter(r => r.active).length === 0 ? (
-                        <div className="px-3 py-2 text-xs text-muted-foreground">Create roles in Roles &amp; Permissions tab.</div>
-                      ) : customRoles.filter(r => r.active).map(r => (
-                        <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                      ))}
+                      {customRoles.filter((r) => r.active).length === 0 ? (
+                        <div className="px-3 py-2 text-xs text-muted-foreground">
+                          Create roles in Roles &amp; Permissions tab.
+                        </div>
+                      ) : (
+                        customRoles
+                          .filter((r) => r.active)
+                          .map((r) => (
+                            <SelectItem key={r.id} value={r.id}>
+                              {r.name}
+                            </SelectItem>
+                          ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <div className="space-y-2">
                 <Label>Address</Label>
-                <Input value={editForm.address || ""} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} />
+                <Input
+                  value={editForm.address || ""}
+                  onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                />
               </div>
               <DialogFooter className="gap-2">
-                <Button variant="outline" onClick={() => setEditTarget(null)}>Cancel</Button>
-                <Button onClick={handleSaveEdit} disabled={updateMutation.isPending} className="gradient-gold text-primary-foreground">
+                <Button variant="outline" onClick={() => setEditTarget(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSaveEdit}
+                  disabled={updateMutation.isPending}
+                  className="gradient-gold text-primary-foreground"
+                >
                   {updateMutation.isPending ? "Saving..." : "Save Changes"}
                 </Button>
               </DialogFooter>
