@@ -10,13 +10,20 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  DEFAULT_TEMPLATES, getEmailTemplates, saveEmailTemplate, renderTemplate,
-  type EmailTemplate, type ReminderTemplateKey,
+  DEFAULT_TEMPLATES,
+  getEmailTemplates,
+  saveEmailTemplate,
+  renderTemplate,
+  type EmailTemplate,
+  type ReminderTemplateKey,
 } from "@/lib/email-templates";
 import { useCompanySettings } from "@/hooks/use-firestore";
 import { toast } from "sonner";
 
-const templateMeta: Record<ReminderTemplateKey, { label: string; description: string; sample: Record<string, string> }> = {
+const templateMeta: Record<
+  ReminderTemplateKey,
+  { label: string; description: string; sample: Record<string, string> }
+> = {
   membership_expiring: {
     label: "Membership Expiring",
     description: "Sent 15 days before a member's plan expires.",
@@ -30,7 +37,14 @@ const templateMeta: Record<ReminderTemplateKey, { label: string; description: st
   booking_reminder: {
     label: "Booking Reminder",
     description: "Sent the day before a scheduled booking.",
-    sample: { memberName: "Bikash Gurung", className: "Morning Yoga", service: "Gym", date: "2026-05-01", startTime: "06:00", endTime: "07:00" },
+    sample: {
+      memberName: "Bikash Gurung",
+      className: "Morning Yoga",
+      service: "Gym",
+      date: "2026-05-01",
+      startTime: "06:00",
+      endTime: "07:00",
+    },
   },
   payment_due: {
     label: "Payment Due",
@@ -61,7 +75,13 @@ export default function EmailTemplatesPage() {
     onError: () => toast.error("Failed to save template"),
   });
 
-  const keys: ReminderTemplateKey[] = ["membership_expiring", "membership_expired", "booking_reminder", "payment_due", "welcome"];
+  const keys: ReminderTemplateKey[] = [
+    "membership_expiring",
+    "membership_expired",
+    "booking_reminder",
+    "payment_due",
+    "welcome",
+  ];
 
   if (isLoading || !templates) return <Skeleton className="h-96 rounded-xl" />;
 
@@ -73,12 +93,12 @@ export default function EmailTemplatesPage() {
           Email Templates
         </h1>
         <p className="text-muted-foreground text-sm">
-          Compose subject and body using <code className="text-primary">{"{{variableName}}"}</code> placeholders.
-          Switch to <strong>Preview</strong> to see the merged output.
+          Compose subject and body using <code className="text-primary">{"{{variableName}}"}</code> placeholders. Switch
+          to <strong>Preview</strong> to see the merged output.
         </p>
       </div>
 
-      <div className="rounded-lg border border-border/50 bg-muted/30 p-4 text-sm flex items-start gap-3">
+      {/* <div className="rounded-lg border border-border/50 bg-muted/30 p-4 text-sm flex items-start gap-3">
         <Variable className="h-4 w-4 text-primary mt-0.5 shrink-0" />
         <div className="space-y-1 text-xs leading-relaxed">
           <p className="font-medium text-sm">Setup checklist</p>
@@ -89,12 +109,14 @@ export default function EmailTemplatesPage() {
             <li>Without a configured key the app falls back to opening the user's mail client.</li>
           </ul>
         </div>
-      </div>
+      </div> */}
 
       <Tabs defaultValue={keys[0]} className="space-y-4">
         <TabsList className="bg-muted/50 flex-wrap h-auto gap-1">
           {keys.map((k) => (
-            <TabsTrigger key={k} value={k}>{templateMeta[k].label}</TabsTrigger>
+            <TabsTrigger key={k} value={k}>
+              {templateMeta[k].label}
+            </TabsTrigger>
           ))}
         </TabsList>
 
@@ -116,7 +138,15 @@ export default function EmailTemplatesPage() {
   );
 }
 
-function TemplateEditor({ template, meta, companyName, companyPhone, companyEmail, onSave, saving }: {
+function TemplateEditor({
+  template,
+  meta,
+  companyName,
+  companyPhone,
+  companyEmail,
+  onSave,
+  saving,
+}: {
   template: EmailTemplate;
   meta: { label: string; description: string; sample: Record<string, string> };
   companyName: string;
@@ -166,10 +196,16 @@ function TemplateEditor({ template, meta, companyName, companyPhone, companyEmai
               <Switch checked={enabled} onCheckedChange={setEnabled} />
             </div>
             <div className="flex rounded-md border border-border overflow-hidden text-xs">
-              <button onClick={() => setMode("edit")} className={`px-3 py-1.5 flex items-center gap-1 ${mode === "edit" ? "bg-primary text-primary-foreground" : "bg-muted/40"}`}>
+              <button
+                onClick={() => setMode("edit")}
+                className={`px-3 py-1.5 flex items-center gap-1 ${mode === "edit" ? "bg-primary text-primary-foreground" : "bg-muted/40"}`}
+              >
                 <Code2 className="h-3 w-3" /> Edit
               </button>
-              <button onClick={() => setMode("preview")} className={`px-3 py-1.5 flex items-center gap-1 ${mode === "preview" ? "bg-primary text-primary-foreground" : "bg-muted/40"}`}>
+              <button
+                onClick={() => setMode("preview")}
+                className={`px-3 py-1.5 flex items-center gap-1 ${mode === "preview" ? "bg-primary text-primary-foreground" : "bg-muted/40"}`}
+              >
                 <Eye className="h-3 w-3" /> Preview
               </button>
             </div>
@@ -184,14 +220,25 @@ function TemplateEditor({ template, meta, companyName, companyPhone, companyEmai
             </div>
             <div className="space-y-2">
               <Label>Body</Label>
-              <Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={14} className="bg-muted/50 border-0 font-mono text-xs" />
+              <Textarea
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                rows={14}
+                className="bg-muted/50 border-0 font-mono text-xs"
+              />
             </div>
             <div>
-              <p className="text-[10px] text-muted-foreground mb-2 uppercase tracking-wider">Available variables — click to insert</p>
+              <p className="text-[10px] text-muted-foreground mb-2 uppercase tracking-wider">
+                Available variables — click to insert
+              </p>
               <div className="flex flex-wrap gap-1">
                 {Object.keys(sampleData).map((v) => (
-                  <button key={v} type="button" onClick={() => setBody((p) => p + `{{${v}}}`)}
-                    className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors">
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setBody((p) => p + `{{${v}}}`)}
+                    className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors"
+                  >
                     {`{{${v}}}`}
                   </button>
                 ))}
@@ -200,20 +247,26 @@ function TemplateEditor({ template, meta, companyName, companyPhone, companyEmai
           </>
         ) : (
           <div className="rounded-lg border border-border/50 bg-background/60 p-4 space-y-3">
-            <Badge variant="outline" className="text-[10px]">Preview · sample data</Badge>
+            <Badge variant="outline" className="text-[10px]">
+              Preview · sample data
+            </Badge>
             <div>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Subject</p>
               <p className="text-sm font-medium">{previewSubject}</p>
             </div>
             <div>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Body</p>
-              <pre className="text-xs whitespace-pre-wrap font-sans leading-relaxed text-foreground/90">{previewBody}</pre>
+              <pre className="text-xs whitespace-pre-wrap font-sans leading-relaxed text-foreground/90">
+                {previewBody}
+              </pre>
             </div>
           </div>
         )}
 
         <div className="flex flex-wrap gap-2 pt-2">
-          <Button variant="outline" size="sm" onClick={handleReset}>Reset to default</Button>
+          <Button variant="outline" size="sm" onClick={handleReset}>
+            Reset to default
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -234,8 +287,23 @@ function TemplateEditor({ template, meta, companyName, companyPhone, companyEmai
           >
             Send test email
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={saving} className="ml-auto gradient-gold text-primary-foreground">
-            {saving ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />Saving...</> : <><Save className="h-3.5 w-3.5 mr-1" />Save Template</>}
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={saving}
+            className="ml-auto gradient-gold text-primary-foreground"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="h-3.5 w-3.5 mr-1" />
+                Save Template
+              </>
+            )}
           </Button>
         </div>
       </div>
