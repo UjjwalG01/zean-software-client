@@ -1,6 +1,20 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Package, Plus, PackagePlus, PackageMinus, Search, Pencil, Trash2, History, Boxes, AlertTriangle, Coins, Warehouse, RefreshCw } from "lucide-react";
+import {
+  Package,
+  Plus,
+  PackagePlus,
+  PackageMinus,
+  Search,
+  Pencil,
+  Trash2,
+  History,
+  Boxes,
+  AlertTriangle,
+  Coins,
+  Warehouse,
+  RefreshCw,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -82,27 +96,52 @@ export default function Inventory() {
           <p className="text-sm text-muted-foreground">Track stock, valuation, and movements across all stores.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => { qc.invalidateQueries({ queryKey: ["inv"] }); toast.success("Stock reloaded"); }} disabled={isFetching}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              qc.invalidateQueries({ queryKey: ["inv"] });
+              toast.success("Stock reloaded");
+            }}
+            disabled={isFetching}
+          >
             <RefreshCw className={`h-4 w-4 mr-1.5 ${isFetching ? "animate-spin" : ""}`} /> Load
           </Button>
-          <Button variant="outline" onClick={() => { setStockDefaultItemId(undefined); setStockMode("issue"); }}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setStockDefaultItemId(undefined);
+              setStockMode("issue");
+            }}
+          >
             <PackageMinus className="h-4 w-4 mr-1.5" /> Issue Stock
           </Button>
-          <Button variant="outline" onClick={() => { setStockDefaultItemId(undefined); setStockMode("purchase"); }}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setStockDefaultItemId(undefined);
+              setStockMode("purchase");
+            }}
+          >
             <PackagePlus className="h-4 w-4 mr-1.5" /> Add Stock
           </Button>
-          <Button className="gradient-gold text-primary-foreground" onClick={() => { setEditing(null); setAddItemOpen(true); }}>
+          <Button
+            className="gradient-gold text-primary-foreground"
+            onClick={() => {
+              setEditing(null);
+              setAddItemOpen(true);
+            }}
+          >
             <Plus className="h-4 w-4 mr-1.5" /> Add Item
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard title="Total Items" value={String(items.length)} change={0} icon={Boxes} />
         <StatCard title="Total Valuation" value={`NPR ${Math.round(allVal).toLocaleString()}`} change={0} icon={Coins} iconColor="bg-primary" />
         <StatCard title="Low / Out of Stock" value={String(lowCount)} change={0} icon={AlertTriangle} />
         <StatCard title="Active Stores" value={String(stores.filter((s) => s.active).length)} change={0} icon={Warehouse} />
-      </div>
+      </div> */}
 
       <PremiumReportFrame
         title="Current Stock Position"
@@ -113,27 +152,41 @@ export default function Inventory() {
             <div>
               <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Store</label>
               <Select value={storeFilter} onValueChange={setStoreFilter}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All stores</SelectItem>
-                  {stores.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  {stores.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
               <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Group</label>
               <Select value={groupFilter} onValueChange={setGroupFilter}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All groups</SelectItem>
-                  {groups.map((g) => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+                  {groups.map((g) => (
+                    <SelectItem key={g.id} value={g.id}>
+                      {g.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
               <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Status</label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
                   <SelectItem value="in">In Stock</SelectItem>
@@ -146,7 +199,12 @@ export default function Inventory() {
               <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Search</label>
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Code or name" className="pl-8" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Code or name"
+                  className="pl-8"
+                />
               </div>
             </div>
           </div>
@@ -157,26 +215,88 @@ export default function Inventory() {
           { key: "_group", label: "Group" },
           { key: "_store", label: "Store" },
           { key: "unit", label: "Unit", align: "center", width: "70px" },
-          { key: "quantity", label: "Qty", align: "right", width: "80px", format: (r) => <span className="font-medium">{r.quantity}</span>, exportFormat: (r) => String(r.quantity) },
-          { key: "rate", label: "Rate (NPR)", align: "right", width: "110px", format: (r) => r.rate.toLocaleString(), exportFormat: (r) => String(r.rate) },
-          { key: "_valuation", label: "Valuation (NPR)", align: "right", width: "140px", format: (r) => <span className="font-semibold text-primary">{Math.round(r._valuation).toLocaleString()}</span>, exportFormat: (r) => String(Math.round(r._valuation)) },
-          { key: "status", label: "Status", align: "center", width: "100px", format: (r) => statusBadge(r), exportFormat: (r) => (r.quantity === 0 ? "Out" : r.quantity <= r.reorderLevel ? "Low" : "In Stock") },
           {
-            key: "actions", label: "Actions", align: "right", width: "150px",
+            key: "quantity",
+            label: "Qty",
+            align: "right",
+            width: "80px",
+            format: (r) => <span className="font-medium">{r.quantity}</span>,
+            exportFormat: (r) => String(r.quantity),
+          },
+          {
+            key: "rate",
+            label: "Rate (NPR)",
+            align: "right",
+            width: "110px",
+            format: (r) => r.rate.toLocaleString(),
+            exportFormat: (r) => String(r.rate),
+          },
+          {
+            key: "_valuation",
+            label: "Valuation (NPR)",
+            align: "right",
+            width: "140px",
+            format: (r) => (
+              <span className="font-semibold text-primary">{Math.round(r._valuation).toLocaleString()}</span>
+            ),
+            exportFormat: (r) => String(Math.round(r._valuation)),
+          },
+          {
+            key: "status",
+            label: "Status",
+            align: "center",
+            width: "100px",
+            format: (r) => statusBadge(r),
+            exportFormat: (r) => (r.quantity === 0 ? "Out" : r.quantity <= r.reorderLevel ? "Low" : "In Stock"),
+          },
+          {
+            key: "actions",
+            label: "Actions",
+            align: "right",
+            width: "150px",
             format: (r) => (
               <div className="flex justify-end gap-1">
-                <Button variant="ghost" size="icon" title="Movements" onClick={() => setMovementsItemId(r.id)}><History className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" title="Add stock" onClick={() => { setStockDefaultItemId(r.id); setStockMode("purchase"); }}><PackagePlus className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" title="Edit" onClick={() => { setEditing(r); setAddItemOpen(true); }}><Pencil className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" title="Delete" onClick={async () => {
-                  if (!confirm(`Delete ${r.name}?`)) return;
-                  try {
-                    await removeItem.mutateAsync(r.id);
-                    toast.success("Item deleted");
-                  } catch (e: any) {
-                    toast.error(e?.message || "Cannot delete this item");
-                  }
-                }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                <Button variant="ghost" size="icon" title="Movements" onClick={() => setMovementsItemId(r.id)}>
+                  <History className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Add stock"
+                  onClick={() => {
+                    setStockDefaultItemId(r.id);
+                    setStockMode("purchase");
+                  }}
+                >
+                  <PackagePlus className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Edit"
+                  onClick={() => {
+                    setEditing(r);
+                    setAddItemOpen(true);
+                  }}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Delete"
+                  onClick={async () => {
+                    if (!confirm(`Delete ${r.name}?`)) return;
+                    try {
+                      await removeItem.mutateAsync(r.id);
+                      toast.success("Item deleted");
+                    } catch (e: any) {
+                      toast.error(e?.message || "Cannot delete this item");
+                    }
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
               </div>
             ),
             exportFormat: () => "",
@@ -196,7 +316,12 @@ export default function Inventory() {
       />
 
       <AddItemModal open={addItemOpen} onOpenChange={setAddItemOpen} editing={editing} />
-      <AddStockModal open={stockMode !== null} onOpenChange={(v) => !v && setStockMode(null)} mode={stockMode || "purchase"} defaultItemId={stockDefaultItemId} />
+      <AddStockModal
+        open={stockMode !== null}
+        onOpenChange={(v) => !v && setStockMode(null)}
+        mode={stockMode || "purchase"}
+        defaultItemId={stockDefaultItemId}
+      />
       <MovementsDrawer itemId={movementsItemId} onClose={() => setMovementsItemId(null)} />
     </div>
   );

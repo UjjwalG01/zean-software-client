@@ -52,7 +52,7 @@ export function PremiumReportFrame({
   exportMeta,
   collapsibleFilters = true,
 }: PremiumReportFrameProps) {
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
 
   const handleExport = () => {
     const headers = columns.map((c) => c.label);
@@ -61,7 +61,7 @@ export function PremiumReportFrame({
         if (c.exportFormat) return c.exportFormat(r);
         const v = r[c.key];
         return v === undefined || v === null ? "" : String(v);
-      })
+      }),
     );
     exportTableToCSV(headers, data, exportFilename, {
       propertyName,
@@ -73,9 +73,12 @@ export function PremiumReportFrame({
 
   const handlePrint = () => {
     const headerRow = `<tr>${columns.map((c) => `<th style="text-align:${c.align || "left"}">${c.label}</th>`).join("")}</tr>`;
-    const bodyRows = rows.map((r) =>
-      `<tr>${columns.map((c) => `<td style="text-align:${c.align || "left"}">${c.exportFormat ? c.exportFormat(r) : String(r[c.key] ?? "")}</td>`).join("")}</tr>`
-    ).join("");
+    const bodyRows = rows
+      .map(
+        (r) =>
+          `<tr>${columns.map((c) => `<td style="text-align:${c.align || "left"}">${c.exportFormat ? c.exportFormat(r) : String(r[c.key] ?? "")}</td>`).join("")}</tr>`,
+      )
+      .join("");
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
 <style>
 @page { size: A4 landscape; margin: 12mm; }
@@ -92,7 +95,12 @@ tr:nth-child(even) td { background: #f8fafc; }
 <table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table>
 </body></html>`;
     const w = window.open("", "_blank", "width=900,height=700");
-    if (w) { w.document.write(html); w.document.close(); w.focus(); w.print(); }
+    if (w) {
+      w.document.write(html);
+      w.document.close();
+      w.focus();
+      w.print();
+    }
   };
 
   // Optional grouping
@@ -114,15 +122,34 @@ tr:nth-child(even) td { background: #f8fafc; }
         </div>
         <div className="flex gap-2">
           {filters && collapsibleFilters && (
-            <Button variant="secondary" size="sm" onClick={() => setShowFilters((p) => !p)} className="bg-white/10 hover:bg-white/20 text-white border-white/20">
-              <Filter className="h-4 w-4 mr-1.5" />{showFilters ? "Hide Filters" : "Show Filters"}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowFilters((p) => !p)}
+              className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+            >
+              <Filter className="h-4 w-4 mr-1.5" />
+              {showFilters ? "Hide Filters" : "Show Filters"}
             </Button>
           )}
-          <Button variant="secondary" size="sm" onClick={handlePrint} disabled={rows.length === 0} className="bg-white/10 hover:bg-white/20 text-white border-white/20">
-            <Printer className="h-4 w-4 mr-1.5" />Print
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handlePrint}
+            disabled={rows.length === 0}
+            className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+          >
+            <Printer className="h-4 w-4 mr-1.5" />
+            Print
           </Button>
-          <Button size="sm" onClick={handleExport} disabled={rows.length === 0} className="bg-success hover:bg-success/90 text-white">
-            <Download className="h-4 w-4 mr-1.5" />Export Excel
+          <Button
+            size="sm"
+            onClick={handleExport}
+            disabled={rows.length === 0}
+            className="bg-success hover:bg-success/90 text-white"
+          >
+            <Download className="h-4 w-4 mr-1.5" />
+            Export Excel
           </Button>
         </div>
       </div>
@@ -164,20 +191,38 @@ tr:nth-child(even) td { background: #f8fafc; }
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={columns.length} className="px-4 py-12 text-center text-muted-foreground text-sm">{emptyMessage}</td></tr>
+              <tr>
+                <td colSpan={columns.length} className="px-4 py-12 text-center text-muted-foreground text-sm">
+                  {emptyMessage}
+                </td>
+              </tr>
             ) : grouped ? (
               Object.entries(grouped).map(([groupKey, groupRows]) => (
                 <>
                   <tr key={`g-${groupKey}`} className="bg-[hsl(214,100%,94%)] dark:bg-primary/10">
-                    <td colSpan={columns.length} className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-[hsl(220,70%,28%)] dark:text-primary">
-                      {groupBy?.label ? `${groupBy.label}: ` : ""}{groupKey} <span className="opacity-60 font-normal normal-case">({groupRows.length})</span>
+                    <td
+                      colSpan={columns.length}
+                      className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-[hsl(220,70%,28%)] dark:text-primary"
+                    >
+                      {groupBy?.label ? `${groupBy.label}: ` : ""}
+                      {groupKey} <span className="opacity-60 font-normal normal-case">({groupRows.length})</span>
                     </td>
                   </tr>
                   {groupRows.map((r, i) => (
-                    <tr key={`${groupKey}-${i}`} className="border-b border-border/40 hover:bg-muted/30 even:bg-muted/10">
+                    <tr
+                      key={`${groupKey}-${i}`}
+                      className="border-b border-border/40 hover:bg-muted/30 even:bg-muted/10"
+                    >
                       {columns.map((c) => (
-                        <td key={c.key} className={cn("px-4 py-2.5", c.align === "right" && "text-right", c.align === "center" && "text-center")}>
-                          {c.format ? c.format(r) : r[c.key] ?? "—"}
+                        <td
+                          key={c.key}
+                          className={cn(
+                            "px-4 py-2.5",
+                            c.align === "right" && "text-right",
+                            c.align === "center" && "text-center",
+                          )}
+                        >
+                          {c.format ? c.format(r) : (r[c.key] ?? "—")}
                         </td>
                       ))}
                     </tr>
@@ -188,8 +233,15 @@ tr:nth-child(even) td { background: #f8fafc; }
               rows.map((r, i) => (
                 <tr key={i} className="border-b border-border/40 hover:bg-muted/30 even:bg-muted/10">
                   {columns.map((c) => (
-                    <td key={c.key} className={cn("px-4 py-2.5", c.align === "right" && "text-right", c.align === "center" && "text-center")}>
-                      {c.format ? c.format(r) : r[c.key] ?? "—"}
+                    <td
+                      key={c.key}
+                      className={cn(
+                        "px-4 py-2.5",
+                        c.align === "right" && "text-right",
+                        c.align === "center" && "text-center",
+                      )}
+                    >
+                      {c.format ? c.format(r) : (r[c.key] ?? "—")}
                     </td>
                   ))}
                 </tr>
@@ -198,8 +250,15 @@ tr:nth-child(even) td { background: #f8fafc; }
             {footerTotals && rows.length > 0 && (
               <tr className="bg-[hsl(220,70%,28%)]/10 dark:bg-primary/15 font-bold border-t-2 border-[hsl(220,70%,28%)]">
                 {columns.map((c, i) => (
-                  <td key={c.key} className={cn("px-4 py-3", c.align === "right" && "text-right", c.align === "center" && "text-center")}>
-                    {i === 0 ? (footerTotals.label || "Total") : (footerTotals.cells[c.key] ?? "")}
+                  <td
+                    key={c.key}
+                    className={cn(
+                      "px-4 py-3",
+                      c.align === "right" && "text-right",
+                      c.align === "center" && "text-center",
+                    )}
+                  >
+                    {i === 0 ? footerTotals.label || "Total" : (footerTotals.cells[c.key] ?? "")}
                   </td>
                 ))}
               </tr>
