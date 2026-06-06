@@ -4,6 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { formatNPR, type Member } from "@/lib/mock-data";
 import { useTransactions } from "@/hooks/use-firestore";
+import { useCharges } from "@/hooks/use-charges";
 import { buildMemberLedger } from "@/lib/member-ledger";
 
 interface Props {
@@ -18,11 +19,12 @@ interface Props {
  */
 export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
   const { data: transactions = [] } = useTransactions();
+  const { data: charges = [] } = useCharges();
 
   const { rows, summary } = useMemo(() => {
     if (!member) return { rows: [], summary: { totalCharged: 0, totalPaid: 0, advance: 0, netPayable: 0, dueBalance: 0, isSettled: true } };
-    return buildMemberLedger(member.id, transactions, member.openingBalance || 0);
-  }, [member, transactions]);
+    return buildMemberLedger(member.id, transactions, member.openingBalance || 0, charges);
+  }, [member, transactions, charges]);
 
   if (!member) return null;
 
