@@ -28,6 +28,7 @@ const MemberProfile = () => {
   const { data: member, isLoading } = useMember(id);
   const { data: allTransactions = [] } = useTransactions();
   const { data: allBookings = [] } = useBookings();
+  const { data: allCharges = [] } = useCharges();
   const { data: settings = {} } = useCompanySettings();
   const updateMember = useUpdateMember();
 
