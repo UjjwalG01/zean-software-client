@@ -570,7 +570,9 @@ const UsersPage = () => {
                           </TableCell>
                           <TableCell>
                             <Select value={assignedId} onValueChange={(v) => handleRoleChange(u.id, v as UserRole)}>
-                              <SelectTrigger className={`h-8 w-[160px] text-[11px] border-0 ${colorClass}`}>
+                              <SelectTrigger
+                                className={`h-8 w-[160px] text-[11px] border-0 ${colorClass} text-white/60 hover:bg-opacity-100`}
+                              >
                                 <SelectValue placeholder="Unassigned" />
                               </SelectTrigger>
                               <SelectContent>
