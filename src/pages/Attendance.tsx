@@ -233,7 +233,7 @@ const Attendance = () => {
                     <TableHead>Member</TableHead>
                     <TableHead className="hidden md:table-cell">Phone</TableHead>
                     <TableHead>Tier</TableHead>
-                    <TableHead className="hidden lg:table-cell">Services</TableHead>
+                    <TableHead className="hidden lg:table-cell">Time Slot</TableHead>
                     <TableHead className="hidden md:table-cell">Last Check-in</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Action</TableHead>
@@ -255,7 +255,7 @@ const Attendance = () => {
                           </Badge>
                         </TableCell>
                         <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
-                          {m.services.join(", ")}
+                          {m.timeSlot}
                         </TableCell>
                         <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
                           {lastCi?.date || "—"}
