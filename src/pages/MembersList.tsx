@@ -34,6 +34,7 @@ const MembersList = () => {
       const matchSearch =
         m.name.toLowerCase().includes(search.toLowerCase()) ||
         m.email.toLowerCase().includes(search.toLowerCase()) ||
+        m.grcNo.toLowerCase().includes(search.toLowerCase()) ||
         m.phone.includes(search);
       const matchTier = tierFilter === "all" || m.tier === tierFilter;
       // Default ("active-set") excludes Inactive; "all" shows everything; explicit value matches exactly.
@@ -108,7 +109,7 @@ const MembersList = () => {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by name, email, phone..."
+            placeholder="Search by member ID, name, email, phone..."
             className="pl-9 bg-muted/50 border-0"
             value={search}
             onChange={(e) => {
@@ -187,10 +188,11 @@ const MembersList = () => {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>Member</TableHead>
+                <TableHead className="hidden lg:table-cell">Member ID</TableHead>
                 <TableHead className="hidden md:table-cell">Phone</TableHead>
                 <TableHead>Tier</TableHead>
                 <TableHead className="hidden lg:table-cell">Plan</TableHead>
-                <TableHead className="hidden lg:table-cell">Services</TableHead>
+
                 <TableHead>Status</TableHead>
                 <TableHead className="hidden md:table-cell">Joined</TableHead>
                 <TableHead className="hidden md:table-cell">Expiry</TableHead>
@@ -222,20 +224,15 @@ const MembersList = () => {
                       </div>
                     </div>
                   </TableCell>
+                  <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
+                    {m.grcNo ? `${m.grcNo}` : "—"}
+                  </TableCell>
                   <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{m.phone}</TableCell>
                   <TableCell>
                     <TierBadge tier={m.tier} />
                   </TableCell>
                   <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">{m.plan}</TableCell>
-                  <TableCell className="hidden lg:table-cell">
-                    <div className="flex gap-1 flex-wrap">
-                      {m.services.map((s) => (
-                        <span key={s} className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full">
-                          {s}
-                        </span>
-                      ))}
-                    </div>
-                  </TableCell>
+
                   <TableCell>
                     <StatusBadge status={m.status} />
                   </TableCell>
