@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { BookingDetailModal } from "@/components/BookingDetailModal";
 import { DayTimelineDialog } from "@/components/DayTimelineDialog";
+import { DayScheduleDialog } from "@/components/DayScheduleDialog";
 import { OutletPickerDialog } from "@/components/OutletPickerDialog";
 import { Switch } from "@/components/ui/switch";
 import { useBookings, useAddBooking, useMembers, useServices, useCompanySettings, useMembershipPlans, useUpdateMember, useAddTransaction } from "@/hooks/use-firestore";
@@ -72,6 +73,8 @@ const Bookings_Page = () => {
 
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [scheduleDay, setScheduleDay] = useState<Date | null>(null);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
 
   const [bookDate, setBookDate] = useState("");
   const [bookMember, setBookMember] = useState("");
@@ -137,7 +140,7 @@ const Bookings_Page = () => {
 
   const getBookingsForDay = (day: Date) => filtered.filter((b) => isSameDay(new Date(b.date), day));
 
-  const openNewBookingDialog = (day?: Date) => {
+  const openNewBookingDialog = (day?: Date, startTime?: string) => {
     if (!selectedOutlet) { setPickerOpen(true); return; }
     const d = day || new Date();
     const today = new Date();
@@ -147,17 +150,26 @@ const Bookings_Page = () => {
       return;
     }
     setBookDate(format(d, "yyyy-MM-dd"));
+    if (startTime) {
+      const [h, m] = startTime.split(":").map(Number);
+      const endMin = h * 60 + m + 60;
+      const eh = Math.floor(endMin / 60) % 24;
+      const em = endMin % 60;
+      setBookStartTime(startTime);
+      setBookEndTime(`${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`);
+      setBookTimeSlot("");
+    }
     setDialogOpen(true);
   };
 
-  const handleDayClick = (day: Date) => openNewBookingDialog(day);
+  const handleDayClick = (day: Date) => {
+    setScheduleDay(day);
+    setScheduleOpen(true);
+  };
 
   const handleDayDoubleClick = (day: Date) => {
-    const dayBookings = getBookingsForDay(day);
-    if (dayBookings.length > 0) {
-      setSelectedBooking(dayBookings[0]);
-      setDetailOpen(true);
-    }
+    setScheduleDay(day);
+    setScheduleOpen(true);
   };
 
   const handleBookingClick = (booking: Booking) => {
@@ -655,6 +667,22 @@ const Bookings_Page = () => {
 
 
       <BookingDetailModal booking={selectedBooking} open={detailOpen} onOpenChange={setDetailOpen} />
+
+      <DayScheduleDialog
+        open={scheduleOpen}
+        onOpenChange={setScheduleOpen}
+        date={scheduleDay}
+        bookings={scheduleDay ? getBookingsForDay(scheduleDay) : []}
+        getServiceColor={(svc) => serviceColors[svc]}
+        onAddBooking={(startTime) => {
+          setScheduleOpen(false);
+          openNewBookingDialog(scheduleDay || undefined, startTime);
+        }}
+        onBookingClick={(b) => {
+          setSelectedBooking(b);
+          setDetailOpen(true);
+        }}
+      />
 
       {isLoading ? (
         <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
