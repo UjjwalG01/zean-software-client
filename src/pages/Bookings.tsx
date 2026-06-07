@@ -668,6 +668,22 @@ const Bookings_Page = () => {
 
       <BookingDetailModal booking={selectedBooking} open={detailOpen} onOpenChange={setDetailOpen} />
 
+      <DayScheduleDialog
+        open={scheduleOpen}
+        onOpenChange={setScheduleOpen}
+        date={scheduleDay}
+        bookings={scheduleDay ? getBookingsForDay(scheduleDay) : []}
+        getServiceColor={(svc) => serviceColors[svc]}
+        onAddBooking={(startTime) => {
+          setScheduleOpen(false);
+          openNewBookingDialog(scheduleDay || undefined, startTime);
+        }}
+        onBookingClick={(b) => {
+          setSelectedBooking(b);
+          setDetailOpen(true);
+        }}
+      />
+
       {isLoading ? (
         <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
       ) : view === "calendar" ? (
