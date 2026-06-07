@@ -17,13 +17,16 @@ import {
   useTransactions,
   useAddTransaction,
   useUpdateTransaction,
+  useUpdateBooking,
   useMembers,
   useCompanySettings,
 } from "@/hooks/use-firestore";
+import { useQueryClient } from "@tanstack/react-query";
 import { generateA5BillHTML, printHTML, exportTableToCSV } from "@/lib/print-utils";
 import { applyAdvance, settleOldestCharges } from "@/lib/charges";
 import { toast } from "sonner";
 import { format } from "date-fns";
+
 
 const methodColors: Record<PaymentMethod, string> = {
   Cash: "bg-success/20 text-success",
