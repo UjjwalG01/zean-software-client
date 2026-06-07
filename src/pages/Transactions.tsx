@@ -78,6 +78,9 @@ const Transactions = () => {
   const { data: settings = {} } = useCompanySettings();
   const addTransactionMutation = useAddTransaction();
   const updateTransactionMutation = useUpdateTransaction();
+  const updateBookingMutation = useUpdateBooking();
+  const qc = useQueryClient();
+
 
   const paymentModes = parseSetup(settings, "setup_paymentModes", [
     "Cash",
