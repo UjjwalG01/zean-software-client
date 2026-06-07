@@ -1,7 +1,7 @@
 export type MemberTier = "Basic" | "Silver" | "Gold" | "Platinum";
 export type ServiceType = "Gym" | "Spa" | "Sauna" | "Swimming";
 export type MemberStatus = "Active" | "Expired" | "Expiring" | "Inactive";
-export type PaymentMethod = "Cash" | "Card" | "Esewa" | "Bank Transfer" | "Mobile Wallet";
+export type PaymentMethod = "cash" | "card" | "esewa" | "bank_transfer" | "mobile_wallet" | "cheque" | "other";
 export type BookingStatus = "Confirmed" | "Pending" | "Cancelled" | "Completed";
 
 export interface Member {
@@ -169,14 +169,12 @@ export const bookings: Booking[] = [
 ];
 
 export const transactions: Transaction[] = [
-  { id: "T001", memberId: "M001", memberName: "Aarav Sharma", amount: 40909, vat: 5318, total: 46227, method: "Card", type: "Renewal", date: "2026-01-15", description: "Platinum 15-Year Renewal", receiptNo: "VFC-2026-001", status: "paid" },
-  { id: "T002", memberId: "M002", memberName: "Priya Thapa", amount: 21739, vat: 2826, total: 24565, method: "Esewa", type: "Payment", date: "2026-03-01", description: "Gold Yearly Payment", receiptNo: "VFC-2026-002", status: "paid" },
-  { id: "T003", memberId: "M005", memberName: "Ramesh Adhikari", amount: 2609, vat: 339, total: 2948, method: "Cash", type: "Registration", date: "2026-01-01", description: "Basic Monthly Registration", receiptNo: "VFC-2026-003", status: "paid" },
-  { id: "T004", memberId: "M009", memberName: "Sunil Tamang", amount: 2609, vat: 339, total: 2948, method: "Mobile Wallet", type: "Payment", date: "2026-03-01", description: "Basic Monthly Payment", receiptNo: "VFC-2026-004", status: "paid" },
-  { id: "T005", memberId: "M003", memberName: "Bikash Gurung", amount: 10000, vat: 1300, total: 11300, method: "Bank Transfer", type: "Advance", date: "2026-02-15", description: "Advance Payment", receiptNo: "VFC-2026-005", status: "paid" },
+  { id: "T001", memberId: "M001", memberName: "Aarav Sharma", amount: 40909, vat: 5318, total: 46227, method: "card", type: "Renewal", date: "2026-01-15", description: "Platinum 15-Year Renewal", receiptNo: "VFC-2026-001", status: "paid" },
+  { id: "T002", memberId: "M002", memberName: "Priya Thapa", amount: 21739, vat: 2826, total: 24565, method: "esewa", type: "Payment", date: "2026-03-01", description: "Gold Yearly Payment", receiptNo: "VFC-2026-002", status: "paid" },
+  { id: "T003", memberId: "M005", memberName: "Ramesh Adhikari", amount: 2609, vat: 339, total: 2948, method: "cash", type: "Registration", date: "2026-01-01", description: "Basic Monthly Registration", receiptNo: "VFC-2026-003", status: "paid" },
+  { id: "T004", memberId: "M009", memberName: "Sunil Tamang", amount: 2609, vat: 339, total: 2948, method: "mobile_wallet", type: "Payment", date: "2026-03-01", description: "Basic Monthly Payment", receiptNo: "VFC-2026-004", status: "paid" },
+  { id: "T005", memberId: "M003", memberName: "Bikash Gurung", amount: 10000, vat: 1300, total: 11300, method: "bank_transfer", type: "Advance", date: "2026-02-15", description: "Advance Payment", receiptNo: "VFC-2026-005", status: "paid" },
   // Charging-first demo rows
-  { id: "T006", memberId: "M003", memberName: "Bikash Gurung", amount: 4425, vat: 575, total: 5000, method: "Cash", type: "Charge", date: "2026-03-20", description: "Spa — Deep Tissue Massage", receiptNo: "CHG-2026-001", status: "pending", chargeHead: "Spa" },
-  { id: "T007", memberId: "M009", memberName: "Sunil Tamang", amount: 2655, vat: 345, total: 3000, method: "Cash", type: "Charge", date: "2026-03-22", description: "Locker Rental — March", receiptNo: "CHG-2026-002", status: "pending", chargeHead: "Locker" },
 ];
 
 export const expiryAlerts: ExpiryAlert[] = members

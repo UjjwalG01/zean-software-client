@@ -10,6 +10,8 @@ interface Column {
   label: string;
   align?: "left" | "right" | "center";
   width?: string;
+  className?: string;
+  voided?: (row: any) => boolean; // For conditional styling based on voided status
   format?: (row: any) => ReactNode;
   exportFormat?: (row: any) => string;
 }
@@ -117,7 +119,9 @@ tr:nth-child(even) td { background: #f8fafc; }
       {/* Header band */}
       <div className="bg-gradient-to-r from-[hsl(220,70%,28%)] via-[hsl(220,70%,32%)] to-[hsl(220,70%,28%)] text-white px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="font-display font-bold text-lg leading-tight">{title}</h2>
+          <h2 className="font-display font-bold text-lg leading-tight">
+            {title}
+          </h2>
           {subtitle && <p className="text-white/80 text-xs">{subtitle}</p>}
         </div>
         <div className="flex gap-2">
@@ -157,7 +161,9 @@ tr:nth-child(even) td { background: #f8fafc; }
       {/* Filter strip */}
       {filters && (!collapsibleFilters || showFilters) && (
         <div className="bg-[hsl(214,100%,97%)] dark:bg-muted/20 px-5 py-4 border-b border-border/50">
-          <p className="text-[11px] tracking-wider font-bold text-[hsl(220,70%,28%)] dark:text-primary mb-3">FILTERS</p>
+          <p className="text-[11px] tracking-wider font-bold text-[hsl(220,70%,28%)] dark:text-primary mb-3">
+            FILTERS
+          </p>
           {filters}
         </div>
       )}
@@ -192,20 +198,29 @@ tr:nth-child(even) td { background: #f8fafc; }
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="px-4 py-12 text-center text-muted-foreground text-sm">
+                <td
+                  colSpan={columns.length}
+                  className="px-4 py-12 text-center text-muted-foreground text-sm"
+                >
                   {emptyMessage}
                 </td>
               </tr>
             ) : grouped ? (
               Object.entries(grouped).map(([groupKey, groupRows]) => (
                 <>
-                  <tr key={`g-${groupKey}`} className="bg-[hsl(214,100%,94%)] dark:bg-primary/10">
+                  <tr
+                    key={`g-${groupKey}`}
+                    className="bg-[hsl(214,100%,94%)] dark:bg-primary/10"
+                  >
                     <td
                       colSpan={columns.length}
                       className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-[hsl(220,70%,28%)] dark:text-primary"
                     >
                       {groupBy?.label ? `${groupBy.label}: ` : ""}
-                      {groupKey} <span className="opacity-60 font-normal normal-case">({groupRows.length})</span>
+                      {groupKey}{" "}
+                      <span className="opacity-60 font-normal normal-case">
+                        ({groupRows.length})
+                      </span>
                     </td>
                   </tr>
                   {groupRows.map((r, i) => (
@@ -231,7 +246,10 @@ tr:nth-child(even) td { background: #f8fafc; }
               ))
             ) : (
               rows.map((r, i) => (
-                <tr key={i} className="border-b border-border/40 hover:bg-muted/30 even:bg-muted/10">
+                <tr
+                  key={i}
+                  className="border-b border-border/40 hover:bg-muted/30 even:bg-muted/10"
+                >
                   {columns.map((c) => (
                     <td
                       key={c.key}
@@ -258,7 +276,9 @@ tr:nth-child(even) td { background: #f8fafc; }
                       c.align === "center" && "text-center",
                     )}
                   >
-                    {i === 0 ? footerTotals.label || "Total" : (footerTotals.cells[c.key] ?? "")}
+                    {i === 0
+                      ? footerTotals.label || "Total"
+                      : (footerTotals.cells[c.key] ?? "")}
                   </td>
                 ))}
               </tr>

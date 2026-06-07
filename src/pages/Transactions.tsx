@@ -1,18 +1,49 @@
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Search, Plus, Download, Receipt, FileText, Printer, RotateCcw } from "lucide-react";
+import {
+  Search,
+  Plus,
+  Download,
+  Receipt,
+  FileText,
+  Printer,
+  RotateCcw,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TransactionDetailModal } from "@/components/TransactionDetailModal";
 import { RecordChargeModal } from "@/components/RecordChargeModal";
-import { formatNPR, type PaymentMethod, type Transaction } from "@/lib/mock-data";
+import {
+  formatNPR,
+  type PaymentMethod,
+  type Transaction,
+} from "@/lib/mock-data";
 import {
   useTransactions,
   useAddTransaction,
@@ -22,21 +53,31 @@ import {
   useCompanySettings,
 } from "@/hooks/use-firestore";
 import { useQueryClient } from "@tanstack/react-query";
-import { generateA5BillHTML, printHTML, exportTableToCSV } from "@/lib/print-utils";
+import {
+  generateA5BillHTML,
+  printHTML,
+  exportTableToCSV,
+} from "@/lib/print-utils";
 import { applyAdvance, settleOldestCharges } from "@/lib/charges";
 import { toast } from "sonner";
 import { format } from "date-fns";
-
+import { capitalizeFirstLetter } from "@/lib/string-case-change";
 
 const methodColors: Record<PaymentMethod, string> = {
-  Cash: "bg-success/20 text-success",
-  Card: "bg-primary/20 text-primary",
-  Esewa: "bg-emerald-500/20 text-emerald-400",
-  "Bank Transfer": "bg-muted text-muted-foreground",
-  "Mobile Wallet": "bg-purple-500/20 text-purple-400",
+  cash: "bg-success/20 text-success",
+  card: "bg-primary/20 text-primary",
+  esewa: "bg-emerald-500/20 text-emerald-400",
+  bank_transfer: "bg-muted text-muted-foreground",
+  mobile_wallet: "bg-purple-500/20 text-purple-400",
+  cheque: "bg-yellow-500/20 text-yellow-400",
+  other: "bg-blue-500/20 text-blue-400",
 };
 
-function parseSetup(settings: Record<string, string>, key: string, fallback: string[]): string[] {
+function parseSetup(
+  settings: Record<string, string>,
+  key: string,
+  fallback: string[],
+): string[] {
   try {
     return settings[key] ? JSON.parse(settings[key]) : fallback;
   } catch {
@@ -47,7 +88,10 @@ function parseSetup(settings: Record<string, string>, key: string, fallback: str
 /** Charges that have been paid count as "settled"; pending charges remain due. */
 function statusLabel(t: Transaction): "Voided" | "Settled" | "Pending" {
   if ((t as any).voided || t.status === "voided") return "Voided";
-  if (t.type === "Charge") return t.status === "paid" || t.status === "settled" ? "Settled" : "Pending";
+  if (t.type === "Charge")
+    return t.status === "paid" || t.status === "settled"
+      ? "Settled"
+      : "Pending";
   return t.status === "pending" ? "Pending" : "Settled";
 }
 
@@ -59,16 +103,17 @@ const Transactions = () => {
 
   const [advanceOpen, setAdvanceOpen] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
-  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [selectedTransaction, setSelectedTransaction] =
+    useState<Transaction | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
   const [advMember, setAdvMember] = useState("");
   const [advAmount, setAdvAmount] = useState("");
-  const [advMethod, setAdvMethod] = useState<PaymentMethod>("Cash");
+  const [advMethod, setAdvMethod] = useState<PaymentMethod>("cash");
   const [advNote, setAdvNote] = useState("");
 
   const [settleTxn, setSettleTxn] = useState<Transaction | null>(null);
-  const [settleMethod, setSettleMethod] = useState<PaymentMethod>("Cash");
+  const [settleMethod, setSettleMethod] = useState<PaymentMethod>("cash");
   const [settleNote, setSettleNote] = useState("");
   const [isSettlement, setIsSettlement] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -81,13 +126,14 @@ const Transactions = () => {
   const updateBookingMutation = useUpdateBooking();
   const qc = useQueryClient();
 
-
   const paymentModes = parseSetup(settings, "setup_paymentModes", [
-    "Cash",
-    "Card",
-    "Esewa",
-    "Bank Transfer",
-    "Mobile Wallet",
+    "cash",
+    "card",
+    "esewa",
+    "bank_transfer",
+    "mobile_wallet",
+    "cheque",
+    "other",
   ]);
   const paymentTypes = parseSetup(settings, "setup_paymentTypes", [
     "Payment",
@@ -106,7 +152,8 @@ const Transactions = () => {
         (t.description || "").toLowerCase().includes(search.toLowerCase());
       const matchMethod = methodFilter === "all" || t.method === methodFilter;
       const matchType = typeFilter === "all" || t.type === typeFilter;
-      const matchStatus = statusFilter === "all" || statusLabel(t).toLowerCase() === statusFilter;
+      const matchStatus =
+        statusFilter === "all" || statusLabel(t).toLowerCase() === statusFilter;
       return matchSearch && matchMethod && matchType && matchStatus;
     });
   }, [transactions, search, methodFilter, typeFilter, statusFilter]);
@@ -115,7 +162,13 @@ const Transactions = () => {
   const totalAmount = activeForTotals.reduce((sum, t) => sum + t.total, 0);
   const totalVat = activeForTotals.reduce((sum, t) => sum + t.vat, 0);
 
-  const printBill = (memberName: string, receiptNo: string, desc: string, gross: number, date: Date) => {
+  const printBill = (
+    memberName: string,
+    receiptNo: string,
+    desc: string,
+    gross: number,
+    date: Date,
+  ) => {
     const companyName = settings.companyName || ".............";
     const net = Math.round((gross / 1.13) * 100) / 100;
     const vat = Math.round((gross - net) * 100) / 100;
@@ -129,7 +182,14 @@ const Transactions = () => {
       billNo: receiptNo,
       billDate: format(date, "dd/MM/yyyy"),
       billForMonth: format(date, "MMMM yyyy"),
-      items: [{ description: desc || "Payment", quantity: 1, rate: gross, amount: gross }],
+      items: [
+        {
+          description: desc || "Payment",
+          quantity: 1,
+          rate: gross,
+          amount: gross,
+        },
+      ],
       subtotal: net,
       taxableAmount: net,
       vatAmount: vat,
@@ -153,13 +213,16 @@ const Transactions = () => {
       return;
     }
     try {
-      await applyAdvance((d) => addTransactionMutation.mutateAsync(d) as Promise<string>, {
-        memberId: advMember,
-        memberName: memberObj?.name || "",
-        amount,
-        method: advMethod,
-        note: advNote,
-      });
+      await applyAdvance(
+        (d) => addTransactionMutation.mutateAsync(d) as Promise<string>,
+        {
+          memberId: advMember,
+          memberName: memberObj?.name || "",
+          amount,
+          method: advMethod,
+          note: advNote,
+        },
+      );
       // Auto-settle oldest pending charges from the (just-paid) advance.
       const leftover = await settleOldestCharges(
         (a) => updateTransactionMutation.mutateAsync(a),
@@ -176,7 +239,7 @@ const Transactions = () => {
       setAdvMember("");
       setAdvAmount("");
       setAdvNote("");
-      setAdvMethod("Cash");
+      setAdvMethod("cash");
     } catch {
       toast.error("Failed to record advance");
     }
@@ -184,7 +247,7 @@ const Transactions = () => {
 
   // ─── Settle / Resettle ────────────────────────────────────────────
   const openSettle = (t: Transaction, settlement = false) => {
-    setSettleMethod("Cash");
+    setSettleMethod("cash");
     setSettleNote("");
     setIsSettlement(settlement);
     setSettleTxn(t);
@@ -203,11 +266,21 @@ const Transactions = () => {
       charge = transactions.find((t) => t.id === chargeId);
     }
     if (!charge && bookingId) {
-      charge = transactions.find((t) => t.bookingId === bookingId && t.type === "Charge" && t.status === "pending");
+      charge = transactions.find(
+        (t) =>
+          t.bookingId === bookingId &&
+          t.type === "Charge" &&
+          t.status === "pending",
+      );
     }
     if (!charge && memberId) {
       // Fallback: settle the oldest pending charge for the member.
-      charge = transactions.find((t) => t.memberId === memberId && t.type === "Charge" && t.status === "pending");
+      charge = transactions.find(
+        (t) =>
+          t.memberId === memberId &&
+          t.type === "Charge" &&
+          t.status === "pending",
+      );
     }
     if (!charge && memberId) {
       // Dynamic fallback: construct a temporary charge transaction so the modal can open.
@@ -221,9 +294,11 @@ const Transactions = () => {
           memberId,
           memberName: memberNameStr,
           amount: Number(amountStr),
-          vat: Math.round((Number(amountStr) - Number(amountStr) / 1.13) * 100) / 100,
+          vat:
+            Math.round((Number(amountStr) - Number(amountStr) / 1.13) * 100) /
+            100,
           total: Number(amountStr),
-          method: "Cash",
+          method: "cash",
           type: "Charge",
           date: new Date().toISOString().split("T")[0],
           description: `${serviceStr} — ${classNameStr}`,
@@ -275,7 +350,9 @@ const Transactions = () => {
         });
       } else {
         // 1) Flip canonical charges row to paid (source of truth for ledger)
-        const chargeRowId = (settleTxn as any).chargeRowId as string | undefined;
+        const chargeRowId = (settleTxn as any).chargeRowId as
+          | string
+          | undefined;
         if (chargeRowId) {
           try {
             const { supabase } = await import("@/lib/supabase");
@@ -285,7 +362,10 @@ const Transactions = () => {
               .eq("id", chargeRowId);
           } catch (err) {
             // eslint-disable-next-line no-console
-            console.warn("[transactions] failed to mark canonical charge paid", err);
+            console.warn(
+              "[transactions] failed to mark canonical charge paid",
+              err,
+            );
           }
         }
         // 2) Mirror onto the legacy transaction row
@@ -325,21 +405,28 @@ const Transactions = () => {
       qc.invalidateQueries({ queryKey: ["member-ledger"] });
 
       toast.success(
-        settleTxn.bookingId ? "Payment settled — booking marked completed" : "Payment settled",
+        settleTxn.bookingId
+          ? "Payment settled — booking marked completed"
+          : "Payment settled",
       );
-      printBill(settleTxn.memberName, settleTxn.receiptNo, settleTxn.description, settleTxn.total, new Date());
+      printBill(
+        settleTxn.memberName,
+        settleTxn.receiptNo,
+        settleTxn.description,
+        settleTxn.total,
+        new Date(),
+      );
 
       // 5) Clean-slate reset: only the active settlement UI is cleared. The
       //    settled transaction row stays in history (no DB delete).
       setSettleTxn(null);
-      setSettleMethod("Cash");
+      setSettleMethod("cash");
       setSettleNote("");
       setIsSettlement(false);
     } catch (e) {
       toast.error("Failed to settle payment");
     }
   };
-
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -355,7 +442,16 @@ const Transactions = () => {
             variant="outline"
             size="sm"
             onClick={() => {
-              const headers = ["Receipt #", "Date", "Member", "Method", "Type", "Status", "VAT", "Total"];
+              const headers = [
+                "Receipt #",
+                "Date",
+                "Member",
+                "Method",
+                "Type",
+                "Status",
+                "VAT",
+                "Total",
+              ];
               const rows = filtered.map((t) => [
                 t.receiptNo,
                 t.date,
@@ -366,27 +462,36 @@ const Transactions = () => {
                 String(t.vat),
                 String(t.total),
               ]);
-              exportTableToCSV(headers, rows, `transactions-${format(new Date(), "yyyyMMdd")}.csv`, {
-                propertyName: settings.companyName || ".............",
-                reportTitle: "Transactions Report",
-                dateRange: format(new Date(), "PPP"),
-                filters: {
-                  Search: search || "—",
-                  Method: methodFilter === "all" ? "All" : methodFilter,
-                  Type: typeFilter === "all" ? "All" : typeFilter,
-                  Status: statusFilter === "all" ? "All" : statusFilter,
-                  "Total Records": String(filtered.length),
-                  "Total Amount (NPR)": String(totalAmount),
-                  "Total VAT (NPR)": String(totalVat),
+              exportTableToCSV(
+                headers,
+                rows,
+                `transactions-${format(new Date(), "yyyyMMdd")}.csv`,
+                {
+                  propertyName: settings.companyName || ".............",
+                  reportTitle: "Transactions Report",
+                  dateRange: format(new Date(), "PPP"),
+                  filters: {
+                    Search: search || "—",
+                    Method: methodFilter === "all" ? "All" : methodFilter,
+                    Type: typeFilter === "all" ? "All" : typeFilter,
+                    Status: statusFilter === "all" ? "All" : statusFilter,
+                    "Total Records": String(filtered.length),
+                    "Total Amount (NPR)": String(totalAmount),
+                    "Total VAT (NPR)": String(totalVat),
+                  },
                 },
-              });
+              );
               toast.success(`Exported ${filtered.length} transactions to CSV`);
             }}
           >
             <Download className="h-4 w-4 mr-1" />
             Export
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setChargeOpen(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setChargeOpen(true)}
+          >
             <FileText className="h-4 w-4 mr-1" />
             Record Charge
           </Button>
@@ -403,7 +508,8 @@ const Transactions = () => {
               </DialogHeader>
               <div className="space-y-4">
                 <p className="text-xs text-muted-foreground">
-                  Advances are deducted from the member's outstanding due balance. Any leftover is kept as credit.
+                  Advances are deducted from the member's outstanding due
+                  balance. Any leftover is kept as credit.
                 </p>
                 <div className="space-y-2">
                   <Label>Member *</Label>
@@ -431,7 +537,10 @@ const Transactions = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>Payment Method</Label>
-                  <Select value={advMethod} onValueChange={(v) => setAdvMethod(v as PaymentMethod)}>
+                  <Select
+                    value={advMethod}
+                    onValueChange={(v) => setAdvMethod(v as PaymentMethod)}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -459,7 +568,9 @@ const Transactions = () => {
                   className="w-full gradient-gold text-primary-foreground"
                 >
                   <Receipt className="h-4 w-4 mr-1" />
-                  {addTransactionMutation.isPending ? "Saving..." : "Record Advance"}
+                  {addTransactionMutation.isPending
+                    ? "Saving..."
+                    : "Record Advance"}
                 </Button>
               </div>
             </DialogContent>
@@ -467,7 +578,11 @@ const Transactions = () => {
         </div>
       </div>
 
-      <TransactionDetailModal transaction={selectedTransaction} open={detailOpen} onOpenChange={setDetailOpen} />
+      <TransactionDetailModal
+        transaction={selectedTransaction}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+      />
       <RecordChargeModal open={chargeOpen} onOpenChange={setChargeOpen} />
 
       {/* <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -567,9 +682,13 @@ const Transactions = () => {
                       setDetailOpen(true);
                     }}
                   >
-                    <TableCell className="font-mono text-xs text-muted-foreground">{t.receiptNo}</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {t.receiptNo}
+                    </TableCell>
                     <TableCell className="text-sm">{t.date}</TableCell>
-                    <TableCell className="text-sm font-medium">{t.memberName}</TableCell>
+                    <TableCell className="text-sm font-medium">
+                      {t.memberName}
+                    </TableCell>
                     <TableCell>
                       <Badge
                         className={`text-[10px] border-0 ${methodColors[t.method] || "bg-muted text-muted-foreground"}`}
@@ -584,18 +703,34 @@ const Transactions = () => {
                     </TableCell>
                     <TableCell>
                       {sl === "Voided" ? (
-                        <Badge className="text-[10px] border-0 bg-destructive/20 text-destructive">Voided</Badge>
+                        <Badge className="text-[10px] border-0 bg-destructive/20 text-destructive">
+                          Voided
+                        </Badge>
                       ) : sl === "Pending" ? (
-                        <Badge className="text-[10px] border-0 bg-amber-500/20 text-amber-400">Pending</Badge>
+                        <Badge className="text-[10px] border-0 bg-amber-500/20 text-amber-400">
+                          Pending
+                        </Badge>
                       ) : (
-                        <Badge className="text-[10px] border-0 bg-success/20 text-success">Settled</Badge>
+                        <Badge className="text-[10px] border-0 bg-success/20 text-success">
+                          Settled
+                        </Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-right font-medium text-sm">{formatNPR(t.total)}</TableCell>
+                    <TableCell className="text-right font-medium text-sm">
+                      {formatNPR(t.total)}
+                    </TableCell>
                     <TableCell>
-                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                      <div
+                        className="flex items-center justify-end gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {sl === "Pending" ? (
-                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => openSettle(t)}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => openSettle(t)}
+                          >
                             Settle
                           </Button>
                         ) : sl === "Settled" ? (
@@ -606,7 +741,13 @@ const Transactions = () => {
                               className="h-7 w-7"
                               title="Print"
                               onClick={() =>
-                                printBill(t.memberName, t.receiptNo, t.description, t.total, new Date(t.date))
+                                printBill(
+                                  t.memberName,
+                                  t.receiptNo,
+                                  t.description,
+                                  t.total,
+                                  new Date(t.date),
+                                )
                               }
                             >
                               <Printer className="h-3.5 w-3.5" />
@@ -656,39 +797,58 @@ const Transactions = () => {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-xs">Member</Label>
-                <Input value={settleTxn.memberName} readOnly className="bg-muted/40" />
+                <Input
+                  value={settleTxn.memberName}
+                  readOnly
+                  className="bg-muted/40"
+                />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label className="text-xs">Type</Label>
-                  <Input value={isSettlement ? "Settlement" : "Payment"} readOnly className="bg-muted/40" />
+                  <Input
+                    value={isSettlement ? "Settlement" : "Payment"}
+                    readOnly
+                    className="bg-muted/40"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs">Amount (NPR)</Label>
-                  <Input value={settleTxn.total} readOnly className="bg-muted/40 font-semibold text-primary" />
+                  <Input
+                    value={settleTxn.total}
+                    readOnly
+                    className="bg-muted/40 font-semibold text-primary"
+                  />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label className="text-xs">Description</Label>
-                <Input value={settleTxn.description} readOnly className="bg-muted/40" />
+                <Input
+                  value={settleTxn.description}
+                  readOnly
+                  className="bg-muted/40"
+                />
               </div>
               <div className="space-y-2">
                 <Label>Payment Method *</Label>
-                <Select value={settleMethod} onValueChange={(v) => setSettleMethod(v as PaymentMethod)}>
+                <Select
+                  value={settleMethod}
+                  onValueChange={(v) => setSettleMethod(v as PaymentMethod)}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {paymentModes.map((m) => (
                       <SelectItem key={m} value={m}>
-                        {m}
+                        {capitalizeFirstLetter(m.replace(/_/g, " "))}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Note</Label>
+                <Label>Description</Label>
                 <Textarea
                   rows={2}
                   value={settleNote}
@@ -702,7 +862,9 @@ const Transactions = () => {
                 className="w-full gradient-gold text-primary-foreground"
               >
                 <Receipt className="h-4 w-4 mr-1" />
-                {updateTransactionMutation.isPending ? "Saving..." : "Settle & Print Bill"}
+                {updateTransactionMutation.isPending
+                  ? "Saving..."
+                  : "Settle & Print Bill"}
               </Button>
             </div>
           )}
