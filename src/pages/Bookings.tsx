@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { BookingDetailModal } from "@/components/BookingDetailModal";
 import { DayTimelineDialog } from "@/components/DayTimelineDialog";
+import { DayScheduleDialog } from "@/components/DayScheduleDialog";
 import { OutletPickerDialog } from "@/components/OutletPickerDialog";
 import { Switch } from "@/components/ui/switch";
 import { useBookings, useAddBooking, useMembers, useServices, useCompanySettings, useMembershipPlans, useUpdateMember, useAddTransaction } from "@/hooks/use-firestore";
