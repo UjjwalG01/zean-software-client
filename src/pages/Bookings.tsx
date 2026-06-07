@@ -73,6 +73,8 @@ const Bookings_Page = () => {
 
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [scheduleDay, setScheduleDay] = useState<Date | null>(null);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
 
   const [bookDate, setBookDate] = useState("");
   const [bookMember, setBookMember] = useState("");
