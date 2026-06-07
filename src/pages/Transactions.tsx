@@ -274,6 +274,21 @@ const Transactions = () => {
           bookingId: settleTxn.bookingId,
         });
       } else {
+        // 1) Flip canonical charges row to paid (source of truth for ledger)
+        const chargeRowId = (settleTxn as any).chargeRowId as string | undefined;
+        if (chargeRowId) {
+          try {
+            const { supabase } = await import("@/lib/supabase");
+            await supabase
+              .from("charges")
+              .update({ status: "paid", paid_at: new Date().toISOString() })
+              .eq("id", chargeRowId);
+          } catch (err) {
+            // eslint-disable-next-line no-console
+            console.warn("[transactions] failed to mark canonical charge paid", err);
+          }
+        }
+        // 2) Mirror onto the legacy transaction row
         await updateTransactionMutation.mutateAsync({
           id: settleTxn.id,
           data: {
@@ -283,13 +298,48 @@ const Transactions = () => {
           },
         });
       }
-      toast.success("Payment settled");
+
+      // 3) If this charge is linked to a booking, mark the booking Completed
+      //    so the Bookings page reflects the settlement without a refresh.
+      if (settleTxn.bookingId) {
+        try {
+          await updateBookingMutation.mutateAsync({
+            id: settleTxn.bookingId,
+            data: {
+              status: "Completed",
+              settledAt: new Date().toISOString(),
+              paymentMethod: settleMethod,
+            } as any,
+          });
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.warn("[transactions] failed to update booking status", err);
+        }
+      }
+
+      // 4) Refresh dependent caches so every surface (Bookings, Quick Balance,
+      //    Member Profile ledger) reflects the new state immediately.
+      qc.invalidateQueries({ queryKey: ["bookings"] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["charges"] });
+      qc.invalidateQueries({ queryKey: ["member-ledger"] });
+
+      toast.success(
+        settleTxn.bookingId ? "Payment settled — booking marked completed" : "Payment settled",
+      );
       printBill(settleTxn.memberName, settleTxn.receiptNo, settleTxn.description, settleTxn.total, new Date());
+
+      // 5) Clean-slate reset: only the active settlement UI is cleared. The
+      //    settled transaction row stays in history (no DB delete).
       setSettleTxn(null);
+      setSettleMethod("Cash");
+      setSettleNote("");
+      setIsSettlement(false);
     } catch (e) {
       toast.error("Failed to settle payment");
     }
   };
+
 
   return (
     <div className="space-y-6 animate-fade-in">
