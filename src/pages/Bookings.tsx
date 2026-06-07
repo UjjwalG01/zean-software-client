@@ -140,7 +140,7 @@ const Bookings_Page = () => {
 
   const getBookingsForDay = (day: Date) => filtered.filter((b) => isSameDay(new Date(b.date), day));
 
-  const openNewBookingDialog = (day?: Date) => {
+  const openNewBookingDialog = (day?: Date, startTime?: string) => {
     if (!selectedOutlet) { setPickerOpen(true); return; }
     const d = day || new Date();
     const today = new Date();
@@ -150,17 +150,26 @@ const Bookings_Page = () => {
       return;
     }
     setBookDate(format(d, "yyyy-MM-dd"));
+    if (startTime) {
+      const [h, m] = startTime.split(":").map(Number);
+      const endMin = h * 60 + m + 60;
+      const eh = Math.floor(endMin / 60) % 24;
+      const em = endMin % 60;
+      setBookStartTime(startTime);
+      setBookEndTime(`${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`);
+      setBookTimeSlot("");
+    }
     setDialogOpen(true);
   };
 
-  const handleDayClick = (day: Date) => openNewBookingDialog(day);
+  const handleDayClick = (day: Date) => {
+    setScheduleDay(day);
+    setScheduleOpen(true);
+  };
 
   const handleDayDoubleClick = (day: Date) => {
-    const dayBookings = getBookingsForDay(day);
-    if (dayBookings.length > 0) {
-      setSelectedBooking(dayBookings[0]);
-      setDetailOpen(true);
-    }
+    setScheduleDay(day);
+    setScheduleOpen(true);
   };
 
   const handleBookingClick = (booking: Booking) => {
