@@ -243,7 +243,7 @@ const Reports = () => {
           <h1 className="text-2xl font-bold font-display">Reports</h1>
           <p className="text-muted-foreground text-sm">Financial analytics from live data</p>
         </div>
-        <Button
+        {/* <Button
           variant="outline"
           size="sm"
           onClick={() => {
@@ -263,7 +263,7 @@ const Reports = () => {
         >
           <Download className="h-4 w-4 mr-1" />
           Export Members
-        </Button>
+        </Button> */}
       </div>
 
       <Tabs defaultValue="daily" className="space-y-4" onValueChange={(v) => setLoaded((p) => ({ ...p, [v]: p[v] }))}>
