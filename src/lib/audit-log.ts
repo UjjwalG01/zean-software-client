@@ -125,7 +125,7 @@ function buildDescription(
         ? ` (${newValue.name || newValue.title || newValue.amount})`
         : ""
       : "";
-  return `${who} ${action}d a ${module.toLowerCase()} record${what}${extra}`.trim();
+  return `${who} ${action}d a ${module} record${what}${extra}`.trim();
 }
 
 export async function listAuditLogs(filters: {
