@@ -832,24 +832,22 @@ export async function saveDiscountRules(rules: DiscountRule[]): Promise<void> {
 }
 
 // ─── Audit Log ──────────────────────────────────────────────────────
+import { logAudit as _logAudit } from "./audit-log";
+
 export async function addAuditLog(
-  userId: string | null,
+  _userId: string | null,
   action: string,
   entityType: string,
   entityId: string,
   oldValue?: any,
   newValue?: any,
 ): Promise<void> {
-  const { data: auth } = await supabase.auth.getUser();
-  const { error } = await supabase
-    .from("audit_logs")
-    .insert({
-      actor_id: auth?.user?.id || userId || null,
-      actor_email: auth?.user?.email || null,
-      action,
-      entity_type: entityType,
-      entity_id: entityId,
-      diff: { oldValue: oldValue ?? null, newValue: newValue ?? null },
-    });
-  if (error) console.warn("[audit_logs] insert failed:", error.message);
+  await _logAudit({
+    module: entityType, // resolved via ENTITY_TO_SLUG inside logAudit
+    entityType,
+    action,
+    entityId,
+    oldValue,
+    newValue,
+  });
 }
