@@ -179,7 +179,7 @@ export function RolesManager() {
       <div className="glass-card rounded-xl overflow-hidden">
         <div className="flex flex-col lg:flex-row">
           <div className="lg:w-48 border-b lg:border-b-0 lg:border-r border-border bg-muted/20">
-            {PAGE_GROUPS.map((g) => (
+            {groups.map((g) => (
               <button
                 key={g.group}
                 onClick={() => setActiveGroup(g.group)}
