@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Pencil, Trash2, Save, ShieldCheck, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,47 +8,36 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCustomRoles, useSaveCustomRole, useDeleteCustomRole } from "@/hooks/use-permissions";
 import type { CustomRole, RolePermissions, RoleRights } from "@/lib/firebase-roles";
+import { getModules, FALLBACK_MODULES, SETUP_SLUGS, type AppModule } from "@/lib/modules";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-export const PAGE_GROUPS: { group: string; pages: { key: string; label: string }[] }[] = [
-  {
-    group: "MAIN",
-    pages: [
-      { key: "dashboard", label: "Dashboard" },
-      { key: "members", label: "Members" },
-      { key: "bookings", label: "Bookings" },
-      { key: "attendance", label: "Attendance" },
-      { key: "transactions", label: "Transactions" },
-      { key: "inventory", label: "Inventory" },
-      { key: "reports", label: "Reports" },
-      { key: "forecast", label: "Forecast" },
-      { key: "audit-logs", label: "Audit Logs" },
-    ],
-  },
-  {
-    group: "SETUP",
-    pages: [
-      { key: "general", label: "General Setup" },
-      { key: "outlets", label: "Outlets" },
-      { key: "service-types", label: "Service Types" },
-      { key: "plans", label: "Plans & Services" },
-      { key: "stores", label: "Stores" },
-      { key: "item-groups", label: "Item Groups" },
-      { key: "charge-heads", label: "Charge Heads" },
-      { key: "users", label: "Users & Roles" },
-      { key: "email-templates", label: "Email Templates" },
-      { key: "settings", label: "Settings" },
-    ],
-  },
-];
+export type PageGroup = { group: string; pages: { key: string; label: string }[] };
+
+/** Build MAIN/SETUP groups from the live modules registry. */
+function groupsFromModules(modules: AppModule[]): PageGroup[] {
+  const main: PageGroup["pages"] = [];
+  const setup: PageGroup["pages"] = [];
+  for (const m of modules) {
+    const page = { key: m.slug, label: m.name };
+    if (SETUP_SLUGS.has(m.slug)) setup.push(page);
+    else main.push(page);
+  }
+  return [
+    { group: "MAIN", pages: main },
+    { group: "SETUP", pages: setup },
+  ];
+}
+
+/** Default groups derived from the hardcoded fallback — kept for back-compat. */
+export const PAGE_GROUPS: PageGroup[] = groupsFromModules(FALLBACK_MODULES);
 
 const RIGHTS: (keyof RoleRights)[] = ["view", "add", "change", "trash"];
 const RIGHT_LABELS: Record<keyof RoleRights, string> = { view: "VIEW", add: "ADD", change: "CHANGE", trash: "TRASH" };
 
-function emptyPerms(): RolePermissions {
+function emptyPermsFor(groups: PageGroup[]): RolePermissions {
   const p: RolePermissions = {};
-  PAGE_GROUPS.forEach((g) => g.pages.forEach((page) => { p[page.key] = { view: false, add: false, change: false, trash: false }; }));
+  groups.forEach((g) => g.pages.forEach((page) => { p[page.key] = { view: false, add: false, change: false, trash: false }; }));
   return p;
 }
 
@@ -63,7 +52,14 @@ export function RolesManager() {
   const saveMutation = useSaveCustomRole();
   const deleteMutation = useDeleteCustomRole();
   const [editing, setEditing] = useState<CustomRole | null>(null);
+  const [groups, setGroups] = useState<PageGroup[]>(PAGE_GROUPS);
   const [activeGroup, setActiveGroup] = useState(PAGE_GROUPS[0].group);
+
+  useEffect(() => {
+    getModules().then((mods) => setGroups(groupsFromModules(mods))).catch(() => {});
+  }, []);
+
+  const emptyPerms = useMemo(() => () => emptyPermsFor(groups), [groups]);
 
   const startNew = () => setEditing({
     id: undefined as any, name: "", description: "", isAdmin: false, active: true, permissions: emptyPerms(),
@@ -122,7 +118,7 @@ export function RolesManager() {
     );
   }
 
-  const currentGroup = PAGE_GROUPS.find((g) => g.group === activeGroup) || PAGE_GROUPS[0];
+  const currentGroup = groups.find((g) => g.group === activeGroup) || groups[0];
   const allRightsForGroup = currentGroup.pages.every((p) => RIGHTS.every((k) => editing.permissions[p.key]?.[k]));
 
   const toggleAllForGroup = () => {
@@ -183,7 +179,7 @@ export function RolesManager() {
       <div className="glass-card rounded-xl overflow-hidden">
         <div className="flex flex-col lg:flex-row">
           <div className="lg:w-48 border-b lg:border-b-0 lg:border-r border-border bg-muted/20">
-            {PAGE_GROUPS.map((g) => (
+            {groups.map((g) => (
               <button
                 key={g.group}
                 onClick={() => setActiveGroup(g.group)}
