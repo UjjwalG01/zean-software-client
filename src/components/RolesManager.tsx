@@ -52,7 +52,14 @@ export function RolesManager() {
   const saveMutation = useSaveCustomRole();
   const deleteMutation = useDeleteCustomRole();
   const [editing, setEditing] = useState<CustomRole | null>(null);
+  const [groups, setGroups] = useState<PageGroup[]>(PAGE_GROUPS);
   const [activeGroup, setActiveGroup] = useState(PAGE_GROUPS[0].group);
+
+  useEffect(() => {
+    getModules().then((mods) => setGroups(groupsFromModules(mods))).catch(() => {});
+  }, []);
+
+  const emptyPerms = useMemo(() => () => emptyPermsFor(groups), [groups]);
 
   const startNew = () => setEditing({
     id: undefined as any, name: "", description: "", isAdmin: false, active: true, permissions: emptyPerms(),
