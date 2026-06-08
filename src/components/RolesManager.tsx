@@ -118,7 +118,7 @@ export function RolesManager() {
     );
   }
 
-  const currentGroup = PAGE_GROUPS.find((g) => g.group === activeGroup) || PAGE_GROUPS[0];
+  const currentGroup = groups.find((g) => g.group === activeGroup) || groups[0];
   const allRightsForGroup = currentGroup.pages.every((p) => RIGHTS.every((k) => editing.permissions[p.key]?.[k]));
 
   const toggleAllForGroup = () => {
