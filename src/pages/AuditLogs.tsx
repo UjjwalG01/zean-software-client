@@ -160,7 +160,7 @@ const AuditLogs = () => {
               {rows.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="text-xs">{format(new Date(r.ts), "yyyy-MM-dd HH:mm:ss")}</TableCell>
-                  <TableCell className="text-sm">{r.user_email || r.user_id || "—"}</TableCell>
+                  <TableCell className="text-sm">{r.user_email || "—"}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-[10px]">
                       {r.module}
@@ -170,9 +170,7 @@ const AuditLogs = () => {
                     <Badge className="text-[10px] bg-primary/20 text-primary border-0">{r.action}</Badge>
                   </TableCell>
                   <TableCell className="font-mono text-[11px] text-muted-foreground">{r.entity_id || "—"}</TableCell>
-                  <TableCell className="text-[11px] max-w-[420px]">
-                    {r.module ?? "Module"} has been {r.action}d by {r.user_email || r.user_id || "someone"}.
-                  </TableCell>
+                  <TableCell className="text-[11px] max-w-[420px]">{r.description}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
