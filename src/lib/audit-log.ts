@@ -86,7 +86,7 @@ export async function logAudit(entry: AuditEntry): Promise<void> {
     const module_id = slug ? await getModuleIdBySlug(slug) : null;
     await supabase.from("audit_logs").insert({
       actor_id: user?.id ?? null,
-      user_email: user?.email ?? null,
+      actor_email: user?.email ?? null,
       module: moduleName,
       module_id,
       action: entry.action,
@@ -103,7 +103,7 @@ export async function logAudit(entry: AuditEntry): Promise<void> {
 export interface AuditRow {
   id: string;
   ts: string;
-  user_email: string | null;
+  actor_email: string | null;
   module: string;
   action: string;
   entity_id: string | null;
@@ -139,7 +139,7 @@ export async function listAuditLogs(filters: {
   // Only request the fields the UI actually needs.
   let q = supabase
     .from("audit_logs")
-    .select("id, ts, user_email, module, action, entity_id, new_value")
+    .select("id, ts, actor_email, module, action, entity_id, new_value")
     .order("ts", { ascending: false })
     .limit(filters.limit ?? 500);
   if (filters.module && filters.module !== "all") q = q.eq("module", filters.module);
@@ -155,17 +155,17 @@ export async function listAuditLogs(filters: {
   let rows = (data || []).map((r: any) => ({
     id: r.id,
     ts: r.ts,
-    user_email: r.user_email,
+    actor_email: r.actor_email,
     module: r.module,
     action: r.action,
     entity_id: r.entity_id,
-    description: buildDescription(r.module, r.action, r.entity_id, r.user_email, r.new_value),
+    description: buildDescription(r.module, r.action, r.entity_id, r.actor_email, r.new_value),
   })) as AuditRow[];
   if (filters.search) {
     const s = filters.search.toLowerCase();
     rows = rows.filter(
       (r) =>
-        (r.user_email || "").toLowerCase().includes(s) ||
+        (r.actor_email || "").toLowerCase().includes(s) ||
         (r.entity_id || "").toLowerCase().includes(s) ||
         (r.action || "").toLowerCase().includes(s) ||
         (r.description || "").toLowerCase().includes(s),
