@@ -22,10 +22,12 @@ import { printHTML } from "@/lib/print-utils";
 import { toast } from "sonner";
 
 const tooltipStyle = {
-  background: "hsl(224, 20%, 12%)",
-  border: "1px solid hsl(224, 15%, 18%)",
+  background: "hsl(45, 100%, 97%)", // soft warm ivory
+  border: "1px solid hsl(45, 80%, 85%)", // subtle golden border
   borderRadius: 8,
-  color: "hsl(40, 20%, 95%)",
+  color: "hsl(220, 25%, 20%)", // deep slate text for contrast
+  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)", // premium soft shadow
+  padding: "8px 12px",
 };
 
 const COLORS = [
