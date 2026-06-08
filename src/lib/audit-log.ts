@@ -2,11 +2,25 @@ import { supabase } from "./supabase";
 import { getModuleIdBySlug, FALLBACK_MODULES } from "./modules";
 
 export type AuditModule =
-  | "Dashboard" | "Members" | "Bookings" | "Attendance" | "Transactions"
-  | "Inventory" | "Reports" | "Forecast" | "Audit Logs"
-  | "General Setup" | "Outlets" | "Service Types" | "Plans & Services"
-  | "Stores" | "Item Groups" | "Charge Heads"
-  | "Users & Roles" | "Email Templates" | "Settings"
+  | "Dashboard"
+  | "Members"
+  | "Bookings"
+  | "Attendance"
+  | "Transactions"
+  | "Inventory"
+  | "Reports"
+  | "Forecast"
+  | "Audit Logs"
+  | "General Setup"
+  | "Outlets"
+  | "Service Types"
+  | "Plans & Services"
+  | "Stores"
+  | "Item Groups"
+  | "Charge Heads"
+  | "Users & Roles"
+  | "Email Templates"
+  | "Settings"
   // legacy aliases still passed by older call sites
   | "Users";
 
@@ -16,7 +30,7 @@ export interface AuditEntry {
   moduleSlug?: string;
   /** Entity type label (e.g. "member", "booking", "payment") — used to build descriptions. */
   entityType?: string;
-  action: string;        // e.g. "create", "update", "cancel", "void", "settle"
+  action: string; // e.g. "create", "update", "cancel", "void", "settle"
   entityId?: string;
   oldValue?: any;
   newValue?: any;
@@ -61,7 +75,9 @@ function moduleNameForSlug(slug: string): string {
  */
 export async function logAudit(entry: AuditEntry): Promise<void> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     const slug =
       entry.moduleSlug ||
       (entry.module ? slugForModuleName(String(entry.module)) : undefined) ||
@@ -105,7 +121,9 @@ function buildDescription(
   const what = entityId ? ` #${entityId.slice(0, 8)}` : "";
   const extra =
     newValue && typeof newValue === "object"
-      ? (newValue.name || newValue.title || newValue.amount ? ` (${newValue.name || newValue.title || newValue.amount})` : "")
+      ? newValue.name || newValue.title || newValue.amount
+        ? ` (${newValue.name || newValue.title || newValue.amount})`
+        : ""
       : "";
   return `${who} ${action}d a ${module.toLowerCase()} record${what}${extra}`.trim();
 }
@@ -121,13 +139,13 @@ export async function listAuditLogs(filters: {
   // Only request the fields the UI actually needs.
   let q = supabase
     .from("audit_logs")
-    .select("id, created_at, user_email, module, action, entity_id, new_value")
-    .order("created_at", { ascending: false })
+    .select("id, ts, user_email, module, action, entity_id, new_value")
+    .order("ts", { ascending: false })
     .limit(filters.limit ?? 500);
   if (filters.module && filters.module !== "all") q = q.eq("module", filters.module);
   if (filters.action && filters.action !== "all") q = q.eq("action", filters.action);
-  if (filters.from) q = q.gte("created_at", filters.from);
-  if (filters.to) q = q.lte("created_at", filters.to);
+  if (filters.from) q = q.gte("ts", filters.from);
+  if (filters.to) q = q.lte("ts", filters.to);
   const { data, error } = await q;
   if (error) {
     // eslint-disable-next-line no-console
@@ -136,7 +154,7 @@ export async function listAuditLogs(filters: {
   }
   let rows = (data || []).map((r: any) => ({
     id: r.id,
-    ts: r.created_at,
+    ts: r.ts,
     user_email: r.user_email,
     module: r.module,
     action: r.action,
@@ -145,11 +163,12 @@ export async function listAuditLogs(filters: {
   })) as AuditRow[];
   if (filters.search) {
     const s = filters.search.toLowerCase();
-    rows = rows.filter((r) =>
-      (r.user_email || "").toLowerCase().includes(s) ||
-      (r.entity_id || "").toLowerCase().includes(s) ||
-      (r.action || "").toLowerCase().includes(s) ||
-      (r.description || "").toLowerCase().includes(s)
+    rows = rows.filter(
+      (r) =>
+        (r.user_email || "").toLowerCase().includes(s) ||
+        (r.entity_id || "").toLowerCase().includes(s) ||
+        (r.action || "").toLowerCase().includes(s) ||
+        (r.description || "").toLowerCase().includes(s),
     );
   }
   return rows;
