@@ -16,6 +16,7 @@ import { BookingDetailModal } from "@/components/BookingDetailModal";
 import { DayTimelineDialog } from "@/components/DayTimelineDialog";
 import { DayScheduleDialog } from "@/components/DayScheduleDialog";
 import { OutletPickerDialog } from "@/components/OutletPickerDialog";
+import { OutletPOSView } from "@/components/OutletPOSView";
 import { Switch } from "@/components/ui/switch";
 import { useBookings, useAddBooking, useMembers, useServices, useCompanySettings, useMembershipPlans, useUpdateMember, useAddTransaction } from "@/hooks/use-firestore";
 import { useOutlet } from "@/contexts/OutletContext";
