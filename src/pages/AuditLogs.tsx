@@ -160,7 +160,7 @@ const AuditLogs = () => {
               {rows.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="text-xs">{format(new Date(r.ts), "yyyy-MM-dd HH:mm:ss")}</TableCell>
-                  <TableCell className="text-sm">{r.user_email || "—"}</TableCell>
+                  <TableCell className="text-sm">{r.actor_email || "—"}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-[10px]">
                       {r.module}
