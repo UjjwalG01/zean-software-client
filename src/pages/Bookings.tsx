@@ -702,6 +702,8 @@ const Bookings_Page = () => {
 
       {isLoading ? (
         <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
+      ) : isPOSOutlet && selectedOutlet ? (
+        <OutletPOSView outlet={selectedOutlet} />
       ) : view === "calendar" ? (
         <div className="glass-card rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
