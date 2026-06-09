@@ -108,6 +108,16 @@ const Bookings_Page = () => {
     (selectedOutlet.serviceTypes || []).some((s) => s.toLowerCase() === "membership")
   );
 
+  // Outlets categorised as fitness or wellness use the POS-style screen
+  // instead of the calendar/list view.
+  const isPOSOutlet = !!selectedOutlet && (
+    (selectedOutlet.serviceTypes || []).some((s) => {
+      const x = (s || "").toLowerCase();
+      return x === "fitness" || x === "wellness";
+    }) ||
+    ["FITNESS", "WELLNESS"].includes((selectedOutlet.outletType || "").toUpperCase())
+  );
+
   const setupInstructors = parseSetup(settings, "setup_instructors", ["Trainer Ravi","Trainer Prakash","Therapist Maya","Coach Anil"]);
   const setupTimeSlots = parseSetup(settings, "setup_timeSlots", ["Morning","Day","Evening"]);
 
