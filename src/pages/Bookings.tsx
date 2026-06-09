@@ -16,6 +16,7 @@ import { BookingDetailModal } from "@/components/BookingDetailModal";
 import { DayTimelineDialog } from "@/components/DayTimelineDialog";
 import { DayScheduleDialog } from "@/components/DayScheduleDialog";
 import { OutletPickerDialog } from "@/components/OutletPickerDialog";
+import { OutletPOSView } from "@/components/OutletPOSView";
 import { Switch } from "@/components/ui/switch";
 import { useBookings, useAddBooking, useMembers, useServices, useCompanySettings, useMembershipPlans, useUpdateMember, useAddTransaction } from "@/hooks/use-firestore";
 import { useOutlet } from "@/contexts/OutletContext";
@@ -107,6 +108,16 @@ const Bookings_Page = () => {
     (selectedOutlet.serviceTypes || []).some((s) => s.toLowerCase() === "membership")
   );
 
+  // Outlets categorised as fitness or wellness use the POS-style screen
+  // instead of the calendar/list view.
+  const isPOSOutlet = !!selectedOutlet && (
+    (selectedOutlet.serviceTypes || []).some((s) => {
+      const x = (s || "").toLowerCase();
+      return x === "fitness" || x === "wellness";
+    }) ||
+    ["FITNESS", "WELLNESS"].includes((selectedOutlet.outletType || "").toUpperCase())
+  );
+
   const setupInstructors = parseSetup(settings, "setup_instructors", ["Trainer Ravi","Trainer Prakash","Therapist Maya","Coach Anil"]);
   const setupTimeSlots = parseSetup(settings, "setup_timeSlots", ["Morning","Day","Evening"]);
 
@@ -135,7 +146,12 @@ const Bookings_Page = () => {
       list = list.filter((b: any) => !b.outletId || b.outletId === selectedOutlet.id);
     }
     if (serviceFilter !== "all") list = list.filter((b) => b.service === serviceFilter);
-    return list;
+    // Most recent first — sort by date, then start time.
+    return [...list].sort((a, b) => {
+      const ad = `${a.date || ""} ${a.startTime || ""}`;
+      const bd = `${b.date || ""} ${b.startTime || ""}`;
+      return bd.localeCompare(ad);
+    });
   }, [bookings, serviceFilter, selectedOutlet]);
 
   const getBookingsForDay = (day: Date) => filtered.filter((b) => isSameDay(new Date(b.date), day));
@@ -686,6 +702,8 @@ const Bookings_Page = () => {
 
       {isLoading ? (
         <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
+      ) : isPOSOutlet && selectedOutlet ? (
+        <OutletPOSView outlet={selectedOutlet} />
       ) : view === "calendar" ? (
         <div className="glass-card rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">

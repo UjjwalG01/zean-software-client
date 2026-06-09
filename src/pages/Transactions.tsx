@@ -145,7 +145,7 @@ const Transactions = () => {
   ]);
 
   const filtered = useMemo(() => {
-    return transactions.filter((t) => {
+    const list = transactions.filter((t) => {
       const matchSearch =
         t.memberName.toLowerCase().includes(search.toLowerCase()) ||
         t.receiptNo.toLowerCase().includes(search.toLowerCase()) ||
@@ -155,6 +155,12 @@ const Transactions = () => {
       const matchStatus =
         statusFilter === "all" || statusLabel(t).toLowerCase() === statusFilter;
       return matchSearch && matchMethod && matchType && matchStatus;
+    });
+    // Most recent first — prefer createdAt timestamp, fall back to date.
+    return [...list].sort((a: any, b: any) => {
+      const av = a.createdAt || a.created_at || a.date || "";
+      const bv = b.createdAt || b.created_at || b.date || "";
+      return String(bv).localeCompare(String(av));
     });
   }, [transactions, search, methodFilter, typeFilter, statusFilter]);
 
