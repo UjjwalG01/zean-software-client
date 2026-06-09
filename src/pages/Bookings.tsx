@@ -146,7 +146,12 @@ const Bookings_Page = () => {
       list = list.filter((b: any) => !b.outletId || b.outletId === selectedOutlet.id);
     }
     if (serviceFilter !== "all") list = list.filter((b) => b.service === serviceFilter);
-    return list;
+    // Most recent first — sort by date, then start time.
+    return [...list].sort((a, b) => {
+      const ad = `${a.date || ""} ${a.startTime || ""}`;
+      const bd = `${b.date || ""} ${b.startTime || ""}`;
+      return bd.localeCompare(ad);
+    });
   }, [bookings, serviceFilter, selectedOutlet]);
 
   const getBookingsForDay = (day: Date) => filtered.filter((b) => isSameDay(new Date(b.date), day));
