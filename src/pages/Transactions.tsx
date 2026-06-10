@@ -363,6 +363,7 @@ const Transactions = () => {
           receiptNo: settleTxn.receiptNo,
           status: "paid",
           bookingId: settleTxn.bookingId,
+          outletId: (settleTxn as any).outletId,
           isSettlement: true,
         } as any);
       } else {
