@@ -157,15 +157,17 @@ const Transactions = () => {
       const matchType = typeFilter === "all" || t.type === typeFilter;
       const matchStatus =
         statusFilter === "all" || statusLabel(t).toLowerCase() === statusFilter;
-      return matchSearch && matchMethod && matchType && matchStatus;
+      const d = t.date || "";
+      const matchFrom = !dateFrom || d >= dateFrom;
+      const matchTo = !dateTo || d <= dateTo;
+      return matchSearch && matchMethod && matchType && matchStatus && matchFrom && matchTo;
     });
-    // Most recent first — prefer createdAt timestamp, fall back to date.
     return [...list].sort((a: any, b: any) => {
       const av = a.createdAt || a.created_at || a.date || "";
       const bv = b.createdAt || b.created_at || b.date || "";
       return String(bv).localeCompare(String(av));
     });
-  }, [transactions, search, methodFilter, typeFilter, statusFilter]);
+  }, [transactions, search, methodFilter, typeFilter, statusFilter, dateFrom, dateTo]);
 
   const activeForTotals = filtered.filter((t) => statusLabel(t) !== "Voided");
   const totalAmount = activeForTotals.reduce((sum, t) => sum + t.total, 0);
