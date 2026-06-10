@@ -320,8 +320,6 @@ const Transactions = () => {
           bookingId: bookingId || undefined,
           outletId: searchParams.get("outletId") || undefined,
         } as any;
-
-        };
       }
     }
     if (charge) {
