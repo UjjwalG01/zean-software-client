@@ -260,6 +260,7 @@ const Transactions = () => {
   const openSettle = (t: Transaction, settlement = false) => {
     setSettleMethod("cash");
     setSettleNote("");
+    setSettleDiscount("");
     setIsSettlement(settlement);
     setSettleTxn(t);
   };
