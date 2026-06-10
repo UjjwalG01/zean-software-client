@@ -343,15 +343,17 @@ const Transactions = () => {
 
   const handleSettle = async () => {
     if (!settleTxn) return;
+    const discount = Math.max(0, Number(settleDiscount) || 0);
+    const netDue = Math.max(0, (settleTxn.total || 0) - discount);
     try {
       if (settleTxn.id.startsWith("TEMP-")) {
-        // Book a sale and make a settlement in one go
         await addTransactionMutation.mutateAsync({
           memberId: settleTxn.memberId,
           memberName: settleTxn.memberName,
-          amount: settleTxn.amount,
+          amount: netDue,
           vat: settleTxn.vat,
-          total: settleTxn.total,
+          total: netDue,
+          discount,
           method: settleMethod,
           type: "Charge",
           date: new Date().toISOString().split("T")[0],
@@ -359,25 +361,24 @@ const Transactions = () => {
           receiptNo: settleTxn.receiptNo,
           status: "paid",
           bookingId: settleTxn.bookingId,
-        });
+          isSettlement: true,
+        } as any);
       } else {
         // 1) Flip canonical charges row to paid (source of truth for ledger)
-        const chargeRowId = (settleTxn as any).chargeRowId as
-          | string
-          | undefined;
+        const chargeRowId = (settleTxn as any).chargeRowId as string | undefined;
         if (chargeRowId) {
           try {
             const { supabase } = await import("@/lib/supabase");
             await supabase
               .from("charges")
-              .update({ status: "paid", paid_at: new Date().toISOString() })
+              .update({
+                status: "paid",
+                paid_at: new Date().toISOString(),
+                discount,
+              })
               .eq("id", chargeRowId);
           } catch (err) {
-            // eslint-disable-next-line no-console
-            console.warn(
-              "[transactions] failed to mark canonical charge paid",
-              err,
-            );
+            console.warn("[transactions] failed to mark canonical charge paid", err);
           }
         }
         // 2) Mirror onto the legacy transaction row
@@ -387,12 +388,12 @@ const Transactions = () => {
             status: "paid",
             method: settleMethod,
             date: new Date().toISOString().split("T")[0],
-          },
+            discount,
+          } as any,
         });
       }
 
-      // 3) If this charge is linked to a booking, mark the booking Completed
-      //    so the Bookings page reflects the settlement without a refresh.
+      // 3) If linked to a booking, mark it Completed
       if (settleTxn.bookingId) {
         try {
           await updateBookingMutation.mutateAsync({
@@ -404,36 +405,34 @@ const Transactions = () => {
             } as any,
           });
         } catch (err) {
-          // eslint-disable-next-line no-console
           console.warn("[transactions] failed to update booking status", err);
         }
       }
 
-      // 4) Refresh dependent caches so every surface (Bookings, Quick Balance,
-      //    Member Profile ledger) reflects the new state immediately.
       qc.invalidateQueries({ queryKey: ["bookings"] });
       qc.invalidateQueries({ queryKey: ["transactions"] });
       qc.invalidateQueries({ queryKey: ["charges"] });
       qc.invalidateQueries({ queryKey: ["member-ledger"] });
 
       toast.success(
-        settleTxn.bookingId
-          ? "Payment settled — booking marked completed"
-          : "Payment settled",
+        discount > 0
+          ? `Settled with ${formatNPR(discount)} discount`
+          : settleTxn.bookingId
+            ? "Payment settled — booking marked completed"
+            : "Payment settled",
       );
       printBill(
         settleTxn.memberName,
         settleTxn.receiptNo,
         settleTxn.description,
-        settleTxn.total,
+        netDue,
         new Date(),
       );
 
-      // 5) Clean-slate reset: only the active settlement UI is cleared. The
-      //    settled transaction row stays in history (no DB delete).
       setSettleTxn(null);
       setSettleMethod("cash");
       setSettleNote("");
+      setSettleDiscount("");
       setIsSettlement(false);
     } catch (e) {
       toast.error("Failed to settle payment");
