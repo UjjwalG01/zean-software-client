@@ -94,10 +94,27 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
           )}
         </div>
 
-        {/* Summary — + Total Billed - Total Paid - Advance = Net Payable */}
-        <div className="ml-auto w-full sm:w-[380px] rounded-md border border-border/60 bg-muted/30 p-3 text-sm space-y-1">
+        {/* Detailed breakdown — booking charges, VAT, discounts, settlements → Net Payable */}
+        <div className="ml-auto w-full sm:w-[420px] rounded-md border border-border/60 bg-muted/30 p-3 text-sm space-y-1">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">＋ Total Billed (Charges)</span>
+            <span className="text-muted-foreground">Booking Charges (gross)</span>
+            <strong>{formatNPR(summary.bookingCharges)}</strong>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Manual / Misc Charges</span>
+            <strong>{formatNPR(summary.manualCharges)}</strong>
+          </div>
+          <div className="flex justify-between text-xs">
+            <span className="text-muted-foreground pl-3">↳ Net (pre-VAT)</span>
+            <span className="text-muted-foreground">{formatNPR(summary.netCharges)}</span>
+          </div>
+          <div className="flex justify-between text-xs">
+            <span className="text-muted-foreground pl-3">↳ VAT (13%)</span>
+            <span className="text-muted-foreground">{formatNPR(summary.vatTotal)}</span>
+          </div>
+          <div className="border-t border-border/50 my-1" />
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">＋ Total Billed</span>
             <strong>{formatNPR(summary.totalCharged)}</strong>
           </div>
           <div className="flex justify-between">
@@ -108,9 +125,17 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
             <span className="text-muted-foreground">－ Advance Balance</span>
             <strong className="text-primary">{formatNPR(summary.advance)}</strong>
           </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">－ Discounts</span>
+            <strong className="text-warning">{formatNPR(summary.discountTotal)}</strong>
+          </div>
           <div className="border-t border-border/60 mt-1 pt-1 flex justify-between text-base">
-            <strong className="text-destructive">＝ Net Payable Balance</strong>
-            <strong className="text-destructive">{formatNPR(summary.netPayable)}</strong>
+            <strong className={summary.status === "Settled" ? "text-success" : summary.status === "Partial" ? "text-warning" : "text-destructive"}>
+              ＝ Net Payable ({summary.status})
+            </strong>
+            <strong className={summary.status === "Settled" ? "text-success" : summary.status === "Partial" ? "text-warning" : "text-destructive"}>
+              {formatNPR(summary.netPayable)}
+            </strong>
           </div>
         </div>
       </DialogContent>
