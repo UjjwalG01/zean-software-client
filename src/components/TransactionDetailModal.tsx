@@ -49,6 +49,8 @@ export function TransactionDetailModal({ transaction: t, open, onOpenChange }: T
     if (!reason) return;
     setVoiding(true);
     try {
+      // Voiding zeroes the financial impact so it no longer affects ledgers,
+      // reports or member balances — the row stays for audit history.
       await updateTxn.mutateAsync({
         id: t.id,
         data: {
@@ -56,8 +58,25 @@ export function TransactionDetailModal({ transaction: t, open, onOpenChange }: T
           voidReason: reason,
           voidedAt: new Date().toISOString(),
           status: "voided" as any,
-        },
+          amount: 0,
+          vat: 0,
+          total: 0,
+        } as any,
       });
+      // Best-effort: if this transaction mirrors a row in the `charges`
+      // table, zero + flag it as voided so the dedicated ledger respects it.
+      const chargeRowId = (t as any).chargeRowId as string | undefined;
+      if (chargeRowId) {
+        try {
+          const { supabase } = await import("@/lib/supabase");
+          await supabase
+            .from("charges")
+            .update({ total: 0, amount: 0, vat_amount: 0, meta: { voided: true, voidReason: reason } })
+            .eq("id", chargeRowId);
+        } catch {
+          /* swallow — ledger already skips voided mirrors */
+        }
+      }
       toast.success("Transaction voided");
       onOpenChange(false);
     } catch {
