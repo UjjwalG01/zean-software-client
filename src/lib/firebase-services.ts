@@ -422,6 +422,9 @@ function mapPaymentRow(r: any): Transaction {
     voidReason: r.void_reason || undefined,
     voidedAt: r.voided_at || undefined,
     chargeHead: r.charge_head || undefined,
+    chargeRowId: r.settled_charge_id || meta.chargeRowId || undefined,
+    discount: Number(r.discount || 0),
+    outletId: r.outlet_id || undefined,
   } as Transaction;
 }
 
