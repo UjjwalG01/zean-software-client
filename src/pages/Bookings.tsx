@@ -65,6 +65,8 @@ const Bookings_Page = () => {
   const [view, setView] = useState<"calendar" | "list">("calendar");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [serviceFilter, setServiceFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [colorSettingsOpen, setColorSettingsOpen] = useState(false);
   const [serviceColors, setServiceColors] = useState<Record<string, string>>({
     Gym: colorOptions[0].value,
