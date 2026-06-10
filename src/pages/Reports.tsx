@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/select";
 
 import { capitalizeFirstLetter } from "@/lib/string-case-change";
+import { useOutlet } from "@/contexts/OutletContext";
 
 const LedgerReport = lazy(() => import("@/components/LedgerReport"));
 
