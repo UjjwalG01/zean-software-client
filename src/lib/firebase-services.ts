@@ -472,6 +472,10 @@ export async function updateTransaction(id: string, data: Partial<Transaction>):
   if ((data as any).voided !== undefined) patch.voided = (data as any).voided;
   if ((data as any).voidReason !== undefined) patch.void_reason = (data as any).voidReason;
   if ((data as any).voidedAt !== undefined) patch.voided_at = (data as any).voidedAt;
+  if (data.amount !== undefined) patch.amount = data.amount;
+  if (data.vat !== undefined) patch.vat_amount = data.vat;
+  if (data.total !== undefined) patch.total = data.total;
+  if ((data as any).discount !== undefined) patch.discount = (data as any).discount;
   const { error } = await supabase.from("payments").update(patch).eq("id", id);
   if (error) throwDb(error, "payments");
   await maybeAudit("update", "payment", id, null, data);
