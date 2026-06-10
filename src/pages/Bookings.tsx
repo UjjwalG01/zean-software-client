@@ -401,6 +401,8 @@ const Bookings_Page = () => {
               {outletServiceTypes.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
+          <DateRangeFilter from={dateFrom} to={dateTo} onChange={({ from, to }) => { setDateFrom(from); setDateTo(to); }} />
+
 
           <Popover open={colorSettingsOpen} onOpenChange={setColorSettingsOpen}>
             <PopoverTrigger asChild>
