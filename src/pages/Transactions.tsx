@@ -115,8 +115,11 @@ const Transactions = () => {
   const [settleTxn, setSettleTxn] = useState<Transaction | null>(null);
   const [settleMethod, setSettleMethod] = useState<PaymentMethod>("cash");
   const [settleNote, setSettleNote] = useState("");
+  const [settleDiscount, setSettleDiscount] = useState<string>("");
   const [isSettlement, setIsSettlement] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const { data: transactions = [], isLoading } = useTransactions();
   const { data: members = [] } = useMembers();
