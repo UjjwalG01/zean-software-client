@@ -16,9 +16,9 @@ interface TransactionDetailModalProps {
 }
 
 const methodColors: Record<string, string> = {
-  Cash: "bg-success/20 text-success",
-  Card: "bg-primary/20 text-primary",
-  Esewa: "bg-emerald-500/20 text-emerald-400",
+  cash: "bg-success/20 text-success",
+  card: "bg-primary/20 text-primary",
+  esewa: "bg-emerald-500/20 text-emerald-400",
   "Bank Transfer": "bg-muted text-muted-foreground",
   "Mobile Wallet": "bg-purple-500/20 text-purple-400",
 };

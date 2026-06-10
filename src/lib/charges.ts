@@ -25,8 +25,8 @@ export interface ChargeForBookingInput {
   bookingId: string;
   service: ServiceType | string;
   className: string;
-  amount: number;          // VAT-inclusive
-  chargeHead?: string;     // service head name (defaults to the service)
+  amount: number; // VAT-inclusive
+  chargeHead?: string; // service head name (defaults to the service)
 }
 
 /**
@@ -37,10 +37,7 @@ export interface ChargeForBookingInput {
  * it without a parallel data source. The mirror carries `chargeRowId` so
  * settlement can flip the canonical `charges` row to `paid`.
  */
-export async function createChargeForBooking(
-  add: AddFn,
-  input: ChargeForBookingInput,
-): Promise<string> {
+export async function createChargeForBooking(add: AddFn, input: ChargeForBookingInput): Promise<string> {
   const gross = input.amount;
   const net = Math.round((gross / 1.13) * 100) / 100;
   const vat = Math.round((gross - net) * 100) / 100;
@@ -73,7 +70,7 @@ export async function createChargeForBooking(
     memberId: input.memberId,
     memberName: input.memberName,
     amount: input.amount,
-    method: "Cash" as PaymentMethod, // placeholder — not collected until settlement
+    method: "cash" as PaymentMethod, // placeholder — not collected until settlement
     type: "Charge",
     date: today(),
     description: `${input.service} — ${input.className}`,
@@ -98,7 +95,7 @@ export async function createManualCharge(add: AddFn, input: ManualChargeInput): 
     memberId: input.memberId,
     memberName: input.memberName,
     amount: input.amount,
-    method: "Cash" as PaymentMethod,
+    method: "cash" as PaymentMethod,
     type: "Charge",
     date: today(),
     description: `${input.chargeHead}${input.note ? ` — ${input.note}` : ""}`,

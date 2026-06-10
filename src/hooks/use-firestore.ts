@@ -52,7 +52,9 @@ export function useAddMember() {
       }
       return fbServices.addMember(data);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["members"] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["members"] });
+    },
   });
 }
 
@@ -63,7 +65,9 @@ export function useUpdateMember() {
       if (!firebaseEnabled) return;
       return fbServices.updateMember(id, data);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["members"] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["members"] });
+    },
   });
 }
 
@@ -74,7 +78,9 @@ export function useDeleteMember() {
       if (!firebaseEnabled) return;
       return fbServices.deleteMember(id);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["members"] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["members"] });
+    },
   });
 }
 
@@ -112,7 +118,9 @@ export function useAddBooking() {
       }
       return fbServices.addBooking(data);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["bookings"] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["bookings"] });
+    },
   });
 }
 
@@ -129,7 +137,9 @@ export function useUpdateBooking() {
       }
       return fbServices.updateBooking(id, data);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["bookings"] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["bookings"] });
+    },
   });
 }
 
@@ -144,7 +154,9 @@ export function useDeleteBooking() {
       }
       return fbServices.deleteBooking(id);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["bookings"] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["bookings"] });
+    },
   });
 }
 
@@ -170,9 +182,9 @@ export function useAddTransaction() {
           memberId: data.memberId || "",
           memberName: data.memberName || "",
           amount: data.amount || 0,
-          vat: data.vat || Math.round((Number(data.amount || 0) - (Number(data.amount || 0) / 1.13)) * 100) / 100,
+          vat: data.vat || Math.round((Number(data.amount || 0) - Number(data.amount || 0) / 1.13) * 100) / 100,
           total: data.total || data.amount || 0,
-          method: data.method || "Cash",
+          method: data.method || "cash",
           type: data.type || "Charge",
           date: data.date || new Date().toISOString().split("T")[0],
           description: data.description || "",
@@ -187,7 +199,9 @@ export function useAddTransaction() {
       }
       return fbServices.addTransaction(data);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["transactions"] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+    },
   });
 }
 
@@ -205,7 +219,9 @@ export function useUpdateTransaction() {
       }
       return fbServices.updateTransaction(id, data);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["transactions"] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+    },
   });
 }
 
@@ -239,7 +255,10 @@ export function useAddCheckIn() {
       }
       return fbServices.addCheckInRecord(data);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["checkIns"] }); qc.invalidateQueries({ queryKey: ["dashboardStats"] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["checkIns"] });
+      qc.invalidateQueries({ queryKey: ["dashboardStats"] });
+    },
   });
 }
 
@@ -258,10 +277,15 @@ export function useAddService() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: Partial<fbServices.FirestoreService>) => {
-      if (!firebaseEnabled) { toast.success("Service created (mock mode)"); return "mock-id"; }
+      if (!firebaseEnabled) {
+        toast.success("Service created (mock mode)");
+        return "mock-id";
+      }
       return fbServices.addService(data);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["services"] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["services"] });
+    },
   });
 }
 
@@ -272,7 +296,9 @@ export function useUpdateService() {
       if (!firebaseEnabled) return;
       return fbServices.updateService(id, data);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["services"] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["services"] });
+    },
   });
 }
 
@@ -283,7 +309,9 @@ export function useDeleteService() {
       if (!firebaseEnabled) return;
       return fbServices.deleteService(id);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["services"] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["services"] });
+    },
   });
 }
 
@@ -302,10 +330,15 @@ export function useAddMembershipPlan() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: Partial<fbServices.FirestoreMembershipPlan>) => {
-      if (!firebaseEnabled) { toast.success("Plan created (mock mode)"); return "mock-id"; }
+      if (!firebaseEnabled) {
+        toast.success("Plan created (mock mode)");
+        return "mock-id";
+      }
       return fbServices.addMembershipPlan(data);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["membershipPlans"] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["membershipPlans"] });
+    },
   });
 }
 
@@ -316,7 +349,9 @@ export function useUpdateMembershipPlan() {
       if (!firebaseEnabled) return;
       return fbServices.updateMembershipPlan(id, data);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["membershipPlans"] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["membershipPlans"] });
+    },
   });
 }
 
@@ -327,7 +362,9 @@ export function useDeleteMembershipPlan() {
       if (!firebaseEnabled) return;
       return fbServices.deleteMembershipPlan(id);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["membershipPlans"] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["membershipPlans"] });
+    },
   });
 }
 
@@ -346,10 +383,15 @@ export function useSaveCompanySettings() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (settings: Record<string, string>) => {
-      if (!firebaseEnabled) { toast.success("Settings saved (mock mode)"); return; }
+      if (!firebaseEnabled) {
+        toast.success("Settings saved (mock mode)");
+        return;
+      }
       return fbServices.saveCompanySettings(settings);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["companySettings"] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["companySettings"] });
+    },
   });
 }
 
@@ -375,7 +417,14 @@ export function useExpiryAlerts() {
         .map((m) => {
           const expiry = new Date(m.expiryDate);
           const daysLeft = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-          return { memberId: m.id, memberName: m.name, tier: m.tier, expiryDate: m.expiryDate, daysLeft, avatar: m.avatar };
+          return {
+            memberId: m.id,
+            memberName: m.name,
+            tier: m.tier,
+            expiryDate: m.expiryDate,
+            daysLeft,
+            avatar: m.avatar,
+          };
         })
         .sort((a, b) => a.daysLeft - b.daysLeft);
     },
@@ -397,10 +446,15 @@ export function useSaveDiscountRules() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (rules: fbServices.DiscountRule[]) => {
-      if (!firebaseEnabled) { toast.success("Discount rules saved (mock mode)"); return; }
+      if (!firebaseEnabled) {
+        toast.success("Discount rules saved (mock mode)");
+        return;
+      }
       return fbServices.saveDiscountRules(rules);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["discountRules"] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["discountRules"] });
+    },
   });
 }
 

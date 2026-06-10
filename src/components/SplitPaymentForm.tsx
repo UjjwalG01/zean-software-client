@@ -25,10 +25,12 @@ interface Props {
  */
 export function SplitPaymentForm({ total, paymentModes, value, onChange }: Props) {
   const [splits, setSplits] = useState<PaymentSplit[]>(
-    value.length ? value : [{ method: (paymentModes[0] || "Cash") as PaymentMethod, amount: total, reference: "" }]
+    value.length ? value : [{ method: (paymentModes[0] || "cash") as PaymentMethod, amount: total, reference: "" }],
   );
 
-  useEffect(() => { onChange(splits); }, [splits]); // eslint-disable-line
+  useEffect(() => {
+    onChange(splits);
+  }, [splits]); // eslint-disable-line
 
   const sum = useMemo(() => splits.reduce((a, s) => a + Number(s.amount || 0), 0), [splits]);
   const remaining = total - sum;
@@ -57,24 +59,37 @@ export function SplitPaymentForm({ total, paymentModes, value, onChange }: Props
           <div key={i} className="grid grid-cols-12 gap-2 items-end">
             <div className="col-span-4">
               <Select value={s.method} onValueChange={(v) => update(i, { method: v as PaymentMethod })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {paymentModes.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  {paymentModes.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {m}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="col-span-4">
-              <Input type="number" min={0} value={s.amount}
-                onChange={(e) => update(i, { amount: Number(e.target.value) })} placeholder="Amount" />
+              <Input
+                type="number"
+                min={0}
+                value={s.amount}
+                onChange={(e) => update(i, { amount: Number(e.target.value) })}
+                placeholder="Amount"
+              />
             </div>
             <div className="col-span-3">
-              <Input value={s.reference || ""} onChange={(e) => update(i, { reference: e.target.value })}
-                placeholder="Txn ref (opt.)" />
+              <Input
+                value={s.reference || ""}
+                onChange={(e) => update(i, { reference: e.target.value })}
+                placeholder="Txn ref (opt.)"
+              />
             </div>
             <div className="col-span-1">
               {splits.length > 1 && (
-                <Button type="button" variant="ghost" size="icon" className="h-9 w-9"
-                  onClick={() => remove(i)}>
+                <Button type="button" variant="ghost" size="icon" className="h-9 w-9" onClick={() => remove(i)}>
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               )}
