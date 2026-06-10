@@ -558,62 +558,72 @@ const Reports = () => {
         </TabsContent>
 
         <TabsContent value="revenue">
-          <div className="glass-card rounded-xl p-5">
-            <h3 className="font-semibold font-display mb-4">
-              Revenue by Service
-            </h3>
-            {revenueByService.length === 0 ? (
-              <p className="text-center text-muted-foreground py-12">
-                No transaction data yet
-              </p>
-            ) : (
-              <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={revenueByService}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="hsl(224, 15%, 18%)"
-                  />
-                  <XAxis
-                    dataKey="month"
-                    tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 12 }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 12 }}
-                    axisLine={false}
-                    tickLine={false}
-                    tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
-                  />
-                  <Tooltip
-                    contentStyle={tooltipStyle}
-                    formatter={(v: number) => [formatNPR(v)]}
-                  />
-                  <Bar
-                    dataKey="Gym"
-                    fill="hsl(38, 92%, 50%)"
-                    radius={[4, 4, 0, 0]}
-                  />
-                  <Bar
-                    dataKey="Spa"
-                    fill="hsl(45, 93%, 65%)"
-                    radius={[4, 4, 0, 0]}
-                  />
-                  <Bar
-                    dataKey="Sauna"
-                    fill="hsl(220, 10%, 55%)"
-                    radius={[4, 4, 0, 0]}
-                  />
-                  <Bar
-                    dataKey="Swimming"
-                    fill="hsl(200, 80%, 50%)"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
+          <LoadGate k="revenue">
+            <div className="space-y-4">
+              <div className="glass-card rounded-xl p-5">
+                <h3 className="font-semibold font-display mb-4">Revenue by Outlet</h3>
+                {revenueByOutlet.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-12">No transaction data yet</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={360}>
+                    <BarChart data={revenueByOutlet}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(224, 15%, 18%)" />
+                      <XAxis dataKey="outlet" tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 12 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                      <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [formatNPR(v), "Revenue"]} />
+                      <Bar dataKey="revenue" radius={[4, 4, 0, 0]}>
+                        {revenueByOutlet.map((_, i) => (
+                          <Cell key={i} fill={outletPalette[i % outletPalette.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+              <div className="glass-card rounded-xl overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40 text-xs text-muted-foreground">
+                    <tr>
+                      <th className="text-left px-4 py-2">Outlet</th>
+                      <th className="text-right px-4 py-2">Transactions</th>
+                      <th className="text-right px-4 py-2">Revenue (NPR)</th>
+                      <th className="text-right px-4 py-2">Share</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {revenueByOutlet.length === 0 ? (
+                      <tr><td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">No data</td></tr>
+                    ) : (
+                      <>
+                        {revenueByOutlet.map((r, i) => {
+                          const grand = revenueByOutlet.reduce((s, x) => s + x.revenue, 0) || 1;
+                          return (
+                            <tr key={r.outletId} className="border-t border-border/40">
+                              <td className="px-4 py-2 font-medium flex items-center gap-2">
+                                <span className="h-2.5 w-2.5 rounded-full" style={{ background: outletPalette[i % outletPalette.length] }} />
+                                {r.outlet}
+                              </td>
+                              <td className="px-4 py-2 text-right">{r.txns}</td>
+                              <td className="px-4 py-2 text-right font-semibold">{formatNPR(r.revenue)}</td>
+                              <td className="px-4 py-2 text-right text-muted-foreground">{((r.revenue / grand) * 100).toFixed(1)}%</td>
+                            </tr>
+                          );
+                        })}
+                        <tr className="border-t border-border/60 bg-muted/30 font-bold">
+                          <td className="px-4 py-2">Grand Total</td>
+                          <td className="px-4 py-2 text-right">{revenueByOutlet.reduce((s, r) => s + r.txns, 0)}</td>
+                          <td className="px-4 py-2 text-right">{formatNPR(revenueByOutlet.reduce((s, r) => s + r.revenue, 0))}</td>
+                          <td className="px-4 py-2 text-right">100%</td>
+                        </tr>
+                      </>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </LoadGate>
         </TabsContent>
+
 
         <TabsContent value="growth">
           <div className="glass-card rounded-xl p-5">
