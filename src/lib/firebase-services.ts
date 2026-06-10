@@ -443,22 +443,31 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
   const net = Math.round((gross / 1.13) * 100) / 100;
   const vat = Math.round((gross - net) * 100) / 100;
   const status = data.status === "pending" ? "pending" : "paid";
+  const insertRow: any = {
+    receipt_no: data.receiptNo || `VFC-${Date.now()}`,
+    member_id: data.memberId || null,
+    member_name: data.memberName || null,
+    amount: net,
+    vat_amount: vat,
+    total: gross,
+    discount: Number((data as any).discount || 0),
+    method: data.method || "Cash",
+    service_type: data.serviceType || null,
+    description: data.description || "",
+    paid_at: data.date ? new Date(`${data.date}T00:00:00`).toISOString() : new Date().toISOString(),
+    status,
+    outlet_id: (data as any).outletId || null,
+    settled_charge_id: (data as any).chargeRowId || null,
+    meta: {
+      type: data.type || "Payment",
+      bookingId: data.bookingId || null,
+      chargeRowId: (data as any).chargeRowId || null,
+      isSettlement: (data as any).isSettlement || false,
+    },
+  };
   const { data: row, error } = await supabase
     .from("payments")
-    .insert({
-      receipt_no: data.receiptNo || `VFC-${Date.now()}`,
-      member_id: data.memberId || null,
-      member_name: data.memberName || null,
-      amount: net,
-      vat_amount: vat,
-      total: gross,
-      method: data.method || "Cash",
-      service_type: data.serviceType || null,
-      description: data.description || "",
-      paid_at: data.date ? new Date(`${data.date}T00:00:00`).toISOString() : new Date().toISOString(),
-      status,
-      meta: { type: data.type || "Payment", bookingId: data.bookingId || null },
-    })
+    .insert(insertRow)
     .select("id")
     .single();
   if (error) throwDb(error, "payments");
