@@ -339,6 +339,7 @@ const Transactions = () => {
       "chargeId",
       "amount",
       "locked",
+      "outletId",
     ].forEach((k) => next.delete(k));
     setSearchParams(next, { replace: true });
   }, [transactions, isLoading, searchParams, setSearchParams]);
