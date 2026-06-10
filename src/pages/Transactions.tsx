@@ -860,6 +860,27 @@ const Transactions = () => {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Discount (NPR)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={settleTxn.total}
+                    value={settleDiscount}
+                    onChange={(e) => setSettleDiscount(e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Net Payable</Label>
+                  <Input
+                    value={formatNPR(Math.max(0, (settleTxn.total || 0) - (Number(settleDiscount) || 0)))}
+                    readOnly
+                    className="bg-muted/40 font-semibold text-success"
+                  />
+                </div>
+              </div>
               <div className="space-y-2">
                 <Label>Description</Label>
                 <Textarea
