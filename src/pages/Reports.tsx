@@ -400,7 +400,7 @@ const Reports = () => {
           <TabsTrigger value="collection">Cashier / Collection</TabsTrigger>
           <TabsTrigger value="contribution">Sales Contribution</TabsTrigger>
           <TabsTrigger value="ledger">Member Ledger</TabsTrigger>
-          <TabsTrigger value="revenue">Revenue by Service</TabsTrigger>
+          <TabsTrigger value="revenue">Revenue by Outlet</TabsTrigger>
           <TabsTrigger value="growth">Member Growth</TabsTrigger>
           <TabsTrigger value="payments">Payment Methods</TabsTrigger>
         </TabsList>
