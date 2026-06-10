@@ -422,6 +422,9 @@ function mapPaymentRow(r: any): Transaction {
     voidReason: r.void_reason || undefined,
     voidedAt: r.voided_at || undefined,
     chargeHead: r.charge_head || undefined,
+    chargeRowId: r.settled_charge_id || meta.chargeRowId || undefined,
+    discount: Number(r.discount || 0),
+    outletId: r.outlet_id || undefined,
   } as Transaction;
 }
 
@@ -440,22 +443,31 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
   const net = Math.round((gross / 1.13) * 100) / 100;
   const vat = Math.round((gross - net) * 100) / 100;
   const status = data.status === "pending" ? "pending" : "paid";
+  const insertRow: any = {
+    receipt_no: data.receiptNo || `VFC-${Date.now()}`,
+    member_id: data.memberId || null,
+    member_name: data.memberName || null,
+    amount: net,
+    vat_amount: vat,
+    total: gross,
+    discount: Number((data as any).discount || 0),
+    method: data.method || "Cash",
+    service_type: data.serviceType || null,
+    description: data.description || "",
+    paid_at: data.date ? new Date(`${data.date}T00:00:00`).toISOString() : new Date().toISOString(),
+    status,
+    outlet_id: (data as any).outletId || null,
+    settled_charge_id: (data as any).chargeRowId || null,
+    meta: {
+      type: data.type || "Payment",
+      bookingId: data.bookingId || null,
+      chargeRowId: (data as any).chargeRowId || null,
+      isSettlement: (data as any).isSettlement || false,
+    },
+  };
   const { data: row, error } = await supabase
     .from("payments")
-    .insert({
-      receipt_no: data.receiptNo || `VFC-${Date.now()}`,
-      member_id: data.memberId || null,
-      member_name: data.memberName || null,
-      amount: net,
-      vat_amount: vat,
-      total: gross,
-      method: data.method || "Cash",
-      service_type: data.serviceType || null,
-      description: data.description || "",
-      paid_at: data.date ? new Date(`${data.date}T00:00:00`).toISOString() : new Date().toISOString(),
-      status,
-      meta: { type: data.type || "Payment", bookingId: data.bookingId || null },
-    })
+    .insert(insertRow)
     .select("id")
     .single();
   if (error) throwDb(error, "payments");
@@ -472,6 +484,10 @@ export async function updateTransaction(id: string, data: Partial<Transaction>):
   if ((data as any).voided !== undefined) patch.voided = (data as any).voided;
   if ((data as any).voidReason !== undefined) patch.void_reason = (data as any).voidReason;
   if ((data as any).voidedAt !== undefined) patch.voided_at = (data as any).voidedAt;
+  if (data.amount !== undefined) patch.amount = data.amount;
+  if (data.vat !== undefined) patch.vat_amount = data.vat;
+  if (data.total !== undefined) patch.total = data.total;
+  if ((data as any).discount !== undefined) patch.discount = (data as any).discount;
   const { error } = await supabase.from("payments").update(patch).eq("id", id);
   if (error) throwDb(error, "payments");
   await maybeAudit("update", "payment", id, null, data);

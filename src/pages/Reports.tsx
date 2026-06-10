@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/select";
 
 import { capitalizeFirstLetter } from "@/lib/string-case-change";
+import { useOutlet } from "@/contexts/OutletContext";
 
 const LedgerReport = lazy(() => import("@/components/LedgerReport"));
 
@@ -249,30 +250,28 @@ const Reports = () => {
     );
   }, [contributionRows]);
 
-  // ── Charts (existing) ──
-  const revenueByService = useMemo(() => {
-    const monthMap: Record<string, Record<string, number>> = {};
+  // ── Revenue by Outlet (replaces "Revenue by Service") ──
+  const { outlets } = useOutlet();
+  const outletNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    outlets.forEach((o) => m.set(o.id, o.name));
+    return m;
+  }, [outlets]);
+
+  const revenueByOutlet = useMemo(() => {
+    const acc: Record<string, { outletId: string; outlet: string; revenue: number; txns: number }> = {};
     transactions.forEach((t) => {
-      const month = t.date
-        ? new Date(t.date).toLocaleString("en", { month: "short" })
-        : "Unknown";
-      if (!monthMap[month])
-        monthMap[month] = { Gym: 0, Spa: 0, Sauna: 0, Swimming: 0 };
-      let bucket: string | null = t.serviceType || null;
-      if (!bucket) {
-        const desc = (t.description || "").toLowerCase();
-        if (desc.includes("spa")) bucket = "Spa";
-        else if (desc.includes("sauna")) bucket = "Sauna";
-        else if (desc.includes("swim")) bucket = "Swimming";
-        else bucket = "Gym";
-      }
-      monthMap[month][bucket] = (monthMap[month][bucket] || 0) + t.total;
+      if ((t as any).voided) return;
+      const id = (t as any).outletId || "__unassigned__";
+      const name = outletNameById.get(id) || (id === "__unassigned__" ? "Unassigned" : id);
+      if (!acc[id]) acc[id] = { outletId: id, outlet: name, revenue: 0, txns: 0 };
+      acc[id].revenue += t.total || 0;
+      acc[id].txns += 1;
     });
-    return Object.entries(monthMap).map(([month, data]) => ({
-      month,
-      ...data,
-    }));
-  }, [transactions]);
+    return Object.values(acc).sort((a, b) => b.revenue - a.revenue);
+  }, [transactions, outletNameById]);
+
+  const outletPalette = ["hsl(38,92%,50%)", "hsl(280,60%,55%)", "hsl(200,80%,50%)", "hsl(142,71%,45%)", "hsl(15,80%,55%)", "hsl(220,10%,55%)"];
 
   const memberGrowth = useMemo(() => {
     const monthMap: Record<string, { newMembers: number; total: number }> = {};
@@ -401,7 +400,7 @@ const Reports = () => {
           <TabsTrigger value="collection">Cashier / Collection</TabsTrigger>
           <TabsTrigger value="contribution">Sales Contribution</TabsTrigger>
           <TabsTrigger value="ledger">Member Ledger</TabsTrigger>
-          <TabsTrigger value="revenue">Revenue by Service</TabsTrigger>
+          <TabsTrigger value="revenue">Revenue by Outlet</TabsTrigger>
           <TabsTrigger value="growth">Member Growth</TabsTrigger>
           <TabsTrigger value="payments">Payment Methods</TabsTrigger>
         </TabsList>
@@ -559,62 +558,72 @@ const Reports = () => {
         </TabsContent>
 
         <TabsContent value="revenue">
-          <div className="glass-card rounded-xl p-5">
-            <h3 className="font-semibold font-display mb-4">
-              Revenue by Service
-            </h3>
-            {revenueByService.length === 0 ? (
-              <p className="text-center text-muted-foreground py-12">
-                No transaction data yet
-              </p>
-            ) : (
-              <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={revenueByService}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="hsl(224, 15%, 18%)"
-                  />
-                  <XAxis
-                    dataKey="month"
-                    tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 12 }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 12 }}
-                    axisLine={false}
-                    tickLine={false}
-                    tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
-                  />
-                  <Tooltip
-                    contentStyle={tooltipStyle}
-                    formatter={(v: number) => [formatNPR(v)]}
-                  />
-                  <Bar
-                    dataKey="Gym"
-                    fill="hsl(38, 92%, 50%)"
-                    radius={[4, 4, 0, 0]}
-                  />
-                  <Bar
-                    dataKey="Spa"
-                    fill="hsl(45, 93%, 65%)"
-                    radius={[4, 4, 0, 0]}
-                  />
-                  <Bar
-                    dataKey="Sauna"
-                    fill="hsl(220, 10%, 55%)"
-                    radius={[4, 4, 0, 0]}
-                  />
-                  <Bar
-                    dataKey="Swimming"
-                    fill="hsl(200, 80%, 50%)"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
+          <LoadGate k="revenue">
+            <div className="space-y-4">
+              <div className="glass-card rounded-xl p-5">
+                <h3 className="font-semibold font-display mb-4">Revenue by Outlet</h3>
+                {revenueByOutlet.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-12">No transaction data yet</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={360}>
+                    <BarChart data={revenueByOutlet}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(224, 15%, 18%)" />
+                      <XAxis dataKey="outlet" tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 12 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                      <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [formatNPR(v), "Revenue"]} />
+                      <Bar dataKey="revenue" radius={[4, 4, 0, 0]}>
+                        {revenueByOutlet.map((_, i) => (
+                          <Cell key={i} fill={outletPalette[i % outletPalette.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+              <div className="glass-card rounded-xl overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40 text-xs text-muted-foreground">
+                    <tr>
+                      <th className="text-left px-4 py-2">Outlet</th>
+                      <th className="text-right px-4 py-2">Transactions</th>
+                      <th className="text-right px-4 py-2">Revenue (NPR)</th>
+                      <th className="text-right px-4 py-2">Share</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {revenueByOutlet.length === 0 ? (
+                      <tr><td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">No data</td></tr>
+                    ) : (
+                      <>
+                        {revenueByOutlet.map((r, i) => {
+                          const grand = revenueByOutlet.reduce((s, x) => s + x.revenue, 0) || 1;
+                          return (
+                            <tr key={r.outletId} className="border-t border-border/40">
+                              <td className="px-4 py-2 font-medium flex items-center gap-2">
+                                <span className="h-2.5 w-2.5 rounded-full" style={{ background: outletPalette[i % outletPalette.length] }} />
+                                {r.outlet}
+                              </td>
+                              <td className="px-4 py-2 text-right">{r.txns}</td>
+                              <td className="px-4 py-2 text-right font-semibold">{formatNPR(r.revenue)}</td>
+                              <td className="px-4 py-2 text-right text-muted-foreground">{((r.revenue / grand) * 100).toFixed(1)}%</td>
+                            </tr>
+                          );
+                        })}
+                        <tr className="border-t border-border/60 bg-muted/30 font-bold">
+                          <td className="px-4 py-2">Grand Total</td>
+                          <td className="px-4 py-2 text-right">{revenueByOutlet.reduce((s, r) => s + r.txns, 0)}</td>
+                          <td className="px-4 py-2 text-right">{formatNPR(revenueByOutlet.reduce((s, r) => s + r.revenue, 0))}</td>
+                          <td className="px-4 py-2 text-right">100%</td>
+                        </tr>
+                      </>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </LoadGate>
         </TabsContent>
+
 
         <TabsContent value="growth">
           <div className="glass-card rounded-xl p-5">

@@ -39,6 +39,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TransactionDetailModal } from "@/components/TransactionDetailModal";
 import { RecordChargeModal } from "@/components/RecordChargeModal";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
 import {
   formatNPR,
   type PaymentMethod,
@@ -115,8 +116,11 @@ const Transactions = () => {
   const [settleTxn, setSettleTxn] = useState<Transaction | null>(null);
   const [settleMethod, setSettleMethod] = useState<PaymentMethod>("cash");
   const [settleNote, setSettleNote] = useState("");
+  const [settleDiscount, setSettleDiscount] = useState<string>("");
   const [isSettlement, setIsSettlement] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const { data: transactions = [], isLoading } = useTransactions();
   const { data: members = [] } = useMembers();
@@ -154,15 +158,17 @@ const Transactions = () => {
       const matchType = typeFilter === "all" || t.type === typeFilter;
       const matchStatus =
         statusFilter === "all" || statusLabel(t).toLowerCase() === statusFilter;
-      return matchSearch && matchMethod && matchType && matchStatus;
+      const d = t.date || "";
+      const matchFrom = !dateFrom || d >= dateFrom;
+      const matchTo = !dateTo || d <= dateTo;
+      return matchSearch && matchMethod && matchType && matchStatus && matchFrom && matchTo;
     });
-    // Most recent first — prefer createdAt timestamp, fall back to date.
     return [...list].sort((a: any, b: any) => {
       const av = a.createdAt || a.created_at || a.date || "";
       const bv = b.createdAt || b.created_at || b.date || "";
       return String(bv).localeCompare(String(av));
     });
-  }, [transactions, search, methodFilter, typeFilter, statusFilter]);
+  }, [transactions, search, methodFilter, typeFilter, statusFilter, dateFrom, dateTo]);
 
   const activeForTotals = filtered.filter((t) => statusLabel(t) !== "Voided");
   const totalAmount = activeForTotals.reduce((sum, t) => sum + t.total, 0);
@@ -255,6 +261,7 @@ const Transactions = () => {
   const openSettle = (t: Transaction, settlement = false) => {
     setSettleMethod("cash");
     setSettleNote("");
+    setSettleDiscount("");
     setIsSettlement(settlement);
     setSettleTxn(t);
   };
@@ -311,7 +318,8 @@ const Transactions = () => {
           receiptNo: `VFC-${Date.now()}`,
           status: "pending",
           bookingId: bookingId || undefined,
-        };
+          outletId: searchParams.get("outletId") || undefined,
+        } as any;
       }
     }
     if (charge) {
@@ -331,21 +339,24 @@ const Transactions = () => {
       "chargeId",
       "amount",
       "locked",
+      "outletId",
     ].forEach((k) => next.delete(k));
     setSearchParams(next, { replace: true });
   }, [transactions, isLoading, searchParams, setSearchParams]);
 
   const handleSettle = async () => {
     if (!settleTxn) return;
+    const discount = Math.max(0, Number(settleDiscount) || 0);
+    const netDue = Math.max(0, (settleTxn.total || 0) - discount);
     try {
       if (settleTxn.id.startsWith("TEMP-")) {
-        // Book a sale and make a settlement in one go
         await addTransactionMutation.mutateAsync({
           memberId: settleTxn.memberId,
           memberName: settleTxn.memberName,
-          amount: settleTxn.amount,
+          amount: netDue,
           vat: settleTxn.vat,
-          total: settleTxn.total,
+          total: netDue,
+          discount,
           method: settleMethod,
           type: "Charge",
           date: new Date().toISOString().split("T")[0],
@@ -353,25 +364,25 @@ const Transactions = () => {
           receiptNo: settleTxn.receiptNo,
           status: "paid",
           bookingId: settleTxn.bookingId,
-        });
+          outletId: (settleTxn as any).outletId,
+          isSettlement: true,
+        } as any);
       } else {
         // 1) Flip canonical charges row to paid (source of truth for ledger)
-        const chargeRowId = (settleTxn as any).chargeRowId as
-          | string
-          | undefined;
+        const chargeRowId = (settleTxn as any).chargeRowId as string | undefined;
         if (chargeRowId) {
           try {
             const { supabase } = await import("@/lib/supabase");
             await supabase
               .from("charges")
-              .update({ status: "paid", paid_at: new Date().toISOString() })
+              .update({
+                status: "paid",
+                paid_at: new Date().toISOString(),
+                discount,
+              })
               .eq("id", chargeRowId);
           } catch (err) {
-            // eslint-disable-next-line no-console
-            console.warn(
-              "[transactions] failed to mark canonical charge paid",
-              err,
-            );
+            console.warn("[transactions] failed to mark canonical charge paid", err);
           }
         }
         // 2) Mirror onto the legacy transaction row
@@ -381,12 +392,12 @@ const Transactions = () => {
             status: "paid",
             method: settleMethod,
             date: new Date().toISOString().split("T")[0],
-          },
+            discount,
+          } as any,
         });
       }
 
-      // 3) If this charge is linked to a booking, mark the booking Completed
-      //    so the Bookings page reflects the settlement without a refresh.
+      // 3) If linked to a booking, mark it Completed
       if (settleTxn.bookingId) {
         try {
           await updateBookingMutation.mutateAsync({
@@ -398,36 +409,34 @@ const Transactions = () => {
             } as any,
           });
         } catch (err) {
-          // eslint-disable-next-line no-console
           console.warn("[transactions] failed to update booking status", err);
         }
       }
 
-      // 4) Refresh dependent caches so every surface (Bookings, Quick Balance,
-      //    Member Profile ledger) reflects the new state immediately.
       qc.invalidateQueries({ queryKey: ["bookings"] });
       qc.invalidateQueries({ queryKey: ["transactions"] });
       qc.invalidateQueries({ queryKey: ["charges"] });
       qc.invalidateQueries({ queryKey: ["member-ledger"] });
 
       toast.success(
-        settleTxn.bookingId
-          ? "Payment settled — booking marked completed"
-          : "Payment settled",
+        discount > 0
+          ? `Settled with ${formatNPR(discount)} discount`
+          : settleTxn.bookingId
+            ? "Payment settled — booking marked completed"
+            : "Payment settled",
       );
       printBill(
         settleTxn.memberName,
         settleTxn.receiptNo,
         settleTxn.description,
-        settleTxn.total,
+        netDue,
         new Date(),
       );
 
-      // 5) Clean-slate reset: only the active settlement UI is cleared. The
-      //    settled transaction row stays in history (no DB delete).
       setSettleTxn(null);
       setSettleMethod("cash");
       setSettleNote("");
+      setSettleDiscount("");
       setIsSettlement(false);
     } catch (e) {
       toast.error("Failed to settle payment");
@@ -653,6 +662,7 @@ const Transactions = () => {
             <SelectItem value="voided">Voided</SelectItem>
           </SelectContent>
         </Select>
+        <DateRangeFilter from={dateFrom} to={dateTo} onChange={({ from, to }) => { setDateFrom(from); setDateTo(to); }} />
       </div>
 
       <div className="glass-card rounded-xl overflow-hidden">
@@ -852,6 +862,27 @@ const Transactions = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Discount (NPR)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={settleTxn.total}
+                    value={settleDiscount}
+                    onChange={(e) => setSettleDiscount(e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Net Payable</Label>
+                  <Input
+                    value={formatNPR(Math.max(0, (settleTxn.total || 0) - (Number(settleDiscount) || 0)))}
+                    readOnly
+                    className="bg-muted/40 font-semibold text-success"
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Description</Label>

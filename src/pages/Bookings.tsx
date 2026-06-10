@@ -24,6 +24,7 @@ import { Building2, ChevronDown } from "lucide-react";
 import type { Booking, ServiceType } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
 
 const SLOT_START: Record<string, string> = { Morning: "06:00", Day: "12:00", Evening: "18:00" };
 
@@ -64,6 +65,8 @@ const Bookings_Page = () => {
   const [view, setView] = useState<"calendar" | "list">("calendar");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [serviceFilter, setServiceFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [colorSettingsOpen, setColorSettingsOpen] = useState(false);
   const [serviceColors, setServiceColors] = useState<Record<string, string>>({
     Gym: colorOptions[0].value,
@@ -146,13 +149,14 @@ const Bookings_Page = () => {
       list = list.filter((b: any) => !b.outletId || b.outletId === selectedOutlet.id);
     }
     if (serviceFilter !== "all") list = list.filter((b) => b.service === serviceFilter);
-    // Most recent first — sort by date, then start time.
+    if (dateFrom) list = list.filter((b) => (b.date || "") >= dateFrom);
+    if (dateTo) list = list.filter((b) => (b.date || "") <= dateTo);
     return [...list].sort((a, b) => {
       const ad = `${a.date || ""} ${a.startTime || ""}`;
       const bd = `${b.date || ""} ${b.startTime || ""}`;
       return bd.localeCompare(ad);
     });
-  }, [bookings, serviceFilter, selectedOutlet]);
+  }, [bookings, serviceFilter, selectedOutlet, dateFrom, dateTo]);
 
   const getBookingsForDay = (day: Date) => filtered.filter((b) => isSameDay(new Date(b.date), day));
 
@@ -290,6 +294,7 @@ const Bookings_Page = () => {
         amount: String(finalPrice),
         bookingId: String(bookingId || ""),
         chargeId: chargeId,
+        outletId: selectedOutlet.id,
         locked: "1",
       });
       setBookMember(""); setMemberSearch(""); setBookServiceId("");
@@ -397,6 +402,8 @@ const Bookings_Page = () => {
               {outletServiceTypes.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
+          <DateRangeFilter from={dateFrom} to={dateTo} onChange={({ from, to }) => { setDateFrom(from); setDateTo(to); }} />
+
 
           <Popover open={colorSettingsOpen} onOpenChange={setColorSettingsOpen}>
             <PopoverTrigger asChild>
