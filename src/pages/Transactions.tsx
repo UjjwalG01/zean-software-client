@@ -318,6 +318,9 @@ const Transactions = () => {
           receiptNo: `VFC-${Date.now()}`,
           status: "pending",
           bookingId: bookingId || undefined,
+          outletId: searchParams.get("outletId") || undefined,
+        } as any;
+
         };
       }
     }
