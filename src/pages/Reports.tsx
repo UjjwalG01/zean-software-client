@@ -249,30 +249,28 @@ const Reports = () => {
     );
   }, [contributionRows]);
 
-  // ── Charts (existing) ──
-  const revenueByService = useMemo(() => {
-    const monthMap: Record<string, Record<string, number>> = {};
+  // ── Revenue by Outlet (replaces "Revenue by Service") ──
+  const { outlets } = useOutlet();
+  const outletNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    outlets.forEach((o) => m.set(o.id, o.name));
+    return m;
+  }, [outlets]);
+
+  const revenueByOutlet = useMemo(() => {
+    const acc: Record<string, { outletId: string; outlet: string; revenue: number; txns: number }> = {};
     transactions.forEach((t) => {
-      const month = t.date
-        ? new Date(t.date).toLocaleString("en", { month: "short" })
-        : "Unknown";
-      if (!monthMap[month])
-        monthMap[month] = { Gym: 0, Spa: 0, Sauna: 0, Swimming: 0 };
-      let bucket: string | null = t.serviceType || null;
-      if (!bucket) {
-        const desc = (t.description || "").toLowerCase();
-        if (desc.includes("spa")) bucket = "Spa";
-        else if (desc.includes("sauna")) bucket = "Sauna";
-        else if (desc.includes("swim")) bucket = "Swimming";
-        else bucket = "Gym";
-      }
-      monthMap[month][bucket] = (monthMap[month][bucket] || 0) + t.total;
+      if ((t as any).voided) return;
+      const id = (t as any).outletId || "__unassigned__";
+      const name = outletNameById.get(id) || (id === "__unassigned__" ? "Unassigned" : id);
+      if (!acc[id]) acc[id] = { outletId: id, outlet: name, revenue: 0, txns: 0 };
+      acc[id].revenue += t.total || 0;
+      acc[id].txns += 1;
     });
-    return Object.entries(monthMap).map(([month, data]) => ({
-      month,
-      ...data,
-    }));
-  }, [transactions]);
+    return Object.values(acc).sort((a, b) => b.revenue - a.revenue);
+  }, [transactions, outletNameById]);
+
+  const outletPalette = ["hsl(38,92%,50%)", "hsl(280,60%,55%)", "hsl(200,80%,50%)", "hsl(142,71%,45%)", "hsl(15,80%,55%)", "hsl(220,10%,55%)"];
 
   const memberGrowth = useMemo(() => {
     const monthMap: Record<string, { newMembers: number; total: number }> = {};
