@@ -149,13 +149,14 @@ const Bookings_Page = () => {
       list = list.filter((b: any) => !b.outletId || b.outletId === selectedOutlet.id);
     }
     if (serviceFilter !== "all") list = list.filter((b) => b.service === serviceFilter);
-    // Most recent first — sort by date, then start time.
+    if (dateFrom) list = list.filter((b) => (b.date || "") >= dateFrom);
+    if (dateTo) list = list.filter((b) => (b.date || "") <= dateTo);
     return [...list].sort((a, b) => {
       const ad = `${a.date || ""} ${a.startTime || ""}`;
       const bd = `${b.date || ""} ${b.startTime || ""}`;
       return bd.localeCompare(ad);
     });
-  }, [bookings, serviceFilter, selectedOutlet]);
+  }, [bookings, serviceFilter, selectedOutlet, dateFrom, dateTo]);
 
   const getBookingsForDay = (day: Date) => filtered.filter((b) => isSameDay(new Date(b.date), day));
 
