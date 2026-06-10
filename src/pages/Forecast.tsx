@@ -1,25 +1,28 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { CalendarDays, TrendingUp, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBookings } from "@/hooks/use-firestore";
 import { format, parseISO, addDays, isAfter, isBefore, isSameDay } from "date-fns";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
 
 const Forecast = () => {
   const { data: bookings = [], isLoading } = useBookings();
 
   const today = new Date();
-  const forecastDays = 30;
-  const endDate = addDays(today, forecastDays);
+  const defaultEnd = addDays(today, 30);
+  const [dateFrom, setDateFrom] = useState(format(today, "yyyy-MM-dd"));
+  const [dateTo, setDateTo] = useState(format(defaultEnd, "yyyy-MM-dd"));
 
-  // Group upcoming bookings by date
   const forecastData = useMemo(() => {
+    const from = dateFrom ? parseISO(dateFrom) : today;
+    const to = dateTo ? parseISO(dateTo) : defaultEnd;
     const upcoming = bookings
       .filter((b) => {
         try {
           const d = parseISO(b.date);
-          return (isAfter(d, today) || isSameDay(d, today)) && isBefore(d, endDate) && b.status !== "Cancelled";
+          return (isAfter(d, from) || isSameDay(d, from)) && (isBefore(d, to) || isSameDay(d, to)) && b.status !== "Cancelled";
         } catch { return false; }
       })
       .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
@@ -30,15 +33,17 @@ const Forecast = () => {
       grouped[b.date].push(b);
     });
 
-    return Object.entries(grouped).map(([date, items]) => ({
-      date,
-      dateFormatted: format(parseISO(date), "EEE, dd MMM yyyy"),
-      isToday: isSameDay(parseISO(date), today),
-      bookings: items,
-      totalBookings: items.length,
-      services: [...new Set(items.map((i) => i.service))],
-    }));
-  }, [bookings]);
+    return Object.entries(grouped)
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([date, items]) => ({
+        date,
+        dateFormatted: format(parseISO(date), "EEE, dd MMM yyyy"),
+        isToday: isSameDay(parseISO(date), today),
+        bookings: items,
+        totalBookings: items.length,
+        services: [...new Set(items.map((i) => i.service))],
+      }));
+  }, [bookings, dateFrom, dateTo]);
 
   const totalUpcoming = forecastData.reduce((s, d) => s + d.totalBookings, 0);
 
@@ -47,18 +52,18 @@ const Forecast = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold font-display">Booking Forecast</h1>
-          <p className="text-muted-foreground text-sm">Next {forecastDays} days • {totalUpcoming} upcoming bookings</p>
+          <p className="text-muted-foreground text-sm">{dateFrom} → {dateTo} • {totalUpcoming} bookings</p>
         </div>
+        <DateRangeFilter from={dateFrom} to={dateTo} onChange={({ from, to }) => { setDateFrom(from); setDateTo(to); }} />
       </div>
 
-      {/* Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="glass-card rounded-xl p-4 flex items-center gap-3">
           <div className="h-10 w-10 rounded-lg bg-primary/20 flex items-center justify-center">
             <CalendarDays className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Total Upcoming</p>
+            <p className="text-xs text-muted-foreground">Total in Range</p>
             <p className="text-xl font-bold font-display">{totalUpcoming}</p>
           </div>
         </div>
@@ -82,13 +87,12 @@ const Forecast = () => {
         </div>
       </div>
 
-      {/* Date-wise forecast */}
       {isLoading ? (
         <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>
       ) : forecastData.length === 0 ? (
         <div className="glass-card rounded-xl p-12 text-center">
           <CalendarDays className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-muted-foreground">No upcoming bookings in the next {forecastDays} days</p>
+          <p className="text-muted-foreground">No bookings in selected range</p>
         </div>
       ) : (
         forecastData.map((day) => (
