@@ -101,11 +101,18 @@ export interface Transaction {
   voided?: boolean;
   voidReason?: string;
   voidedAt?: string;
+  /** Discount applied at settlement that reduces what the member owes. */
+  discount?: number;
+  /** Outlet that recorded this transaction (drives Revenue by Outlet). */
+  outletId?: string;
   /** Bookings → charge → payment linkage */
   linkedBookingId?: string;
   linkedChargeIds?: string[];
   /** Row id in the dedicated `charges` table (when this tx mirrors a charge row). */
   chargeRowId?: string;
+  /** Marks settlement-type Payments so the ledger can label them correctly. */
+  isSettlement?: boolean;
+  createdAt?: string;
 }
 
 export interface AttendanceRecord {
