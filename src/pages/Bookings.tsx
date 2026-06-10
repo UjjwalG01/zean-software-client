@@ -294,6 +294,7 @@ const Bookings_Page = () => {
         amount: String(finalPrice),
         bookingId: String(bookingId || ""),
         chargeId: chargeId,
+        outletId: selectedOutlet.id,
         locked: "1",
       });
       setBookMember(""); setMemberSearch(""); setBookServiceId("");
