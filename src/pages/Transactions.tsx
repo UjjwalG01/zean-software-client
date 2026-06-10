@@ -658,6 +658,7 @@ const Transactions = () => {
             <SelectItem value="voided">Voided</SelectItem>
           </SelectContent>
         </Select>
+        <DateRangeFilter from={dateFrom} to={dateTo} onChange={({ from, to }) => { setDateFrom(from); setDateTo(to); }} />
       </div>
 
       <div className="glass-card rounded-xl overflow-hidden">
