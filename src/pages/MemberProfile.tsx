@@ -1,6 +1,21 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Mail, Phone, MapPin, Calendar, CreditCard, Activity, Edit, Power, Save, X, FileText, TrendingUp, Wallet } from "lucide-react";
+import {
+  ArrowLeft,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  CreditCard,
+  Activity,
+  Edit,
+  Power,
+  Save,
+  X,
+  FileText,
+  TrendingUp,
+  Wallet,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { TierBadge } from "@/components/TierBadge";
@@ -11,7 +26,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { formatNPR } from "@/lib/mock-data";
 import { useMember, useTransactions, useBookings, useUpdateMember, useCompanySettings } from "@/hooks/use-firestore";
 import { useCharges } from "@/hooks/use-charges";
@@ -38,7 +60,11 @@ const MemberProfile = () => {
   const [deactivateOpen, setDeactivateOpen] = useState(false);
   const [quickBalanceOpen, setQuickBalanceOpen] = useState(false);
   const [editForm, setEditForm] = useState({
-    name: "", email: "", phone: "", address: "", emergencyContact: "",
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+    emergencyContact: "",
   });
 
   // Preferences tab state — wired to members.preferences (jsonb).
@@ -54,7 +80,11 @@ const MemberProfile = () => {
   useEffect(() => {
     if (member) {
       const p: any = (member as any).preferences;
-      const list: string[] = Array.isArray(p) ? p : Array.isArray(p?.favoriteActivities) ? p.favoriteActivities : member.preferences || [];
+      const list: string[] = Array.isArray(p)
+        ? p
+        : Array.isArray(p?.favoriteActivities)
+          ? p.favoriteActivities
+          : member.preferences || [];
       setPrefsForm({
         favoriteActivities: list.join(", "),
         communicationChannel: p?.communicationChannel || "Email",
@@ -72,7 +102,10 @@ const MemberProfile = () => {
       await updateMember.mutateAsync({
         id,
         data: {
-          preferences: prefsForm.favoriteActivities.split(",").map((s) => s.trim()).filter(Boolean),
+          preferences: prefsForm.favoriteActivities
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean),
           // Extra fields kept under preferences jsonb via firebase-services pass-through.
           ...({
             preferencesMeta: {
@@ -94,8 +127,11 @@ const MemberProfile = () => {
   useEffect(() => {
     if (member) {
       setEditForm({
-        name: member.name, email: member.email, phone: member.phone,
-        address: member.address, emergencyContact: member.emergencyContact,
+        name: member.name,
+        email: member.email,
+        phone: member.phone,
+        address: member.address,
+        emergencyContact: member.emergencyContact,
       });
     }
   }, [member]);
@@ -121,7 +157,9 @@ const MemberProfile = () => {
       });
       toast.success("Member profile updated");
       setEditOpen(false);
-    } catch { toast.error("Failed to update member"); }
+    } catch {
+      toast.error("Failed to update member");
+    }
   };
 
   const handleToggleActive = async () => {
@@ -133,15 +171,27 @@ const MemberProfile = () => {
       await updateMember.mutateAsync({ id, data: { status: next } });
       toast.success(next === "Active" ? "Member reactivated" : "Member deactivated");
       setDeactivateOpen(false);
-    } catch { toast.error("Failed to update status"); }
+    } catch {
+      toast.error("Failed to update status");
+    }
   };
+
+  const { data: prepaid } = useQuery({
+    queryKey: ["prepaidPools", member?.id],
+    queryFn: () => getMemberPoolsSummary(member!.id),
+    enabled: !!member?.id,
+  });
 
   if (isLoading) {
     return (
       <div className="space-y-6 animate-fade-in">
         <Skeleton className="h-8 w-32" />
         <Skeleton className="h-40 rounded-xl" />
-        <div className="grid grid-cols-5 gap-4">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-lg" />)}</div>
+        <div className="grid grid-cols-5 gap-4">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-20 rounded-lg" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -150,7 +200,9 @@ const MemberProfile = () => {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <p className="text-muted-foreground">Member not found</p>
-        <Button variant="ghost" className="mt-4" onClick={() => navigate("/members")}>Back to Members</Button>
+        <Button variant="ghost" className="mt-4" onClick={() => navigate("/members")}>
+          Back to Members
+        </Button>
       </div>
     );
   }
@@ -158,12 +210,11 @@ const MemberProfile = () => {
   const memberTx = allTransactions.filter((t) => t.memberId === member.id);
   const memberBookings = allBookings.filter((b) => b.memberId === member.id);
   const memberLedger = buildMemberLedger(member.id, allTransactions, (member as any).openingBalance || 0, allCharges);
-  const { data: prepaid } = useQuery({
-    queryKey: ["prepaidPools", member.id],
-    queryFn: () => getMemberPoolsSummary(member.id),
-    enabled: !!member.id,
-  });
-
+  // const { data: prepaid } = useQuery({
+  //   queryKey: ["prepaidPools", member.id],
+  //   queryFn: () => getMemberPoolsSummary(member.id),
+  //   enabled: !!member.id,
+  // });
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -197,23 +248,53 @@ const MemberProfile = () => {
         <div className="flex flex-col sm:flex-row gap-6">
           <Avatar className="h-20 w-20 ring-2 ring-primary/30 ring-offset-2 ring-offset-background">
             <AvatarImage src={member.avatar} alt={member.name} />
-            <AvatarFallback className="text-xl">{member.name.split(" ").map((n) => n[0]).join("")}</AvatarFallback>
+            <AvatarFallback className="text-xl">
+              {member.name
+                .split(" ")
+                .map((n) => n[0])
+                .join("")}
+            </AvatarFallback>
           </Avatar>
           <div className="flex-1 space-y-3">
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="text-2xl font-bold font-display">{member.name}</h1>
               <TierBadge tier={member.tier} />
               <StatusBadge status={member.status} />
-              {member.autoRenew && <Badge variant="outline" className="text-[10px] text-success border-success/30">Auto-Renew</Badge>}
+              {member.autoRenew && (
+                <Badge variant="outline" className="text-[10px] text-success border-success/30">
+                  Auto-Renew
+                </Badge>
+              )}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm text-muted-foreground">
-              <span className="flex items-center gap-2"><Mail className="h-3.5 w-3.5" />{member.email}</span>
-              <span className="flex items-center gap-2"><Phone className="h-3.5 w-3.5" />{member.phone}</span>
-              <span className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5" />{(() => { const a: any = (member as any).address; if (!a) return (member as any).permanentAddress || ""; if (typeof a === "string") return a; return a.permanent || a.temporary || ""; })()}</span>
-              <span className="flex items-center gap-2"><Calendar className="h-3.5 w-3.5" />Joined {member.joinDate}</span>
+              <span className="flex items-center gap-2">
+                <Mail className="h-3.5 w-3.5" />
+                {member.email}
+              </span>
+              <span className="flex items-center gap-2">
+                <Phone className="h-3.5 w-3.5" />
+                {member.phone}
+              </span>
+              <span className="flex items-center gap-2">
+                <MapPin className="h-3.5 w-3.5" />
+                {(() => {
+                  const a: any = (member as any).address;
+                  if (!a) return (member as any).permanentAddress || "";
+                  if (typeof a === "string") return a;
+                  return a.permanent || a.temporary || "";
+                })()}
+              </span>
+              <span className="flex items-center gap-2">
+                <Calendar className="h-3.5 w-3.5" />
+                Joined {member.joinDate}
+              </span>
             </div>
             <div className="flex flex-wrap gap-2">
-              {member.services.map((s) => <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>)}
+              {member.services.map((s) => (
+                <Badge key={s} variant="secondary" className="text-xs">
+                  {s}
+                </Badge>
+              ))}
             </div>
           </div>
         </div>
@@ -256,16 +337,32 @@ const MemberProfile = () => {
       {/* Tabs */}
       <Tabs defaultValue="progress" className="space-y-4">
         <TabsList className="bg-muted/50">
-          <TabsTrigger value="progress"><TrendingUp className="h-3.5 w-3.5 mr-1" />Progress</TabsTrigger>
-          <TabsTrigger value="payments"><CreditCard className="h-3.5 w-3.5 mr-1" />Payments</TabsTrigger>
-          <TabsTrigger value="bookings"><Calendar className="h-3.5 w-3.5 mr-1" />Bookings</TabsTrigger>
-          <TabsTrigger value="preferences"><Activity className="h-3.5 w-3.5 mr-1" />Preferences</TabsTrigger>
+          <TabsTrigger value="progress">
+            <TrendingUp className="h-3.5 w-3.5 mr-1" />
+            Progress
+          </TabsTrigger>
+          <TabsTrigger value="payments">
+            <CreditCard className="h-3.5 w-3.5 mr-1" />
+            Payments
+          </TabsTrigger>
+          <TabsTrigger value="bookings">
+            <Calendar className="h-3.5 w-3.5 mr-1" />
+            Bookings
+          </TabsTrigger>
+          <TabsTrigger value="preferences">
+            <Activity className="h-3.5 w-3.5 mr-1" />
+            Preferences
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="progress">
-          <MemberProgress member={member} bookings={memberBookings} transactions={memberTx} propertyName={settings.companyName} />
+          <MemberProgress
+            member={member}
+            bookings={memberBookings}
+            transactions={memberTx}
+            propertyName={settings.companyName}
+          />
         </TabsContent>
-
 
         <TabsContent value="payments">
           <div className="glass-card rounded-xl overflow-hidden">
@@ -295,13 +392,23 @@ const MemberProfile = () => {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-[10px]">{r.kind}</Badge>
+                        <Badge variant="outline" className="text-[10px]">
+                          {r.kind}
+                        </Badge>
                       </TableCell>
                       <TableCell>
-                        {r.method ? <Badge variant="secondary" className="text-[10px]">{r.method}</Badge> : <span className="text-muted-foreground text-xs">—</span>}
+                        {r.method ? (
+                          <Badge variant="secondary" className="text-[10px]">
+                            {r.method}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right text-sm">{r.debit ? formatNPR(r.debit) : "—"}</TableCell>
-                      <TableCell className="text-right text-sm text-success">{r.credit ? formatNPR(r.credit) : "—"}</TableCell>
+                      <TableCell className="text-right text-sm text-success">
+                        {r.credit ? formatNPR(r.credit) : "—"}
+                      </TableCell>
                       <TableCell className="text-right text-sm font-semibold">{formatNPR(r.balance)}</TableCell>
                     </TableRow>
                   ))}
@@ -310,10 +417,22 @@ const MemberProfile = () => {
             )}
             {/* Summary footer mirrors Quick Balance */}
             <div className="border-t border-border/50 p-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm bg-muted/20">
-              <div><span className="text-muted-foreground">＋ Total Billed</span><div className="font-semibold">{formatNPR(memberLedger.summary.totalCharged)}</div></div>
-              <div><span className="text-muted-foreground">－ Total Paid</span><div className="font-semibold text-success">{formatNPR(memberLedger.summary.totalPaid)}</div></div>
-              <div><span className="text-muted-foreground">－ Advance</span><div className="font-semibold text-primary">{formatNPR(memberLedger.summary.advance)}</div></div>
-              <div><span className="text-muted-foreground">＝ Net Payable</span><div className="font-bold text-destructive">{formatNPR(memberLedger.summary.netPayable)}</div></div>
+              <div>
+                <span className="text-muted-foreground">＋ Total Billed</span>
+                <div className="font-semibold">{formatNPR(memberLedger.summary.totalCharged)}</div>
+              </div>
+              <div>
+                <span className="text-muted-foreground">－ Total Paid</span>
+                <div className="font-semibold text-success">{formatNPR(memberLedger.summary.totalPaid)}</div>
+              </div>
+              <div>
+                <span className="text-muted-foreground">－ Advance</span>
+                <div className="font-semibold text-primary">{formatNPR(memberLedger.summary.advance)}</div>
+              </div>
+              <div>
+                <span className="text-muted-foreground">＝ Net Payable</span>
+                <div className="font-bold text-destructive">{formatNPR(memberLedger.summary.netPayable)}</div>
+              </div>
             </div>
           </div>
         </TabsContent>
@@ -324,15 +443,33 @@ const MemberProfile = () => {
               <p className="text-center text-muted-foreground py-8">No bookings</p>
             ) : (
               <Table>
-                <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Class</TableHead><TableHead>Service</TableHead><TableHead>Time</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Class</TableHead>
+                    <TableHead>Service</TableHead>
+                    <TableHead>Time</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
                   {memberBookings.map((b) => (
                     <TableRow key={b.id}>
                       <TableCell className="text-sm">{b.date}</TableCell>
                       <TableCell className="text-sm font-medium">{b.className}</TableCell>
-                      <TableCell><Badge variant="secondary" className="text-[10px]">{b.service}</Badge></TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{b.startTime}–{b.endTime}</TableCell>
-                      <TableCell><Badge variant={b.status === "Confirmed" ? "default" : "secondary"} className="text-[10px]">{b.status}</Badge></TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="text-[10px]">
+                          {b.service}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {b.startTime}–{b.endTime}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={b.status === "Confirmed" ? "default" : "secondary"} className="text-[10px]">
+                          {b.status}
+                        </Badge>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -344,56 +481,78 @@ const MemberProfile = () => {
         <TabsContent value="preferences">
           <div className="glass-card rounded-xl p-6 space-y-5">
             <div className="space-y-2">
-              <Label>Favorite Activities <span className="text-xs text-muted-foreground">(comma separated)</span></Label>
-              <Input value={prefsForm.favoriteActivities}
+              <Label>
+                Favorite Activities <span className="text-xs text-muted-foreground">(comma separated)</span>
+              </Label>
+              <Input
+                value={prefsForm.favoriteActivities}
                 onChange={(e) => setPrefsForm((p) => ({ ...p, favoriteActivities: e.target.value }))}
-                placeholder="e.g. Yoga, HIIT, Steam Bath" />
+                placeholder="e.g. Yoga, HIIT, Steam Bath"
+              />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Preferred Communication Channel</Label>
-                <select className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                <select
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                   value={prefsForm.communicationChannel}
-                  onChange={(e) => setPrefsForm((p) => ({ ...p, communicationChannel: e.target.value }))}>
-                  {["Email", "SMS", "Phone", "WhatsApp"].map((o) => <option key={o}>{o}</option>)}
+                  onChange={(e) => setPrefsForm((p) => ({ ...p, communicationChannel: e.target.value }))}
+                >
+                  {["Email", "SMS", "Phone", "WhatsApp"].map((o) => (
+                    <option key={o}>{o}</option>
+                  ))}
                 </select>
               </div>
               <div className="space-y-2">
                 <Label>Language</Label>
-                <select className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                <select
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                   value={prefsForm.language}
-                  onChange={(e) => setPrefsForm((p) => ({ ...p, language: e.target.value }))}>
-                  {["English", "Nepali"].map((o) => <option key={o}>{o}</option>)}
+                  onChange={(e) => setPrefsForm((p) => ({ ...p, language: e.target.value }))}
+                >
+                  {["English", "Nepali"].map((o) => (
+                    <option key={o}>{o}</option>
+                  ))}
                 </select>
               </div>
               <div className="space-y-2">
                 <Label>Trainer Preference</Label>
-                <Input value={prefsForm.trainerPref}
+                <Input
+                  value={prefsForm.trainerPref}
                   onChange={(e) => setPrefsForm((p) => ({ ...p, trainerPref: e.target.value }))}
-                  placeholder="e.g. Female trainer / morning slots" />
+                  placeholder="e.g. Female trainer / morning slots"
+                />
               </div>
               <div className="space-y-2 flex items-end gap-3">
                 <div className="flex items-center gap-2">
-                  <Switch checked={prefsForm.marketingOptIn}
-                    onCheckedChange={(v) => setPrefsForm((p) => ({ ...p, marketingOptIn: v }))} />
+                  <Switch
+                    checked={prefsForm.marketingOptIn}
+                    onCheckedChange={(v) => setPrefsForm((p) => ({ ...p, marketingOptIn: v }))}
+                  />
                   <Label className="!mt-0">Marketing / Promo opt-in</Label>
                 </div>
               </div>
             </div>
             <div className="space-y-2">
               <Label>Dietary / Health Notes</Label>
-              <Textarea rows={3} value={prefsForm.dietaryNotes}
-                onChange={(e) => setPrefsForm((p) => ({ ...p, dietaryNotes: e.target.value }))} />
+              <Textarea
+                rows={3}
+                value={prefsForm.dietaryNotes}
+                onChange={(e) => setPrefsForm((p) => ({ ...p, dietaryNotes: e.target.value }))}
+              />
             </div>
             <div className="flex justify-end">
-              <Button onClick={handleSavePreferences} disabled={updateMember.isPending} className="gradient-gold text-primary-foreground">
+              <Button
+                onClick={handleSavePreferences}
+                disabled={updateMember.isPending}
+                className="gradient-gold text-primary-foreground"
+              >
                 <Save className="h-4 w-4 mr-1" />
                 {updateMember.isPending ? "Saving..." : "Save Preferences"}
               </Button>
             </div>
           </div>
         </TabsContent>
-
       </Tabs>
 
       <QuickBalanceModal open={quickBalanceOpen} onOpenChange={setQuickBalanceOpen} member={member} />
@@ -415,7 +574,11 @@ const MemberProfile = () => {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Email</Label>
-                <Input type="email" value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} />
+                <Input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Phone</Label>
@@ -424,16 +587,29 @@ const MemberProfile = () => {
             </div>
             <div className="space-y-1.5">
               <Label>Address</Label>
-              <Input value={editForm.address} onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))} />
+              <Input
+                value={editForm.address}
+                onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Emergency Contact</Label>
-              <Input value={editForm.emergencyContact} onChange={(e) => setEditForm((p) => ({ ...p, emergencyContact: e.target.value }))} />
+              <Input
+                value={editForm.emergencyContact}
+                onChange={(e) => setEditForm((p) => ({ ...p, emergencyContact: e.target.value }))}
+              />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)}><X className="h-4 w-4 mr-1" />Cancel</Button>
-            <Button onClick={handleSaveEdit} disabled={updateMember.isPending} className="gradient-gold text-primary-foreground">
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              <X className="h-4 w-4 mr-1" />
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveEdit}
+              disabled={updateMember.isPending}
+              className="gradient-gold text-primary-foreground"
+            >
               <Save className="h-4 w-4 mr-1" />
               {updateMember.isPending ? "Saving..." : "Save Changes"}
             </Button>
@@ -456,7 +632,9 @@ const MemberProfile = () => {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeactivateOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setDeactivateOpen(false)}>
+              Cancel
+            </Button>
             <Button
               variant={member.status === "Active" ? "destructive" : "default"}
               onClick={handleToggleActive}
