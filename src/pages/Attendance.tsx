@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns";
 import { exportTableToCSV } from "@/lib/print-utils";
 import { QRCheckInScanner } from "@/components/QRCheckInScanner";
+import { consumeForAttendance } from "@/lib/prepaid";
+import { formatNPR } from "@/lib/mock-data";
 
 const Attendance = () => {
   const { data: members = [], isLoading: membersLoading } = useMembers();
@@ -57,8 +59,22 @@ const Attendance = () => {
       return;
     }
     try {
-      await addCheckInMutation.mutateAsync({ memberId, memberName, date: todayStr });
+      const attendanceId = await addCheckInMutation.mutateAsync({ memberId, memberName, date: todayStr });
       toast.success(`${memberName} checked in!`);
+      // Prepaid membership: deduct the daily rate if an active pool exists.
+      try {
+        const used = await consumeForAttendance({
+          memberId,
+          memberName,
+          attendanceId: String(attendanceId || ""),
+          day: todayStr,
+        });
+        if (used) {
+          toast.success(`Deducted ${formatNPR(used.consumed)} from prepaid balance · Remaining ${formatNPR(used.remaining)}`);
+        }
+      } catch {
+        /* prepaid is best-effort; never block attendance */
+      }
     } catch {
       toast.error("Failed to record check-in");
     }

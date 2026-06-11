@@ -16,6 +16,8 @@ import { formatNPR } from "@/lib/mock-data";
 import { useMember, useTransactions, useBookings, useUpdateMember, useCompanySettings } from "@/hooks/use-firestore";
 import { useCharges } from "@/hooks/use-charges";
 import { buildMemberLedger } from "@/lib/member-ledger";
+import { useQuery } from "@tanstack/react-query";
+import { getMemberPoolsSummary } from "@/lib/prepaid";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MemberProgress } from "@/components/MemberProgress";
@@ -156,6 +158,11 @@ const MemberProfile = () => {
   const memberTx = allTransactions.filter((t) => t.memberId === member.id);
   const memberBookings = allBookings.filter((b) => b.memberId === member.id);
   const memberLedger = buildMemberLedger(member.id, allTransactions, (member as any).openingBalance || 0, allCharges);
+  const { data: prepaid } = useQuery({
+    queryKey: ["prepaidPools", member.id],
+    queryFn: () => getMemberPoolsSummary(member.id),
+    enabled: !!member.id,
+  });
 
 
   return (
@@ -227,6 +234,24 @@ const MemberProfile = () => {
           </div>
         ))}
       </div>
+
+      {/* Prepaid Membership row — only when there is a pool */}
+      {prepaid && prepaid.pools.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="glass-card rounded-lg p-4 text-center border border-primary/30 bg-primary/5">
+            <p className="text-xs text-primary uppercase tracking-wider">Total Payment Done</p>
+            <p className="text-lg font-bold font-display mt-1">{formatNPR(prepaid.totalPaid)}</p>
+          </div>
+          <div className="glass-card rounded-lg p-4 text-center border border-warning/30 bg-warning/5">
+            <p className="text-xs text-warning uppercase tracking-wider">Total Used Amount</p>
+            <p className="text-lg font-bold font-display mt-1">{formatNPR(prepaid.usedAmount)}</p>
+          </div>
+          <div className="glass-card rounded-lg p-4 text-center border border-success/30 bg-success/5">
+            <p className="text-xs text-success uppercase tracking-wider">Remaining Balance</p>
+            <p className="text-lg font-bold font-display mt-1">{formatNPR(prepaid.remaining)}</p>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <Tabs defaultValue="progress" className="space-y-4">

@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Mail, Building, Shield, Loader2 } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Mail, Building, Shield, Loader2, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCompanySettings, useSaveCompanySettings } from "@/hooks/use-firestore";
+import { getBrowserTimezone, listTimezones, formatInTz } from "@/lib/tz";
 import { toast } from "sonner";
 
 const Settings = () => {
@@ -29,12 +30,16 @@ const Settings = () => {
     currency: "NPR",
   });
 
+  const browserTz = useMemo(() => getBrowserTimezone(), []);
+  const allTimezones = useMemo(() => listTimezones(), []);
+
   const [general, setGeneral] = useState({
     language: "en",
-    timezone: "asia-kathmandu",
+    timezone: browserTz,
     dateFormat: "yyyy-mm-dd",
     defaultMemberView: "table",
   });
+  
 
   const [notifications, setNotifications] = useState({
     expiryReminders: true,
@@ -331,18 +336,22 @@ const Settings = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Timezone</Label>
-                <Select value={general.timezone} onValueChange={(v) => setGeneral((p) => ({ ...p, timezone: v }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="asia-kathmandu">Asia/Kathmandu (NPT +5:45)</SelectItem>
-                    <SelectItem value="asia-kolkata">Asia/Kolkata (IST +5:30)</SelectItem>
-                    <SelectItem value="utc">UTC</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="space-y-2 sm:col-span-2">
+                <Label className="flex items-center gap-2"><Globe className="h-3.5 w-3.5" /> Timezone</Label>
+                <Input
+                  list="tz-options"
+                  value={general.timezone}
+                  placeholder="Start typing… e.g. Asia/Kathmandu"
+                  onChange={(e) => setGeneral((p) => ({ ...p, timezone: e.target.value }))}
+                />
+                <datalist id="tz-options">
+                  {allTimezones.slice(0, 500).map((z) => (<option key={z} value={z} />))}
+                </datalist>
+                <p className="text-[11px] text-muted-foreground">
+                  Detected from this PC: <button type="button" className="underline text-primary" onClick={() => setGeneral((p) => ({ ...p, timezone: browserTz }))}>{browserTz}</button>
+                  {" · "}
+                  Now: <span className="font-mono">{formatInTz(new Date(), { dateStyle: "medium", timeStyle: "long" }, general.timezone || browserTz)}</span>
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>Date Format</Label>

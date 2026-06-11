@@ -76,28 +76,41 @@ export async function deleteCustomRole(id: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function assignRoleToUser(userId: string, roleId: string): Promise<void> {
-  const { error } = await supabase.from("user_role_assignments").upsert(
-    { user_id: userId, role_id: roleId, assigned_at: new Date().toISOString() },
-    { onConflict: "user_id" }
-  );
+/**
+ * Assign a role to a user, optionally scoped to outlets. When `outletIds` is
+ * empty, a single row with outlet_id=NULL is inserted (= "all outlets").
+ */
+export async function assignRoleToUser(userId: string, roleId: string, outletIds: string[] = []): Promise<void> {
+  // Remove existing assignments for this user, then insert fresh ones.
+  await supabase.from("user_role_assignments").delete().eq("user_id", userId);
+  const rows = outletIds.length
+    ? outletIds.map((oid) => ({ user_id: userId, role_id: roleId, outlet_id: oid, assigned_at: new Date().toISOString() }))
+    : [{ user_id: userId, role_id: roleId, outlet_id: null, assigned_at: new Date().toISOString() }];
+  const { error } = await supabase.from("user_role_assignments").insert(rows);
   if (error) throw error;
 }
 
 export async function getUserAssignedRoleId(userId: string): Promise<string | null> {
   const { data, error } = await supabase.from("user_role_assignments")
-    .select("role_id").eq("user_id", userId).maybeSingle();
+    .select("role_id").eq("user_id", userId).limit(1).maybeSingle();
   if (error || !data) return null;
   return data.role_id;
 }
 
-export async function getUserPermissions(userId: string): Promise<{ isAdmin: boolean; perms: RolePermissions }> {
+export async function getUserAssignedOutlets(userId: string): Promise<string[]> {
+  const { data } = await supabase.from("user_role_assignments")
+    .select("outlet_id").eq("user_id", userId);
+  return (data || []).map((r: any) => r.outlet_id).filter(Boolean) as string[];
+}
+
+export async function getUserPermissions(userId: string): Promise<{ isAdmin: boolean; perms: RolePermissions; outletIds: string[] }> {
   const roleId = await getUserAssignedRoleId(userId);
-  if (!roleId) return { isAdmin: false, perms: {} };
+  if (!roleId) return { isAdmin: false, perms: {}, outletIds: [] };
   const { data: role } = await supabase.from("custom_roles").select("is_admin").eq("id", roleId).maybeSingle();
-  if (role?.is_admin) return { isAdmin: true, perms: {} };
+  const outletIds = await getUserAssignedOutlets(userId);
+  if (role?.is_admin) return { isAdmin: true, perms: {}, outletIds };
   const { data: perms } = await supabase.from("role_permissions").select("*").eq("role_id", roleId);
-  return { isAdmin: false, perms: mapPermRow(perms || []) };
+  return { isAdmin: false, perms: mapPermRow(perms || []), outletIds };
 }
 
 export { emptyRights };

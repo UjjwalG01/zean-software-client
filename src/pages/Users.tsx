@@ -39,6 +39,10 @@ import { toast } from "sonner";
 import type { UserRole, AppUser } from "@/lib/firebase-users";
 import { RolesManager, useRoleDefinitions } from "@/components/RolesManager";
 import { useAssignRole } from "@/hooks/use-permissions";
+import { useOutlet } from "@/contexts/OutletContext";
+import { getUserAssignedOutlets } from "@/lib/firebase-roles";
+import { Checkbox } from "@/components/ui/checkbox";
+
 
 const roleColors: Record<UserRole, string> = {
   admin: "bg-primary/20 text-primary",
@@ -57,6 +61,7 @@ const UsersPage = () => {
   const { roles: customRoles } = useRoleDefinitions();
   const assignRoleMutation = useAssignRole();
 
+  const { outlets } = useOutlet();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState("users");
   const [showPwd, setShowPwd] = useState(false);
@@ -67,6 +72,7 @@ const UsersPage = () => {
   const [resetting, setResetting] = useState(false);
   const [editTarget, setEditTarget] = useState<AppUser | null>(null);
   const [editForm, setEditForm] = useState<Partial<AppUser>>({});
+  const [editOutletIds, setEditOutletIds] = useState<string[]>([]);
 
   const initialForm = () => ({
     username: "",
@@ -199,7 +205,7 @@ const UsersPage = () => {
     toast.success("Credentials copied to clipboard");
   };
 
-  const openEdit = (u: AppUser) => {
+  const openEdit = async (u: AppUser) => {
     setEditTarget(u);
     setEditForm({
       fullName: u.fullName,
@@ -208,6 +214,12 @@ const UsersPage = () => {
       address: u.address,
       customRoleId: u.customRoleId || "",
     });
+    try {
+      const oids = await getUserAssignedOutlets(u.id);
+      setEditOutletIds(oids);
+    } catch {
+      setEditOutletIds([]);
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -216,7 +228,11 @@ const UsersPage = () => {
       await updateMutation.mutateAsync({ id: editTarget.id, data: { ...editForm, role: "staff" as UserRole } });
       if (editForm.customRoleId) {
         try {
-          await assignRoleMutation.mutateAsync({ userId: editTarget.id, roleId: editForm.customRoleId });
+          await assignRoleMutation.mutateAsync({
+            userId: editTarget.id,
+            roleId: editForm.customRoleId,
+            outletIds: editOutletIds,
+          } as any);
         } catch {
           /* non-fatal */
         }
@@ -721,6 +737,35 @@ const UsersPage = () => {
                   value={editForm.address || ""}
                   onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
                 />
+              </div>
+              <div className="space-y-2 rounded-md border border-border/50 p-3">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Outlet Access ({editOutletIds.length === 0 ? "All outlets" : `${editOutletIds.length} selected`})
+                </Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Leave all unchecked to grant access across every outlet.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                  {outlets.map((o) => {
+                    const checked = editOutletIds.includes(o.id);
+                    return (
+                      <label key={o.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(v) => {
+                            setEditOutletIds((prev) =>
+                              v ? Array.from(new Set([...prev, o.id])) : prev.filter((x) => x !== o.id),
+                            );
+                          }}
+                        />
+                        <span>{o.name}</span>
+                      </label>
+                    );
+                  })}
+                  {outlets.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No outlets configured.</p>
+                  )}
+                </div>
               </div>
               <DialogFooter className="gap-2">
                 <Button variant="outline" onClick={() => setEditTarget(null)}>
