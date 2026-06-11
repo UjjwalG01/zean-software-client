@@ -2,6 +2,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
+import { getAppTimezone, startOfDayIsoInTz, endOfDayIsoInTz } from "@/lib/tz";
 
 interface Props {
   from: string;
@@ -12,8 +13,8 @@ interface Props {
 
 /**
  * Compact "From → To" date range filter used across Bookings, Forecast and
- * Transactions pages. Both inputs are native date pickers — fast, accessible
- * and consistent with the rest of the app.
+ * Transactions pages. Date strings (YYYY-MM-DD) are interpreted in the
+ * app-configured timezone.
  */
 export function DateRangeFilter({ from, to, onChange, className = "" }: Props) {
   return (
@@ -49,4 +50,13 @@ export function DateRangeFilter({ from, to, onChange, className = "" }: Props) {
       )}
     </div>
   );
+}
+
+/** Convert a YYYY-MM-DD range to TZ-aware UTC ISO bounds for query filters. */
+export function rangeToUtcBounds(from: string, to: string) {
+  const tz = getAppTimezone();
+  return {
+    fromIso: from ? startOfDayIsoInTz(from, tz) : null,
+    toIso: to ? endOfDayIsoInTz(to, tz) : null,
+  };
 }
