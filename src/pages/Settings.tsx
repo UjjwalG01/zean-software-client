@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Mail, Building, Shield, Loader2 } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Mail, Building, Shield, Loader2, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCompanySettings, useSaveCompanySettings } from "@/hooks/use-firestore";
+import { getBrowserTimezone, listTimezones, formatInTz } from "@/lib/tz";
 import { toast } from "sonner";
 
 const Settings = () => {
