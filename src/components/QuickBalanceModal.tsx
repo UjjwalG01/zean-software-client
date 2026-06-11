@@ -164,6 +164,25 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
             </strong>
           </div>
         </div>
+
+        {/* Prepaid Membership Pool — only shown if any pool exists */}
+        {prepaid && prepaid.pools.length > 0 && (
+          <div className="ml-auto w-full sm:w-[420px] rounded-md border border-primary/30 bg-primary/5 p-3 text-sm space-y-1">
+            <p className="text-xs uppercase tracking-wider text-primary font-semibold mb-1">Prepaid Membership</p>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Total Payment Done</span>
+              <strong>{formatNPR(prepaid.totalPaid)}</strong>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Total Used (attendance)</span>
+              <strong className="text-warning">−{formatNPR(prepaid.usedAmount)}</strong>
+            </div>
+            <div className="border-t border-primary/20 mt-1 pt-1 flex justify-between text-base">
+              <strong className="text-primary">＝ Remaining Balance</strong>
+              <strong className="text-primary">{formatNPR(prepaid.remaining)}</strong>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
