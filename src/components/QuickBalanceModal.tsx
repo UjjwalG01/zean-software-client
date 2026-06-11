@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +7,7 @@ import { formatNPR, type Member } from "@/lib/mock-data";
 import { useTransactions } from "@/hooks/use-firestore";
 import { useCharges } from "@/hooks/use-charges";
 import { buildMemberLedger } from "@/lib/member-ledger";
+import { getMemberPoolsSummary } from "@/lib/prepaid";
 
 interface Props {
   open: boolean;
