@@ -205,7 +205,7 @@ const UsersPage = () => {
     toast.success("Credentials copied to clipboard");
   };
 
-  const openEdit = (u: AppUser) => {
+  const openEdit = async (u: AppUser) => {
     setEditTarget(u);
     setEditForm({
       fullName: u.fullName,
@@ -214,6 +214,12 @@ const UsersPage = () => {
       address: u.address,
       customRoleId: u.customRoleId || "",
     });
+    try {
+      const oids = await getUserAssignedOutlets(u.id);
+      setEditOutletIds(oids);
+    } catch {
+      setEditOutletIds([]);
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -222,7 +228,11 @@ const UsersPage = () => {
       await updateMutation.mutateAsync({ id: editTarget.id, data: { ...editForm, role: "staff" as UserRole } });
       if (editForm.customRoleId) {
         try {
-          await assignRoleMutation.mutateAsync({ userId: editTarget.id, roleId: editForm.customRoleId });
+          await assignRoleMutation.mutateAsync({
+            userId: editTarget.id,
+            roleId: editForm.customRoleId,
+            outletIds: editOutletIds,
+          } as any);
         } catch {
           /* non-fatal */
         }
