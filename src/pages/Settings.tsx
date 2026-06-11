@@ -39,7 +39,7 @@ const Settings = () => {
     dateFormat: "yyyy-mm-dd",
     defaultMemberView: "table",
   });
-  const [tzSearch, setTzSearch] = useState("");
+  
 
   const [notifications, setNotifications] = useState({
     expiryReminders: true,
