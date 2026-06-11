@@ -35,6 +35,8 @@ import { OutletProvider } from "./contexts/OutletContext";
 import NotFound from "./pages/NotFound";
 import { useEffect } from "react";
 import { pingSupabase } from "@/lib/supabase";
+import { setAppTimezone } from "@/lib/tz";
+import { useCompanySettings } from "@/hooks/use-firestore";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +47,15 @@ function SupabaseProbe() {
       console.log(`[supabase] ${r.ok ? "✓ connected" : "✗ failed"}`, r.error || "");
     });
   }, []);
+  return null;
+}
+
+/** Pushes the configured timezone into the global tz helper. */
+function TimezoneSync() {
+  const { data: settings } = useCompanySettings();
+  useEffect(() => {
+    setAppTimezone((settings as any)?.timezone || null);
+  }, [settings]);
   return null;
 }
 
