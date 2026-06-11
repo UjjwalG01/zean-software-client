@@ -16,6 +16,8 @@ import { formatNPR } from "@/lib/mock-data";
 import { useMember, useTransactions, useBookings, useUpdateMember, useCompanySettings } from "@/hooks/use-firestore";
 import { useCharges } from "@/hooks/use-charges";
 import { buildMemberLedger } from "@/lib/member-ledger";
+import { useQuery } from "@tanstack/react-query";
+import { getMemberPoolsSummary } from "@/lib/prepaid";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MemberProgress } from "@/components/MemberProgress";
