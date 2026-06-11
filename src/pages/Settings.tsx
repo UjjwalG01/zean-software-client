@@ -30,12 +30,16 @@ const Settings = () => {
     currency: "NPR",
   });
 
+  const browserTz = useMemo(() => getBrowserTimezone(), []);
+  const allTimezones = useMemo(() => listTimezones(), []);
+
   const [general, setGeneral] = useState({
     language: "en",
-    timezone: "asia-kathmandu",
+    timezone: browserTz,
     dateFormat: "yyyy-mm-dd",
     defaultMemberView: "table",
   });
+  const [tzSearch, setTzSearch] = useState("");
 
   const [notifications, setNotifications] = useState({
     expiryReminders: true,
