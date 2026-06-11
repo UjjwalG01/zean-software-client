@@ -100,6 +100,7 @@ const App = () => (
               element={
                 <AuthGuard>
                   <OutletProvider>
+                  <TimezoneSync />
                   <AppLayout>
                     <Routes>
                       <Route path="/" element={<Index />} />
