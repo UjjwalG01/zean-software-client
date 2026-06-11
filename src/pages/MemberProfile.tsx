@@ -235,6 +235,24 @@ const MemberProfile = () => {
         ))}
       </div>
 
+      {/* Prepaid Membership row — only when there is a pool */}
+      {prepaid && prepaid.pools.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="glass-card rounded-lg p-4 text-center border border-primary/30 bg-primary/5">
+            <p className="text-xs text-primary uppercase tracking-wider">Total Payment Done</p>
+            <p className="text-lg font-bold font-display mt-1">{formatNPR(prepaid.totalPaid)}</p>
+          </div>
+          <div className="glass-card rounded-lg p-4 text-center border border-warning/30 bg-warning/5">
+            <p className="text-xs text-warning uppercase tracking-wider">Total Used Amount</p>
+            <p className="text-lg font-bold font-display mt-1">{formatNPR(prepaid.usedAmount)}</p>
+          </div>
+          <div className="glass-card rounded-lg p-4 text-center border border-success/30 bg-success/5">
+            <p className="text-xs text-success uppercase tracking-wider">Remaining Balance</p>
+            <p className="text-lg font-bold font-display mt-1">{formatNPR(prepaid.remaining)}</p>
+          </div>
+        </div>
+      )}
+
       {/* Tabs */}
       <Tabs defaultValue="progress" className="space-y-4">
         <TabsList className="bg-muted/50">
