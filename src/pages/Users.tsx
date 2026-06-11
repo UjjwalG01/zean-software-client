@@ -738,6 +738,35 @@ const UsersPage = () => {
                   onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
                 />
               </div>
+              <div className="space-y-2 rounded-md border border-border/50 p-3">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Outlet Access ({editOutletIds.length === 0 ? "All outlets" : `${editOutletIds.length} selected`})
+                </Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Leave all unchecked to grant access across every outlet.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                  {outlets.map((o) => {
+                    const checked = editOutletIds.includes(o.id);
+                    return (
+                      <label key={o.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(v) => {
+                            setEditOutletIds((prev) =>
+                              v ? Array.from(new Set([...prev, o.id])) : prev.filter((x) => x !== o.id),
+                            );
+                          }}
+                        />
+                        <span>{o.name}</span>
+                      </label>
+                    );
+                  })}
+                  {outlets.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No outlets configured.</p>
+                  )}
+                </div>
+              </div>
               <DialogFooter className="gap-2">
                 <Button variant="outline" onClick={() => setEditTarget(null)}>
                   Cancel
