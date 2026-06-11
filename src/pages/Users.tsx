@@ -39,6 +39,10 @@ import { toast } from "sonner";
 import type { UserRole, AppUser } from "@/lib/firebase-users";
 import { RolesManager, useRoleDefinitions } from "@/components/RolesManager";
 import { useAssignRole } from "@/hooks/use-permissions";
+import { useOutlet } from "@/contexts/OutletContext";
+import { getUserAssignedOutlets } from "@/lib/firebase-roles";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useEffect } from "react";
 
 const roleColors: Record<UserRole, string> = {
   admin: "bg-primary/20 text-primary",
