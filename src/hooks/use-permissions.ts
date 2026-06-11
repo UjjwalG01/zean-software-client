@@ -28,7 +28,8 @@ export function useDeleteCustomRole() {
 export function useAssignRole() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ userId, roleId }: { userId: string; roleId: string }) => assignRoleToUser(userId, roleId),
+    mutationFn: ({ userId, roleId, outletIds }: { userId: string; roleId: string; outletIds?: string[] }) =>
+      assignRoleToUser(userId, roleId, outletIds || []),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["myPermissions"] }); qc.invalidateQueries({ queryKey: ["appUsers"] }); },
   });
 }
