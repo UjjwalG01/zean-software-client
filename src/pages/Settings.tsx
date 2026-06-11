@@ -345,10 +345,7 @@ const Settings = () => {
                   onChange={(e) => setGeneral((p) => ({ ...p, timezone: e.target.value }))}
                 />
                 <datalist id="tz-options">
-                  {allTimezones
-                    .filter((z) => !tzSearch || z.toLowerCase().includes(tzSearch.toLowerCase()))
-                    .slice(0, 500)
-                    .map((z) => (<option key={z} value={z} />))}
+                  {allTimezones.slice(0, 500).map((z) => (<option key={z} value={z} />))}
                 </datalist>
                 <p className="text-[11px] text-muted-foreground">
                   Detected from this PC: <button type="button" className="underline text-primary" onClick={() => setGeneral((p) => ({ ...p, timezone: browserTz }))}>{browserTz}</button>
