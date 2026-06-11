@@ -46,6 +46,12 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
     return buildMemberLedger(member.id, transactions, member.openingBalance || 0, charges);
   }, [member, transactions, charges]);
 
+  const { data: prepaid } = useQuery({
+    queryKey: ["prepaidPools", member?.id],
+    queryFn: () => (member ? getMemberPoolsSummary(member.id) : Promise.resolve(null)),
+    enabled: !!member && open,
+  });
+
   if (!member) return null;
 
   return (
