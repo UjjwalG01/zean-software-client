@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns";
 import { exportTableToCSV } from "@/lib/print-utils";
 import { QRCheckInScanner } from "@/components/QRCheckInScanner";
+import { consumeForAttendance } from "@/lib/prepaid";
+import { formatNPR } from "@/lib/mock-data";
 
 const Attendance = () => {
   const { data: members = [], isLoading: membersLoading } = useMembers();
