@@ -61,6 +61,7 @@ const UsersPage = () => {
   const { roles: customRoles } = useRoleDefinitions();
   const assignRoleMutation = useAssignRole();
 
+  const { outlets } = useOutlet();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState("users");
   const [showPwd, setShowPwd] = useState(false);
@@ -71,6 +72,7 @@ const UsersPage = () => {
   const [resetting, setResetting] = useState(false);
   const [editTarget, setEditTarget] = useState<AppUser | null>(null);
   const [editForm, setEditForm] = useState<Partial<AppUser>>({});
+  const [editOutletIds, setEditOutletIds] = useState<string[]>([]);
 
   const initialForm = () => ({
     username: "",
