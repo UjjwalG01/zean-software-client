@@ -336,18 +336,25 @@ const Settings = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Timezone</Label>
-                <Select value={general.timezone} onValueChange={(v) => setGeneral((p) => ({ ...p, timezone: v }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="asia-kathmandu">Asia/Kathmandu (NPT +5:45)</SelectItem>
-                    <SelectItem value="asia-kolkata">Asia/Kolkata (IST +5:30)</SelectItem>
-                    <SelectItem value="utc">UTC</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="space-y-2 sm:col-span-2">
+                <Label className="flex items-center gap-2"><Globe className="h-3.5 w-3.5" /> Timezone</Label>
+                <Input
+                  list="tz-options"
+                  value={general.timezone}
+                  placeholder="Start typing… e.g. Asia/Kathmandu"
+                  onChange={(e) => setGeneral((p) => ({ ...p, timezone: e.target.value }))}
+                />
+                <datalist id="tz-options">
+                  {allTimezones
+                    .filter((z) => !tzSearch || z.toLowerCase().includes(tzSearch.toLowerCase()))
+                    .slice(0, 500)
+                    .map((z) => (<option key={z} value={z} />))}
+                </datalist>
+                <p className="text-[11px] text-muted-foreground">
+                  Detected from this PC: <button type="button" className="underline text-primary" onClick={() => setGeneral((p) => ({ ...p, timezone: browserTz }))}>{browserTz}</button>
+                  {" · "}
+                  Now: <span className="font-mono">{formatInTz(new Date(), { dateStyle: "medium", timeStyle: "long" }, general.timezone || browserTz)}</span>
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>Date Format</Label>
