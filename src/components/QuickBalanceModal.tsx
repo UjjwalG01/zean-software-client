@@ -77,47 +77,49 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
           </div>
         </div>
 
-        {/* Ledger */}
+        {/* Ledger — Discount / Advance / Void rows are surfaced in the summary cards below, not as individual lines */}
         <div className="rounded-md border border-border/50 overflow-hidden">
-          {rows.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8 text-sm">No transactions recorded yet</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[110px]">Date</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="w-[90px]">Kind</TableHead>
-                  <TableHead className="text-right w-[110px]">Charge</TableHead>
-                  <TableHead className="text-right w-[110px]">Paid</TableHead>
-                  <TableHead className="text-right w-[120px]">Balance</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((r, i) => (
-                  <TableRow key={i} className={r.voided ? "opacity-50 line-through" : ""}>
-                    <TableCell className="text-xs">{r.date}</TableCell>
-                    <TableCell className="text-sm">
-                      {r.description}
-                      {r.receiptNo && (
-                        <span className="block text-[10px] text-muted-foreground font-mono">{r.receiptNo}</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-[10px]">
-                        {r.kind}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right text-sm">{r.debit ? formatNPR(r.debit) : "—"}</TableCell>
-                    <TableCell className="text-right text-sm text-success">
-                      {r.credit ? formatNPR(r.credit) : "—"}
-                    </TableCell>
-                    <TableCell className="text-right text-sm font-semibold">{formatNPR(r.balance)}</TableCell>
+          {(() => {
+            const visibleRows = rows.filter((r) => !r.voided && r.kind !== "Discount" && r.kind !== "Advance" && r.kind !== "Void");
+            if (visibleRows.length === 0) {
+              return <p className="text-center text-muted-foreground py-8 text-sm">No transactions recorded yet</p>;
+            }
+            return (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[110px]">Date</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="w-[90px]">Kind</TableHead>
+                    <TableHead className="text-right w-[110px]">Charge</TableHead>
+                    <TableHead className="text-right w-[110px]">Paid</TableHead>
+                    <TableHead className="text-right w-[120px]">Balance</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+                </TableHeader>
+                <TableBody>
+                  {visibleRows.map((r, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="text-xs">{r.date}</TableCell>
+                      <TableCell className="text-sm">
+                        {r.description}
+                        {r.receiptNo && (
+                          <span className="block text-[10px] text-muted-foreground font-mono">{r.receiptNo}</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-[10px]">{r.kind}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right text-sm">{r.debit ? formatNPR(r.debit) : "—"}</TableCell>
+                      <TableCell className="text-right text-sm text-success">
+                        {r.credit ? formatNPR(r.credit) : "—"}
+                      </TableCell>
+                      <TableCell className="text-right text-sm font-semibold">{formatNPR(r.balance)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            );
+          })()}
         </div>
 
         {/* Detailed breakdown — booking charges, VAT, discounts, settlements → Net Payable */}

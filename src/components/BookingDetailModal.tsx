@@ -32,6 +32,8 @@ interface BookingDetailModalProps {
   booking: Booking | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** When provided, the Amend button calls this with the booking so the parent can open the unified Create modal pre-filled. */
+  onAmend?: (booking: Booking) => void;
 }
 
 const serviceColors: Record<string, string> = {
@@ -55,7 +57,7 @@ function isFutureBooking(b: Booking): boolean {
   return new Date(b.date) >= today;
 }
 
-export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDetailModalProps) {
+export function BookingDetailModal({ booking: b, open, onOpenChange, onAmend }: BookingDetailModalProps) {
   const navigate = useNavigate();
   const updateBooking = useUpdateBooking();
   const updateTransaction = useUpdateTransaction();
@@ -96,7 +98,10 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
   if (!b) return null;
 
   const status = localStatus || b.status;
+  // Amend is only allowed for not-yet-completed/cancelled bookings on or after today.
   const canEdit = isFutureBooking(b) && status !== "Completed" && status !== "Cancelled";
+  // Cancel is allowed at any time (including past dates) as long as not already finished/cancelled.
+  const canCancel = status !== "Completed" && status !== "Cancelled";
 
   // "Bill" — keep the booking on this page, send the user to record payment
   // for it; the booking stays in its current status until a real payment is settled.
@@ -382,21 +387,32 @@ export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDe
 
               <div className="flex flex-wrap gap-2 pt-2">
                 {canEdit && (
-                  <>
-                    <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
-                      <Pencil className="h-4 w-4 mr-1" />
-                      Amend
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-amber-500 hover:bg-amber-500/10"
-                      onClick={() => setConfirmCancel(true)}
-                    >
-                      <Ban className="h-4 w-4 mr-1" />
-                      Cancel
-                    </Button>
-                  </>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      if (onAmend) {
+                        onAmend(b);
+                        onOpenChange(false);
+                      } else {
+                        setEditing(true);
+                      }
+                    }}
+                  >
+                    <Pencil className="h-4 w-4 mr-1" />
+                    Amend
+                  </Button>
+                )}
+                {canCancel && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-amber-500 hover:bg-amber-500/10"
+                    onClick={() => setConfirmCancel(true)}
+                  >
+                    <Ban className="h-4 w-4 mr-1" />
+                    Cancel
+                  </Button>
                 )}
                 {/* Completed bookings: print bill only, no further billing/payment redirect */}
                 {status === "Completed" ? (

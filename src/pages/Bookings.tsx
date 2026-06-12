@@ -24,7 +24,8 @@ import { Building2, ChevronDown } from "lucide-react";
 import type { Booking, ServiceType } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { DateRangeFilter } from "@/components/DateRangeFilter";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { useUpdateBooking } from "@/hooks/use-firestore";
 
 const SLOT_START: Record<string, string> = { Morning: "06:00", Day: "12:00", Evening: "18:00" };
 
@@ -64,9 +65,13 @@ const Bookings_Page = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [view, setView] = useState<"calendar" | "list">("calendar");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingBookingId, setEditingBookingId] = useState<string | null>(null);
   const [serviceFilter, setServiceFilter] = useState<string>("all");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  // List-view month picker (YYYY-MM) — defaults to today's month
+  const [listMonth, setListMonth] = useState<string>(format(new Date(), "yyyy-MM"));
+  // Local pagination for list view
+  const [listPage, setListPage] = useState(1);
+  const PAGE_SIZE = 25;
   const [colorSettingsOpen, setColorSettingsOpen] = useState(false);
   const [serviceColors, setServiceColors] = useState<Record<string, string>>({
     Gym: colorOptions[0].value,
@@ -104,6 +109,7 @@ const Bookings_Page = () => {
   const addBookingMutation = useAddBooking();
   const updateMemberMutation = useUpdateMember();
   const addTransactionMutation = useAddTransaction();
+  const updateBookingMutation = useUpdateBooking();
 
   // Outlet is "membership" type when the flag is on OR when its service types include the membership slug
   const isMembershipOutlet = !!selectedOutlet && (
@@ -111,14 +117,23 @@ const Bookings_Page = () => {
     (selectedOutlet.serviceTypes || []).some((s) => s.toLowerCase() === "membership")
   );
 
-  // Outlets categorised as fitness or wellness use the POS-style screen
+  // Outlets categorised as fitness, wellness or health use the POS-style screen
   // instead of the calendar/list view.
   const isPOSOutlet = !!selectedOutlet && (
     (selectedOutlet.serviceTypes || []).some((s) => {
       const x = (s || "").toLowerCase();
-      return x === "fitness" || x === "wellness";
+      return x === "fitness" || x === "wellness" || x === "health";
     }) ||
-    ["FITNESS", "WELLNESS"].includes((selectedOutlet.outletType || "").toUpperCase())
+    ["FITNESS", "WELLNESS", "HEALTH"].includes((selectedOutlet.outletType || "").toUpperCase())
+  );
+
+  // Fitness/health outlets hide the date filter, month picker and color-settings.
+  const isFitnessOrHealth = !!selectedOutlet && (
+    (selectedOutlet.serviceTypes || []).some((s) => {
+      const x = (s || "").toLowerCase();
+      return x === "fitness" || x === "health";
+    }) ||
+    ["FITNESS", "HEALTH"].includes((selectedOutlet.outletType || "").toUpperCase())
   );
 
   const setupInstructors = parseSetup(settings, "setup_instructors", ["Trainer Ravi","Trainer Prakash","Therapist Maya","Coach Anil"]);
@@ -149,14 +164,24 @@ const Bookings_Page = () => {
       list = list.filter((b: any) => !b.outletId || b.outletId === selectedOutlet.id);
     }
     if (serviceFilter !== "all") list = list.filter((b) => b.service === serviceFilter);
-    if (dateFrom) list = list.filter((b) => (b.date || "") >= dateFrom);
-    if (dateTo) list = list.filter((b) => (b.date || "") <= dateTo);
+    // List-view month filter — only when not fitness/health and in list mode
+    if (view === "list" && !isFitnessOrHealth && listMonth) {
+      list = list.filter((b) => (b.date || "").startsWith(listMonth));
+    }
     return [...list].sort((a, b) => {
       const ad = `${a.date || ""} ${a.startTime || ""}`;
       const bd = `${b.date || ""} ${b.startTime || ""}`;
       return bd.localeCompare(ad);
     });
-  }, [bookings, serviceFilter, selectedOutlet, dateFrom, dateTo]);
+  }, [bookings, serviceFilter, selectedOutlet, view, isFitnessOrHealth, listMonth]);
+
+  // Reset page when filter inputs change
+  useEffect(() => { setListPage(1); }, [listMonth, serviceFilter, view, selectedOutlet?.id]);
+  const pagedList = useMemo(() => {
+    const start = (listPage - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, listPage]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
 
   const getBookingsForDay = (day: Date) => filtered.filter((b) => isSameDay(new Date(b.date), day));
 
@@ -169,6 +194,7 @@ const Bookings_Page = () => {
       toast.error("Cannot add bookings for past dates");
       return;
     }
+    setEditingBookingId(null);
     setBookDate(format(d, "yyyy-MM-dd"));
     if (startTime) {
       const [h, m] = startTime.split(":").map(Number);
@@ -181,6 +207,25 @@ const Bookings_Page = () => {
     }
     setDialogOpen(true);
   };
+
+  /** Open the same New-Booking modal pre-filled for an existing booking (Amend flow). */
+  const openAmendBookingDialog = (b: Booking) => {
+    if (!selectedOutlet) { setPickerOpen(true); return; }
+    setEditingBookingId(b.id);
+    setBookDate(b.date);
+    setBookStartTime(b.startTime || "");
+    setBookEndTime(b.endTime || "");
+    setBookTimeSlot((b as any).timeSlot || "");
+    setBookMember(b.memberId);
+    setBookInstructor(b.instructor || "");
+    // Match the service via className → service id
+    const svc = outletServices.find((s) => s.name === b.className) || outletServices.find((s) => s.type === b.service);
+    setBookServiceId(svc?.id || "");
+    setUseDiscountedRate(false);
+    setDiscountedRate("");
+    setDialogOpen(true);
+  };
+
 
   const handleDayClick = (day: Date) => {
     setScheduleDay(day);
@@ -243,6 +288,32 @@ const Bookings_Page = () => {
 
     const memberObj = members.find((m) => m.id === bookMember);
     try {
+      // Amend flow: update the existing booking instead of creating a new one.
+      if (editingBookingId) {
+        await updateBookingMutation.mutateAsync({
+          id: editingBookingId,
+          data: {
+            memberId: bookMember,
+            memberName: memberObj?.name || "",
+            service: selectedService.type as ServiceType,
+            className: selectedService.name,
+            date: bookDate,
+            startTime: start,
+            endTime: end,
+            outletId: selectedOutlet.id,
+            instructor: bookInstructor || selectedService.instructor || "",
+            timeSlot: bookTimeSlot || start,
+          } as any,
+        });
+        toast.success("Booking updated");
+        setDialogOpen(false);
+        setEditingBookingId(null);
+        setBookMember(""); setMemberSearch(""); setBookServiceId("");
+        setBookInstructor(""); setBookTimeSlot("");
+        setBookStartTime(""); setBookEndTime("");
+        return;
+      }
+
       const bookingId = await addBookingMutation.mutateAsync({
         memberId: bookMember,
         memberName: memberObj?.name || "",
@@ -402,35 +473,44 @@ const Bookings_Page = () => {
               {outletServiceTypes.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
-          <DateRangeFilter from={dateFrom} to={dateTo} onChange={({ from, to }) => { setDateFrom(from); setDateTo(to); }} />
+          {!isFitnessOrHealth && view === "list" && (
+            <Input
+              type="month"
+              value={listMonth}
+              onChange={(e) => setListMonth(e.target.value)}
+              className="h-9 w-[160px] bg-muted/50 border-0"
+              title="Filter by month"
+            />
+          )}
 
-
-          <Popover open={colorSettingsOpen} onOpenChange={setColorSettingsOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="icon"><Settings className="h-4 w-4" /></Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64" align="end">
-              <p className="font-semibold text-sm mb-3">Calendar Colors</p>
-              {outletServiceTypes.map((svc) => (
-                <div key={svc} className="flex items-center justify-between mb-2">
-                  <span className="text-sm">{svc}</span>
-                  <div className="flex gap-1">
-                    {colorOptions.map((c) => (
-                      <button
-                        key={c.value}
-                        className={cn(
-                          "h-5 w-5 rounded-full border-2 transition-all",
-                          serviceColors[svc] === c.value ? "border-foreground scale-110" : "border-transparent"
-                        )}
-                        style={{ backgroundColor: c.value }}
-                        onClick={() => setServiceColors((prev) => ({ ...prev, [svc]: c.value }))}
-                      />
-                    ))}
+          {!isFitnessOrHealth && (
+            <Popover open={colorSettingsOpen} onOpenChange={setColorSettingsOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="icon"><Settings className="h-4 w-4" /></Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64" align="end">
+                <p className="font-semibold text-sm mb-3">Calendar Colors</p>
+                {outletServiceTypes.map((svc) => (
+                  <div key={svc} className="flex items-center justify-between mb-2">
+                    <span className="text-sm">{svc}</span>
+                    <div className="flex gap-1">
+                      {colorOptions.map((c) => (
+                        <button
+                          key={c.value}
+                          className={cn(
+                            "h-5 w-5 rounded-full border-2 transition-all",
+                            serviceColors[svc] === c.value ? "border-foreground scale-110" : "border-transparent"
+                          )}
+                          style={{ backgroundColor: c.value }}
+                          onClick={() => setServiceColors((prev) => ({ ...prev, [svc]: c.value }))}
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </PopoverContent>
-          </Popover>
+                ))}
+              </PopoverContent>
+            </Popover>
+          )}
 
           <Button size="sm" onClick={() => openNewBookingDialog()}>
             <Plus className="h-4 w-4 mr-1" />New Booking
@@ -442,7 +522,7 @@ const Bookings_Page = () => {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-display">New Booking</DialogTitle>
+            <DialogTitle className="font-display">{editingBookingId ? "Amend Booking" : "New Booking"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {/* Outlet context (read-only) */}
@@ -669,8 +749,10 @@ const Bookings_Page = () => {
                   )}
                 </div>
 
-                <Button onClick={handleBook} disabled={addBookingMutation.isPending} className="w-full gradient-gold text-primary-foreground">
-                  {addBookingMutation.isPending ? "Creating..." : "Create Booking"}
+                <Button onClick={handleBook} disabled={addBookingMutation.isPending || updateBookingMutation.isPending} className="w-full gradient-gold text-primary-foreground">
+                  {editingBookingId
+                    ? (updateBookingMutation.isPending ? "Saving..." : "Save Changes")
+                    : (addBookingMutation.isPending ? "Creating..." : "Create Booking")}
                 </Button>
               </>
             )}
@@ -689,7 +771,7 @@ const Bookings_Page = () => {
 
 
 
-      <BookingDetailModal booking={selectedBooking} open={detailOpen} onOpenChange={setDetailOpen} />
+      <BookingDetailModal booking={selectedBooking} open={detailOpen} onOpenChange={setDetailOpen} onAmend={openAmendBookingDialog} />
 
       <DayScheduleDialog
         open={scheduleOpen}
@@ -780,35 +862,56 @@ const Bookings_Page = () => {
           </div>
         </div>
       ) : (
-        <div className="glass-card rounded-xl overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Member</TableHead>
-                <TableHead>Class</TableHead>
-                <TableHead>Service</TableHead>
-                <TableHead>Time</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((b) => (
-                <TableRow key={b.id} className="cursor-pointer" onClick={() => handleBookingClick(b)}>
-                  <TableCell className="text-sm">{b.date}</TableCell>
-                  <TableCell className="text-sm font-medium">{b.memberName}</TableCell>
-                  <TableCell className="text-sm">{b.className}</TableCell>
-                  <TableCell><Badge variant="secondary" className="text-[10px]">{b.service}</Badge></TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{b.startTime}–{b.endTime}</TableCell>
-                  <TableCell>
-                    <Badge variant={b.status === "Confirmed" ? "default" : b.status === "Pending" ? "secondary" : b.status === "Completed" ? "default" : "destructive"} className={`text-[10px] ${b.status === "Completed" ? "bg-success/20 text-success border-0" : ""}`}>
-                      {b.status}
-                    </Badge>
-                  </TableCell>
+        <div className="space-y-3">
+          <div className="glass-card rounded-xl overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Member</TableHead>
+                  <TableHead>Class</TableHead>
+                  <TableHead>Service</TableHead>
+                  <TableHead>Time</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {pagedList.map((b) => (
+                  <TableRow key={b.id} className="cursor-pointer" onClick={() => handleBookingClick(b)}>
+                    <TableCell className="text-sm">{b.date}</TableCell>
+                    <TableCell className="text-sm font-medium">{b.memberName}</TableCell>
+                    <TableCell className="text-sm">{b.className}</TableCell>
+                    <TableCell><Badge variant="secondary" className="text-[10px]">{b.service}</Badge></TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{b.startTime}–{b.endTime}</TableCell>
+                    <TableCell>
+                      <Badge variant={b.status === "Confirmed" ? "default" : b.status === "Pending" ? "secondary" : b.status === "Completed" ? "default" : "destructive"} className={`text-[10px] ${b.status === "Completed" ? "bg-success/20 text-success border-0" : ""}`}>
+                        {b.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          {totalPages > 1 && (
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); setListPage((p) => Math.max(1, p - 1)); }} />
+                </PaginationItem>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => Math.abs(p - listPage) < 3 || p === 1 || p === totalPages)
+                  .map((p) => (
+                    <PaginationItem key={p}>
+                      <PaginationLink href="#" isActive={p === listPage} onClick={(e) => { e.preventDefault(); setListPage(p); }}>{p}</PaginationLink>
+                    </PaginationItem>
+                  ))}
+                <PaginationItem>
+                  <PaginationNext href="#" onClick={(e) => { e.preventDefault(); setListPage((p) => Math.min(totalPages, p + 1)); }} />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
         </div>
       )}
     </div>

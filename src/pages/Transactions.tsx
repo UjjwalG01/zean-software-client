@@ -40,6 +40,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TransactionDetailModal } from "@/components/TransactionDetailModal";
 import { RecordChargeModal } from "@/components/RecordChargeModal";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import {
   formatNPR,
   type PaymentMethod,
@@ -119,8 +120,11 @@ const Transactions = () => {
   const [settleDiscount, setSettleDiscount] = useState<string>("");
   const [isSettlement, setIsSettlement] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const [dateFrom, setDateFrom] = useState(todayStr);
+  const [dateTo, setDateTo] = useState(todayStr);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 25;
 
   const { data: transactions = [], isLoading } = useTransactions();
   const { data: members = [] } = useMembers();
@@ -171,8 +175,17 @@ const Transactions = () => {
   }, [transactions, search, methodFilter, typeFilter, statusFilter, dateFrom, dateTo]);
 
   const activeForTotals = filtered.filter((t) => statusLabel(t) !== "Voided");
-  const totalAmount = activeForTotals.reduce((sum, t) => sum + t.total, 0);
+  // Net amount actually received from guest = total − discount applied.
+  const totalAmount = activeForTotals.reduce((sum, t) => sum + Math.max(0, (t.total || 0) - (Number((t as any).discount) || 0)), 0);
   const totalVat = activeForTotals.reduce((sum, t) => sum + t.vat, 0);
+
+  // Local pagination
+  useEffect(() => { setPage(1); }, [search, methodFilter, typeFilter, statusFilter, dateFrom, dateTo]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pagedFiltered = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, page]);
 
   const printBill = (
     memberName: string,
@@ -687,7 +700,7 @@ const Transactions = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((t) => {
+              {pagedFiltered.map((t) => {
                 const sl = statusLabel(t);
                 return (
                   <TableRow
@@ -788,6 +801,26 @@ const Transactions = () => {
           </Table>
         )}
       </div>
+
+      {totalPages > 1 && (
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); setPage((p) => Math.max(1, p - 1)); }} />
+            </PaginationItem>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter((p) => Math.abs(p - page) < 3 || p === 1 || p === totalPages)
+              .map((p) => (
+                <PaginationItem key={p}>
+                  <PaginationLink href="#" isActive={p === page} onClick={(e) => { e.preventDefault(); setPage(p); }}>{p}</PaginationLink>
+                </PaginationItem>
+              ))}
+            <PaginationItem>
+              <PaginationNext href="#" onClick={(e) => { e.preventDefault(); setPage((p) => Math.min(totalPages, p + 1)); }} />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
 
       {/* Settle / Resettle dialog */}
       <Dialog

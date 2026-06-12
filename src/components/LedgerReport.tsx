@@ -6,6 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import type { Transaction } from "@/lib/mock-data";
+import type { ChargeRow } from "@/hooks/use-charges";
 import { useMembers, useTransactions, useCompanySettings } from "@/hooks/use-firestore";
 import { useCharges } from "@/hooks/use-charges";
 import { formatNPR } from "@/lib/mock-data";
@@ -221,21 +225,30 @@ export default function LedgerReport() {
             <div className="col-span-1 text-right">Net Balance</div>
             <div className="col-span-1 text-right">Status</div>
           </div>
-          {ledger.map((m) => (
-            <div key={m.memberId} className="grid grid-cols-12 gap-2 px-5 py-3 items-center text-sm border-b border-border/40 last:border-b-0 hover:bg-muted/30">
-              <div className="col-span-3">
-                <span className="font-semibold text-[hsl(220,70%,28%)] dark:text-primary">{m.memberName}</span>
-                <Badge variant="outline" className="text-[10px] ml-2">{m.tier}</Badge>
-              </div>
-              <div className="col-span-3 text-xs text-muted-foreground">{m.services}</div>
-              <div className="col-span-2 text-right font-medium">{formatNPR(m.totalBilled)}</div>
-              <div className="col-span-2 text-right font-medium text-success">{formatNPR(m.totalPaid)}</div>
-              <div className={cn("col-span-1 text-right font-semibold", m.netBalance > 0 ? "text-destructive" : "text-success")}>
-                {formatNPR(m.netBalance)}
-              </div>
-              <div className="col-span-1 text-right">{statusChip(m.status)}</div>
-            </div>
-          ))}
+          <Accordion type="multiple" className="w-full">
+            {ledger.map((m) => (
+              <AccordionItem key={m.memberId} value={m.memberId} className="border-b border-border/40 last:border-b-0">
+                <AccordionTrigger className="px-5 py-3 hover:no-underline hover:bg-muted/30 [&>svg]:ml-2">
+                  <div className="grid grid-cols-12 gap-2 items-center text-sm w-full pr-2">
+                    <div className="col-span-3 text-left">
+                      <span className="font-semibold text-[hsl(220,70%,28%)] dark:text-primary">{m.memberName}</span>
+                      <Badge variant="outline" className="text-[10px] ml-2">{m.tier}</Badge>
+                    </div>
+                    <div className="col-span-3 text-xs text-muted-foreground text-left truncate">{m.services}</div>
+                    <div className="col-span-2 text-right font-medium">{formatNPR(m.totalBilled)}</div>
+                    <div className="col-span-2 text-right font-medium text-success">{formatNPR(m.totalPaid)}</div>
+                    <div className={cn("col-span-1 text-right font-semibold", m.netBalance > 0 ? "text-destructive" : "text-success")}>
+                      {formatNPR(m.netBalance)}
+                    </div>
+                    <div className="col-span-1 text-right">{statusChip(m.status)}</div>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="bg-muted/20 px-5 py-3">
+                  <MemberBillsAccordion memberId={m.memberId} transactions={transactions} charges={charges} openingBalance={(members.find(x=>x.id===m.memberId) as any)?.openingBalance || 0} />
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
         </div>
       )}
     </div>
@@ -248,6 +261,57 @@ function SummaryCard({ color, label, sub, value }: { color: string; label: strin
       <div className="font-bold text-lg" style={{ color }}>{value}</div>
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="text-[10px] text-muted-foreground/70">{sub}</div>
+    </div>
+  );
+}
+
+function MemberBillsAccordion({
+  memberId,
+  transactions,
+  charges,
+  openingBalance,
+}: {
+  memberId: string;
+  transactions: Transaction[];
+  charges: ChargeRow[];
+  openingBalance: number;
+}) {
+  const { rows, summary } = buildMemberLedger(memberId, transactions, openingBalance, charges);
+  if (rows.length === 0) {
+    return <p className="text-xs text-muted-foreground py-2">No bills or receipts on file.</p>;
+  }
+  return (
+    <div className="space-y-2">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[110px] text-xs">Date</TableHead>
+            <TableHead className="text-xs">Description</TableHead>
+            <TableHead className="text-right w-[110px] text-xs">Charge</TableHead>
+            <TableHead className="text-right w-[110px] text-xs">Paid</TableHead>
+            <TableHead className="text-right w-[120px] text-xs">Net Balance</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((r, i) => (
+            <TableRow key={i} className={cn("text-xs", r.voided && "opacity-50 line-through")}>
+              <TableCell>{r.date}</TableCell>
+              <TableCell>
+                {r.description}
+                {r.receiptNo && <span className="block text-[10px] text-muted-foreground font-mono">{r.receiptNo}</span>}
+              </TableCell>
+              <TableCell className="text-right">{r.debit ? formatNPR(r.debit) : "—"}</TableCell>
+              <TableCell className="text-right text-success">{r.credit ? formatNPR(r.credit) : "—"}</TableCell>
+              <TableCell className="text-right font-semibold">{formatNPR(r.balance)}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      <div className="flex justify-end gap-4 px-2 py-1 text-[11px] text-muted-foreground border-t border-border/40">
+        <span>Billed: <strong>{formatNPR(summary.totalCharged)}</strong></span>
+        <span>Paid: <strong className="text-success">{formatNPR(summary.totalPaid)}</strong></span>
+        <span>Balance: <strong className={summary.netPayable > 0 ? "text-destructive" : "text-success"}>{formatNPR(summary.netPayable)}</strong></span>
+      </div>
     </div>
   );
 }

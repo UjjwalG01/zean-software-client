@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 
 interface Props { outlet: Outlet }
 
-interface CartLine { serviceId: string; name: string; type: string; price: number; qty: number; }
+interface CartLine { serviceId: string; name: string; type: string; price: number; qty: number; placed?: boolean; bookingId?: string; chargeId?: string; }
 
 function parseSetup(s: Record<string, string>, k: string, fb: string[]): string[] {
   try { return s[k] ? JSON.parse(s[k]) : fb; } catch { return fb; }
@@ -99,6 +99,11 @@ export function OutletPOSView({ outlet }: Props) {
     );
   const removeLine = (id: string) => setCart((prev) => prev.filter((l) => l.serviceId !== id));
 
+  /**
+   * Create one booking+charge per cart line that hasn't been placed yet.
+   * Mutates the cart in-place to flag placed lines with their bookingId / chargeId.
+   * Returns the most-recent chargeId so the caller can pass it to the settlement page.
+   */
   const buildBookingsAndCharges = async () => {
     if (!memberId) throw new Error("Select a member/guest first");
     if (cart.length === 0) throw new Error("Cart is empty");
@@ -109,8 +114,17 @@ export function OutletPOSView({ outlet }: Props) {
     let lastBookingId = "";
 
     const { createChargeForBooking } = await import("@/lib/charges");
+    const updated: CartLine[] = [...cart];
 
-    for (const line of cart) {
+    for (let idx = 0; idx < updated.length; idx++) {
+      const line = updated[idx];
+      if (line.placed) {
+        if (line.chargeId) lastChargeId = line.chargeId;
+        if (line.bookingId) lastBookingId = line.bookingId;
+        continue;
+      }
+      let lineCharge = "";
+      let lineBooking = "";
       for (let i = 0; i < line.qty; i++) {
         const bookingId = await addBookingMutation.mutateAsync({
           memberId,
@@ -125,14 +139,14 @@ export function OutletPOSView({ outlet }: Props) {
           instructor: attendant || "",
           timeSlot: now,
         } as any);
-        lastBookingId = String(bookingId || "");
+        lineBooking = String(bookingId || "");
         if (line.price > 0) {
-          lastChargeId = await createChargeForBooking(
+          lineCharge = await createChargeForBooking(
             (d) => addTransactionMutation.mutateAsync(d) as Promise<string>,
             {
               memberId,
               memberName: memberObj?.name || guestName || "",
-              bookingId: lastBookingId,
+              bookingId: lineBooking,
               service: line.type,
               className: line.name,
               amount: line.price,
@@ -141,24 +155,27 @@ export function OutletPOSView({ outlet }: Props) {
           );
         }
       }
+      updated[idx] = { ...line, placed: true, bookingId: lineBooking, chargeId: lineCharge };
+      if (lineCharge) lastChargeId = lineCharge;
+      if (lineBooking) lastBookingId = lineBooking;
     }
+    setCart(updated);
     return { lastBookingId, lastChargeId, memberObj };
   };
 
   const handlePlace = async () => {
     try {
       await buildBookingsAndCharges();
-      toast.success("Order placed");
-      setCart([]);
+      toast.success("Order placed — items flagged as Ordered");
     } catch (e: any) {
       toast.error(e.message || "Failed to place order");
     }
   };
 
-  const handlePayNow = async () => {
+  const handleBilling = async () => {
     try {
       const { lastBookingId, lastChargeId, memberObj } = await buildBookingsAndCharges();
-      toast.success("Order placed — redirecting to payment");
+      toast.success("Order ready — opening billing");
       const params = new URLSearchParams({
         newPayment: "true",
         memberId,
@@ -173,7 +190,7 @@ export function OutletPOSView({ outlet }: Props) {
       setCart([]);
       navigate(`/transactions?${params.toString()}`);
     } catch (e: any) {
-      toast.error(e.message || "Failed to start payment");
+      toast.error(e.message || "Failed to start billing");
     }
   };
 
@@ -299,22 +316,27 @@ export function OutletPOSView({ outlet }: Props) {
               <div className="py-10 text-center text-xs text-muted-foreground">Cart is empty</div>
             ) : (
               cart.map((l) => (
-                <div key={l.serviceId} className="grid grid-cols-12 items-center px-3 py-2 border-t border-border/60 text-sm">
+                <div key={l.serviceId} className={cn("grid grid-cols-12 items-center px-3 py-2 border-t border-border/60 text-sm", l.placed && "bg-success/5")}>
                   <div className="col-span-6">
-                    <p className="font-medium truncate">{l.name}</p>
+                    <p className="font-medium truncate flex items-center gap-2">
+                      {l.name}
+                      {l.placed && (
+                        <Badge className="bg-success/20 text-success border-0 text-[9px] uppercase">Ordered</Badge>
+                      )}
+                    </p>
                     <p className="text-[10px] text-muted-foreground uppercase">{l.type}</p>
                   </div>
                   <div className="col-span-2 flex items-center justify-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-6 w-6"
+                    <Button variant="ghost" size="icon" className="h-6 w-6" disabled={l.placed}
                       onClick={() => updateQty(l.serviceId, -1)}><Minus className="h-3 w-3" /></Button>
                     <span className="w-6 text-center text-xs">{l.qty}</span>
-                    <Button variant="ghost" size="icon" className="h-6 w-6"
+                    <Button variant="ghost" size="icon" className="h-6 w-6" disabled={l.placed}
                       onClick={() => updateQty(l.serviceId, 1)}><Plus className="h-3 w-3" /></Button>
                   </div>
                   <div className="col-span-2 text-right text-xs">{l.price.toFixed(2)}</div>
                   <div className="col-span-2 flex items-center justify-end gap-2">
                     <span className="text-xs font-medium">{(l.price * l.qty).toFixed(2)}</span>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive"
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" disabled={l.placed}
                       onClick={() => removeLine(l.serviceId)}><Trash2 className="h-3 w-3" /></Button>
                   </div>
                 </div>
@@ -330,14 +352,14 @@ export function OutletPOSView({ outlet }: Props) {
 
           <div className="grid grid-cols-3 gap-2">
             <Button variant="outline" disabled={cart.length === 0 || addBookingMutation.isPending}
-              onClick={handlePayNow}>
-              <ShoppingCart className="h-4 w-4 mr-1" /> Pay Now
+              onClick={handleBilling}>
+              <ShoppingCart className="h-4 w-4 mr-1" /> Billing
             </Button>
             <Button variant="outline" disabled={cart.length === 0}
               onClick={() => toast.info("Order held")}>
               <Pause className="h-4 w-4 mr-1" /> Hold Order
             </Button>
-            <Button disabled={cart.length === 0 || addBookingMutation.isPending}
+            <Button disabled={cart.length === 0 || addBookingMutation.isPending || cart.every((l) => l.placed)}
               onClick={handlePlace} className="gradient-gold text-primary-foreground">
               <Check className="h-4 w-4 mr-1" /> Place Order
             </Button>
