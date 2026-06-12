@@ -32,6 +32,8 @@ interface BookingDetailModalProps {
   booking: Booking | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** When provided, the Amend button calls this with the booking so the parent can open the unified Create modal pre-filled. */
+  onAmend?: (booking: Booking) => void;
 }
 
 const serviceColors: Record<string, string> = {
