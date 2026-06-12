@@ -522,7 +522,7 @@ const Bookings_Page = () => {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-display">New Booking</DialogTitle>
+            <DialogTitle className="font-display">{editingBookingId ? "Amend Booking" : "New Booking"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {/* Outlet context (read-only) */}
