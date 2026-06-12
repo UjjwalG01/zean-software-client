@@ -215,7 +215,7 @@ const Bookings_Page = () => {
     setBookDate(b.date);
     setBookStartTime(b.startTime || "");
     setBookEndTime(b.endTime || "");
-    setBookTimeSlot(b.timeSlot || "");
+    setBookTimeSlot((b as any).timeSlot || "");
     setBookMember(b.memberId);
     setBookInstructor(b.instructor || "");
     // Match the service via className → service id
