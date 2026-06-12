@@ -699,7 +699,7 @@ const Transactions = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((t) => {
+              {pagedFiltered.map((t) => {
                 const sl = statusLabel(t);
                 return (
                   <TableRow
