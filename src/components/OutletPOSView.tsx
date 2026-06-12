@@ -316,22 +316,27 @@ export function OutletPOSView({ outlet }: Props) {
               <div className="py-10 text-center text-xs text-muted-foreground">Cart is empty</div>
             ) : (
               cart.map((l) => (
-                <div key={l.serviceId} className="grid grid-cols-12 items-center px-3 py-2 border-t border-border/60 text-sm">
+                <div key={l.serviceId} className={cn("grid grid-cols-12 items-center px-3 py-2 border-t border-border/60 text-sm", l.placed && "bg-success/5")}>
                   <div className="col-span-6">
-                    <p className="font-medium truncate">{l.name}</p>
+                    <p className="font-medium truncate flex items-center gap-2">
+                      {l.name}
+                      {l.placed && (
+                        <Badge className="bg-success/20 text-success border-0 text-[9px] uppercase">Ordered</Badge>
+                      )}
+                    </p>
                     <p className="text-[10px] text-muted-foreground uppercase">{l.type}</p>
                   </div>
                   <div className="col-span-2 flex items-center justify-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-6 w-6"
+                    <Button variant="ghost" size="icon" className="h-6 w-6" disabled={l.placed}
                       onClick={() => updateQty(l.serviceId, -1)}><Minus className="h-3 w-3" /></Button>
                     <span className="w-6 text-center text-xs">{l.qty}</span>
-                    <Button variant="ghost" size="icon" className="h-6 w-6"
+                    <Button variant="ghost" size="icon" className="h-6 w-6" disabled={l.placed}
                       onClick={() => updateQty(l.serviceId, 1)}><Plus className="h-3 w-3" /></Button>
                   </div>
                   <div className="col-span-2 text-right text-xs">{l.price.toFixed(2)}</div>
                   <div className="col-span-2 flex items-center justify-end gap-2">
                     <span className="text-xs font-medium">{(l.price * l.qty).toFixed(2)}</span>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive"
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" disabled={l.placed}
                       onClick={() => removeLine(l.serviceId)}><Trash2 className="h-3 w-3" /></Button>
                   </div>
                 </div>
@@ -347,14 +352,14 @@ export function OutletPOSView({ outlet }: Props) {
 
           <div className="grid grid-cols-3 gap-2">
             <Button variant="outline" disabled={cart.length === 0 || addBookingMutation.isPending}
-              onClick={handlePayNow}>
-              <ShoppingCart className="h-4 w-4 mr-1" /> Pay Now
+              onClick={handleBilling}>
+              <ShoppingCart className="h-4 w-4 mr-1" /> Billing
             </Button>
             <Button variant="outline" disabled={cart.length === 0}
               onClick={() => toast.info("Order held")}>
               <Pause className="h-4 w-4 mr-1" /> Hold Order
             </Button>
-            <Button disabled={cart.length === 0 || addBookingMutation.isPending}
+            <Button disabled={cart.length === 0 || addBookingMutation.isPending || cart.every((l) => l.placed)}
               onClick={handlePlace} className="gradient-gold text-primary-foreground">
               <Check className="h-4 w-4 mr-1" /> Place Order
             </Button>
