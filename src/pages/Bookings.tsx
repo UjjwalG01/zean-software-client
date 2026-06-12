@@ -116,14 +116,23 @@ const Bookings_Page = () => {
     (selectedOutlet.serviceTypes || []).some((s) => s.toLowerCase() === "membership")
   );
 
-  // Outlets categorised as fitness or wellness use the POS-style screen
+  // Outlets categorised as fitness, wellness or health use the POS-style screen
   // instead of the calendar/list view.
   const isPOSOutlet = !!selectedOutlet && (
     (selectedOutlet.serviceTypes || []).some((s) => {
       const x = (s || "").toLowerCase();
-      return x === "fitness" || x === "wellness";
+      return x === "fitness" || x === "wellness" || x === "health";
     }) ||
-    ["FITNESS", "WELLNESS"].includes((selectedOutlet.outletType || "").toUpperCase())
+    ["FITNESS", "WELLNESS", "HEALTH"].includes((selectedOutlet.outletType || "").toUpperCase())
+  );
+
+  // Fitness/health outlets hide the date filter, month picker and color-settings.
+  const isFitnessOrHealth = !!selectedOutlet && (
+    (selectedOutlet.serviceTypes || []).some((s) => {
+      const x = (s || "").toLowerCase();
+      return x === "fitness" || x === "health";
+    }) ||
+    ["FITNESS", "HEALTH"].includes((selectedOutlet.outletType || "").toUpperCase())
   );
 
   const setupInstructors = parseSetup(settings, "setup_instructors", ["Trainer Ravi","Trainer Prakash","Therapist Maya","Coach Anil"]);
