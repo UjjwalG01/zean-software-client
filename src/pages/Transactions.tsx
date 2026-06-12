@@ -119,8 +119,11 @@ const Transactions = () => {
   const [settleDiscount, setSettleDiscount] = useState<string>("");
   const [isSettlement, setIsSettlement] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const [dateFrom, setDateFrom] = useState(todayStr);
+  const [dateTo, setDateTo] = useState(todayStr);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 25;
 
   const { data: transactions = [], isLoading } = useTransactions();
   const { data: members = [] } = useMembers();
