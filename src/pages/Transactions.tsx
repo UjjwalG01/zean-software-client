@@ -176,7 +176,18 @@ const Transactions = () => {
   const activeForTotals = filtered.filter((t) => statusLabel(t) !== "Voided");
   // Net amount actually received from guest = total − discount applied.
   const totalAmount = activeForTotals.reduce((sum, t) => sum + Math.max(0, (t.total || 0) - (Number((t as any).discount) || 0)), 0);
+  const activeForTotals = filtered.filter((t) => statusLabel(t) !== "Voided");
+  // Net amount actually received from guest = total − discount applied.
+  const totalAmount = activeForTotals.reduce((sum, t) => sum + Math.max(0, (t.total || 0) - (Number((t as any).discount) || 0)), 0);
   const totalVat = activeForTotals.reduce((sum, t) => sum + t.vat, 0);
+
+  // Local pagination
+  useEffect(() => { setPage(1); }, [search, methodFilter, typeFilter, statusFilter, dateFrom, dateTo]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pagedFiltered = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, page]);
 
   const printBill = (
     memberName: string,
