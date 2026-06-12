@@ -426,35 +426,44 @@ const Bookings_Page = () => {
               {outletServiceTypes.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
-          <DateRangeFilter from={dateFrom} to={dateTo} onChange={({ from, to }) => { setDateFrom(from); setDateTo(to); }} />
+          {!isFitnessOrHealth && view === "list" && (
+            <Input
+              type="month"
+              value={listMonth}
+              onChange={(e) => setListMonth(e.target.value)}
+              className="h-9 w-[160px] bg-muted/50 border-0"
+              title="Filter by month"
+            />
+          )}
 
-
-          <Popover open={colorSettingsOpen} onOpenChange={setColorSettingsOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="icon"><Settings className="h-4 w-4" /></Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64" align="end">
-              <p className="font-semibold text-sm mb-3">Calendar Colors</p>
-              {outletServiceTypes.map((svc) => (
-                <div key={svc} className="flex items-center justify-between mb-2">
-                  <span className="text-sm">{svc}</span>
-                  <div className="flex gap-1">
-                    {colorOptions.map((c) => (
-                      <button
-                        key={c.value}
-                        className={cn(
-                          "h-5 w-5 rounded-full border-2 transition-all",
-                          serviceColors[svc] === c.value ? "border-foreground scale-110" : "border-transparent"
-                        )}
-                        style={{ backgroundColor: c.value }}
-                        onClick={() => setServiceColors((prev) => ({ ...prev, [svc]: c.value }))}
-                      />
-                    ))}
+          {!isFitnessOrHealth && (
+            <Popover open={colorSettingsOpen} onOpenChange={setColorSettingsOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="icon"><Settings className="h-4 w-4" /></Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64" align="end">
+                <p className="font-semibold text-sm mb-3">Calendar Colors</p>
+                {outletServiceTypes.map((svc) => (
+                  <div key={svc} className="flex items-center justify-between mb-2">
+                    <span className="text-sm">{svc}</span>
+                    <div className="flex gap-1">
+                      {colorOptions.map((c) => (
+                        <button
+                          key={c.value}
+                          className={cn(
+                            "h-5 w-5 rounded-full border-2 transition-all",
+                            serviceColors[svc] === c.value ? "border-foreground scale-110" : "border-transparent"
+                          )}
+                          style={{ backgroundColor: c.value }}
+                          onClick={() => setServiceColors((prev) => ({ ...prev, [svc]: c.value }))}
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </PopoverContent>
-          </Popover>
+                ))}
+              </PopoverContent>
+            </Popover>
+          )}
 
           <Button size="sm" onClick={() => openNewBookingDialog()}>
             <Plus className="h-4 w-4 mr-1" />New Booking
