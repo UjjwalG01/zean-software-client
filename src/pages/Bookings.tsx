@@ -163,14 +163,24 @@ const Bookings_Page = () => {
       list = list.filter((b: any) => !b.outletId || b.outletId === selectedOutlet.id);
     }
     if (serviceFilter !== "all") list = list.filter((b) => b.service === serviceFilter);
-    if (dateFrom) list = list.filter((b) => (b.date || "") >= dateFrom);
-    if (dateTo) list = list.filter((b) => (b.date || "") <= dateTo);
+    // List-view month filter — only when not fitness/health and in list mode
+    if (view === "list" && !isFitnessOrHealth && listMonth) {
+      list = list.filter((b) => (b.date || "").startsWith(listMonth));
+    }
     return [...list].sort((a, b) => {
       const ad = `${a.date || ""} ${a.startTime || ""}`;
       const bd = `${b.date || ""} ${b.startTime || ""}`;
       return bd.localeCompare(ad);
     });
-  }, [bookings, serviceFilter, selectedOutlet, dateFrom, dateTo]);
+  }, [bookings, serviceFilter, selectedOutlet, view, isFitnessOrHealth, listMonth]);
+
+  // Reset page when filter inputs change
+  useEffect(() => { setListPage(1); }, [listMonth, serviceFilter, view, selectedOutlet?.id]);
+  const pagedList = useMemo(() => {
+    const start = (listPage - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, listPage]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
 
   const getBookingsForDay = (day: Date) => filtered.filter((b) => isSameDay(new Date(b.date), day));
 
