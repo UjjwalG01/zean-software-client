@@ -57,7 +57,7 @@ function isFutureBooking(b: Booking): boolean {
   return new Date(b.date) >= today;
 }
 
-export function BookingDetailModal({ booking: b, open, onOpenChange }: BookingDetailModalProps) {
+export function BookingDetailModal({ booking: b, open, onOpenChange, onAmend }: BookingDetailModalProps) {
   const navigate = useNavigate();
   const updateBooking = useUpdateBooking();
   const updateTransaction = useUpdateTransaction();
