@@ -65,9 +65,13 @@ const Bookings_Page = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [view, setView] = useState<"calendar" | "list">("calendar");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingBookingId, setEditingBookingId] = useState<string | null>(null);
   const [serviceFilter, setServiceFilter] = useState<string>("all");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  // List-view month picker (YYYY-MM) — defaults to today's month
+  const [listMonth, setListMonth] = useState<string>(format(new Date(), "yyyy-MM"));
+  // Local pagination for list view
+  const [listPage, setListPage] = useState(1);
+  const PAGE_SIZE = 25;
   const [colorSettingsOpen, setColorSettingsOpen] = useState(false);
   const [serviceColors, setServiceColors] = useState<Record<string, string>>({
     Gym: colorOptions[0].value,
