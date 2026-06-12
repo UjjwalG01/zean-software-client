@@ -97,8 +97,10 @@ export function BookingDetailModal({ booking: b, open, onOpenChange, onAmend }: 
 
   if (!b) return null;
 
-  const status = localStatus || b.status;
+  // Amend is only allowed for not-yet-completed/cancelled bookings on or after today.
   const canEdit = isFutureBooking(b) && status !== "Completed" && status !== "Cancelled";
+  // Cancel is allowed at any time (including past dates) as long as not already finished/cancelled.
+  const canCancel = status !== "Completed" && status !== "Cancelled";
 
   // "Bill" — keep the booking on this page, send the user to record payment
   // for it; the booking stays in its current status until a real payment is settled.
