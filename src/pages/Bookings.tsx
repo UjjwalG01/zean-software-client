@@ -24,7 +24,8 @@ import { Building2, ChevronDown } from "lucide-react";
 import type { Booking, ServiceType } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { DateRangeFilter } from "@/components/DateRangeFilter";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { useUpdateBooking } from "@/hooks/use-firestore";
 
 const SLOT_START: Record<string, string> = { Morning: "06:00", Day: "12:00", Evening: "18:00" };
 
