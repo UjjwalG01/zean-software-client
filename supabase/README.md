@@ -16,7 +16,7 @@ This creates 13 tables + a `transactions` view + RLS policies + the
 ```bash
 supabase login
 supabase link --project-ref jjshmzlwhbspaqytgulf
-supabase secrets set RESEND_API_KEY=re_Jw1Sm8jp_3X6dhr3S37TZ1aNJdaQKxhaE
+supabase secrets set RESEND_API_KEY=re_<your-key>
 ```
 
 ## 3. Deploy the email Edge Function
