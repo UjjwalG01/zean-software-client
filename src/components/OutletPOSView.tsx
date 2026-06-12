@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 
 interface Props { outlet: Outlet }
 
-interface CartLine { serviceId: string; name: string; type: string; price: number; qty: number; }
+interface CartLine { serviceId: string; name: string; type: string; price: number; qty: number; placed?: boolean; bookingId?: string; chargeId?: string; }
 
 function parseSetup(s: Record<string, string>, k: string, fb: string[]): string[] {
   try { return s[k] ? JSON.parse(s[k]) : fb; } catch { return fb; }
