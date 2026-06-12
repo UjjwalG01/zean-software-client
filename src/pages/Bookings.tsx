@@ -749,8 +749,10 @@ const Bookings_Page = () => {
                   )}
                 </div>
 
-                <Button onClick={handleBook} disabled={addBookingMutation.isPending} className="w-full gradient-gold text-primary-foreground">
-                  {addBookingMutation.isPending ? "Creating..." : "Create Booking"}
+                <Button onClick={handleBook} disabled={addBookingMutation.isPending || updateBookingMutation.isPending} className="w-full gradient-gold text-primary-foreground">
+                  {editingBookingId
+                    ? (updateBookingMutation.isPending ? "Saving..." : "Save Changes")
+                    : (addBookingMutation.isPending ? "Creating..." : "Create Booking")}
                 </Button>
               </>
             )}
