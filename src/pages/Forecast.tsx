@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { CalendarDays, TrendingUp, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useBookings } from "@/hooks/use-firestore";
 import { format, parseISO, addDays, isAfter, isBefore, isSameDay } from "date-fns";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 
 const Forecast = () => {
   const { data: bookings = [], isLoading } = useBookings();
