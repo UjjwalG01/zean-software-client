@@ -221,21 +221,30 @@ export default function LedgerReport() {
             <div className="col-span-1 text-right">Net Balance</div>
             <div className="col-span-1 text-right">Status</div>
           </div>
-          {ledger.map((m) => (
-            <div key={m.memberId} className="grid grid-cols-12 gap-2 px-5 py-3 items-center text-sm border-b border-border/40 last:border-b-0 hover:bg-muted/30">
-              <div className="col-span-3">
-                <span className="font-semibold text-[hsl(220,70%,28%)] dark:text-primary">{m.memberName}</span>
-                <Badge variant="outline" className="text-[10px] ml-2">{m.tier}</Badge>
-              </div>
-              <div className="col-span-3 text-xs text-muted-foreground">{m.services}</div>
-              <div className="col-span-2 text-right font-medium">{formatNPR(m.totalBilled)}</div>
-              <div className="col-span-2 text-right font-medium text-success">{formatNPR(m.totalPaid)}</div>
-              <div className={cn("col-span-1 text-right font-semibold", m.netBalance > 0 ? "text-destructive" : "text-success")}>
-                {formatNPR(m.netBalance)}
-              </div>
-              <div className="col-span-1 text-right">{statusChip(m.status)}</div>
-            </div>
-          ))}
+          <Accordion type="multiple" className="w-full">
+            {ledger.map((m) => (
+              <AccordionItem key={m.memberId} value={m.memberId} className="border-b border-border/40 last:border-b-0">
+                <AccordionTrigger className="px-5 py-3 hover:no-underline hover:bg-muted/30 [&>svg]:ml-2">
+                  <div className="grid grid-cols-12 gap-2 items-center text-sm w-full pr-2">
+                    <div className="col-span-3 text-left">
+                      <span className="font-semibold text-[hsl(220,70%,28%)] dark:text-primary">{m.memberName}</span>
+                      <Badge variant="outline" className="text-[10px] ml-2">{m.tier}</Badge>
+                    </div>
+                    <div className="col-span-3 text-xs text-muted-foreground text-left truncate">{m.services}</div>
+                    <div className="col-span-2 text-right font-medium">{formatNPR(m.totalBilled)}</div>
+                    <div className="col-span-2 text-right font-medium text-success">{formatNPR(m.totalPaid)}</div>
+                    <div className={cn("col-span-1 text-right font-semibold", m.netBalance > 0 ? "text-destructive" : "text-success")}>
+                      {formatNPR(m.netBalance)}
+                    </div>
+                    <div className="col-span-1 text-right">{statusChip(m.status)}</div>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="bg-muted/20 px-5 py-3">
+                  <MemberBillsAccordion memberId={m.memberId} transactions={transactions} charges={charges} openingBalance={(members.find(x=>x.id===m.memberId) as any)?.openingBalance || 0} />
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
         </div>
       )}
     </div>
