@@ -264,3 +264,54 @@ function SummaryCard({ color, label, sub, value }: { color: string; label: strin
     </div>
   );
 }
+
+function MemberBillsAccordion({
+  memberId,
+  transactions,
+  charges,
+  openingBalance,
+}: {
+  memberId: string;
+  transactions: Transaction[];
+  charges: ChargeRow[];
+  openingBalance: number;
+}) {
+  const { rows, summary } = buildMemberLedger(memberId, transactions, openingBalance, charges);
+  if (rows.length === 0) {
+    return <p className="text-xs text-muted-foreground py-2">No bills or receipts on file.</p>;
+  }
+  return (
+    <div className="space-y-2">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[110px] text-xs">Date</TableHead>
+            <TableHead className="text-xs">Description</TableHead>
+            <TableHead className="text-right w-[110px] text-xs">Charge</TableHead>
+            <TableHead className="text-right w-[110px] text-xs">Paid</TableHead>
+            <TableHead className="text-right w-[120px] text-xs">Net Balance</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((r, i) => (
+            <TableRow key={i} className={cn("text-xs", r.voided && "opacity-50 line-through")}>
+              <TableCell>{r.date}</TableCell>
+              <TableCell>
+                {r.description}
+                {r.receiptNo && <span className="block text-[10px] text-muted-foreground font-mono">{r.receiptNo}</span>}
+              </TableCell>
+              <TableCell className="text-right">{r.debit ? formatNPR(r.debit) : "—"}</TableCell>
+              <TableCell className="text-right text-success">{r.credit ? formatNPR(r.credit) : "—"}</TableCell>
+              <TableCell className="text-right font-semibold">{formatNPR(r.balance)}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      <div className="flex justify-end gap-4 px-2 py-1 text-[11px] text-muted-foreground border-t border-border/40">
+        <span>Billed: <strong>{formatNPR(summary.totalCharged)}</strong></span>
+        <span>Paid: <strong className="text-success">{formatNPR(summary.totalPaid)}</strong></span>
+        <span>Balance: <strong className={summary.netPayable > 0 ? "text-destructive" : "text-success"}>{formatNPR(summary.netPayable)}</strong></span>
+      </div>
+    </div>
+  );
+}
