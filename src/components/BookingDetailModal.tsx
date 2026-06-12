@@ -387,21 +387,32 @@ export function BookingDetailModal({ booking: b, open, onOpenChange, onAmend }: 
 
               <div className="flex flex-wrap gap-2 pt-2">
                 {canEdit && (
-                  <>
-                    <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
-                      <Pencil className="h-4 w-4 mr-1" />
-                      Amend
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-amber-500 hover:bg-amber-500/10"
-                      onClick={() => setConfirmCancel(true)}
-                    >
-                      <Ban className="h-4 w-4 mr-1" />
-                      Cancel
-                    </Button>
-                  </>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      if (onAmend) {
+                        onAmend(b);
+                        onOpenChange(false);
+                      } else {
+                        setEditing(true);
+                      }
+                    }}
+                  >
+                    <Pencil className="h-4 w-4 mr-1" />
+                    Amend
+                  </Button>
+                )}
+                {canCancel && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-amber-500 hover:bg-amber-500/10"
+                    onClick={() => setConfirmCancel(true)}
+                  >
+                    <Ban className="h-4 w-4 mr-1" />
+                    Cancel
+                  </Button>
                 )}
                 {/* Completed bookings: print bill only, no further billing/payment redirect */}
                 {status === "Completed" ? (
