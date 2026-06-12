@@ -103,42 +103,63 @@ const Forecast = () => {
           <p className="text-muted-foreground">No bookings in selected range</p>
         </div>
       ) : (
-        forecastData.map((day) => (
-          <div key={day.date} className="glass-card rounded-xl overflow-hidden">
-            <div className={`px-5 py-3 border-b border-border flex items-center gap-3 ${day.isToday ? "bg-primary/10" : ""}`}>
-              <CalendarDays className={`h-4 w-4 ${day.isToday ? "text-primary" : "text-muted-foreground"}`} />
-              <span className="font-semibold text-sm font-display">{day.dateFormatted}</span>
-              {day.isToday && <Badge className="text-[10px] bg-primary/20 text-primary border-0">Today</Badge>}
-              <Badge variant="outline" className="ml-auto text-[10px]">{day.totalBookings} booking(s)</Badge>
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead>Member</TableHead>
-                  <TableHead>Class</TableHead>
-                  <TableHead>Service</TableHead>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {day.bookings.map((b) => (
-                  <TableRow key={b.id}>
-                    <TableCell className="font-medium text-sm">{b.memberName}</TableCell>
-                    <TableCell className="text-sm">{b.className}</TableCell>
-                    <TableCell><Badge variant="secondary" className="text-[10px]">{b.service}</Badge></TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{b.startTime} – {b.endTime}</TableCell>
-                    <TableCell>
-                      <Badge variant={b.status === "Confirmed" ? "default" : b.status === "Pending" ? "secondary" : "destructive"} className="text-[10px]">
-                        {b.status}
-                      </Badge>
-                    </TableCell>
+        <>
+          {pagedForecast.map((day) => (
+            <div key={day.date} className="glass-card rounded-xl overflow-hidden">
+              <div className={`px-5 py-3 border-b border-border flex items-center gap-3 ${day.isToday ? "bg-primary/10" : ""}`}>
+                <CalendarDays className={`h-4 w-4 ${day.isToday ? "text-primary" : "text-muted-foreground"}`} />
+                <span className="font-semibold text-sm font-display">{day.dateFormatted}</span>
+                {day.isToday && <Badge className="text-[10px] bg-primary/20 text-primary border-0">Today</Badge>}
+                <Badge variant="outline" className="ml-auto text-[10px]">{day.totalBookings} booking(s)</Badge>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead>Member</TableHead>
+                    <TableHead>Class</TableHead>
+                    <TableHead>Service</TableHead>
+                    <TableHead>Time</TableHead>
+                    <TableHead>Status</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        ))
+                </TableHeader>
+                <TableBody>
+                  {day.bookings.map((b) => (
+                    <TableRow key={b.id}>
+                      <TableCell className="font-medium text-sm">{b.memberName}</TableCell>
+                      <TableCell className="text-sm">{b.className}</TableCell>
+                      <TableCell><Badge variant="secondary" className="text-[10px]">{b.service}</Badge></TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{b.startTime} – {b.endTime}</TableCell>
+                      <TableCell>
+                        <Badge variant={b.status === "Confirmed" ? "default" : b.status === "Pending" ? "secondary" : "destructive"} className="text-[10px]">
+                          {b.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ))}
+          {totalPages > 1 && (
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); setPage((p) => Math.max(1, p - 1)); }} />
+                </PaginationItem>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => Math.abs(p - page) < 3 || p === 1 || p === totalPages)
+                  .map((p) => (
+                    <PaginationItem key={p}>
+                      <PaginationLink href="#" isActive={p === page} onClick={(e) => { e.preventDefault(); setPage(p); }}>{p}</PaginationLink>
+                    </PaginationItem>
+                  ))}
+                <PaginationItem>
+                  <PaginationNext href="#" onClick={(e) => { e.preventDefault(); setPage((p) => Math.min(totalPages, p + 1)); }} />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
+        </>
       )}
     </div>
   );
