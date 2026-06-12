@@ -13,6 +13,8 @@ import type {
   BookingStatus,
 } from "./mock-data";
 
+
+
 const avatarUrl = (seed: string) =>
   `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed || "member")}`;
 
@@ -136,6 +138,7 @@ function mapMemberRow(r: any): Member {
   for (const k of EXTRA_KEYS) base[k] = extras[k];
   return base as Member;
 }
+
 
 function memberPayload(data: Partial<Member>) {
   const fullName = data.name || [data.firstName, data.middleName, data.lastName].filter(Boolean).join(" ").trim();
@@ -268,13 +271,13 @@ export async function updateMember(id: string, data: Partial<Record<string, any>
   const prefs = {
     ...(current
       ? {
-          preferences: current.preferences,
-          plan: current.plan,
-          address: current.address,
-          emergencyContact: current.emergencyContact,
-          services: current.services,
-          autoRenew: current.autoRenew,
-        }
+        preferences: current.preferences,
+        plan: current.plan,
+        address: current.address,
+        emergencyContact: current.emergencyContact,
+        services: current.services,
+        autoRenew: current.autoRenew,
+      }
       : {}),
   } as any;
   for (const k of [
@@ -410,7 +413,7 @@ function mapPaymentRow(r: any): Transaction {
     amount: Number(r.amount || 0),
     vat: Number(r.vat_amount || 0),
     total: Number(r.total || 0),
-    method: (r.method || "Cash") as PaymentMethod,
+    method: (r.method || "cash") as PaymentMethod,
     type: meta.type || "Payment",
     date: dateOnly(r.paid_at),
     description: r.description || "",
@@ -451,7 +454,7 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
     vat_amount: vat,
     total: gross,
     discount: Number((data as any).discount || 0),
-    method: data.method || "Cash",
+    method: data.method || "cash",
     service_type: data.serviceType || null,
     description: data.description || "",
     paid_at: data.date ? new Date(`${data.date}T00:00:00`).toISOString() : new Date().toISOString(),

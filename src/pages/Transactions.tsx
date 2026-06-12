@@ -40,7 +40,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TransactionDetailModal } from "@/components/TransactionDetailModal";
 import { RecordChargeModal } from "@/components/RecordChargeModal";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import {
   formatNPR,
   type PaymentMethod,
@@ -64,16 +71,7 @@ import { applyAdvance, settleOldestCharges } from "@/lib/charges";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { capitalizeFirstLetter } from "@/lib/string-case-change";
-
-const methodColors: Record<PaymentMethod, string> = {
-  cash: "bg-success/20 text-success",
-  card: "bg-primary/20 text-primary",
-  esewa: "bg-emerald-500/20 text-emerald-400",
-  bank_transfer: "bg-muted text-muted-foreground",
-  mobile_wallet: "bg-purple-500/20 text-purple-400",
-  cheque: "bg-yellow-500/20 text-yellow-400",
-  other: "bg-blue-500/20 text-blue-400",
-};
+import { methodColors } from "@/lib/utils";
 
 function parseSetup(
   settings: Record<string, string>,
@@ -165,22 +163,43 @@ const Transactions = () => {
       const d = t.date || "";
       const matchFrom = !dateFrom || d >= dateFrom;
       const matchTo = !dateTo || d <= dateTo;
-      return matchSearch && matchMethod && matchType && matchStatus && matchFrom && matchTo;
+      return (
+        matchSearch &&
+        matchMethod &&
+        matchType &&
+        matchStatus &&
+        matchFrom &&
+        matchTo
+      );
     });
     return [...list].sort((a: any, b: any) => {
       const av = a.createdAt || a.created_at || a.date || "";
       const bv = b.createdAt || b.created_at || b.date || "";
       return String(bv).localeCompare(String(av));
     });
-  }, [transactions, search, methodFilter, typeFilter, statusFilter, dateFrom, dateTo]);
+  }, [
+    transactions,
+    search,
+    methodFilter,
+    typeFilter,
+    statusFilter,
+    dateFrom,
+    dateTo,
+  ]);
 
   const activeForTotals = filtered.filter((t) => statusLabel(t) !== "Voided");
   // Net amount actually received from guest = total − discount applied.
-  const totalAmount = activeForTotals.reduce((sum, t) => sum + Math.max(0, (t.total || 0) - (Number((t as any).discount) || 0)), 0);
+  const totalAmount = activeForTotals.reduce(
+    (sum, t) =>
+      sum + Math.max(0, (t.total || 0) - (Number((t as any).discount) || 0)),
+    0,
+  );
   const totalVat = activeForTotals.reduce((sum, t) => sum + t.vat, 0);
 
   // Local pagination
-  useEffect(() => { setPage(1); }, [search, methodFilter, typeFilter, statusFilter, dateFrom, dateTo]);
+  useEffect(() => {
+    setPage(1);
+  }, [search, methodFilter, typeFilter, statusFilter, dateFrom, dateTo]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pagedFiltered = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
@@ -284,6 +303,9 @@ const Transactions = () => {
     if (searchParams.get("newPayment") !== "true") return;
     // Wait until transactions have loaded before deciding.
     if (isLoading) return;
+
+    // const { outlets } = useOutlet();
+    // console.log(outlets);
     const chargeId = searchParams.get("chargeId");
     const bookingId = searchParams.get("bookingId");
     const memberId = searchParams.get("memberId");
@@ -324,7 +346,7 @@ const Transactions = () => {
             Math.round((Number(amountStr) - Number(amountStr) / 1.13) * 100) /
             100,
           total: Number(amountStr),
-          method: "cash",
+          // method: "cash",
           type: "Charge",
           date: new Date().toISOString().split("T")[0],
           description: `${serviceStr} — ${classNameStr}`,
@@ -361,6 +383,11 @@ const Transactions = () => {
     if (!settleTxn) return;
     const discount = Math.max(0, Number(settleDiscount) || 0);
     const netDue = Math.max(0, (settleTxn.total || 0) - discount);
+
+    // const { outlets } = useOutlet();
+
+    // console.log(outlets);
+
     try {
       if (settleTxn.id.startsWith("TEMP-")) {
         await addTransactionMutation.mutateAsync({
@@ -371,7 +398,7 @@ const Transactions = () => {
           total: netDue,
           discount,
           method: settleMethod,
-          type: "Charge",
+          type: settleTxn.serviceType || "Charge",
           date: new Date().toISOString().split("T")[0],
           description: settleTxn.description,
           receiptNo: settleTxn.receiptNo,
@@ -382,7 +409,9 @@ const Transactions = () => {
         } as any);
       } else {
         // 1) Flip canonical charges row to paid (source of truth for ledger)
-        const chargeRowId = (settleTxn as any).chargeRowId as string | undefined;
+        const chargeRowId = (settleTxn as any).chargeRowId as
+          | string
+          | undefined;
         if (chargeRowId) {
           try {
             const { supabase } = await import("@/lib/supabase");
@@ -392,10 +421,15 @@ const Transactions = () => {
                 status: "paid",
                 paid_at: new Date().toISOString(),
                 discount,
+                method: settleMethod,
+                outlet_id: settleTxn.outletId || null,
               })
               .eq("id", chargeRowId);
           } catch (err) {
-            console.warn("[transactions] failed to mark canonical charge paid", err);
+            console.warn(
+              "[transactions] failed to mark canonical charge paid",
+              err,
+            );
           }
         }
         // 2) Mirror onto the legacy transaction row
@@ -629,11 +663,11 @@ const Transactions = () => {
       </div> */}
 
       <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
+        <div className="relative flex-1 justify-center min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by member, receipt, description..."
-            className="pl-9 bg-muted/50 border-0"
+            className="pl-9 justify-center bg-muted/50 border-0"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -646,12 +680,12 @@ const Transactions = () => {
             <SelectItem value="all">All Methods</SelectItem>
             {paymentModes.map((m) => (
               <SelectItem key={m} value={m}>
-                {m}
+                {capitalizeFirstLetter(m)}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
+        {/* <Select value={typeFilter} onValueChange={setTypeFilter}>
           <SelectTrigger className="w-[130px] bg-muted/50 border-0">
             <SelectValue placeholder="Type" />
           </SelectTrigger>
@@ -663,7 +697,7 @@ const Transactions = () => {
               </SelectItem>
             ))}
           </SelectContent>
-        </Select>
+        </Select> */}
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[130px] bg-muted/50 border-0">
             <SelectValue placeholder="Status" />
@@ -675,7 +709,14 @@ const Transactions = () => {
             <SelectItem value="voided">Voided</SelectItem>
           </SelectContent>
         </Select>
-        <DateRangeFilter from={dateFrom} to={dateTo} onChange={({ from, to }) => { setDateFrom(from); setDateTo(to); }} />
+        <DateRangeFilter
+          from={dateFrom}
+          to={dateTo}
+          onChange={({ from, to }) => {
+            setDateFrom(from);
+            setDateTo(to);
+          }}
+        />
       </div>
 
       <div className="glass-card rounded-xl overflow-hidden">
@@ -720,9 +761,11 @@ const Transactions = () => {
                     </TableCell>
                     <TableCell>
                       <Badge
-                        className={`text-[10px] border-0 ${methodColors[t.method] || "bg-muted text-muted-foreground"}`}
+                        className={`text-[10px] border-0 ${t.status === "pending" || t.status === "voided" ? "bg-muted text-muted-foreground" : methodColors[t.method] || "bg-muted text-muted-foreground"}`}
                       >
-                        {t.method}
+                        {t.status === "pending" || t.status === "voided"
+                          ? "None"
+                          : t.method}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -806,17 +849,40 @@ const Transactions = () => {
         <Pagination>
           <PaginationContent>
             <PaginationItem>
-              <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); setPage((p) => Math.max(1, p - 1)); }} />
+              <PaginationPrevious
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setPage((p) => Math.max(1, p - 1));
+                }}
+              />
             </PaginationItem>
             {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .filter((p) => Math.abs(p - page) < 3 || p === 1 || p === totalPages)
+              .filter(
+                (p) => Math.abs(p - page) < 3 || p === 1 || p === totalPages,
+              )
               .map((p) => (
                 <PaginationItem key={p}>
-                  <PaginationLink href="#" isActive={p === page} onClick={(e) => { e.preventDefault(); setPage(p); }}>{p}</PaginationLink>
+                  <PaginationLink
+                    href="#"
+                    isActive={p === page}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setPage(p);
+                    }}
+                  >
+                    {p}
+                  </PaginationLink>
                 </PaginationItem>
               ))}
             <PaginationItem>
-              <PaginationNext href="#" onClick={(e) => { e.preventDefault(); setPage((p) => Math.min(totalPages, p + 1)); }} />
+              <PaginationNext
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setPage((p) => Math.min(totalPages, p + 1));
+                }}
+              />
             </PaginationItem>
           </PaginationContent>
         </Pagination>
@@ -911,7 +977,12 @@ const Transactions = () => {
                 <div className="space-y-2">
                   <Label>Net Payable</Label>
                   <Input
-                    value={formatNPR(Math.max(0, (settleTxn.total || 0) - (Number(settleDiscount) || 0)))}
+                    value={formatNPR(
+                      Math.max(
+                        0,
+                        (settleTxn.total || 0) - (Number(settleDiscount) || 0),
+                      ),
+                    )}
                     readOnly
                     className="bg-muted/40 font-semibold text-success"
                   />

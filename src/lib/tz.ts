@@ -11,9 +11,9 @@ let _override: string | null = null;
 
 export function getBrowserTimezone(): string {
   try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kathmandu";
   } catch {
-    return "UTC";
+    return "Asia/Kathmandu";
   }
 }
 

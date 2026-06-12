@@ -31,7 +31,7 @@ export interface LedgerSummary {
   /** Alias for netPayable — explicit "due balance" name used by Quick Balance + profile cards. */
   dueBalance: number;
   isSettled: boolean;
-  /** Settled | Partial | Unpaid — mirrors Quick Balance / Ledger Report status chip. */
+  /** Settled | Partial | Unpaid | Voided — mirrors Quick Balance / Ledger Report status chip. */
   status: "Settled" | "Partial" | "Unpaid";
 }
 
@@ -223,8 +223,8 @@ export function buildMemberLedger(
     totalCharged === 0 || isSettled
       ? "Settled"
       : totalPaid + advance + discountTotal > 0
-      ? "Partial"
-      : "Unpaid";
+        ? "Partial"
+        : "Unpaid";
 
   return {
     rows,

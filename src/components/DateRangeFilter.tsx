@@ -20,7 +20,7 @@ export function DateRangeFilter({ from, to, onChange, className = "" }: Props) {
   return (
     <div className={`flex flex-wrap items-end gap-2 ${className}`}>
       <div className="space-y-1">
-        <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">From</Label>
+        {/* <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">From</Label> */}
         <Input
           type="date"
           value={from}
@@ -29,7 +29,7 @@ export function DateRangeFilter({ from, to, onChange, className = "" }: Props) {
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">To</Label>
+        {/* <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">To</Label> */}
         <Input
           type="date"
           value={to}
