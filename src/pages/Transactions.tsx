@@ -802,6 +802,26 @@ const Transactions = () => {
         )}
       </div>
 
+      {totalPages > 1 && (
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); setPage((p) => Math.max(1, p - 1)); }} />
+            </PaginationItem>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter((p) => Math.abs(p - page) < 3 || p === 1 || p === totalPages)
+              .map((p) => (
+                <PaginationItem key={p}>
+                  <PaginationLink href="#" isActive={p === page} onClick={(e) => { e.preventDefault(); setPage(p); }}>{p}</PaginationLink>
+                </PaginationItem>
+              ))}
+            <PaginationItem>
+              <PaginationNext href="#" onClick={(e) => { e.preventDefault(); setPage((p) => Math.min(totalPages, p + 1)); }} />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
+
       {/* Settle / Resettle dialog */}
       <Dialog
         open={!!settleTxn}
