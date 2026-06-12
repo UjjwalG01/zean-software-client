@@ -48,6 +48,13 @@ const Forecast = () => {
 
   const totalUpcoming = forecastData.reduce((s, d) => s + d.totalBookings, 0);
 
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [dateFrom, dateTo]);
+  const totalPages = Math.max(1, Math.ceil(forecastData.length / PAGE_SIZE));
+  const pagedForecast = forecastData.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
