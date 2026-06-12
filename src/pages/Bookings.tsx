@@ -194,6 +194,7 @@ const Bookings_Page = () => {
       toast.error("Cannot add bookings for past dates");
       return;
     }
+    setEditingBookingId(null);
     setBookDate(format(d, "yyyy-MM-dd"));
     if (startTime) {
       const [h, m] = startTime.split(":").map(Number);
@@ -206,6 +207,25 @@ const Bookings_Page = () => {
     }
     setDialogOpen(true);
   };
+
+  /** Open the same New-Booking modal pre-filled for an existing booking (Amend flow). */
+  const openAmendBookingDialog = (b: Booking) => {
+    if (!selectedOutlet) { setPickerOpen(true); return; }
+    setEditingBookingId(b.id);
+    setBookDate(b.date);
+    setBookStartTime(b.startTime || "");
+    setBookEndTime(b.endTime || "");
+    setBookTimeSlot(b.timeSlot || "");
+    setBookMember(b.memberId);
+    setBookInstructor(b.instructor || "");
+    // Match the service via className → service id
+    const svc = outletServices.find((s) => s.name === b.className) || outletServices.find((s) => s.type === b.service);
+    setBookServiceId(svc?.id || "");
+    setUseDiscountedRate(false);
+    setDiscountedRate("");
+    setDialogOpen(true);
+  };
+
 
   const handleDayClick = (day: Date) => {
     setScheduleDay(day);
