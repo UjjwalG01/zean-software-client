@@ -288,6 +288,32 @@ const Bookings_Page = () => {
 
     const memberObj = members.find((m) => m.id === bookMember);
     try {
+      // Amend flow: update the existing booking instead of creating a new one.
+      if (editingBookingId) {
+        await updateBookingMutation.mutateAsync({
+          id: editingBookingId,
+          data: {
+            memberId: bookMember,
+            memberName: memberObj?.name || "",
+            service: selectedService.type as ServiceType,
+            className: selectedService.name,
+            date: bookDate,
+            startTime: start,
+            endTime: end,
+            outletId: selectedOutlet.id,
+            instructor: bookInstructor || selectedService.instructor || "",
+            timeSlot: bookTimeSlot || start,
+          } as any,
+        });
+        toast.success("Booking updated");
+        setDialogOpen(false);
+        setEditingBookingId(null);
+        setBookMember(""); setMemberSearch(""); setBookServiceId("");
+        setBookInstructor(""); setBookTimeSlot("");
+        setBookStartTime(""); setBookEndTime("");
+        return;
+      }
+
       const bookingId = await addBookingMutation.mutateAsync({
         memberId: bookMember,
         memberName: memberObj?.name || "",
