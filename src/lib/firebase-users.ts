@@ -25,7 +25,8 @@ export interface AppUser {
 const SYSTEM_ROLES: UserRole[] = ["admin", "manager", "staff", "viewer"];
 
 function mapRole(role?: string): UserRole {
-  if (role === "admin" || role === "manager" || role === "staff" || role === "client") return role;
+  if (role === "admin" || role === "manager" || role === "staff") return role;
+  if (role === "client") return "viewer";
   return role === "member" ? "viewer" : "staff";
 }
 
