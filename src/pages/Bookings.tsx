@@ -109,6 +109,7 @@ const Bookings_Page = () => {
   const addBookingMutation = useAddBooking();
   const updateMemberMutation = useUpdateMember();
   const addTransactionMutation = useAddTransaction();
+  const updateBookingMutation = useUpdateBooking();
 
   // Outlet is "membership" type when the flag is on OR when its service types include the membership slug
   const isMembershipOutlet = !!selectedOutlet && (
