@@ -771,7 +771,7 @@ const Bookings_Page = () => {
 
 
 
-      <BookingDetailModal booking={selectedBooking} open={detailOpen} onOpenChange={setDetailOpen} />
+      <BookingDetailModal booking={selectedBooking} open={detailOpen} onOpenChange={setDetailOpen} onAmend={openAmendBookingDialog} />
 
       <DayScheduleDialog
         open={scheduleOpen}
