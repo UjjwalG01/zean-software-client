@@ -862,35 +862,56 @@ const Bookings_Page = () => {
           </div>
         </div>
       ) : (
-        <div className="glass-card rounded-xl overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Member</TableHead>
-                <TableHead>Class</TableHead>
-                <TableHead>Service</TableHead>
-                <TableHead>Time</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((b) => (
-                <TableRow key={b.id} className="cursor-pointer" onClick={() => handleBookingClick(b)}>
-                  <TableCell className="text-sm">{b.date}</TableCell>
-                  <TableCell className="text-sm font-medium">{b.memberName}</TableCell>
-                  <TableCell className="text-sm">{b.className}</TableCell>
-                  <TableCell><Badge variant="secondary" className="text-[10px]">{b.service}</Badge></TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{b.startTime}–{b.endTime}</TableCell>
-                  <TableCell>
-                    <Badge variant={b.status === "Confirmed" ? "default" : b.status === "Pending" ? "secondary" : b.status === "Completed" ? "default" : "destructive"} className={`text-[10px] ${b.status === "Completed" ? "bg-success/20 text-success border-0" : ""}`}>
-                      {b.status}
-                    </Badge>
-                  </TableCell>
+        <div className="space-y-3">
+          <div className="glass-card rounded-xl overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Member</TableHead>
+                  <TableHead>Class</TableHead>
+                  <TableHead>Service</TableHead>
+                  <TableHead>Time</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {pagedList.map((b) => (
+                  <TableRow key={b.id} className="cursor-pointer" onClick={() => handleBookingClick(b)}>
+                    <TableCell className="text-sm">{b.date}</TableCell>
+                    <TableCell className="text-sm font-medium">{b.memberName}</TableCell>
+                    <TableCell className="text-sm">{b.className}</TableCell>
+                    <TableCell><Badge variant="secondary" className="text-[10px]">{b.service}</Badge></TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{b.startTime}–{b.endTime}</TableCell>
+                    <TableCell>
+                      <Badge variant={b.status === "Confirmed" ? "default" : b.status === "Pending" ? "secondary" : b.status === "Completed" ? "default" : "destructive"} className={`text-[10px] ${b.status === "Completed" ? "bg-success/20 text-success border-0" : ""}`}>
+                        {b.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          {totalPages > 1 && (
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); setListPage((p) => Math.max(1, p - 1)); }} />
+                </PaginationItem>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => Math.abs(p - listPage) < 3 || p === 1 || p === totalPages)
+                  .map((p) => (
+                    <PaginationItem key={p}>
+                      <PaginationLink href="#" isActive={p === listPage} onClick={(e) => { e.preventDefault(); setListPage(p); }}>{p}</PaginationLink>
+                    </PaginationItem>
+                  ))}
+                <PaginationItem>
+                  <PaginationNext href="#" onClick={(e) => { e.preventDefault(); setListPage((p) => Math.min(totalPages, p + 1)); }} />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
         </div>
       )}
     </div>
