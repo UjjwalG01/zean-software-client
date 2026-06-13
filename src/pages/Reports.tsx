@@ -468,43 +468,84 @@ const Reports = () => {
 
         <TabsContent value="collection">
           <LoadGate k="collection">
-            <PremiumReportFrame
-              title="Cashier / Collection Report"
-              subtitle="Settled payments grouped by date and method"
-              propertyName={propertyName}
-              filters={filters}
-              filterSummary={filterSummary}
-              exportFilename={`collection-${from}_to_${to}.csv`}
-              exportMeta={{ dateRange: `${from} → ${to}` }}
-              groupBy={{ key: "date", label: "Date" }}
-              columns={[
-                { key: "receiptNo", label: "Receipt No" },
-                { key: "memberName", label: "Member Name" },
-                { key: "method", label: "Payment Method" },
-                {
-                  key: "description",
-                  label: "Description",
-                },
-                { key: "status", label: "Status", align: "right" },
-                {
-                  key: "collected",
-                  label: "Collected",
-                  align: "right",
-                  format: (r) => formatNPR(r.collected),
-                  exportFormat: (r) => String(r.collected),
-                },
-              ]}
-              rows={collectionRows}
-              footerTotals={{
-                label: "Grand Total",
-                cells: {
-                  count: String(collectionTotals.count),
-                  collected: formatNPR(collectionTotals.collected),
-                },
-              }}
-            />
+            <div className="space-y-3">
+              <div className="flex items-center justify-end gap-2 px-1">
+                <Label htmlFor="cashier-details" className="text-xs text-muted-foreground">
+                  Show Details
+                </Label>
+                <Switch
+                  id="cashier-details"
+                  checked={showCashierDetails}
+                  onCheckedChange={setShowCashierDetails}
+                />
+              </div>
+              <PremiumReportFrame
+                title="Cashier / Collection Report"
+                subtitle="One row per settled transaction"
+                propertyName={propertyName}
+                filters={filters}
+                filterSummary={filterSummary}
+                exportFilename={`collection-${from}_to_${to}.csv`}
+                exportMeta={{ dateRange: `${from} → ${to}` }}
+                columns={[
+                  { key: "date", label: "Date" },
+                  { key: "memberName", label: "Member" },
+                  { key: "receiptNo", label: "Receipt No" },
+                  { key: "method", label: "Method" },
+                  ...(showCashierDetails
+                    ? [
+                        {
+                          key: "billed",
+                          label: "Billed Amount",
+                          align: "right" as const,
+                          format: (r: any) => formatNPR(r.billed),
+                          exportFormat: (r: any) => String(r.billed),
+                        },
+                        {
+                          key: "discount",
+                          label: "Discount",
+                          align: "right" as const,
+                          format: (r: any) => formatNPR(r.discount),
+                          exportFormat: (r: any) => String(r.discount),
+                        },
+                        {
+                          key: "collected",
+                          label: "Collected",
+                          align: "right" as const,
+                          format: (r: any) => formatNPR(r.collected),
+                          exportFormat: (r: any) => String(r.collected),
+                        },
+                        { key: "user", label: "User" },
+                      ]
+                    : [
+                        {
+                          key: "collected",
+                          label: "Net Amount",
+                          align: "right" as const,
+                          format: (r: any) => formatNPR(r.collected),
+                          exportFormat: (r: any) => String(r.collected),
+                        },
+                      ]),
+                  { key: "settledAt", label: "Settled At", align: "right" as const },
+                ]}
+                rows={collectionRows}
+                footerTotals={{
+                  label: "Grand Total",
+                  cells: showCashierDetails
+                    ? {
+                        billed: formatNPR(collectionTotals.billed),
+                        discount: formatNPR(collectionTotals.discount),
+                        collected: formatNPR(collectionTotals.collected),
+                      }
+                    : {
+                        collected: formatNPR(collectionTotals.collected),
+                      },
+                }}
+              />
+            </div>
           </LoadGate>
         </TabsContent>
+
 
         <TabsContent value="contribution">
           <LoadGate k="contribution">
