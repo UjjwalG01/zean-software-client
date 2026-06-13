@@ -29,6 +29,7 @@ import { format, parseISO, startOfMonth, isValid } from "date-fns";
 import { PremiumReportFrame } from "@/components/PremiumReportFrame";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -39,6 +40,7 @@ import {
 
 import { capitalizeFirstLetter } from "@/lib/string-case-change";
 import { useOutlet } from "@/contexts/OutletContext";
+import { formatInTz, toIsoDayInTz } from "@/lib/tz";
 
 const LedgerReport = lazy(() => import("@/components/LedgerReport"));
 
@@ -52,10 +54,12 @@ const tooltipStyle = {
 };
 
 const Reports = () => {
-  const { data: members = [] } = useMembers();
-  const { data: transactions = [] } = useTransactions();
-  const { data: bookings = [] } = useBookings();
+  const { outlets, selected: activeOutlet } = useOutlet();
+  const { data: members = [] } = useMembers({ outletId: activeOutlet?.id });
+  const { data: transactions = [] } = useTransactions({ outletId: activeOutlet?.id });
+  const { data: bookings = [] } = useBookings({ outletId: activeOutlet?.id });
   const { data: settings = {} } = useCompanySettings();
+  const [showCashierDetails, setShowCashierDetails] = useState(false);
 
   const activeMembers = members.filter((m) => m.status === "Active").length;
   const totalRevenue = transactions.reduce(
@@ -153,48 +157,39 @@ const Reports = () => {
     );
   }, [dailySalesRows]);
 
-  // ── 2. Cashier / Collection Report (by date → method) ──
+  // ── 2. Cashier / Collection Report (one row per settled transaction) ──
   const collectionRows = useMemo(() => {
-    const acc: Record<
-      string,
-      {
-        date: string;
-        method: string;
-        count: number;
-        collected: number;
-        receiptNo?: string;
-        memberName?: string;
-        description?: string;
-        voided?: boolean;
-        voidReason?: string;
-        rowClass?: string;
-        status?: string;
-      }
-    > = {};
-    txInRange
+    const rows = txInRange
       .filter((t) => t.status !== "pending" && t.status !== "unpaid")
-      .forEach((t) => {
-        const key = `${t.date}::${t.method}::${t.receiptNo}`;
-        if (!acc[key])
-          ((acc[key] = {
-            date: t.date,
-            method: capitalizeFirstLetter(t.method),
-            count: 0,
-            collected: 0,
-            receiptNo: t.receiptNo,
-            memberName: capitalizeFirstLetter(t.memberName),
-            voided: (t as any).voided === true,
-            rowClass: (t as any).voided ? "line-through text-red-500/80" : "",
-            description: t.description,
-            status:
-              t.status === "paid"
-                ? "Settled"
-                : capitalizeFirstLetter(t.status || ""),
-          }),
-            (acc[key].count += 1));
-        acc[key].collected += ((t as any).voided ? -1 : 1) * (t.total || 0);
+      .map((t) => {
+        const voided = (t as any).voided === true;
+        const discount = Number((t as any).discount || 0);
+        const billed = Number(t.total || 0) + discount;
+        const collected = Number(t.total || 0);
+        return {
+          date: toIsoDayInTz(t.date),
+          memberName: capitalizeFirstLetter(t.memberName),
+          receiptNo: t.receiptNo,
+          method: capitalizeFirstLetter((t.method || "").replace(/_/g, " ")),
+          description: t.description,
+          billed,
+          discount,
+          collected: voided ? -collected : collected,
+          user: (t as any).createdBy || (t as any).created_by || (t as any).cashier || "—",
+          settledAt: (t as any).settledAt
+            ? formatInTz((t as any).settledAt)
+            : (t as any).createdAt
+              ? formatInTz((t as any).createdAt)
+              : formatInTz(t.date, { dateStyle: "short" }),
+          voided,
+          rowClass: voided ? "line-through text-red-500/80" : "",
+          status:
+            t.status === "paid"
+              ? "Settled"
+              : capitalizeFirstLetter(t.status || ""),
+        };
       });
-    return Object.values(acc).sort(
+    return rows.sort(
       (a, b) =>
         a.date.localeCompare(b.date) || a.method.localeCompare(b.method),
     );
@@ -203,13 +198,12 @@ const Reports = () => {
   const collectionTotals = useMemo(() => {
     return collectionRows.reduce(
       (a, r) => ({
-        count: a.count + r.count,
+        count: a.count + 1,
         collected: a.collected + r.collected,
+        billed: a.billed + r.billed,
+        discount: a.discount + r.discount,
       }),
-      {
-        count: 0,
-        collected: 0,
-      },
+      { count: 0, collected: 0, billed: 0, discount: 0 },
     );
   }, [collectionRows]);
 
@@ -251,7 +245,6 @@ const Reports = () => {
   }, [contributionRows]);
 
   // ── Revenue by Outlet (replaces "Revenue by Service") ──
-  const { outlets } = useOutlet();
   const outletNameById = useMemo(() => {
     const m = new Map<string, string>();
     outlets.forEach((o) => m.set(o.id, o.name));
@@ -475,43 +468,84 @@ const Reports = () => {
 
         <TabsContent value="collection">
           <LoadGate k="collection">
-            <PremiumReportFrame
-              title="Cashier / Collection Report"
-              subtitle="Settled payments grouped by date and method"
-              propertyName={propertyName}
-              filters={filters}
-              filterSummary={filterSummary}
-              exportFilename={`collection-${from}_to_${to}.csv`}
-              exportMeta={{ dateRange: `${from} → ${to}` }}
-              groupBy={{ key: "date", label: "Date" }}
-              columns={[
-                { key: "receiptNo", label: "Receipt No" },
-                { key: "memberName", label: "Member Name" },
-                { key: "method", label: "Payment Method" },
-                {
-                  key: "description",
-                  label: "Description",
-                },
-                { key: "status", label: "Status", align: "right" },
-                {
-                  key: "collected",
-                  label: "Collected",
-                  align: "right",
-                  format: (r) => formatNPR(r.collected),
-                  exportFormat: (r) => String(r.collected),
-                },
-              ]}
-              rows={collectionRows}
-              footerTotals={{
-                label: "Grand Total",
-                cells: {
-                  count: String(collectionTotals.count),
-                  collected: formatNPR(collectionTotals.collected),
-                },
-              }}
-            />
+            <div className="space-y-3">
+              <div className="flex items-center justify-end gap-2 px-1">
+                <Label htmlFor="cashier-details" className="text-xs text-muted-foreground">
+                  Show Details
+                </Label>
+                <Switch
+                  id="cashier-details"
+                  checked={showCashierDetails}
+                  onCheckedChange={setShowCashierDetails}
+                />
+              </div>
+              <PremiumReportFrame
+                title="Cashier / Collection Report"
+                subtitle="One row per settled transaction"
+                propertyName={propertyName}
+                filters={filters}
+                filterSummary={filterSummary}
+                exportFilename={`collection-${from}_to_${to}.csv`}
+                exportMeta={{ dateRange: `${from} → ${to}` }}
+                columns={[
+                  { key: "date", label: "Date" },
+                  { key: "memberName", label: "Member" },
+                  { key: "receiptNo", label: "Receipt No" },
+                  { key: "method", label: "Method" },
+                  ...(showCashierDetails
+                    ? [
+                        {
+                          key: "billed",
+                          label: "Billed Amount",
+                          align: "right" as const,
+                          format: (r: any) => formatNPR(r.billed),
+                          exportFormat: (r: any) => String(r.billed),
+                        },
+                        {
+                          key: "discount",
+                          label: "Discount",
+                          align: "right" as const,
+                          format: (r: any) => formatNPR(r.discount),
+                          exportFormat: (r: any) => String(r.discount),
+                        },
+                        {
+                          key: "collected",
+                          label: "Collected",
+                          align: "right" as const,
+                          format: (r: any) => formatNPR(r.collected),
+                          exportFormat: (r: any) => String(r.collected),
+                        },
+                        { key: "user", label: "User" },
+                      ]
+                    : [
+                        {
+                          key: "collected",
+                          label: "Net Amount",
+                          align: "right" as const,
+                          format: (r: any) => formatNPR(r.collected),
+                          exportFormat: (r: any) => String(r.collected),
+                        },
+                      ]),
+                  { key: "settledAt", label: "Settled At", align: "right" as const },
+                ]}
+                rows={collectionRows}
+                footerTotals={{
+                  label: "Grand Total",
+                  cells: showCashierDetails
+                    ? {
+                        billed: formatNPR(collectionTotals.billed),
+                        discount: formatNPR(collectionTotals.discount),
+                        collected: formatNPR(collectionTotals.collected),
+                      }
+                    : {
+                        collected: formatNPR(collectionTotals.collected),
+                      },
+                }}
+              />
+            </div>
           </LoadGate>
         </TabsContent>
+
 
         <TabsContent value="contribution">
           <LoadGate k="contribution">

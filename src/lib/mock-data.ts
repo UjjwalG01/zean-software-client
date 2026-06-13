@@ -95,7 +95,7 @@ export interface Transaction {
   description: string;
   receiptNo: string;
   serviceType?: ServiceType;
-  status?: "paid" | "pending" | "unpaid" | "voided" | "settled";
+  status?: "paid" | "pending" | "unpaid" | "voided" | "settled" | "overpaid";
   bookingId?: string;
   chargeHead?: string;
   voided?: boolean;
@@ -238,6 +238,16 @@ export const statusColors: Record<MemberStatus, string> = {
   Expired: "bg-destructive/20 text-destructive",
   Expiring: "bg-warning/20 text-warning",
   Inactive: "bg-muted text-muted-foreground",
+};
+
+/** Colors for transaction status badges (incl. derived `overpaid`). */
+export const transactionStatusColors: Record<string, string> = {
+  paid: "bg-success/20 text-success",
+  settled: "bg-success/20 text-success",
+  pending: "bg-amber-500/20 text-amber-400",
+  unpaid: "bg-amber-500/20 text-amber-400",
+  voided: "bg-destructive/20 text-destructive",
+  overpaid: "bg-amber-400/20 text-amber-300",
 };
 
 export function formatNPR(amount: number): string {
