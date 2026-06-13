@@ -157,48 +157,39 @@ const Reports = () => {
     );
   }, [dailySalesRows]);
 
-  // ── 2. Cashier / Collection Report (by date → method) ──
+  // ── 2. Cashier / Collection Report (one row per settled transaction) ──
   const collectionRows = useMemo(() => {
-    const acc: Record<
-      string,
-      {
-        date: string;
-        method: string;
-        count: number;
-        collected: number;
-        receiptNo?: string;
-        memberName?: string;
-        description?: string;
-        voided?: boolean;
-        voidReason?: string;
-        rowClass?: string;
-        status?: string;
-      }
-    > = {};
-    txInRange
+    const rows = txInRange
       .filter((t) => t.status !== "pending" && t.status !== "unpaid")
-      .forEach((t) => {
-        const key = `${t.date}::${t.method}::${t.receiptNo}`;
-        if (!acc[key])
-          ((acc[key] = {
-            date: t.date,
-            method: capitalizeFirstLetter(t.method),
-            count: 0,
-            collected: 0,
-            receiptNo: t.receiptNo,
-            memberName: capitalizeFirstLetter(t.memberName),
-            voided: (t as any).voided === true,
-            rowClass: (t as any).voided ? "line-through text-red-500/80" : "",
-            description: t.description,
-            status:
-              t.status === "paid"
-                ? "Settled"
-                : capitalizeFirstLetter(t.status || ""),
-          }),
-            (acc[key].count += 1));
-        acc[key].collected += ((t as any).voided ? -1 : 1) * (t.total || 0);
+      .map((t) => {
+        const voided = (t as any).voided === true;
+        const discount = Number((t as any).discount || 0);
+        const billed = Number(t.total || 0) + discount;
+        const collected = Number(t.total || 0);
+        return {
+          date: toIsoDayInTz(t.date),
+          memberName: capitalizeFirstLetter(t.memberName),
+          receiptNo: t.receiptNo,
+          method: capitalizeFirstLetter((t.method || "").replace(/_/g, " ")),
+          description: t.description,
+          billed,
+          discount,
+          collected: voided ? -collected : collected,
+          user: (t as any).createdBy || (t as any).created_by || (t as any).cashier || "—",
+          settledAt: (t as any).settledAt
+            ? formatInTz((t as any).settledAt)
+            : (t as any).createdAt
+              ? formatInTz((t as any).createdAt)
+              : formatInTz(t.date, { dateStyle: "short" }),
+          voided,
+          rowClass: voided ? "line-through text-red-500/80" : "",
+          status:
+            t.status === "paid"
+              ? "Settled"
+              : capitalizeFirstLetter(t.status || ""),
+        };
       });
-    return Object.values(acc).sort(
+    return rows.sort(
       (a, b) =>
         a.date.localeCompare(b.date) || a.method.localeCompare(b.method),
     );
@@ -207,13 +198,12 @@ const Reports = () => {
   const collectionTotals = useMemo(() => {
     return collectionRows.reduce(
       (a, r) => ({
-        count: a.count + r.count,
+        count: a.count + 1,
         collected: a.collected + r.collected,
+        billed: a.billed + r.billed,
+        discount: a.discount + r.discount,
       }),
-      {
-        count: 0,
-        collected: 0,
-      },
+      { count: 0, collected: 0, billed: 0, discount: 0 },
     );
   }, [collectionRows]);
 
