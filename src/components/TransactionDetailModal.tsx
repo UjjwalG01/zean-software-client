@@ -280,7 +280,11 @@ export function TransactionDetailModal({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleVoid}
+                onClick={() => {
+                  setVoidReason("");
+                  setVoidConfirmText("");
+                  setVoidOpen(true);
+                }}
                 disabled={voiding}
                 className="text-destructive border-destructive/40 hover:bg-destructive/10"
               >
@@ -290,6 +294,34 @@ export function TransactionDetailModal({
             </div>
           )}
         </div>
+
+        <AlertDialog open={voidOpen} onOpenChange={setVoidOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Void this transaction?</AlertDialogTitle>
+              <AlertDialogDescription>
+                You are about to void receipt <b>{t.receiptNo}</b> ({formatNPR(t.total)}) for{" "}
+                <b>{t.memberName}</b>. This zeroes its financial impact and cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="space-y-3 py-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Reason *</Label>
+                <Input value={voidReason} onChange={(e) => setVoidReason(e.target.value)} placeholder="e.g. duplicate posting" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Type VOID to confirm</Label>
+                <Input value={voidConfirmText} onChange={(e) => setVoidConfirmText(e.target.value)} placeholder="VOID" />
+              </div>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleVoid} disabled={voiding}>
+                {voiding ? "Voiding…" : "Confirm Void"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );
