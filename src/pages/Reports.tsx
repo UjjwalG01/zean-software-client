@@ -29,6 +29,7 @@ import { format, parseISO, startOfMonth, isValid } from "date-fns";
 import { PremiumReportFrame } from "@/components/PremiumReportFrame";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -39,6 +40,7 @@ import {
 
 import { capitalizeFirstLetter } from "@/lib/string-case-change";
 import { useOutlet } from "@/contexts/OutletContext";
+import { formatInTz, toIsoDayInTz } from "@/lib/tz";
 
 const LedgerReport = lazy(() => import("@/components/LedgerReport"));
 
@@ -52,10 +54,12 @@ const tooltipStyle = {
 };
 
 const Reports = () => {
-  const { data: members = [] } = useMembers();
-  const { data: transactions = [] } = useTransactions();
-  const { data: bookings = [] } = useBookings();
+  const { outlets, selected: activeOutlet } = useOutlet();
+  const { data: members = [] } = useMembers({ outletId: activeOutlet?.id });
+  const { data: transactions = [] } = useTransactions({ outletId: activeOutlet?.id });
+  const { data: bookings = [] } = useBookings({ outletId: activeOutlet?.id });
   const { data: settings = {} } = useCompanySettings();
+  const [showCashierDetails, setShowCashierDetails] = useState(false);
 
   const activeMembers = members.filter((m) => m.status === "Active").length;
   const totalRevenue = transactions.reduce(
