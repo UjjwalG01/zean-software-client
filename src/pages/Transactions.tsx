@@ -281,6 +281,7 @@ const Transactions = () => {
           amount,
           method: advMethod,
           note: advNote,
+          outletId: activeOutlet?.id,
         },
       );
       // Auto-settle oldest pending charges from the (just-paid) advance.

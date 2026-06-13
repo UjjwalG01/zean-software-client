@@ -151,6 +151,7 @@ export function OutletPOSView({ outlet }: Props) {
               className: line.name,
               amount: line.price,
               chargeHead: line.type,
+              outletId: outlet.id,
             }
           );
         }
