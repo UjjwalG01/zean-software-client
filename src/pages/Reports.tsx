@@ -255,7 +255,6 @@ const Reports = () => {
   }, [contributionRows]);
 
   // ── Revenue by Outlet (replaces "Revenue by Service") ──
-  const { outlets } = useOutlet();
   const outletNameById = useMemo(() => {
     const m = new Map<string, string>();
     outlets.forEach((o) => m.set(o.id, o.name));
