@@ -117,7 +117,7 @@ export async function createManualCharge(add: AddFn, input: ManualChargeInput): 
  */
 export async function applyAdvance(
   add: AddFn,
-  input: { memberId: string; memberName: string; amount: number; method: PaymentMethod; note?: string },
+  input: { memberId: string; memberName: string; amount: number; method: PaymentMethod; note?: string; outletId?: string },
 ): Promise<string> {
   return add({
     memberId: input.memberId,
@@ -129,7 +129,8 @@ export async function applyAdvance(
     description: input.note ? `Advance — ${input.note}` : "Advance Payment",
     receiptNo: receipt("ADV"),
     status: "paid",
-  });
+    outletId: input.outletId,
+  } as Partial<Transaction>);
 }
 
 /**
