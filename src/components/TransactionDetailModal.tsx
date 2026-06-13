@@ -8,6 +8,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Receipt, Download, Printer, Ban } from "lucide-react";
 import { formatNPR, type Transaction } from "@/lib/mock-data";
 import {
@@ -21,6 +23,16 @@ import {
 } from "@/hooks/use-firestore";
 import { toast } from "sonner";
 import { methodColors } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface TransactionDetailModalProps {
   transaction: Transaction | null;
@@ -36,6 +48,9 @@ export function TransactionDetailModal({
   const { data: settings = {} } = useCompanySettings();
   const updateTxn = useUpdateTransaction();
   const [voiding, setVoiding] = useState(false);
+  const [voidOpen, setVoidOpen] = useState(false);
+  const [voidReason, setVoidReason] = useState("");
+  const [voidConfirmText, setVoidConfirmText] = useState("");
   if (!t) return null;
 
   const companyName = settings.companyName || ".............";
@@ -54,17 +69,21 @@ export function TransactionDetailModal({
   };
 
   const handleVoid = async () => {
-    const reason = prompt("Reason for voiding this transaction?");
-    if (!reason) return;
+    if (!voidReason.trim()) {
+      toast.error("Please provide a reason for voiding");
+      return;
+    }
+    if (voidConfirmText.trim().toUpperCase() !== "VOID") {
+      toast.error('Type VOID to confirm');
+      return;
+    }
     setVoiding(true);
     try {
-      // Voiding zeroes the financial impact so it no longer affects ledgers,
-      // reports or member balances — the row stays for audit history.
       await updateTxn.mutateAsync({
         id: t.id,
         data: {
           voided: true,
-          voidReason: reason,
+          voidReason,
           voidedAt: new Date().toISOString(),
           status: "voided" as any,
           amount: 0,
@@ -72,8 +91,6 @@ export function TransactionDetailModal({
           total: 0,
         } as any,
       });
-      // Best-effort: if this transaction mirrors a row in the `charges`
-      // table, zero + flag it as voided so the dedicated ledger respects it.
       const chargeRowId = (t as any).chargeRowId as string | undefined;
       if (chargeRowId) {
         try {
@@ -84,14 +101,15 @@ export function TransactionDetailModal({
               total: 0,
               amount: 0,
               vat_amount: 0,
-              meta: { voided: true, voidReason: reason },
+              meta: { voided: true, voidReason },
             })
             .eq("id", chargeRowId);
         } catch {
-          /* swallow — ledger already skips voided mirrors */
+          /* swallow */
         }
       }
       toast.success("Transaction voided");
+      setVoidOpen(false);
       onOpenChange(false);
     } catch {
       toast.error("Failed to void transaction");
