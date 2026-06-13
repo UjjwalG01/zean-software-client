@@ -72,6 +72,18 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { capitalizeFirstLetter } from "@/lib/string-case-change";
 import { methodColors } from "@/lib/utils";
+import { useOutlet } from "@/contexts/OutletContext";
+import { toIsoDayInTz } from "@/lib/tz";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 function parseSetup(
   settings: Record<string, string>,
@@ -118,19 +130,23 @@ const Transactions = () => {
   const [settleDiscount, setSettleDiscount] = useState<string>("");
   const [isSettlement, setIsSettlement] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
-  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const todayStr = toIsoDayInTz(new Date());
   const [dateFrom, setDateFrom] = useState(todayStr);
   const [dateTo, setDateTo] = useState(todayStr);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 25;
 
-  const { data: transactions = [], isLoading } = useTransactions();
-  const { data: members = [] } = useMembers();
+  const { selected: activeOutlet } = useOutlet();
+  const { data: transactions = [], isLoading } = useTransactions({ outletId: activeOutlet?.id });
+  const { data: members = [] } = useMembers({ outletId: activeOutlet?.id });
   const { data: settings = {} } = useCompanySettings();
   const addTransactionMutation = useAddTransaction();
   const updateTransactionMutation = useUpdateTransaction();
   const updateBookingMutation = useUpdateBooking();
   const qc = useQueryClient();
+
+  // Confirmation state
+  const [pendingSettle, setPendingSettle] = useState(false);
 
   const paymentModes = parseSetup(settings, "setup_paymentModes", [
     "cash",
