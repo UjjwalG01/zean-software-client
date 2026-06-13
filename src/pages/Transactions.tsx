@@ -72,6 +72,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { capitalizeFirstLetter } from "@/lib/string-case-change";
 import { methodColors } from "@/lib/utils";
+import { INVOICE_PREFIX } from "@/lib/settings";
 
 function parseSetup(
   settings: Record<string, string>,
@@ -346,11 +347,11 @@ const Transactions = () => {
             Math.round((Number(amountStr) - Number(amountStr) / 1.13) * 100) /
             100,
           total: Number(amountStr),
-          // method: "cash",
+          method: "cash",
           type: "Charge",
           date: new Date().toISOString().split("T")[0],
           description: `${serviceStr} — ${classNameStr}`,
-          receiptNo: `VFC-${Date.now()}`,
+          receiptNo: `${INVOICE_PREFIX}-${Date.now()}`,
           status: "pending",
           bookingId: bookingId || undefined,
           outletId: searchParams.get("outletId") || undefined,

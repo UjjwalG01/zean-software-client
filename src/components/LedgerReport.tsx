@@ -50,6 +50,7 @@ interface MemberLedgerRow {
   totalPaid: number;
   netBalance: number;
   status: "Settled" | "Partial" | "Unpaid";
+  memberStatus?: string;
 }
 
 export default function LedgerReport() {
@@ -110,6 +111,7 @@ export default function LedgerReport() {
         totalPaid: summary.totalPaid + summary.advance + summary.discountTotal,
         netBalance: summary.netPayable,
         status: summary.status,
+        memberStatus: m.status,
       };
     });
 
@@ -170,7 +172,9 @@ export default function LedgerReport() {
       String(m.totalPaid),
       String(m.netBalance),
       m.status,
+      m.memberStatus || "—",
     ]);
+
     exportTableToCSV(
       headers,
       rows,
@@ -202,6 +206,10 @@ export default function LedgerReport() {
           : "bg-destructive/20 text-destructive";
     return <Badge className={cn("text-[10px] border-0", cls)}>{s}</Badge>;
   };
+
+  {
+    console.log(ledger);
+  }
 
   return (
     <div className="rounded-xl overflow-hidden border border-border/60 bg-card">

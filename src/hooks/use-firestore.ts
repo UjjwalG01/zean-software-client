@@ -16,6 +16,7 @@ import {
   type ServiceType,
 } from "@/lib/mock-data";
 import { toast } from "sonner";
+import { INVOICE_PREFIX } from "@/lib/settings";
 
 const firebaseEnabled = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
 
@@ -178,7 +179,7 @@ export function useAddTransaction() {
       if (!firebaseEnabled) {
         const newTx = {
           id: `T-${Date.now()}`,
-          receiptNo: data.receiptNo || `VFC-${Date.now()}`,
+          receiptNo: data.receiptNo || `${INVOICE_PREFIX}-${Date.now()}`,
           memberId: data.memberId || "",
           memberName: data.memberName || "",
           amount: data.amount || 0,

@@ -447,7 +447,7 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
   const vat = Math.round((gross - net) * 100) / 100;
   const status = data.status === "pending" ? "pending" : "paid";
   const insertRow: any = {
-    receipt_no: data.receiptNo || `VFC-${Date.now()}`,
+    receipt_no: data.receiptNo || `${INVOICE_PREFIX}-${Date.now()}`,
     member_id: data.memberId || null,
     member_name: data.memberName || null,
     amount: net,
@@ -852,6 +852,7 @@ export async function saveDiscountRules(rules: DiscountRule[]): Promise<void> {
 
 // ─── Audit Log ──────────────────────────────────────────────────────
 import { logAudit as _logAudit } from "./audit-log";
+import { INVOICE_PREFIX } from "./settings";
 
 export async function addAuditLog(
   _userId: string | null,

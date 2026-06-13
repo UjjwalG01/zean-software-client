@@ -5,15 +5,26 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCompanySettings, useSaveCompanySettings } from "@/hooks/use-firestore";
+import {
+  useCompanySettings,
+  useSaveCompanySettings,
+} from "@/hooks/use-firestore";
 import { getBrowserTimezone, listTimezones, formatInTz } from "@/lib/tz";
 import { toast } from "sonner";
 
 const Settings = () => {
   const { data: settings = {}, isLoading } = useCompanySettings();
   const saveMutation = useSaveCompanySettings();
+
+  console.log(settings);
 
   const [company, setCompany] = useState({
     companyName: ".............",
@@ -39,7 +50,6 @@ const Settings = () => {
     dateFormat: "yyyy-mm-dd",
     defaultMemberView: "table",
   });
-  
 
   const [notifications, setNotifications] = useState({
     expiryReminders: true,
@@ -54,7 +64,8 @@ const Settings = () => {
     if (Object.keys(settings).length > 0) {
       setCompany((prev) => ({
         companyName: settings.companyName || prev.companyName,
-        registrationNumber: settings.registrationNumber || prev.registrationNumber,
+        registrationNumber:
+          settings.registrationNumber || prev.registrationNumber,
         companyEmail: settings.companyEmail || prev.companyEmail,
         companyPhone: settings.companyPhone || prev.companyPhone,
         companyAddress: settings.companyAddress || prev.companyAddress,
@@ -119,7 +130,9 @@ const Settings = () => {
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-2xl font-bold font-display">Settings</h1>
-        <p className="text-muted-foreground text-sm">Company & system configuration</p>
+        <p className="text-muted-foreground text-sm">
+          Company & system configuration
+        </p>
       </div>
 
       <Tabs defaultValue="company" className="space-y-4">
@@ -134,21 +147,30 @@ const Settings = () => {
           <div className="glass-card rounded-xl p-6 space-y-6">
             <div className="flex items-center gap-3 mb-2">
               <Building className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold font-display">Company Information</h3>
+              <h3 className="font-semibold font-display">
+                Company Information
+              </h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Company Name</Label>
                 <Input
                   value={company.companyName}
-                  onChange={(e) => setCompany((p) => ({ ...p, companyName: e.target.value }))}
+                  onChange={(e) =>
+                    setCompany((p) => ({ ...p, companyName: e.target.value }))
+                  }
                 />
               </div>
               <div className="space-y-2">
                 <Label>Registration Number</Label>
                 <Input
                   value={company.registrationNumber}
-                  onChange={(e) => setCompany((p) => ({ ...p, registrationNumber: e.target.value }))}
+                  onChange={(e) =>
+                    setCompany((p) => ({
+                      ...p,
+                      registrationNumber: e.target.value,
+                    }))
+                  }
                 />
               </div>
               <div className="space-y-2">
@@ -156,21 +178,30 @@ const Settings = () => {
                 <Input
                   type="email"
                   value={company.companyEmail}
-                  onChange={(e) => setCompany((p) => ({ ...p, companyEmail: e.target.value }))}
+                  onChange={(e) =>
+                    setCompany((p) => ({ ...p, companyEmail: e.target.value }))
+                  }
                 />
               </div>
               <div className="space-y-2">
                 <Label>Phone</Label>
                 <Input
                   value={company.companyPhone}
-                  onChange={(e) => setCompany((p) => ({ ...p, companyPhone: e.target.value }))}
+                  onChange={(e) =>
+                    setCompany((p) => ({ ...p, companyPhone: e.target.value }))
+                  }
                 />
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label>Address</Label>
                 <Input
                   value={company.companyAddress}
-                  onChange={(e) => setCompany((p) => ({ ...p, companyAddress: e.target.value }))}
+                  onChange={(e) =>
+                    setCompany((p) => ({
+                      ...p,
+                      companyAddress: e.target.value,
+                    }))
+                  }
                 />
               </div>
             </div>
@@ -180,7 +211,11 @@ const Settings = () => {
                 <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center text-xl font-bold text-primary">
                   VF
                 </div>
-                <Button variant="outline" size="sm" onClick={() => toast.info("Upload logo via Firebase Storage")}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => toast.info("Upload logo via Firebase Storage")}
+                >
                   Upload Logo
                 </Button>
               </div>
@@ -206,7 +241,9 @@ const Settings = () => {
           <div className="glass-card rounded-xl p-6 space-y-6">
             <div className="flex items-center gap-3 mb-2">
               <Shield className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold font-display">Tax & VAT Configuration</h3>
+              <h3 className="font-semibold font-display">
+                Tax & VAT Configuration
+              </h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -214,16 +251,28 @@ const Settings = () => {
                 <Input
                   type="number"
                   value={tax.vatRate}
-                  onChange={(e) => setTax((p) => ({ ...p, vatRate: e.target.value }))}
+                  onChange={(e) =>
+                    setTax((p) => ({ ...p, vatRate: e.target.value }))
+                  }
                 />
               </div>
               <div className="space-y-2">
                 <Label>PAN Number</Label>
-                <Input value={tax.panNumber} onChange={(e) => setTax((p) => ({ ...p, panNumber: e.target.value }))} />
+                <Input
+                  value={tax.panNumber}
+                  onChange={(e) =>
+                    setTax((p) => ({ ...p, panNumber: e.target.value }))
+                  }
+                />
               </div>
               <div className="space-y-2">
                 <Label>Tax Year Start</Label>
-                <Select value={tax.taxYearStart} onValueChange={(v) => setTax((p) => ({ ...p, taxYearStart: v }))}>
+                <Select
+                  value={tax.taxYearStart}
+                  onValueChange={(v) =>
+                    setTax((p) => ({ ...p, taxYearStart: v }))
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -235,7 +284,10 @@ const Settings = () => {
               </div>
               <div className="space-y-2">
                 <Label>Currency</Label>
-                <Select value={tax.currency} onValueChange={(v) => setTax((p) => ({ ...p, currency: v }))}>
+                <Select
+                  value={tax.currency}
+                  onValueChange={(v) => setTax((p) => ({ ...p, currency: v }))}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -248,10 +300,12 @@ const Settings = () => {
               </div>
             </div>
             <div className="rounded-lg border border-border/50 bg-muted/30 p-4 text-sm text-muted-foreground">
-              <p className="font-medium text-foreground mb-1">VAT Calculation</p>
+              <p className="font-medium text-foreground mb-1">
+                VAT Calculation
+              </p>
               <p>
-                All invoices automatically include {tax.vatRate}% VAT. Monthly VAT reports are available in the Reports
-                section.
+                All invoices automatically include {tax.vatRate}% VAT. Monthly
+                VAT reports are available in the Reports section.
               </p>
             </div>
             <Button
@@ -275,7 +329,9 @@ const Settings = () => {
           <div className="glass-card rounded-xl p-6 space-y-6">
             <div className="flex items-center gap-3 mb-2">
               <Mail className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold font-display">Notification Settings</h3>
+              <h3 className="font-semibold font-display">
+                Notification Settings
+              </h3>
             </div>
             <div className="space-y-1">
               {[
@@ -313,7 +369,10 @@ const Settings = () => {
                     <p className="font-medium text-sm">{item.label}</p>
                     <p className="text-xs text-muted-foreground">{item.desc}</p>
                   </div>
-                  <Switch checked={notifications[item.key]} onCheckedChange={() => toggleNotif(item.key)} />
+                  <Switch
+                    checked={notifications[item.key]}
+                    onCheckedChange={() => toggleNotif(item.key)}
+                  />
                 </div>
               ))}
             </div>
@@ -326,7 +385,12 @@ const Settings = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Language</Label>
-                <Select value={general.language} onValueChange={(v) => setGeneral((p) => ({ ...p, language: v }))}>
+                <Select
+                  value={general.language}
+                  onValueChange={(v) =>
+                    setGeneral((p) => ({ ...p, language: v }))
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -337,25 +401,52 @@ const Settings = () => {
                 </Select>
               </div>
               <div className="space-y-2 sm:col-span-2">
-                <Label className="flex items-center gap-2"><Globe className="h-3.5 w-3.5" /> Timezone</Label>
+                <Label className="flex items-center gap-2">
+                  <Globe className="h-3.5 w-3.5" /> Timezone
+                </Label>
                 <Input
                   list="tz-options"
                   value={general.timezone}
                   placeholder="Start typing… e.g. Asia/Kathmandu"
-                  onChange={(e) => setGeneral((p) => ({ ...p, timezone: e.target.value }))}
+                  onChange={(e) =>
+                    setGeneral((p) => ({ ...p, timezone: e.target.value }))
+                  }
                 />
                 <datalist id="tz-options">
-                  {allTimezones.slice(0, 500).map((z) => (<option key={z} value={z} />))}
+                  {allTimezones.slice(0, 500).map((z) => (
+                    <option key={z} value={z} />
+                  ))}
                 </datalist>
                 <p className="text-[11px] text-muted-foreground">
-                  Detected from this PC: <button type="button" className="underline text-primary" onClick={() => setGeneral((p) => ({ ...p, timezone: browserTz }))}>{browserTz}</button>
+                  Detected from this PC:{" "}
+                  <button
+                    type="button"
+                    className="underline text-primary"
+                    onClick={() =>
+                      setGeneral((p) => ({ ...p, timezone: browserTz }))
+                    }
+                  >
+                    {browserTz}
+                  </button>
                   {" · "}
-                  Now: <span className="font-mono">{formatInTz(new Date(), { dateStyle: "medium", timeStyle: "long" }, general.timezone || browserTz)}</span>
+                  Now:{" "}
+                  <span className="font-mono">
+                    {formatInTz(
+                      new Date(),
+                      { dateStyle: "medium", timeStyle: "long" },
+                      general.timezone || browserTz,
+                    )}
+                  </span>
                 </p>
               </div>
               <div className="space-y-2">
                 <Label>Date Format</Label>
-                <Select value={general.dateFormat} onValueChange={(v) => setGeneral((p) => ({ ...p, dateFormat: v }))}>
+                <Select
+                  value={general.dateFormat}
+                  onValueChange={(v) =>
+                    setGeneral((p) => ({ ...p, dateFormat: v }))
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -370,7 +461,9 @@ const Settings = () => {
                 <Label>Default Member View</Label>
                 <Select
                   value={general.defaultMemberView}
-                  onValueChange={(v) => setGeneral((p) => ({ ...p, defaultMemberView: v }))}
+                  onValueChange={(v) =>
+                    setGeneral((p) => ({ ...p, defaultMemberView: v }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -387,10 +480,26 @@ const Settings = () => {
               <p className="font-medium text-sm">API Integrations</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 {[
-                  { name: "Stripe", status: "Not Connected", color: "text-muted-foreground" },
-                  { name: "eSewa", status: "Not Connected", color: "text-muted-foreground" },
-                  { name: "Resend (Email)", status: "Not Connected", color: "text-muted-foreground" },
-                  { name: "Twilio (SMS)", status: "Not Connected", color: "text-muted-foreground" },
+                  {
+                    name: "Stripe",
+                    status: "Not Connected",
+                    color: "text-muted-foreground",
+                  },
+                  {
+                    name: "eSewa",
+                    status: "Not Connected",
+                    color: "text-muted-foreground",
+                  },
+                  {
+                    name: "Resend (Email)",
+                    status: "Not Connected",
+                    color: "text-muted-foreground",
+                  },
+                  {
+                    name: "Twilio (SMS)",
+                    status: "Not Connected",
+                    color: "text-muted-foreground",
+                  },
                 ].map((api) => (
                   <div
                     key={api.name}
