@@ -133,8 +133,8 @@ const Reports = () => {
       .map((t) => {
         const voided = (t as any).voided === true;
         const discount = Number((t as any).discount || 0);
-        const billed = Number(t.total || 0) + discount;
-        const collected = Number(t.total || 0);
+        const billed = Number(t.total || 0);
+        const collected = Number(t.total || 0) - discount;
         return {
           date: toIsoDayInTz(t.date),
           memberName: capitalizeFirstLetter(t.memberName),
