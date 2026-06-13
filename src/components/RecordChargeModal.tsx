@@ -11,6 +11,7 @@ import { chargeHeadsStore, type ChargeHead } from "@/lib/charge-heads-store";
 import { formatNPR } from "@/lib/mock-data";
 import { supabase } from "@/lib/supabase";
 import { useQueryClient } from "@tanstack/react-query";
+import { useOutlet } from "@/contexts/OutletContext";
 
 interface Props {
   open: boolean;
@@ -19,11 +20,11 @@ interface Props {
 
 /**
  * Record an unpaid miscellaneous charge against a member.
- * Writes a transaction with type="Charge", status="unpaid" — the member
- * ledger picks it up as payable until settled from Transactions.
+ * Always scoped to an outlet (defaults to currently active outlet).
  */
 export function RecordChargeModal({ open, onOpenChange }: Props) {
-  const { data: members = [] } = useMembers();
+  const { outlets, selected } = useOutlet();
+  const { data: members = [] } = useMembers({ outletId: selected?.id });
   const qc = useQueryClient();
   const [submitting, setSubmitting] = useState(false);
   const [heads, setHeads] = useState<ChargeHead[]>([]);
@@ -31,6 +32,7 @@ export function RecordChargeModal({ open, onOpenChange }: Props) {
   const [headId, setHeadId] = useState("");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
+  const [outletId, setOutletId] = useState<string>("");
 
   useEffect(() => {
     if (open) {
@@ -39,8 +41,9 @@ export function RecordChargeModal({ open, onOpenChange }: Props) {
       setHeadId("");
       setAmount("");
       setNote("");
+      setOutletId(selected?.id || outlets[0]?.id || "");
     }
-  }, [open]);
+  }, [open, selected?.id, outlets]);
 
   const selectedHead = useMemo(() => heads.find((h) => h.id === headId), [heads, headId]);
 
@@ -55,6 +58,10 @@ export function RecordChargeModal({ open, onOpenChange }: Props) {
   const vat = gross ? Math.round((gross - net) * 100) / 100 : 0;
 
   const submit = async () => {
+    if (!outletId) {
+      toast.error("Select an outlet");
+      return;
+    }
     if (!memberId) {
       toast.error("Select a member");
       return;
@@ -79,7 +86,8 @@ export function RecordChargeModal({ open, onOpenChange }: Props) {
         vat_amount: vat,
         total: gross,
         status: "unpaid",
-        meta: { type: "manual" },
+        outlet_id: outletId,
+        meta: { type: "manual", outletId },
       });
       if (error) throw error;
       qc.invalidateQueries({ queryKey: ["charges"] });
@@ -100,6 +108,22 @@ export function RecordChargeModal({ open, onOpenChange }: Props) {
           <DialogTitle className="font-display">Record Charge</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Outlet *</Label>
+            <Select value={outletId} onValueChange={setOutletId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select outlet" />
+              </SelectTrigger>
+              <SelectContent>
+                {outlets.map((o) => (
+                  <SelectItem key={o.id} value={o.id}>
+                    {o.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="space-y-2">
             <Label>Member *</Label>
             <Select value={memberId} onValueChange={setMemberId}>

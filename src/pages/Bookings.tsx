@@ -478,6 +478,7 @@ const Bookings_Page = () => {
               className: selectedService.name,
               amount: finalPrice,
               chargeHead: selectedService.type,
+              outletId: selectedOutlet?.id,
             },
           );
         } catch (e) {

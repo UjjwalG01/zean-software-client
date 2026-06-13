@@ -72,7 +72,21 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { capitalizeFirstLetter } from "@/lib/string-case-change";
 import { methodColors } from "@/lib/utils";
+
 import { INVOICE_PREFIX } from "@/lib/settings";
+
+import { useOutlet } from "@/contexts/OutletContext";
+import { toIsoDayInTz } from "@/lib/tz";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 function parseSetup(
   settings: Record<string, string>,
@@ -119,19 +133,25 @@ const Transactions = () => {
   const [settleDiscount, setSettleDiscount] = useState<string>("");
   const [isSettlement, setIsSettlement] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
-  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const todayStr = toIsoDayInTz(new Date());
   const [dateFrom, setDateFrom] = useState(todayStr);
   const [dateTo, setDateTo] = useState(todayStr);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 25;
 
-  const { data: transactions = [], isLoading } = useTransactions();
-  const { data: members = [] } = useMembers();
+  const { selected: activeOutlet } = useOutlet();
+  const { data: transactions = [], isLoading } = useTransactions({
+    outletId: activeOutlet?.id,
+  });
+  const { data: members = [] } = useMembers({ outletId: activeOutlet?.id });
   const { data: settings = {} } = useCompanySettings();
   const addTransactionMutation = useAddTransaction();
   const updateTransactionMutation = useUpdateTransaction();
   const updateBookingMutation = useUpdateBooking();
   const qc = useQueryClient();
+
+  // Confirmation state
+  const [pendingSettle, setPendingSettle] = useState(false);
 
   const paymentModes = parseSetup(settings, "setup_paymentModes", [
     "cash",
@@ -266,6 +286,7 @@ const Transactions = () => {
           amount,
           method: advMethod,
           note: advNote,
+          outletId: activeOutlet?.id,
         },
       );
       // Auto-settle oldest pending charges from the (just-paid) advance.
@@ -825,15 +846,27 @@ const Transactions = () => {
                             >
                               <Printer className="h-3.5 w-3.5" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              title="Resettle"
-                              onClick={() => openSettle(t)}
-                            >
-                              <RotateCcw className="h-3.5 w-3.5" />
-                            </Button>
+                            {(() => {
+                              const isSameDay =
+                                toIsoDayInTz(t.date) ===
+                                toIsoDayInTz(new Date());
+                              return (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  title={
+                                    isSameDay
+                                      ? "Resettle"
+                                      : "Resettlement only allowed on the same day"
+                                  }
+                                  disabled={!isSameDay}
+                                  onClick={() => openSettle(t)}
+                                >
+                                  <RotateCcw className="h-3.5 w-3.5" />
+                                </Button>
+                              );
+                            })()}
                           </>
                         ) : null}
                       </div>
@@ -999,7 +1032,7 @@ const Transactions = () => {
                 />
               </div>
               <Button
-                onClick={handleSettle}
+                onClick={() => setPendingSettle(true)}
                 disabled={updateTransactionMutation.isPending}
                 className="w-full gradient-gold text-primary-foreground"
               >
@@ -1008,6 +1041,37 @@ const Transactions = () => {
                   ? "Saving..."
                   : "Settle & Print Bill"}
               </Button>
+              <AlertDialog open={pendingSettle} onOpenChange={setPendingSettle}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Confirm settlement</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Settle{" "}
+                      {formatNPR(
+                        Math.max(
+                          0,
+                          (settleTxn.total || 0) -
+                            (Number(settleDiscount) || 0),
+                        ),
+                      )}{" "}
+                      for <b>{settleTxn.memberName}</b> via{" "}
+                      <b>{settleMethod}</b>? This action will mark the charge as
+                      paid and print a bill.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={async () => {
+                        setPendingSettle(false);
+                        await handleSettle();
+                      }}
+                    >
+                      Confirm
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           )}
         </DialogContent>

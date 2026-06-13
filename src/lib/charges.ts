@@ -27,6 +27,7 @@ export interface ChargeForBookingInput {
   className: string;
   amount: number; // VAT-inclusive
   chargeHead?: string; // service head name (defaults to the service)
+  outletId?: string;
 }
 
 /**
@@ -55,7 +56,8 @@ export async function createChargeForBooking(add: AddFn, input: ChargeForBooking
         vat_amount: vat,
         total: gross,
         status: "unpaid",
-        meta: { type: "booking", bookingId: input.bookingId },
+        outlet_id: input.outletId || null,
+        meta: { type: "booking", bookingId: input.bookingId, outletId: input.outletId || null },
       })
       .select("id")
       .single();
@@ -79,7 +81,8 @@ export async function createChargeForBooking(add: AddFn, input: ChargeForBooking
     bookingId: input.bookingId,
     chargeHead: input.chargeHead || String(input.service),
     chargeRowId,
-  });
+    outletId: input.outletId,
+  } as Partial<Transaction>);
 }
 
 export interface ManualChargeInput {
@@ -88,6 +91,7 @@ export interface ManualChargeInput {
   chargeHead: string;
   amount: number;
   note?: string;
+  outletId?: string;
 }
 
 export async function createManualCharge(add: AddFn, input: ManualChargeInput): Promise<string> {
@@ -102,7 +106,8 @@ export async function createManualCharge(add: AddFn, input: ManualChargeInput): 
     receiptNo: receipt("CHG"),
     status: "pending",
     chargeHead: input.chargeHead,
-  });
+    outletId: input.outletId,
+  } as Partial<Transaction>);
 }
 
 /**
@@ -112,7 +117,7 @@ export async function createManualCharge(add: AddFn, input: ManualChargeInput): 
  */
 export async function applyAdvance(
   add: AddFn,
-  input: { memberId: string; memberName: string; amount: number; method: PaymentMethod; note?: string },
+  input: { memberId: string; memberName: string; amount: number; method: PaymentMethod; note?: string; outletId?: string },
 ): Promise<string> {
   return add({
     memberId: input.memberId,
@@ -124,7 +129,8 @@ export async function applyAdvance(
     description: input.note ? `Advance — ${input.note}` : "Advance Payment",
     receiptNo: receipt("ADV"),
     status: "paid",
-  });
+    outletId: input.outletId,
+  } as Partial<Transaction>);
 }
 
 /**
