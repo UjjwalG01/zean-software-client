@@ -840,15 +840,21 @@ const Transactions = () => {
                             >
                               <Printer className="h-3.5 w-3.5" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              title="Resettle"
-                              onClick={() => openSettle(t)}
-                            >
-                              <RotateCcw className="h-3.5 w-3.5" />
-                            </Button>
+                            {(() => {
+                              const isSameDay = toIsoDayInTz(t.date) === toIsoDayInTz(new Date());
+                              return (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  title={isSameDay ? "Resettle" : "Resettlement only allowed on the same day"}
+                                  disabled={!isSameDay}
+                                  onClick={() => openSettle(t)}
+                                >
+                                  <RotateCcw className="h-3.5 w-3.5" />
+                                </Button>
+                              );
+                            })()}
                           </>
                         ) : null}
                       </div>
@@ -1014,7 +1020,7 @@ const Transactions = () => {
                 />
               </div>
               <Button
-                onClick={handleSettle}
+                onClick={() => setPendingSettle(true)}
                 disabled={updateTransactionMutation.isPending}
                 className="w-full gradient-gold text-primary-foreground"
               >
@@ -1023,6 +1029,29 @@ const Transactions = () => {
                   ? "Saving..."
                   : "Settle & Print Bill"}
               </Button>
+              <AlertDialog open={pendingSettle} onOpenChange={setPendingSettle}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Confirm settlement</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Settle {formatNPR(Math.max(0, (settleTxn.total || 0) - (Number(settleDiscount) || 0)))} for{" "}
+                      <b>{settleTxn.memberName}</b> via <b>{settleMethod}</b>?
+                      This action will mark the charge as paid and print a bill.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={async () => {
+                        setPendingSettle(false);
+                        await handleSettle();
+                      }}
+                    >
+                      Confirm
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           )}
         </DialogContent>
