@@ -20,12 +20,15 @@ import { toast } from "sonner";
 const firebaseEnabled = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
 
 // ─── Members ────────────────────────────────────────────────────────
-export function useMembers(filters?: { tier?: MemberTier; status?: MemberStatus; service?: ServiceType }) {
+export function useMembers(filters?: { tier?: MemberTier; status?: MemberStatus; service?: ServiceType; outletId?: string }) {
   return useQuery({
     queryKey: ["members", filters],
     queryFn: async () => {
-      if (!firebaseEnabled) return mockMembers;
-      return fbServices.getMembers(filters);
+      const list = !firebaseEnabled ? mockMembers : await fbServices.getMembers(filters);
+      if (filters?.outletId) {
+        return list.filter((m) => !m.outletId || m.outletId === filters.outletId);
+      }
+      return list;
     },
   });
 }
@@ -85,12 +88,15 @@ export function useDeleteMember() {
 }
 
 // ─── Bookings ───────────────────────────────────────────────────────
-export function useBookings(filters?: { service?: ServiceType }) {
+export function useBookings(filters?: { service?: ServiceType; outletId?: string }) {
   return useQuery({
     queryKey: ["bookings", filters],
     queryFn: async () => {
-      if (!firebaseEnabled) return mockBookings;
-      return fbServices.getBookings(filters);
+      const list = !firebaseEnabled ? mockBookings : await fbServices.getBookings(filters);
+      if (filters?.outletId) {
+        return list.filter((b: any) => !b.outletId || b.outletId === filters.outletId);
+      }
+      return list;
     },
   });
 }
@@ -161,12 +167,15 @@ export function useDeleteBooking() {
 }
 
 // ─── Transactions ───────────────────────────────────────────────────
-export function useTransactions() {
+export function useTransactions(filters?: { outletId?: string }) {
   return useQuery({
-    queryKey: ["transactions"],
+    queryKey: ["transactions", filters],
     queryFn: async () => {
-      if (!firebaseEnabled) return mockTransactions;
-      return fbServices.getTransactions();
+      const list = !firebaseEnabled ? mockTransactions : await fbServices.getTransactions();
+      if (filters?.outletId) {
+        return list.filter((t: any) => !t.outletId || t.outletId === filters.outletId);
+      }
+      return list;
     },
   });
 }
