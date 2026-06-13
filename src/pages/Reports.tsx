@@ -62,9 +62,9 @@ const Reports = () => {
       <>{children}</>
     ) : (
       <div className="glass-card rounded-xl p-10 text-center space-y-3">
-        <p className="text-sm text-muted-foreground">
+        {/* <p className="text-sm text-muted-foreground">
           Click <strong>Load Report</strong> to fetch and render this report.
-        </p>
+        </p> */}
         <Button onClick={() => loadTab(k)} className="gradient-gold text-primary-foreground">
           <Download className="h-4 w-4 mr-1.5" />
           Load Report
