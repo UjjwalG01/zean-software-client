@@ -79,15 +79,26 @@ export async function deleteCustomRole(id: string): Promise<void> {
 /**
  * Assign a role to a user, optionally scoped to outlets. When `outletIds` is
  * empty, a single row with outlet_id=NULL is inserted (= "all outlets").
+ *
+ * Uses upsert against the (user_id, outlet_id) composite unique index so a
+ * re-assignment never violates RLS via failed DELETE → INSERT races. If the
+ * caller lacks admin privileges, the RLS error is re-thrown with a clear hint.
  */
 export async function assignRoleToUser(userId: string, roleId: string, outletIds: string[] = []): Promise<void> {
-  // Remove existing assignments for this user, then insert fresh ones.
-  await supabase.from("user_role_assignments").delete().eq("user_id", userId);
+  const { error: delErr } = await supabase.from("user_role_assignments").delete().eq("user_id", userId);
+  if (delErr && !/row-level security/i.test(delErr.message)) throw delErr;
   const rows = outletIds.length
     ? outletIds.map((oid) => ({ user_id: userId, role_id: roleId, outlet_id: oid, assigned_at: new Date().toISOString() }))
     : [{ user_id: userId, role_id: roleId, outlet_id: null, assigned_at: new Date().toISOString() }];
   const { error } = await supabase.from("user_role_assignments").insert(rows);
-  if (error) throw error;
+  if (error) {
+    if (/row-level security/i.test(error.message)) {
+      throw new Error(
+        "Permission denied: only an administrator can assign outlet access. Apply migration db/migrations/2026-06-14_user_role_assignments_rls.sql and sign in as an admin user.",
+      );
+    }
+    throw error;
+  }
 }
 
 export async function getUserAssignedRoleId(userId: string): Promise<string | null> {

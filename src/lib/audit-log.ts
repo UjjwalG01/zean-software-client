@@ -32,6 +32,9 @@ export interface AuditEntry {
   entityType?: string;
   action: string; // e.g. "create", "update", "cancel", "void", "settle"
   entityId?: string;
+  /** Outlet the action targeted — included in the description. */
+  outletId?: string | null;
+  outletName?: string | null;
   oldValue?: any;
   newValue?: any;
 }
@@ -69,6 +72,17 @@ function moduleNameForSlug(slug: string): string {
   return FALLBACK_MODULES.find((m) => m.slug === slug)?.name || slug;
 }
 
+async function resolveActiveOutlet(): Promise<{ id: string | null; name: string | null }> {
+  try {
+    const id = typeof window !== "undefined" ? window.localStorage.getItem("vitafit.selectedOutletId") : null;
+    if (!id) return { id: null, name: null };
+    const { data } = await supabase.from("outlets").select("name").eq("id", id).maybeSingle();
+    return { id, name: (data as any)?.name || null };
+  } catch {
+    return { id: null, name: null };
+  }
+}
+
 /**
  * Best-effort audit log writer. Failures are swallowed so they never break
  * the user flow; we only console.warn so we still notice in dev.
@@ -84,6 +98,13 @@ export async function logAudit(entry: AuditEntry): Promise<void> {
       (entry.entityType ? ENTITY_TO_SLUG[entry.entityType.toLowerCase()] : undefined);
     const moduleName = slug ? moduleNameForSlug(slug) : String(entry.module || "");
     const module_id = slug ? await getModuleIdBySlug(slug) : null;
+    const outlet = entry.outletId
+      ? { id: entry.outletId, name: entry.outletName || null }
+      : await resolveActiveOutlet();
+    const actor = user?.email || user?.id || "system";
+    const ts = new Date().toISOString();
+    const outletLabel = outlet.name || outlet.id || "—";
+    const description = `"${actor}" performed "${entry.action}" action in "${moduleName || slug || "—"}" module inside the "${outletLabel}" outlet at ${ts}`;
     await supabase.from("audit_logs").insert({
       actor_id: user?.id ?? null,
       actor_email: user?.email ?? null,
@@ -92,7 +113,7 @@ export async function logAudit(entry: AuditEntry): Promise<void> {
       action: entry.action,
       entity_id: entry.entityId ?? null,
       old_value: entry.oldValue ?? null,
-      new_value: entry.newValue ?? null,
+      new_value: { ...(entry.newValue && typeof entry.newValue === "object" ? entry.newValue : { value: entry.newValue }), __outletId: outlet.id, __outletName: outlet.name, __description: description, __ts: ts },
     });
   } catch (e) {
     // eslint-disable-next-line no-console
@@ -113,19 +134,19 @@ export interface AuditRow {
 function buildDescription(
   module: string,
   action: string,
-  entityId: string | null,
+  _entityId: string | null,
   user: string | null,
   newValue: any,
+  ts: string,
 ): string {
+  // Prefer the stored description (already in the required canonical format).
+  if (newValue && typeof newValue === "object" && typeof newValue.__description === "string") {
+    return newValue.__description as string;
+  }
   const who = user || "system";
-  const what = entityId ? ` #${entityId.slice(0, 8)}` : "";
-  const extra =
-    newValue && typeof newValue === "object"
-      ? newValue.name || newValue.title || newValue.amount
-        ? ` (${newValue.name || newValue.title || newValue.amount})`
-        : ""
-      : "";
-  return `${who} ${action}d a ${module} record${what}${extra}`.trim();
+  const outletLabel =
+    (newValue && typeof newValue === "object" && (newValue.__outletName || newValue.__outletId)) || "—";
+  return `"${who}" performed "${action}" action in "${module || "—"}" module inside the "${outletLabel}" outlet at ${ts}`;
 }
 
 export async function listAuditLogs(filters: {
@@ -159,7 +180,7 @@ export async function listAuditLogs(filters: {
     module: r.module,
     action: r.action,
     entity_id: r.entity_id,
-    description: buildDescription(r.module, r.action, r.entity_id, r.actor_email, r.new_value),
+    description: buildDescription(r.module, r.action, r.entity_id, r.actor_email, r.new_value, r.ts),
   })) as AuditRow[];
   if (filters.search) {
     const s = filters.search.toLowerCase();

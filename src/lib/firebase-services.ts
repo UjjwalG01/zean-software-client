@@ -12,6 +12,7 @@ import type {
   PaymentMethod,
   BookingStatus,
 } from "./mock-data";
+import { toIsoDayInTz, dayToTimestampInTz, nowIso } from "./tz";
 
 
 
@@ -20,9 +21,13 @@ const avatarUrl = (seed: string) =>
 
 function dateOnly(value: any): string {
   if (!value) return "";
-  if (typeof value === "string") return value.split("T")[0];
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  if (typeof value === "string" && value.includes("T")) {
+    // Render in the active TZ so DB timestamps don't shift the calendar day.
+    return toIsoDayInTz(value);
+  }
   try {
-    return new Date(value).toISOString().split("T")[0];
+    return toIsoDayInTz(new Date(value));
   } catch {
     return "";
   }
@@ -36,9 +41,10 @@ function timeOnly(value: any): string {
 }
 
 function at(date?: string, time?: string): string {
-  const d = date || new Date().toISOString().split("T")[0];
+  const d = date || toIsoDayInTz(new Date());
   const t = time || "00:00";
-  return new Date(`${d}T${t}:00`).toISOString();
+  // Anchor as local wall-clock; using the existing helper avoids UTC day-flip.
+  return dayToTimestampInTz(d).replace(/T\d{2}:\d{2}:\d{2}/, `T${t}:00`);
 }
 
 async function maybeAudit(action: string, entityType: string, entityId: string, oldValue?: any, newValue?: any) {
@@ -457,7 +463,8 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
     method: data.method || "cash",
     service_type: data.serviceType || null,
     description: data.description || "",
-    paid_at: data.date ? new Date(`${data.date}T00:00:00`).toISOString() : new Date().toISOString(),
+    paid_at: data.date ? dayToTimestampInTz(data.date) : nowIso(),
+    created_at: nowIso(),
     status,
     outlet_id: (data as any).outletId || null,
     settled_charge_id: (data as any).chargeRowId || null,
@@ -483,7 +490,7 @@ export async function updateTransaction(id: string, data: Partial<Transaction>):
   if (data.method !== undefined) patch.method = data.method;
   if (data.status !== undefined) patch.status = data.status === "voided" ? "voided" : data.status;
   if (data.description !== undefined) patch.description = data.description;
-  if (data.date !== undefined) patch.paid_at = new Date(`${data.date}T00:00:00`).toISOString();
+  if (data.date !== undefined) patch.paid_at = dayToTimestampInTz(data.date);
   if ((data as any).voided !== undefined) patch.voided = (data as any).voided;
   if ((data as any).voidReason !== undefined) patch.void_reason = (data as any).voidReason;
   if ((data as any).voidedAt !== undefined) patch.voided_at = (data as any).voidedAt;

@@ -76,6 +76,27 @@ export function endOfDayIsoInTz(day: string, tz: string = getAppTimezone()): str
 }
 
 /**
+ * Build a timestamptz string for a given YYYY-MM-DD day, anchored so it always
+ * resolves back to the same calendar day in the active timezone (avoids the
+ * day-flip bug where `new Date("YYYY-MM-DDT00:00:00").toISOString()` rolls back
+ * a day in positive UTC offsets).
+ *
+ * Rule:
+ *   - If `day` equals today in the active TZ, return the current instant.
+ *   - Otherwise, anchor at 12:00:00 wall-clock in the active TZ (safe for any TZ).
+ */
+export function dayToTimestampInTz(day: string, tz: string = getAppTimezone()): string {
+  if (!day) return new Date().toISOString();
+  if (day === toIsoDayInTz(new Date(), tz)) return new Date().toISOString();
+  return zonedStringToUtcIso(`${day}T12:00:00`, tz);
+}
+
+/** Current timestamp ISO — always returns `new Date().toISOString()` but routed through here for grep-ability. */
+export function nowIso(): string {
+  return new Date().toISOString();
+}
+
+/**
  * Convert a "wall clock" timestamp in `tz` (no offset suffix) into a UTC ISO string.
  * Uses an offset-probing trick because there is no built-in API.
  */
