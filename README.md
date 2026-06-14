@@ -8,7 +8,7 @@ and **Unlayer** as the drag-and-drop email designer.
 
 ## 1. One-time Supabase setup
 
-Do these once in your Supabase project (`jjshmzlwhbspaqytgulf`).
+Do these once in your Supabase project (`...............`).
 
 ### 1.1 Create / migrate the schema
 
@@ -34,8 +34,8 @@ Storage → **New bucket** → name `outlets`, **public** → Save.
 
 ```bash
 supabase login
-supabase link --project-ref jjshmzlwhbspaqytgulf
-supabase secrets set RESEND_API_KEY=re_Jw1Sm8jp_3X6dhr3S37TZ1aNJdaQKxhaE
+supabase link --project-ref xxxxxxxxxxxxxxxxxxx
+supabase secrets set RESEND_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 ### 1.4 Deploy the email Edge Function

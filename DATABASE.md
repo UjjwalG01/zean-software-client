@@ -24,6 +24,7 @@ a future relational migration lives in `prisma/schema.prisma`.
 
 The frontend converters (`src/lib/firebase-converters.ts`) and the Prisma
 schema use **identical field names** so a future migration is mostly:
+
 1. Run `prisma migrate deploy`
 2. Swap the Firestore SDK import for a Prisma client call.
 
@@ -42,11 +43,11 @@ If the Firebase project was provisioned earlier, the following are **new**
 and must be created (any first write auto-creates them in Firestore — no
 schema migration needed):
 
-- `appUsers`            ← user management
-- `emailTemplates`      ← Unlayer designs + subjects
-- `emailReminders`      ← outbound email log
-- `auditLogs`           ← compliance / change history
-- `checkIns`            ← attendance, per-day docs
+- `appUsers` ← user management
+- `emailTemplates` ← Unlayer designs + subjects
+- `emailReminders` ← outbound email log
+- `auditLogs` ← compliance / change history
+- `checkIns` ← attendance, per-day docs
 
-For Postgres / Lovable Cloud, run `prisma migrate dev --name init` against
+For Postgres / Cloud, run `prisma migrate dev --name init` against
 `prisma/schema.prisma`.
