@@ -463,7 +463,8 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
     method: data.method || "cash",
     service_type: data.serviceType || null,
     description: data.description || "",
-    paid_at: data.date ? new Date(`${data.date}T00:00:00`).toISOString() : new Date().toISOString(),
+    paid_at: data.date ? dayToTimestampInTz(data.date) : nowIso(),
+    created_at: nowIso(),
     status,
     outlet_id: (data as any).outletId || null,
     settled_charge_id: (data as any).chargeRowId || null,
@@ -489,7 +490,7 @@ export async function updateTransaction(id: string, data: Partial<Transaction>):
   if (data.method !== undefined) patch.method = data.method;
   if (data.status !== undefined) patch.status = data.status === "voided" ? "voided" : data.status;
   if (data.description !== undefined) patch.description = data.description;
-  if (data.date !== undefined) patch.paid_at = new Date(`${data.date}T00:00:00`).toISOString();
+  if (data.date !== undefined) patch.paid_at = dayToTimestampInTz(data.date);
   if ((data as any).voided !== undefined) patch.voided = (data as any).voided;
   if ((data as any).voidReason !== undefined) patch.void_reason = (data as any).voidReason;
   if ((data as any).voidedAt !== undefined) patch.voided_at = (data as any).voidedAt;
