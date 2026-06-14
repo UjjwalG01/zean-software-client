@@ -141,14 +141,14 @@ const UsersPage = () => {
         role: "staff" as UserRole,
         customRoleId: form.role,
       });
-      // Persist the role assignment to the DB (user_role_assignments)
+      // Persist the role + outlet assignment to the DB (user_role_assignments)
       try {
         await assignRoleMutation.mutateAsync({
           userId: newUserId as string,
           roleId: form.role,
         });
-      } catch {
-        /* non-fatal */
+      } catch (e: any) {
+        toast.error(e?.message || "Role assignment failed");
       }
       const created = {
         email: form.email,
@@ -280,8 +280,9 @@ const UsersPage = () => {
             roleId: editForm.customRoleId,
             outletIds: editOutletIds,
           } as any);
-        } catch {
-          /* non-fatal */
+        } catch (e: any) {
+          toast.error(e?.message || "Outlet assignment failed");
+          return;
         }
       }
       toast.success("User updated");
