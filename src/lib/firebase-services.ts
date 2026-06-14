@@ -12,6 +12,7 @@ import type {
   PaymentMethod,
   BookingStatus,
 } from "./mock-data";
+import { toIsoDayInTz, dayToTimestampInTz, nowIso } from "./tz";
 
 
 
@@ -20,9 +21,13 @@ const avatarUrl = (seed: string) =>
 
 function dateOnly(value: any): string {
   if (!value) return "";
-  if (typeof value === "string") return value.split("T")[0];
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  if (typeof value === "string" && value.includes("T")) {
+    // Render in the active TZ so DB timestamps don't shift the calendar day.
+    return toIsoDayInTz(value);
+  }
   try {
-    return new Date(value).toISOString().split("T")[0];
+    return toIsoDayInTz(new Date(value));
   } catch {
     return "";
   }
@@ -36,9 +41,10 @@ function timeOnly(value: any): string {
 }
 
 function at(date?: string, time?: string): string {
-  const d = date || new Date().toISOString().split("T")[0];
+  const d = date || toIsoDayInTz(new Date());
   const t = time || "00:00";
-  return new Date(`${d}T${t}:00`).toISOString();
+  // Anchor as local wall-clock; using the existing helper avoids UTC day-flip.
+  return dayToTimestampInTz(d).replace(/T\d{2}:\d{2}:\d{2}/, `T${t}:00`);
 }
 
 async function maybeAudit(action: string, entityType: string, entityId: string, oldValue?: any, newValue?: any) {
