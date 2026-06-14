@@ -370,7 +370,7 @@ const Transactions = () => {
           total: Number(amountStr),
           method: "cash",
           type: "Charge",
-          date: new Date().toISOString().split("T")[0],
+          date: toIsoDayInTz(new Date()),
           description: `${serviceStr} — ${classNameStr}`,
           receiptNo: `${INVOICE_PREFIX}-${Date.now()}`,
           status: "pending",
@@ -421,7 +421,7 @@ const Transactions = () => {
           discount,
           method: settleMethod,
           type: settleTxn.serviceType || "Charge",
-          date: new Date().toISOString().split("T")[0],
+          date: toIsoDayInTz(new Date()),
           description: settleTxn.description,
           receiptNo: settleTxn.receiptNo,
           status: "paid",
@@ -437,11 +437,13 @@ const Transactions = () => {
         if (chargeRowId) {
           try {
             const { supabase } = await import("@/lib/supabase");
+            const nowTs = new Date().toISOString();
             await supabase
               .from("charges")
               .update({
                 status: "paid",
-                paid_at: new Date().toISOString(),
+                paid_at: nowTs,
+                updated_at: nowTs,
                 discount,
                 method: settleMethod,
                 outlet_id: settleTxn.outletId || null,
@@ -460,7 +462,7 @@ const Transactions = () => {
           data: {
             status: "paid",
             method: settleMethod,
-            date: new Date().toISOString().split("T")[0],
+            date: toIsoDayInTz(new Date()),
             discount,
           } as any,
         });
