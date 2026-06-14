@@ -3,7 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNPR } from "@/lib/mock-data";
-import { useMembers, useTransactions, useBookings, useCompanySettings } from "@/hooks/use-firestore";
+import {
+  useMembers,
+  useTransactions,
+  useBookings,
+  useCompanySettings,
+} from "@/hooks/use-firestore";
 import {
   BarChart,
   Bar,
@@ -25,47 +30,58 @@ import { PremiumReportFrame } from "@/components/PremiumReportFrame";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { capitalizeFirstLetter } from "@/lib/string-case-change";
 import { useOutlet } from "@/contexts/OutletContext";
 import { formatInTz, toIsoDayInTz } from "@/lib/tz";
+import { tooltipStyle } from "@/lib/utils";
 
 const LedgerReport = lazy(() => import("@/components/LedgerReport"));
-
-const tooltipStyle = {
-  background: "hsl(45, 100%, 97%)", // soft warm ivory
-  border: "1px solid hsl(45, 80%, 85%)", // subtle golden border
-  borderRadius: 8,
-  color: "hsl(220, 25%, 20%)", // deep slate text for contrast
-  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)", // premium soft shadow
-  padding: "8px 12px",
-};
 
 const Reports = () => {
   const { outlets, selected: activeOutlet } = useOutlet();
   const { data: members = [] } = useMembers({ outletId: activeOutlet?.id });
-  const { data: transactions = [] } = useTransactions({ outletId: activeOutlet?.id });
+  const { data: transactions = [] } = useTransactions({
+    outletId: activeOutlet?.id,
+  });
   const { data: bookings = [] } = useBookings({ outletId: activeOutlet?.id });
   const { data: settings = {} } = useCompanySettings();
   const [showCashierDetails, setShowCashierDetails] = useState(false);
 
   const activeMembers = members.filter((m) => m.status === "Active").length;
-  const totalRevenue = transactions.reduce((sum, t) => sum + ((t as any).voided ? 0 : t.total), 0);
+  const totalRevenue = transactions.reduce(
+    (sum, t) => sum + ((t as any).voided ? 0 : t.total),
+    0,
+  );
 
   // Lazy-load: each sub-tab renders an empty placeholder with a "Load Report" button
   // until the user clicks it. This keeps the page fast and avoids heavy upfront work.
   const [loaded, setLoaded] = useState<Record<string, boolean>>({});
   const loadTab = (k: string) => setLoaded((p) => ({ ...p, [k]: true }));
-  const LoadGate = ({ k, children }: { k: string; children: React.ReactNode }) =>
+  const LoadGate = ({
+    k,
+    children,
+  }: {
+    k: string;
+    children: React.ReactNode;
+  }) =>
     loaded[k] ? (
       <>{children}</>
     ) : (
       <div className="glass-card rounded-xl p-10 text-center space-y-3">
-        {/* <p className="text-sm text-muted-foreground">
-          Click <strong>Load Report</strong> to fetch and render this report.
-        </p> */}
-        <Button onClick={() => loadTab(k)} className="gradient-gold text-primary-foreground">
+        <Button
+          onClick={() => loadTab(k)}
+          variant="secondary"
+          size="sm"
+          className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+        >
           <Download className="h-4 w-4 mr-1.5" />
           Load Report
         </Button>
@@ -77,7 +93,9 @@ const Reports = () => {
   const monthStart = format(startOfMonth(new Date()), "yyyy-MM-dd");
   const [from, setFrom] = useState(monthStart);
   const [to, setTo] = useState(today);
-  const [includeVoided, setIncludeVoided] = useState<"exclude" | "include">("exclude");
+  const [includeVoided, setIncludeVoided] = useState<"exclude" | "include">(
+    "exclude",
+  );
 
   const txInRange = useMemo(() => {
     return transactions.filter((t) => {
@@ -104,15 +122,21 @@ const Reports = () => {
       }
     > = {};
     txInRange.forEach((t) => {
-      const department = t.serviceType || (t.type === "Charge" ? "Misc Charges" : "Membership");
+      const department =
+        t.serviceType || (t.type === "Charge" ? "Misc Charges" : "Membership");
       const key = `${t.date}::${department}`;
-      if (!acc[key]) acc[key] = { date: t.date, department, sales: 0, vat: 0, total: 0 };
+      if (!acc[key])
+        acc[key] = { date: t.date, department, sales: 0, vat: 0, total: 0 };
       const sign = (t as any).voided ? -1 : 1;
       acc[key].sales += sign * (t.amount || 0);
       acc[key].vat += sign * (t.vat || 0);
       acc[key].total += sign * (t.total || 0);
     });
-    return Object.values(acc).sort((a, b) => a.date.localeCompare(b.date) || a.department.localeCompare(b.department));
+    return Object.values(acc).sort(
+      (a, b) =>
+        a.date.localeCompare(b.date) ||
+        a.department.localeCompare(b.department),
+    );
   }, [txInRange]);
 
   const dailySalesTotals = useMemo(() => {
@@ -144,7 +168,11 @@ const Reports = () => {
           billed,
           discount,
           collected: voided ? -collected : collected,
-          user: (t as any).createdBy || (t as any).created_by || (t as any).cashier || "—",
+          user:
+            (t as any).createdBy ||
+            (t as any).created_by ||
+            (t as any).cashier ||
+            "—",
           settledAt: (t as any).settledAt
             ? formatInTz((t as any).settledAt, { timeStyle: "short" })
             : (t as any).createdAt
@@ -152,10 +180,16 @@ const Reports = () => {
               : formatInTz(t.date, { timeStyle: "short" }),
           voided,
           rowClass: voided ? "line-through text-red-500/80" : "",
-          status: t.status === "paid" ? "Settled" : capitalizeFirstLetter(t.status || ""),
+          status:
+            t.status === "paid"
+              ? "Settled"
+              : capitalizeFirstLetter(t.status || ""),
         };
       });
-    return rows.sort((a, b) => a.date.localeCompare(b.date) || a.method.localeCompare(b.method));
+    return rows.sort(
+      (a, b) =>
+        a.date.localeCompare(b.date) || a.method.localeCompare(b.method),
+    );
   }, [txInRange]);
 
   const collectionTotals = useMemo(() => {
@@ -198,10 +232,13 @@ const Reports = () => {
   }, [txInRange]);
 
   const contributionTotals = useMemo(() => {
-    return contributionRows.reduce((a, r) => ({ txns: a.txns + r.txns, total: a.total + r.total }), {
-      txns: 0,
-      total: 0,
-    });
+    return contributionRows.reduce(
+      (a, r) => ({ txns: a.txns + r.txns, total: a.total + r.total }),
+      {
+        txns: 0,
+        total: 0,
+      },
+    );
   }, [contributionRows]);
 
   // ── Revenue by Outlet (replaces "Revenue by Service") ──
@@ -212,12 +249,19 @@ const Reports = () => {
   }, [outlets]);
 
   const revenueByOutlet = useMemo(() => {
-    const acc: Record<string, { outletId: string; outlet: string; revenue: number; txns: number }> = {};
+    const acc: Record<
+      string,
+      { outletId: string; outlet: string; revenue: number; txns: number }
+    > = {};
     transactions.forEach((t) => {
       if ((t as any).voided) return;
-      const id = (t as any).outletId || (t as any).outlet_id || "__unassigned__";
-      const name = outletNameById.get(id) || (id === "__unassigned__" ? "Unassigned" : `Outlet (${id})`);
-      if (!acc[id]) acc[id] = { outletId: id, outlet: name, revenue: 0, txns: 0 };
+      const id =
+        (t as any).outletId || (t as any).outlet_id || "__unassigned__";
+      const name =
+        outletNameById.get(id) ||
+        (id === "__unassigned__" ? "Unassigned" : `Outlet (${id})`);
+      if (!acc[id])
+        acc[id] = { outletId: id, outlet: name, revenue: 0, txns: 0 };
       acc[id].revenue += t.total || 0;
       acc[id].txns += 1;
     });
@@ -238,9 +282,13 @@ const Reports = () => {
 
   const memberGrowth = useMemo(() => {
     const monthMap: Record<string, { newMembers: number; total: number }> = {};
-    const sorted = [...members].sort((a, b) => a.joinDate.localeCompare(b.joinDate));
+    const sorted = [...members].sort((a, b) =>
+      a.joinDate.localeCompare(b.joinDate),
+    );
     sorted.forEach((m, i) => {
-      const month = m.joinDate ? new Date(m.joinDate).toLocaleString("en", { month: "short" }) : "Unknown";
+      const month = m.joinDate
+        ? new Date(m.joinDate).toLocaleString("en", { month: "short" })
+        : "Unknown";
       if (!monthMap[month]) monthMap[month] = { newMembers: 0, total: 0 };
       monthMap[month].newMembers++;
       monthMap[month].total = i + 1;
@@ -263,6 +311,7 @@ const Reports = () => {
       esewa: "hsl(142, 71%, 45%)",
       bank_transfer: "hsl(220, 10%, 55%)",
       mobile_wallet: "hsl(280, 60%, 55%)",
+      other: "hsl(15, 80%, 55%)",
     };
     return Object.entries(counts).map(([name, count]) => ({
       name,
@@ -275,7 +324,11 @@ const Reports = () => {
     <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
       <div className="space-y-1.5">
         <Label className="text-xs">From Date</Label>
-        <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+        <Input
+          type="date"
+          value={from}
+          onChange={(e) => setFrom(e.target.value)}
+        />
       </div>
       <div className="space-y-1.5">
         <Label className="text-xs">To Date</Label>
@@ -283,7 +336,10 @@ const Reports = () => {
       </div>
       <div className="space-y-1.5">
         <Label className="text-xs">Voided Transactions</Label>
-        <Select value={includeVoided} onValueChange={(v) => setIncludeVoided(v as any)}>
+        <Select
+          value={includeVoided}
+          onValueChange={(v) => setIncludeVoided(v as any)}
+        >
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
@@ -295,7 +351,9 @@ const Reports = () => {
       </div>
       <div className="space-y-1.5">
         <Label className="text-xs">&nbsp;</Label>
-        <div className="text-xs text-muted-foreground py-2">{txInRange.length} transactions in range</div>
+        <div className="text-xs text-muted-foreground py-2">
+          {txInRange.length} transactions in range
+        </div>
       </div>
     </div>
   );
@@ -313,34 +371,14 @@ const Reports = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl mb-4 font-bold font-display">Reports</h1>
-          {/* <p className="text-muted-foreground text-sm">
-            Financial analytics from live data
-          </p> */}
         </div>
-        {/* <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            import("@/lib/print-utils").then(({ exportTableToCSV }) => {
-              const dateRange = format(new Date(), "PPP");
-              const headers = ["Member", "Status", "Tier", "Total Paid", "Due"];
-              const rows = members.map((m) => [m.name, m.status, m.tier, String(m.totalPaid), String(m.dueAmount)]);
-              exportTableToCSV(headers, rows, `members-report-${format(new Date(), "yyyyMMdd")}.csv`, {
-                propertyName,
-                reportTitle: "Members Report",
-                dateRange,
-                filters: { "Total Members": String(members.length), "Active Members": String(activeMembers) },
-              });
-              toast.success("Members report exported");
-            });
-          }}
-        >
-          <Download className="h-4 w-4 mr-1" />
-          Export Members
-        </Button> */}
       </div>
 
-      <Tabs defaultValue="daily" className="space-y-4" onValueChange={(v) => setLoaded((p) => ({ ...p, [v]: p[v] }))}>
+      <Tabs
+        defaultValue="daily"
+        className="space-y-4"
+        onValueChange={(v) => setLoaded((p) => ({ ...p, [v]: p[v] }))}
+      >
         <TabsList className="bg-muted/50 flex-wrap h-auto">
           <TabsTrigger value="daily">Daily Sales</TabsTrigger>
           <TabsTrigger value="collection">Cashier / Collection</TabsTrigger>
@@ -406,10 +444,17 @@ const Reports = () => {
           <LoadGate k="collection">
             <div className="space-y-3">
               <div className="flex items-center justify-end gap-2 px-1">
-                <Label htmlFor="cashier-details" className="text-xs text-muted-foreground">
+                <Label
+                  htmlFor="cashier-details"
+                  className="text-xs text-muted-foreground"
+                >
                   Show Details
                 </Label>
-                <Switch id="cashier-details" checked={showCashierDetails} onCheckedChange={setShowCashierDetails} />
+                <Switch
+                  id="cashier-details"
+                  checked={showCashierDetails}
+                  onCheckedChange={setShowCashierDetails}
+                />
               </div>
               <PremiumReportFrame
                 title="Cashier / Collection Report"
@@ -458,7 +503,11 @@ const Reports = () => {
                           exportFormat: (r: any) => String(r.collected),
                         },
                       ]),
-                  { key: "settledAt", label: "Settled At", align: "right" as const },
+                  {
+                    key: "settledAt",
+                    label: "Settled At",
+                    align: "right" as const,
+                  },
                 ]}
                 rows={collectionRows}
                 footerTotals={{
@@ -544,13 +593,20 @@ const Reports = () => {
           <LoadGate k="revenue">
             <div className="space-y-4">
               <div className="glass-card rounded-xl p-5">
-                <h3 className="font-semibold font-display mb-4">Revenue by Outlet</h3>
+                <h3 className="font-semibold font-display mb-4">
+                  Revenue by Outlet
+                </h3>
                 {revenueByOutlet.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-12">No transaction data yet</p>
+                  <p className="text-center text-muted-foreground py-12">
+                    No transaction data yet
+                  </p>
                 ) : (
                   <ResponsiveContainer width="100%" height={360}>
                     <BarChart data={revenueByOutlet}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(224, 15%, 18%)" />
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="hsl(224, 15%, 18%)"
+                      />
                       <XAxis
                         dataKey="outlet"
                         tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 12 }}
@@ -563,10 +619,16 @@ const Reports = () => {
                         tickLine={false}
                         tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
                       />
-                      <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [formatNPR(v), "Revenue"]} />
+                      <Tooltip
+                        contentStyle={tooltipStyle}
+                        formatter={(v: number) => [formatNPR(v), "Revenue"]}
+                      />
                       <Bar dataKey="revenue" radius={[4, 4, 0, 0]}>
                         {revenueByOutlet.map((_, i) => (
-                          <Cell key={i} fill={outletPalette[i % outletPalette.length]} />
+                          <Cell
+                            key={i}
+                            fill={outletPalette[i % outletPalette.length]}
+                          />
                         ))}
                       </Bar>
                     </BarChart>
@@ -586,27 +648,40 @@ const Reports = () => {
                   <tbody>
                     {revenueByOutlet.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
+                        <td
+                          colSpan={4}
+                          className="px-4 py-8 text-center text-muted-foreground"
+                        >
                           No data
                         </td>
                       </tr>
                     ) : (
                       <>
                         {revenueByOutlet.map((r, i) => {
-                          const grand = revenueByOutlet.reduce((s, x) => s + x.revenue, 0) || 1;
+                          const grand =
+                            revenueByOutlet.reduce(
+                              (s, x) => s + x.revenue,
+                              0,
+                            ) || 1;
                           return (
-                            <tr key={r.outletId} className="border-t border-border/40">
+                            <tr
+                              key={r.outletId}
+                              className="border-t border-border/40"
+                            >
                               <td className="px-4 py-2 font-medium flex items-center gap-2">
                                 <span
                                   className="h-2.5 w-2.5 rounded-full"
                                   style={{
-                                    background: outletPalette[i % outletPalette.length],
+                                    background:
+                                      outletPalette[i % outletPalette.length],
                                   }}
                                 />
                                 {r.outlet}
                               </td>
                               <td className="px-4 py-2 text-right">{r.txns}</td>
-                              <td className="px-4 py-2 text-right font-semibold">{formatNPR(r.revenue)}</td>
+                              <td className="px-4 py-2 text-right font-semibold">
+                                {formatNPR(r.revenue)}
+                              </td>
                               <td className="px-4 py-2 text-right text-muted-foreground">
                                 {((r.revenue / grand) * 100).toFixed(1)}%
                               </td>
@@ -615,9 +690,16 @@ const Reports = () => {
                         })}
                         <tr className="border-t border-border/60 bg-muted/30 font-bold">
                           <td className="px-4 py-2">Grand Total</td>
-                          <td className="px-4 py-2 text-right">{revenueByOutlet.reduce((s, r) => s + r.txns, 0)}</td>
                           <td className="px-4 py-2 text-right">
-                            {formatNPR(revenueByOutlet.reduce((s, r) => s + r.revenue, 0))}
+                            {revenueByOutlet.reduce((s, r) => s + r.txns, 0)}
+                          </td>
+                          <td className="px-4 py-2 text-right">
+                            {formatNPR(
+                              revenueByOutlet.reduce(
+                                (s, r) => s + r.revenue,
+                                0,
+                              ),
+                            )}
                           </td>
                           <td className="px-4 py-2 text-right">100%</td>
                         </tr>
@@ -634,24 +716,41 @@ const Reports = () => {
           <div className="glass-card rounded-xl p-5">
             <h3 className="font-semibold font-display mb-4">Member Growth</h3>
             {memberGrowth.length === 0 ? (
-              <p className="text-center text-muted-foreground py-12">No member data yet</p>
+              <p className="text-center text-muted-foreground py-12">
+                No member data yet
+              </p>
             ) : (
               <ResponsiveContainer width="100%" height={400}>
                 <AreaChart data={memberGrowth}>
                   <defs>
                     <linearGradient id="growthGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(38, 92%, 50%)" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(38, 92%, 50%)" stopOpacity={0} />
+                      <stop
+                        offset="5%"
+                        stopColor="hsl(38, 92%, 50%)"
+                        stopOpacity={0.3}
+                      />
+                      <stop
+                        offset="95%"
+                        stopColor="hsl(38, 92%, 50%)"
+                        stopOpacity={0}
+                      />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(224, 15%, 18%)" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="hsl(224, 15%, 18%)"
+                  />
                   <XAxis
                     dataKey="month"
                     tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 12 }}
                     axisLine={false}
                     tickLine={false}
                   />
-                  <YAxis tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <YAxis
+                    tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 12 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
                   <Tooltip contentStyle={tooltipStyle} />
                   <Area
                     type="monotone"
@@ -677,9 +776,13 @@ const Reports = () => {
 
         <TabsContent value="payments">
           <div className="glass-card rounded-xl p-5">
-            <h3 className="font-semibold font-display mb-4">Payment Methods Distribution</h3>
+            <h3 className="font-semibold font-display mb-4">
+              Payment Methods Distribution
+            </h3>
             {paymentMethodsData.length === 0 ? (
-              <p className="text-center text-muted-foreground py-12">No payment data yet</p>
+              <p className="text-center text-muted-foreground py-12">
+                No payment data yet
+              </p>
             ) : (
               <div className="flex flex-col lg:flex-row items-center justify-center gap-8">
                 <ResponsiveContainer width="100%" height={350}>
@@ -697,15 +800,25 @@ const Reports = () => {
                         <Cell key={i} fill={entry.fill} />
                       ))}
                     </Pie>
-                    <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v}%`]} />
+                    <Tooltip
+                      contentStyle={tooltipStyle}
+                      formatter={(v: number) => [`${v}%`]}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="space-y-4 min-w-[180px]">
                   {paymentMethodsData.map((item) => (
                     <div key={item.name} className="flex items-center gap-3">
-                      <span className="h-3 w-3 rounded-full shrink-0" style={{ background: item.fill }} />
-                      <span className="text-sm text-muted-foreground">{capitalizeFirstLetter(item.name)}</span>
-                      <span className="ml-auto font-bold text-sm">{item.value}%</span>
+                      <span
+                        className="h-3 w-3 rounded-full shrink-0"
+                        style={{ background: item.fill }}
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        {capitalizeFirstLetter(item.name)}
+                      </span>
+                      <span className="ml-auto font-bold text-sm">
+                        {item.value}%
+                      </span>
                     </div>
                   ))}
                 </div>

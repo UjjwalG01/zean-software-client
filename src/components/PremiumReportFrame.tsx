@@ -82,20 +82,20 @@ export function PremiumReportFrame({
       )
       .join("");
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
-<style>
-@page { size: A4 landscape; margin: 12mm; }
-body { font-family: 'Helvetica', Arial, sans-serif; color: #0f172a; }
-h1 { font-size: 18px; margin: 0 0 4px; color: #1e3a8a; }
-.meta { color: #64748b; font-size: 11px; margin-bottom: 14px; }
-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-th { background: #1e3a8a; color: #fff; padding: 8px 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; font-size: 10px; }
-td { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; }
-tr:nth-child(even) td { background: #f8fafc; }
-</style></head><body>
-<h1>${title}</h1>
-<div class="meta">${propertyName || ""} · Generated ${new Date().toLocaleString()}</div>
-<table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table>
-</body></html>`;
+        <style>
+        @page { size: A4 landscape; margin: 12mm; }
+        body { font-family: 'Helvetica', Arial, sans-serif; color: #0f172a; }
+        h1 { font-size: 18px; margin: 0 0 4px; color: #1e3a8a; }
+        .meta { color: #64748b; font-size: 11px; margin-bottom: 14px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        th { background: #1e3a8a; color: #fff; padding: 8px 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; font-size: 10px; }
+        td { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; }
+        tr:nth-child(even) td { background: #f8fafc; }
+        </style></head><body>
+        <h1>${title}</h1>
+        <div class="meta">${propertyName || ""} · Generated ${new Date().toLocaleString()}</div>
+        <table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table>
+        </body></html>`;
     const w = window.open("", "_blank", "width=900,height=700");
     if (w) {
       w.document.write(html);
@@ -117,12 +117,18 @@ tr:nth-child(even) td { background: #f8fafc; }
   return (
     <div className="rounded-xl overflow-hidden border border-border/60 bg-card">
       {/* Header band */}
-      <div className="bg-gradient-to-r from-[hsl(220,70%,28%)] via-[hsl(220,70%,32%)] to-[hsl(220,70%,28%)] text-white px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-gradient-to-r from-[hsl(220,70%,28%)] via-[hsl(220,70%,32%)] to-[hsl(220,70%,28%)] px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="font-display font-bold text-lg leading-tight">
             {title}
           </h2>
-          {subtitle && <p className="text-white/80 text-xs">{subtitle}</p>}
+
+          {filterSummary && (
+            <div className="py-1 text-xs italic text-muted-foreground">
+              {filterSummary}
+            </div>
+          )}
+          {/* {subtitle && <p className="text-white/80 text-xs">{subtitle}</p>} */}
         </div>
         <div className="flex gap-2">
           {filters && collapsibleFilters && (
@@ -133,7 +139,7 @@ tr:nth-child(even) td { background: #f8fafc; }
               className="bg-white/10 hover:bg-white/20 text-white border-white/20"
             >
               <Filter className="h-4 w-4 mr-1.5" />
-              {showFilters ? "Hide Filters" : "Show Filters"}
+              {showFilters ? "Hide Filters" : "Load Report"}
             </Button>
           )}
           <Button
@@ -161,16 +167,7 @@ tr:nth-child(even) td { background: #f8fafc; }
       {/* Filter strip */}
       {filters && (!collapsibleFilters || showFilters) && (
         <div className="bg-[hsl(214,100%,97%)] dark:bg-muted/20 px-5 py-4 border-b border-border/50">
-          <p className="text-[11px] tracking-wider font-bold text-[hsl(220,70%,28%)] dark:text-primary mb-3">
-            FILTERS
-          </p>
           {filters}
-        </div>
-      )}
-
-      {filterSummary && (
-        <div className="px-5 py-3 border-b border-border/50 bg-muted/20 text-xs text-muted-foreground">
-          {filterSummary}
         </div>
       )}
 
@@ -178,7 +175,7 @@ tr:nth-child(even) td { background: #f8fafc; }
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-[hsl(220,70%,28%)] text-white">
+            <tr className="bg-gradient-to-r from-[hsl(220,70%,28%)] to-[hsl(220,70%,28%)] text-white">
               {columns.map((c) => (
                 <th
                   key={c.key}
@@ -266,7 +263,7 @@ tr:nth-child(even) td { background: #f8fafc; }
               ))
             )}
             {footerTotals && rows.length > 0 && (
-              <tr className="bg-[hsl(220,70%,28%)]/10 dark:bg-primary/15 font-bold border-t-2 border-[hsl(220,70%,28%)]">
+              <tr className="bg-gradient-to-r from-[hsl(220,70%,28%)] to-[hsl(220,70%,28%)] text-white font-bold border-t-2 border-[hsl(220,70%,28%)]">
                 {columns.map((c, i) => (
                   <td
                     key={c.key}

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Filter, Download, Loader2 } from "lucide-react";
+import { Filter, Download, Loader2, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,6 +40,8 @@ import { exportTableToCSV } from "@/lib/print-utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+
+import { handlePrintReport } from "@/lib/print-utils";
 
 interface MemberLedgerRow {
   memberId: string;
@@ -156,25 +158,25 @@ export default function LedgerReport() {
     toast.success("Report loaded");
   };
 
-  const handleExport = () => {
-    const headers = [
-      "Member",
-      "Services",
-      "Total Billed (NPR)",
-      "Total Paid (NPR)",
-      "Net Balance (NPR)",
-      "Status",
-    ];
-    const rows = ledger.map((m) => [
-      m.memberName,
-      m.services,
-      String(m.totalBilled),
-      String(m.totalPaid),
-      String(m.netBalance),
-      m.status,
-      m.memberStatus || "—",
-    ]);
+  const headers = [
+    "Member",
+    "Services",
+    "Total Billed (NPR)",
+    "Total Paid (NPR)",
+    "Net Balance (NPR)",
+    "Status",
+  ];
+  const rows = ledger.map((m) => [
+    m.memberName,
+    m.services,
+    String(m.totalBilled),
+    String(m.totalPaid),
+    String(m.netBalance),
+    m.status,
+    m.memberStatus || "—",
+  ]);
 
+  const handleExport = () => {
     exportTableToCSV(
       headers,
       rows,
@@ -207,19 +209,12 @@ export default function LedgerReport() {
     return <Badge className={cn("text-[10px] border-0", cls)}>{s}</Badge>;
   };
 
-  {
-    console.log(ledger);
-  }
-
   return (
     <div className="rounded-xl overflow-hidden border border-border/60 bg-card">
       <div className="bg-gradient-to-r from-[hsl(220,70%,28%)] via-[hsl(220,70%,32%)] to-[hsl(220,70%,28%)] text-white px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="font-display font-bold text-lg leading-tight">
-            Member Ledger Report
-          </h2>
-          <p className="text-white/80 text-xs">{propertyName}</p>
-        </div>
+        <h2 className="font-display font-bold text-lg leading-tight">
+          Member Ledger Report
+        </h2>
 
         <div className="flex gap-2">
           {!showFilters ? (
@@ -236,15 +231,35 @@ export default function LedgerReport() {
             <Button
               onClick={handleLoad}
               disabled={isLoading}
-              className="gradient-gold text-primary-foreground"
+              variant="secondary"
+              size="sm"
+              className="bg-white/10 hover:bg-white/20 text-white border-white/20"
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 mr-1 animate-spin" />
               ) : null}
+              <Filter className="h-4 w-4 mr-1.5" />
               Load Report
             </Button>
           )}
-
+          {/* // Handle Print Report of the members ledger if expanded, prints the sub details too */}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() =>
+              handlePrintReport(
+                headers,
+                rows,
+                "Member Ledger Report",
+                propertyName,
+              )
+            }
+            disabled={rows.length === 0}
+            className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+          >
+            <Printer className="h-4 w-4 mr-1.5" />
+            Print
+          </Button>
           <Button
             size="sm"
             onClick={handleExport}
@@ -300,13 +315,7 @@ export default function LedgerReport() {
         </div>
       )}
       {!loaded ? (
-        <div className="p-12 text-center text-muted-foreground">
-          <p className="text-sm">
-            Set your filters and click{" "}
-            <strong className="text-foreground">Load Report</strong> to view the
-            member ledger.
-          </p>
-        </div>
+        <div className="p-8 text-center text-muted-foreground"></div>
       ) : isLoading ? (
         <div className="p-4 space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (

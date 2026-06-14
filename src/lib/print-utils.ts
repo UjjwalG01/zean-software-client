@@ -275,3 +275,36 @@ export function generateReceiptHTML(
     paidAmount: t.total,
   });
 }
+
+
+export const handlePrintReport = (columns, rows, title, propertyName) => {
+  const headerRow = `<tr>${columns.map((c) => `<th style="text-align:${c.align || "left"}">${c.label}</th>`).join("")}</tr>`;
+  const bodyRows = rows
+    .map(
+      (r) =>
+        `<tr>${columns.map((c) => `<td style="text-align:${c.align || "left"}">${c.exportFormat ? c.exportFormat(r) : String(r[c.key] ?? "")}</td>`).join("")}</tr>`,
+    )
+    .join("");
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
+<style>
+@page { size: A4 landscape; margin: 12mm; }
+body { font-family: 'Helvetica', Arial, sans-serif; color: #0f172a; }
+h1 { font-size: 18px; margin: 0 0 4px; color: #1e3a8a; }
+.meta { color: #64748b; font-size: 11px; margin-bottom: 14px; }
+table { width: 100%; border-collapse: collapse; font-size: 11px; }
+th { background: #1e3a8a; color: #fff; padding: 8px 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; font-size: 10px; }
+td { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; }
+tr:nth-child(even) td { background: #f8fafc; }
+</style></head><body>
+<h1>${title}</h1>
+<div class="meta">${propertyName || ""} · Generated ${new Date().toLocaleString()}</div>
+<table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table>
+</body></html>`;
+  const w = window.open("", "_blank", "width=900,height=700");
+  if (w) {
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    w.print();
+  }
+};

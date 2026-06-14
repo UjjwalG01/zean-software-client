@@ -1,4 +1,4 @@
-# VitaFit Club
+# ZEAN SOFTWARE
 
 Premium gym & spa management app — React + Vite + Tailwind, backed by **Supabase**
 (database, auth, storage, edge functions) with **Resend** for transactional email
@@ -65,34 +65,34 @@ Without an admin row, RLS will block all writes.
 
 `.env` already contains the working values:
 
-| Variable | Purpose |
-|---|---|
-| `VITE_SUPABASE_URL` | Supabase project URL |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Public anon key |
-| `VITE_SUPABASE_PROJECT_ID` | Project ref |
-| `VITE_UNLAYER_PROJECT_ID` | **`286809`** — removes the demo banner & saves designs against your project |
-| `VITE_UNLAYER_API_KEY` | Unlayer REST key (server-side templates / brand kit) |
+| Variable                        | Purpose                                                                     |
+| ------------------------------- | --------------------------------------------------------------------------- |
+| `VITE_SUPABASE_URL`             | Supabase project URL                                                        |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Public anon key                                                             |
+| `VITE_SUPABASE_PROJECT_ID`      | Project ref                                                                 |
+| `VITE_UNLAYER_PROJECT_ID`       | **`286809`** — removes the demo banner & saves designs against your project |
+| `VITE_UNLAYER_API_KEY`          | Unlayer REST key (server-side templates / brand kit)                        |
 
 ---
 
 ## 3. Feature map → backend table
 
-| Feature | Supabase table |
-|---|---|
-| Outlets | `outlets` |
-| Service types (Fitness, Wellness, Sports, Membership, Health, Events…) | `service_types` |
-| Bookings (scoped per outlet) | `bookings` |
-| Members | `members` |
-| Membership plans | `membership_plans` |
-| Services / classes | `services` |
-| Payments / Transactions | `payments` (view: `transactions`) |
-| Check-ins / attendance | `check_ins` |
-| Email templates (subject/HTML/Unlayer design JSON) | `email_templates` |
-| Email send log | `email_reminders` |
-| App users (profile metadata) | `app_users` |
-| Audit log | `audit_logs` |
-| Roles | `user_roles` |
-| Company-wide settings | `company_settings` |
+| Feature                                                                | Supabase table                    |
+| ---------------------------------------------------------------------- | --------------------------------- |
+| Outlets                                                                | `outlets`                         |
+| Service types (Fitness, Wellness, Sports, Membership, Health, Events…) | `service_types`                   |
+| Bookings (scoped per outlet)                                           | `bookings`                        |
+| Members                                                                | `members`                         |
+| Membership plans                                                       | `membership_plans`                |
+| Services / classes                                                     | `services`                        |
+| Payments / Transactions                                                | `payments` (view: `transactions`) |
+| Check-ins / attendance                                                 | `check_ins`                       |
+| Email templates (subject/HTML/Unlayer design JSON)                     | `email_templates`                 |
+| Email send log                                                         | `email_reminders`                 |
+| App users (profile metadata)                                           | `app_users`                       |
+| Audit log                                                              | `audit_logs`                      |
+| Roles                                                                  | `user_roles`                      |
+| Company-wide settings                                                  | `company_settings`                |
 
 ---
 

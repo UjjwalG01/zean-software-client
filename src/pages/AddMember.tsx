@@ -5,13 +5,28 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { useAddMember, useCompanySettings, useUpdateMember, useMember, useMembers } from "@/hooks/use-firestore";
+import {
+  useAddMember,
+  useCompanySettings,
+  useUpdateMember,
+  useMember,
+  useMembers,
+} from "@/hooks/use-firestore";
 import { useOutlet } from "@/contexts/OutletContext";
-import { uploadMemberAvatar, generateMemberCode } from "@/lib/firebase-services";
+import {
+  uploadMemberAvatar,
+  generateMemberCode,
+} from "@/lib/firebase-services";
 import PackageSelectionModal from "@/components/PackageSelectionModal";
 
 const STEPS = ["Personal", "Contact", "Physical & Medical", "Review"];
@@ -36,7 +51,33 @@ const NATIONALITIES = [
 ];
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"];
 
-function parseList(settings: Record<string, string>, key: string, fallback: string[]): string[] {
+const RELIGIONS = [
+  "Christianity",
+  "Islam",
+  "Hindu",
+  "Irreligion",
+  "Buddhism",
+  "Sikhism",
+  "Judaism",
+  "Baháʼí Faith",
+  "Spiritism",
+  "Taoism",
+  "Confucianism",
+  "Jainism",
+  "Shinto",
+  "Zoroastrianism",
+  "Tenrikyo",
+  "Cao Dai",
+  "Chinese Folk Religions",
+  "Tribal Religions",
+  "Other",
+];
+
+function parseList(
+  settings: Record<string, string>,
+  key: string,
+  fallback: string[],
+): string[] {
   try {
     return settings[key] ? JSON.parse(settings[key]) : fallback;
   } catch {
@@ -58,8 +99,13 @@ const AddMember = () => {
   const { selected: outlet, setPickerOpen } = useOutlet();
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const nationalities = parseList(settings, "setup_nationalities", NATIONALITIES);
+  const nationalities = parseList(
+    settings,
+    "setup_nationalities",
+    NATIONALITIES,
+  );
   const bloodGroups = parseList(settings, "setup_bloodGroups", BLOOD_GROUPS);
+  const religions = parseList(settings, "setup_religions", RELIGIONS);
   const preferenceOptions = parseList(settings, "setup_preferences", [
     "Yoga",
     "Cardio",
@@ -90,7 +136,7 @@ const AddMember = () => {
     dob: "",
     gender: "",
     nationality: "Nepali",
-    religion: "",
+    religion: "Hindu",
     occupation: "",
     permanentAddress: "",
     temporaryAddress: "",
@@ -116,7 +162,12 @@ const AddMember = () => {
 
   const u = (k: string, v: any) => setF((p) => ({ ...p, [k]: v }));
   const togglePref = (p: string) =>
-    u("preferences", f.preferences.includes(p) ? f.preferences.filter((x) => x !== p) : [...f.preferences, p]);
+    u(
+      "preferences",
+      f.preferences.includes(p)
+        ? f.preferences.filter((x) => x !== p)
+        : [...f.preferences, p],
+    );
 
   // Hydrate for edit mode
   useEffect(() => {
@@ -127,11 +178,12 @@ const AddMember = () => {
       memberCode: m.memberCode || m.grcNo || "",
       firstName: m.firstName || (m.name ? m.name.split(" ")[0] : ""),
       middleName: m.middleName || "",
-      lastName: m.lastName || (m.name ? m.name.split(" ").slice(1).join(" ") : ""),
+      lastName:
+        m.lastName || (m.name ? m.name.split(" ").slice(1).join(" ") : ""),
       dob: m.dob || "",
       gender: m.gender || "",
       nationality: m.nationality || "Nepali",
-      religion: m.religion || "",
+      religion: m.religion || "Hindu",
       occupation: m.occupation || "",
       permanentAddress: m.permanentAddress || m.address || "",
       temporaryAddress: m.temporaryAddress || "",
@@ -152,10 +204,14 @@ const AddMember = () => {
         typeof m.breathingDifficulty === "boolean"
           ? m.breathingDifficulty
           : !!String(m.breathingDifficulty || "").trim(),
-      skinDisease: typeof m.skinDisease === "boolean" ? m.skinDisease : !!String(m.skinDisease || "").trim(),
+      skinDisease:
+        typeof m.skinDisease === "boolean"
+          ? m.skinDisease
+          : !!String(m.skinDisease || "").trim(),
       preferences: Array.isArray(m.preferences) ? m.preferences : [],
     }));
-    if (m.avatar && !String(m.avatar).includes("dicebear")) setPhotoPreview(m.avatar);
+    if (m.avatar && !String(m.avatar).includes("dicebear"))
+      setPhotoPreview(m.avatar);
     setMemberCode(m.memberCode || m.grcNo || "");
   }, [existing]);
 
@@ -204,17 +260,23 @@ const AddMember = () => {
 
   const handleSubmit = async () => {
     if (!validateStep(0) || !validateStep(1)) return;
-    const fullName = [f.firstName, f.middleName, f.lastName].filter(Boolean).join(" ").trim();
+    const fullName = [f.firstName, f.middleName, f.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
     // Duplicate guard: a member with the same name + phone + email is a hard duplicate.
     if (!isEdit) {
       const norm = (s: string) => (s || "").trim().toLowerCase();
-      const dup = allMembers.find((m) =>
-        norm(m.name) === norm(fullName) &&
-        norm(m.phone) === norm(f.phone) &&
-        norm(m.email) === norm(f.email)
+      const dup = allMembers.find(
+        (m) =>
+          norm(m.name) === norm(fullName) &&
+          norm(m.phone) === norm(f.phone) &&
+          norm(m.email) === norm(f.email),
       );
       if (dup) {
-        toast.error(`A member with the same name, phone and email already exists (${dup.name})`);
+        toast.error(
+          `A member with the same name, phone and email already exists (${dup.name})`,
+        );
         return;
       }
     }
@@ -251,7 +313,11 @@ const AddMember = () => {
         }
       }
 
-      toast.success(isEdit ? `Member ${fullName} updated` : `Member ${fullName} registered (${memberCode})`);
+      toast.success(
+        isEdit
+          ? `Member ${fullName} updated`
+          : `Member ${fullName} registered (${memberCode})`,
+      );
       setCreatedId(id);
       setCreatedName(fullName);
 
@@ -271,26 +337,39 @@ const AddMember = () => {
   return (
     <div className="space-y-6 animate-fade-in max-w-5xl mx-auto">
       <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/members")} className="text-muted-foreground">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate("/members")}
+          className="text-muted-foreground"
+        >
           <ArrowLeft className="h-4 w-4 mr-1" /> Back
         </Button>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           {outlet && (
             <span>
-              Outlet: <span className="font-medium text-foreground">{outlet.name}</span>
-              {outlet.outletCode && <span className="ml-2 text-primary">[{outlet.outletCode}]</span>}
+              Outlet:{" "}
+              <span className="font-medium text-foreground">{outlet.name}</span>
+              {outlet.outletCode && (
+                <span className="ml-2 text-primary">[{outlet.outletCode}]</span>
+              )}
             </span>
           )}
           {memberCode && (
             <span>
-              Member Code: <span className="font-mono font-semibold text-primary">{memberCode}</span>
+              Member Code:{" "}
+              <span className="font-mono font-semibold text-primary">
+                {memberCode}
+              </span>
             </span>
           )}
         </div>
       </div>
 
       <div>
-        <h1 className="text-2xl font-bold font-display">{isEdit ? "Edit Member" : "Member Registration Form"}</h1>
+        <h1 className="text-2xl font-bold font-display">
+          {isEdit ? "Edit Member" : "Member Registration Form"}
+        </h1>
         <p className="text-muted-foreground text-sm">
           Step {step + 1} of {STEPS.length} — {STEPS[step]}
         </p>
@@ -304,7 +383,9 @@ const AddMember = () => {
             >
               {i < step ? <Check className="h-4 w-4" /> : i + 1}
             </div>
-            <span className={`text-sm hidden md:inline ${i === step ? "font-medium" : "text-muted-foreground"}`}>
+            <span
+              className={`text-sm hidden md:inline ${i === step ? "font-medium" : "text-muted-foreground"}`}
+            >
               {s}
             </span>
             {i < STEPS.length - 1 && <div className="w-6 h-px bg-border" />}
@@ -326,34 +407,66 @@ const AddMember = () => {
                 )}
               </Avatar>
               <div>
-                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
-                <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handlePhoto}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileRef.current?.click()}
+                >
                   <Upload className="h-4 w-4 mr-1" /> Upload Photo
                 </Button>
-                <p className="text-xs text-muted-foreground mt-1">JPG/PNG, &lt; 5MB</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  JPG/PNG, &lt; 5MB
+                </p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-2 hidden">
                 <Label>Member Code</Label>
-                <Input value={memberCode} readOnly className="font-mono bg-muted/40" />
+                <Input
+                  value={memberCode}
+                  readOnly
+                  className="font-mono bg-muted/40"
+                />
               </div>
               <div className="space-y-2">
                 <Label>First Name *</Label>
-                <Input value={f.firstName} onChange={(e) => u("firstName", e.target.value)} />
+                <Input
+                  value={f.firstName}
+                  placeholder="Enter first name"
+                  onChange={(e) => u("firstName", e.target.value)}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Middle Name</Label>
-                <Input value={f.middleName} onChange={(e) => u("middleName", e.target.value)} />
+                <Input
+                  value={f.middleName}
+                  placeholder="Enter middle name"
+                  onChange={(e) => u("middleName", e.target.value)}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Last Name *</Label>
-                <Input value={f.lastName} onChange={(e) => u("lastName", e.target.value)} />
+                <Input
+                  value={f.lastName}
+                  placeholder="Enter last name"
+                  onChange={(e) => u("lastName", e.target.value)}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Date of Birth</Label>
-                <Input type="date" value={f.dob} onChange={(e) => u("dob", e.target.value)} />
+                <Input
+                  type="date"
+                  value={f.dob}
+                  onChange={(e) => u("dob", e.target.value)}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Gender</Label>
@@ -370,7 +483,10 @@ const AddMember = () => {
               </div>
               <div className="space-y-2">
                 <Label>Nationality</Label>
-                <Select value={f.nationality} onValueChange={(v) => u("nationality", v)}>
+                <Select
+                  value={f.nationality}
+                  onValueChange={(v) => u("nationality", v)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
@@ -385,19 +501,48 @@ const AddMember = () => {
               </div>
               <div className="space-y-2">
                 <Label>Religion</Label>
-                <Input value={f.religion} onChange={(e) => u("religion", e.target.value)} />
+                {/* <Input
+                  value={f.religion}
+                  onChange={(e) => u("religion", e.target.value)}
+                /> */}
+                <Select
+                  value={f.religion}
+                  onValueChange={(v) => u("religion", v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {religions.map((n) => (
+                      <SelectItem key={n} value={n}>
+                        {n}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label>Occupation</Label>
-                <Input value={f.occupation} onChange={(e) => u("occupation", e.target.value)} />
+                <Input
+                  value={f.occupation}
+                  onChange={(e) => u("occupation", e.target.value)}
+                />
               </div>
               <div className="space-y-2 sm:col-span-3">
                 <Label>Permanent Address</Label>
-                <Textarea rows={2} value={f.permanentAddress} onChange={(e) => u("permanentAddress", e.target.value)} />
+                <Textarea
+                  rows={2}
+                  value={f.permanentAddress}
+                  onChange={(e) => u("permanentAddress", e.target.value)}
+                />
               </div>
               <div className="space-y-2 sm:col-span-3">
                 <Label>Temporary Address</Label>
-                <Textarea rows={2} value={f.temporaryAddress} onChange={(e) => u("temporaryAddress", e.target.value)} />
+                <Textarea
+                  rows={2}
+                  value={f.temporaryAddress}
+                  onChange={(e) => u("temporaryAddress", e.target.value)}
+                />
               </div>
             </div>
           </>
@@ -407,23 +552,39 @@ const AddMember = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Mobile / Phone *</Label>
-              <Input value={f.phone} onChange={(e) => u("phone", e.target.value)} />
+              <Input
+                value={f.phone}
+                onChange={(e) => u("phone", e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label>Email</Label>
-              <Input type="email" value={f.email} onChange={(e) => u("email", e.target.value)} />
+              <Input
+                type="email"
+                value={f.email}
+                onChange={(e) => u("email", e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label>Alt. Contact</Label>
-              <Input value={f.contactAlt} onChange={(e) => u("contactAlt", e.target.value)} />
+              <Input
+                value={f.contactAlt}
+                onChange={(e) => u("contactAlt", e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label>Office Name</Label>
-              <Input value={f.officeName} onChange={(e) => u("officeName", e.target.value)} />
+              <Input
+                value={f.officeName}
+                onChange={(e) => u("officeName", e.target.value)}
+              />
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label>Office Address</Label>
-              <Input value={f.officeAddress} onChange={(e) => u("officeAddress", e.target.value)} />
+              <Input
+                value={f.officeAddress}
+                onChange={(e) => u("officeAddress", e.target.value)}
+              />
             </div>
 
             <div className="sm:col-span-2 border-t border-border pt-4 mt-2">
@@ -431,15 +592,24 @@ const AddMember = () => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>Name</Label>
-                  <Input value={f.emergencyName} onChange={(e) => u("emergencyName", e.target.value)} />
+                  <Input
+                    value={f.emergencyName}
+                    onChange={(e) => u("emergencyName", e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Phone</Label>
-                  <Input value={f.emergencyPhone} onChange={(e) => u("emergencyPhone", e.target.value)} />
+                  <Input
+                    value={f.emergencyPhone}
+                    onChange={(e) => u("emergencyPhone", e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Address</Label>
-                  <Input value={f.emergencyAddress} onChange={(e) => u("emergencyAddress", e.target.value)} />
+                  <Input
+                    value={f.emergencyAddress}
+                    onChange={(e) => u("emergencyAddress", e.target.value)}
+                  />
                 </div>
               </div>
             </div>
@@ -453,19 +623,31 @@ const AddMember = () => {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="space-y-2">
                   <Label>Height (ft.)</Label>
-                  <Input value={f.height} onChange={(e) => u("height", e.target.value)} />
+                  <Input
+                    value={f.height}
+                    onChange={(e) => u("height", e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Weight (kg)</Label>
-                  <Input value={f.weight} onChange={(e) => u("weight", e.target.value)} />
+                  <Input
+                    value={f.weight}
+                    onChange={(e) => u("weight", e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Chest (inch)</Label>
-                  <Input value={f.chest} onChange={(e) => u("chest", e.target.value)} />
+                  <Input
+                    value={f.chest}
+                    onChange={(e) => u("chest", e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Blood Group</Label>
-                  <Select value={f.bloodGroup} onValueChange={(v) => u("bloodGroup", v)}>
+                  <Select
+                    value={f.bloodGroup}
+                    onValueChange={(v) => u("bloodGroup", v)}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select" />
                     </SelectTrigger>
@@ -486,15 +668,24 @@ const AddMember = () => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <label className="flex items-center justify-between rounded-lg border border-border p-3">
                   <span className="text-sm">Any Heart Stroke?</span>
-                  <Switch checked={f.heartStroke} onCheckedChange={(v) => u("heartStroke", v)} />
+                  <Switch
+                    checked={f.heartStroke}
+                    onCheckedChange={(v) => u("heartStroke", v)}
+                  />
                 </label>
                 <label className="flex items-center justify-between rounded-lg border border-border p-3">
                   <span className="text-sm">Breathing Difficulty?</span>
-                  <Switch checked={f.breathingDifficulty} onCheckedChange={(v) => u("breathingDifficulty", v)} />
+                  <Switch
+                    checked={f.breathingDifficulty}
+                    onCheckedChange={(v) => u("breathingDifficulty", v)}
+                  />
                 </label>
                 <label className="flex items-center justify-between rounded-lg border border-border p-3">
                   <span className="text-sm">Any Skin Disease?</span>
-                  <Switch checked={f.skinDisease} onCheckedChange={(v) => u("skinDisease", v)} />
+                  <Switch
+                    checked={f.skinDisease}
+                    onCheckedChange={(v) => u("skinDisease", v)}
+                  />
                 </label>
               </div>
             </div>
@@ -507,7 +698,11 @@ const AddMember = () => {
                     key={p}
                     className="flex items-center gap-2 rounded-lg border border-border p-2.5 cursor-pointer hover:bg-muted/30 text-sm"
                   >
-                    <input type="checkbox" checked={f.preferences.includes(p)} onChange={() => togglePref(p)} />
+                    <input
+                      type="checkbox"
+                      checked={f.preferences.includes(p)}
+                      onChange={() => togglePref(p)}
+                    />
                     <span>{p}</span>
                   </label>
                 ))}
@@ -521,12 +716,31 @@ const AddMember = () => {
             <h3 className="font-semibold mb-3">Review</h3>
             <div className="grid grid-cols-2 gap-3 glass-card p-4 rounded-lg bg-muted/30">
               <Row label="Member Code" value={memberCode} />
-              <Row label="Name" value={[f.firstName, f.middleName, f.lastName].filter(Boolean).join(" ")} />
-              <Row label="DOB / Gender" value={`${f.dob || "—"} · ${f.gender || "—"}`} />
-              <Row label="Phone / Email" value={`${f.phone} · ${f.email || "—"}`} />
-              <Row label="Nationality / Religion" value={`${f.nationality} · ${f.religion || "—"}`} />
+              <Row
+                label="Name"
+                value={[f.firstName, f.middleName, f.lastName]
+                  .filter(Boolean)
+                  .join(" ")}
+              />
+              <Row
+                label="DOB / Gender"
+                value={`${f.dob || "—"} · ${f.gender || "—"}`}
+              />
+              <Row
+                label="Phone / Email"
+                value={`${f.phone} · ${f.email || "—"}`}
+              />
+              <Row
+                label="Nationality / Religion"
+                value={`${f.nationality} · ${f.religion || "—"}`}
+              />
               <Row label="Permanent Address" value={f.permanentAddress} />
-              <Row label="Emergency" value={[f.emergencyName, f.emergencyPhone].filter(Boolean).join(" · ")} />
+              <Row
+                label="Emergency"
+                value={[f.emergencyName, f.emergencyPhone]
+                  .filter(Boolean)
+                  .join(" · ")}
+              />
               <Row
                 label="Blood / Height / Weight"
                 value={`${f.bloodGroup || "—"} · ${f.height || "—"} · ${f.weight || "—"}`}
@@ -534,8 +748,8 @@ const AddMember = () => {
               <Row label="Outlet" value={outlet?.name || "—"} />
             </div>
             <p className="text-xs text-muted-foreground">
-              No package is assigned during registration. After saving you'll be prompted to choose packages & plan for
-              the selected outlet.
+              No package is assigned during registration. After saving you'll be
+              prompted to choose packages & plan for the selected outlet.
             </p>
           </div>
         )}
@@ -547,7 +761,11 @@ const AddMember = () => {
           {step < STEPS.length - 1 ? (
             <Button onClick={next}>Next</Button>
           ) : (
-            <Button onClick={handleSubmit} disabled={saving} className="gradient-gold text-primary-foreground">
+            <Button
+              onClick={handleSubmit}
+              disabled={saving}
+              className="gradient-gold text-primary-foreground"
+            >
               {saving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-1 animate-spin" />

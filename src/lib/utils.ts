@@ -15,3 +15,14 @@ export const methodColors: Record<PaymentMethod, string> = {
   cheque: "bg-yellow-500/20 text-yellow-400",
   other: "bg-blue-500/20 text-blue-400",
 };
+
+export const tooltipStyle = {
+  background: "hsl(45, 100%, 97%)", // soft warm ivory
+  border: "1px solid hsl(45, 80%, 85%)", // subtle golden border
+  borderRadius: 8,
+  color: "hsl(220, 25%, 20%)", // deep slate text for contrast
+  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)", // premium soft shadow
+  padding: "8px 12px",
+};
+
+

@@ -1,4 +1,4 @@
-# Supabase Setup — VitaFit Club
+# Supabase Setup — ZEAN SOFTWARE
 
 This project's frontend is now wired to your Supabase project
 **`jjshmzlwhbspaqytgulf`** via `src/lib/supabase.ts` (env vars in `.env`).
@@ -38,10 +38,12 @@ in `.env` and that step 1 has been run.
 ## 5. Make yourself an admin
 
 In the SQL Editor:
+
 ```sql
 insert into public.user_roles (user_id, role)
 values ('<your-auth-user-id>', 'admin');
 ```
+
 You can find your auth user id under **Auth → Users**.
 
 ---

@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Lock, Mail, Dumbbell } from "lucide-react";
 import { toast } from "sonner";
 import { LicensedFooter } from "@/components/LicensedFooter";
+import { SOFTWARE_NAME } from "@/lib/settings";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -27,13 +28,14 @@ const Login = () => {
       navigate("/");
     } catch (err: any) {
       const raw = (err?.message || "").toLowerCase();
-      const msg = raw.includes("invalid login") || raw.includes("invalid credentials")
-        ? "Invalid email or password"
-        : raw.includes("email not confirmed")
-        ? "Email not confirmed. Contact your administrator."
-        : raw.includes("rate") || raw.includes("too many")
-        ? "Too many attempts. Try again later."
-        : err?.message || "Login failed. Please try again.";
+      const msg =
+        raw.includes("invalid login") || raw.includes("invalid credentials")
+          ? "Invalid email or password"
+          : raw.includes("email not confirmed")
+            ? "Email not confirmed. Contact your administrator."
+            : raw.includes("rate") || raw.includes("too many")
+              ? "Too many attempts. Try again later."
+              : err?.message || "Login failed. Please try again.";
       toast.error(msg);
     } finally {
       setLoading(false);
@@ -52,26 +54,36 @@ const Login = () => {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl gradient-gold mb-4">
             <Dumbbell className="h-8 w-8 text-primary-foreground" />
           </div>
-          <h1 className="text-3xl font-bold font-display text-gradient-gold">VitaFit Club</h1>
-          <p className="text-muted-foreground text-sm mt-1">Membership Management System</p>
+          <h1 className="text-3xl font-bold font-display text-gradient-gold">
+            {SOFTWARE_NAME}
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Membership Management System
+          </p>
         </div>
 
         {/* Login Card */}
         <div className="glass-card rounded-2xl p-8 border border-border/50">
           <div className="mb-6">
-            <h2 className="text-xl font-semibold font-display text-foreground">Welcome back</h2>
-            <p className="text-muted-foreground text-sm mt-1">Sign in to your admin account</p>
+            <h2 className="text-xl font-semibold font-display text-foreground">
+              Welcome back
+            </h2>
+            <p className="text-muted-foreground text-sm mt-1">
+              Sign in to your admin account
+            </p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm text-muted-foreground">Email</Label>
+              <Label htmlFor="email" className="text-sm text-muted-foreground">
+                Email
+              </Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="email"
                   type="email"
-                  placeholder="admin@vitafitclub.com"
+                  placeholder="client@example.com"
                   className="pl-10 bg-muted/50 border-border/50 h-11"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -81,7 +93,12 @@ const Login = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm text-muted-foreground">Password</Label>
+              <Label
+                htmlFor="password"
+                className="text-sm text-muted-foreground"
+              >
+                Password
+              </Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -102,7 +119,10 @@ const Login = () => {
               className="w-full h-11 gradient-gold text-primary-foreground font-semibold text-sm"
             >
               {loading ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Signing in...</>
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Signing in...
+                </>
               ) : (
                 "Sign In"
               )}
@@ -117,7 +137,7 @@ const Login = () => {
         </div>
 
         <p className="text-center text-xs text-muted-foreground/60 mt-6">
-          © 2026 VitaFit Club. All rights reserved.
+          © 2026 {SOFTWARE_NAME}. All rights reserved.
         </p>
       </div>
 
