@@ -12,11 +12,12 @@
 import type { Transaction, PaymentMethod, ServiceType } from "./mock-data";
 
 import { supabase } from "./supabase";
+import { toIsoDayInTz } from "./tz";
 
 type AddFn = (data: Partial<Transaction>) => Promise<string>;
 type UpdateFn = (args: { id: string; data: Partial<Transaction> }) => Promise<unknown>;
 
-const today = () => new Date().toISOString().split("T")[0];
+const today = () => toIsoDayInTz(new Date());
 const receipt = (prefix: string) => `${prefix}-${Date.now()}`;
 
 export interface ChargeForBookingInput {

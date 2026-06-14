@@ -17,6 +17,7 @@ import {
 } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { INVOICE_PREFIX } from "@/lib/settings";
+import { toIsoDayInTz } from "@/lib/tz";
 
 const firebaseEnabled = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
 
@@ -196,7 +197,7 @@ export function useAddTransaction() {
           total: data.total || data.amount || 0,
           method: data.method || "cash",
           type: data.type || "Charge",
-          date: data.date || new Date().toISOString().split("T")[0],
+          date: data.date || toIsoDayInTz(new Date()),
           description: data.description || "",
           status: data.status || "pending",
           bookingId: data.bookingId,
