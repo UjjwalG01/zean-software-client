@@ -180,7 +180,7 @@ export async function listAuditLogs(filters: {
     module: r.module,
     action: r.action,
     entity_id: r.entity_id,
-    description: buildDescription(r.module, r.action, r.entity_id, r.actor_email, r.new_value),
+    description: buildDescription(r.module, r.action, r.entity_id, r.actor_email, r.new_value, r.ts),
   })) as AuditRow[];
   if (filters.search) {
     const s = filters.search.toLowerCase();
