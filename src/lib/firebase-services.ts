@@ -845,7 +845,10 @@ export async function addCheckInRecord(data: { memberId: string; memberName: str
     .insert({
       member_id: data.memberId || null,
       member_name: data.memberName || null,
-      check_in_at: at(data.date, new Date().toTimeString().slice(0, 5)),
+      // Use `at()` with no time so the wall-clock hour is derived in the
+      // configured app timezone — keeps stored timestamps consistent regardless
+      // of where the operator's browser is located.
+      check_in_at: at(data.date),
     })
     .select("id")
     .single();
