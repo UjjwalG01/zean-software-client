@@ -66,7 +66,9 @@ const Attendance = () => {
 
   const isLoading = membersLoading || checkInsLoading;
 
-  const todayStr = format(new Date(), "yyyy-MM-dd");
+  // Anchor "today" to the configured app timezone so the check-in row maps to
+  // the correct calendar day regardless of the operator's browser timezone.
+  const todayStr = toIsoDayInTz(new Date());
 
   // Who checked in today
   const todayCheckIns = useMemo(() => {
