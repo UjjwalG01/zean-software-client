@@ -300,6 +300,21 @@ const Bookings_Page = () => {
   const getBookingsForDay = (day: Date) =>
     filtered.filter((b) => isSameDay(new Date(b.date), day));
 
+  /** True if a booking on `dateStr` with `startTime` (HH:MM) is in the past. */
+  const isPastDateTime = (dateStr: string, startTime?: string): boolean => {
+    if (!dateStr) return false;
+    const now = new Date();
+    const todayStr = format(now, "yyyy-MM-dd");
+    if (dateStr < todayStr) return true;
+    if (dateStr > todayStr) return false;
+    if (!startTime) return false;
+    const [h, m] = startTime.split(":").map(Number);
+    if (Number.isNaN(h)) return false;
+    const slot = new Date(now);
+    slot.setHours(h, m || 0, 0, 0);
+    return slot.getTime() <= now.getTime();
+  };
+
   const openNewBookingDialog = (day?: Date, startTime?: string) => {
     if (!selectedOutlet) {
       setPickerOpen(true);
@@ -312,8 +327,13 @@ const Bookings_Page = () => {
       toast.error("Cannot add bookings for past dates");
       return;
     }
+    const dStr = format(d, "yyyy-MM-dd");
+    if (startTime && isPastDateTime(dStr, startTime)) {
+      toast.error("Cannot create bookings in the past");
+      return;
+    }
     setEditingBookingId(null);
-    setBookDate(format(d, "yyyy-MM-dd"));
+    setBookDate(dStr);
     if (startTime) {
       const [h, m] = startTime.split(":").map(Number);
       const endMin = h * 60 + m + 60;
