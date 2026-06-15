@@ -420,6 +420,11 @@ const Bookings_Page = () => {
       toast.error("Cannot create bookings for past dates");
       return;
     }
+    // Block past times on today (rule #6)
+    if (isPastDateTime(bookDate, bookStartTime)) {
+      toast.error("Cannot create bookings in the past");
+      return;
+    }
     // Prefer explicit start time (from timeline picker) over coarse time-slot bucket.
     const start = bookStartTime || SLOT_START[bookTimeSlot] || "09:00";
     let end = bookEndTime;
