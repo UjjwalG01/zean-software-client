@@ -50,6 +50,7 @@ const Dashboard = () => {
     useExpiryAlerts();
   const { data: transactions = [] } = useTransactions();
   const { data: bookings = [] } = useBookings();
+  const { data: serviceTypes = [] } = useServiceTypes();
 
   const recentMembers = members.slice(0, 5);
   const dashboardStats = stats || {
