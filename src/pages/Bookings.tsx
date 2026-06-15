@@ -1313,9 +1313,10 @@ const Bookings_Page = () => {
                   <TooltipTrigger asChild>
                     <div
                       className={cn(
-                        "min-h-[80px] lg:min-h-[100px] rounded-lg p-1.5 text-sm transition-colors cursor-pointer hover:ring-1 hover:ring-primary/50",
+                        "min-h-[80px] lg:min-h-[100px] rounded-lg p-1.5 text-sm transition-colors cursor-pointer hover:ring-1 hover:ring-primary/50 flex flex-col",
                         isCurrentMonth ? "bg-card" : "bg-muted/20",
                         isToday(day) && "ring-1 ring-primary",
+                        dayBookings.length > 0 && "bg-primary/5",
                       )}
                       onClick={() => handleDayClick(day)}
                       onDoubleClick={() => handleDayDoubleClick(day)}
@@ -1329,38 +1330,24 @@ const Bookings_Page = () => {
                       >
                         {format(day, "d")}
                       </span>
-                      <div className="mt-1 space-y-0.5">
-                        {dayBookings.slice(0, 2).map((b) => (
-                          <div
-                            key={b.id}
-                            className="text-[10px] truncate rounded px-1 py-0.5 cursor-pointer"
-                            style={getServiceStyle(b.service)}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleBookingClick(b);
-                            }}
-                          >
-                            {b.className}
-                          </div>
-                        ))}
-                        {dayBookings.length > 2 && (
-                          <span className="text-[10px] text-muted-foreground">
-                            +{dayBookings.length - 2} more
+                      {/* Rule #7: don't render individual bookings, only a count badge. */}
+                      {dayBookings.length > 0 && (
+                        <div className="mt-auto self-end">
+                          <span className="inline-flex items-center justify-center min-w-[26px] h-6 px-1.5 rounded-full bg-primary/15 text-primary text-[11px] font-semibold">
+                            {dayBookings.length}
                           </span>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </TooltipTrigger>
                   {dayBookings.length > 0 && (
                     <TooltipContent side="right" className="max-w-[220px]">
                       <p className="font-semibold text-xs mb-1">
-                        {format(day, "MMM d, yyyy")}
+                        {format(day, "MMM d, yyyy")} · {dayBookings.length} booking{dayBookings.length === 1 ? "" : "s"}
                       </p>
-                      {dayBookings.map((b) => (
-                        <p key={b.id} className="text-xs">
-                          {b.startTime} — {b.className} ({b.service})
-                        </p>
-                      ))}
+                      <p className="text-[11px] text-muted-foreground">
+                        Click the day to view the full schedule.
+                      </p>
                     </TooltipContent>
                   )}
                 </Tooltip>
