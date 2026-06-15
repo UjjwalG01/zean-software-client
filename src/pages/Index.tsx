@@ -29,6 +29,7 @@ import {
   useExpiryAlerts,
   useTransactions,
   useBookings,
+  useServiceTypes,
 } from "@/hooks/use-firestore";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
