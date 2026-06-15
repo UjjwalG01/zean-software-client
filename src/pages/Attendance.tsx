@@ -48,6 +48,7 @@ import { QRCheckInScanner } from "@/components/QRCheckInScanner";
 import { consumeForAttendance } from "@/lib/prepaid";
 import { formatNPR } from "@/lib/mock-data";
 import { logAudit } from "@/lib/audit-log";
+import { toIsoDayInTz, formatInTz, getAppTimezone } from "@/lib/tz";
 
 const Attendance = () => {
   const { data: members = [], isLoading: membersLoading } = useMembers();
@@ -65,7 +66,9 @@ const Attendance = () => {
 
   const isLoading = membersLoading || checkInsLoading;
 
-  const todayStr = format(new Date(), "yyyy-MM-dd");
+  // Anchor "today" to the configured app timezone so the check-in row maps to
+  // the correct calendar day regardless of the operator's browser timezone.
+  const todayStr = toIsoDayInTz(new Date());
 
   // Who checked in today
   const todayCheckIns = useMemo(() => {
@@ -356,7 +359,8 @@ const Attendance = () => {
                 </TableHeader>
                 <TableBody>
                   {filteredMembers.map((m) => {
-                    const isPresent = todayCheckedInIds.has(m.id);
+                    const todayCi = todayCheckIns.find((c) => c.memberId === m.id);
+                    const isPresent = !!todayCi;
                     const lastCi = [...checkIns]
                       .filter((c) => c.memberId === m.id)
                       .sort((a, b) => (a.date < b.date ? 1 : -1))[0];
@@ -377,20 +381,24 @@ const Attendance = () => {
                           {m.timeSlot}
                         </TableCell>
                         <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
-                          {lastCi?.date || "—"}
+                          {lastCi?.date ? `${lastCi.date}${lastCi.checkInTime ? " · " + lastCi.checkInTime : ""}` : "—"}
                         </TableCell>
                         <TableCell>
                           <Badge
                             className={`text-[10px] border-0 ${isPresent ? "bg-success/20 text-success" : "bg-destructive/20 text-destructive"}`}
                           >
-                            {isPresent ? "Present" : "Absent"}
+                            {isPresent
+                              ? todayCi?.checkInTime
+                                ? `Present · ${todayCi.checkInTime}`
+                                : "Present"
+                              : "Absent"}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
                           <Button
                             size="sm"
                             variant={isPresent ? "secondary" : "default"}
-                            disabled={isPresent}
+                            disabled={isPresent || addCheckInMutation.isPending}
                             onClick={() => handleCheckIn(m.id, m.name)}
                             className={
                               isPresent

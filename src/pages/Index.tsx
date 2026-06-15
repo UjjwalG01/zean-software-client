@@ -29,6 +29,7 @@ import {
   useExpiryAlerts,
   useTransactions,
   useBookings,
+  useServiceTypes,
 } from "@/hooks/use-firestore";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +50,7 @@ const Dashboard = () => {
     useExpiryAlerts();
   const { data: transactions = [] } = useTransactions();
   const { data: bookings = [] } = useBookings();
+  const { data: serviceTypes = [] } = useServiceTypes();
 
   const recentMembers = members.slice(0, 5);
   const dashboardStats = stats || {
@@ -98,30 +100,30 @@ const Dashboard = () => {
     return months.map((month) => ({ month, revenue: monthMap[month] }));
   }, [transactions]);
 
-  // Build service breakdown from member services
+  // Build service breakdown from configured Service Types (DB) crossed with member services.
   const serviceBreakdown = useMemo(() => {
-    const counts: Record<string, number> = {
-      Gym: 0,
-      Spa: 0,
-      Sauna: 0,
-      Swimming: 0,
-    };
+    const activeTypes = (serviceTypes || []).filter((t) => t.active);
+    if (activeTypes.length === 0) return [];
+    const counts: Record<string, number> = {};
+    activeTypes.forEach((t) => (counts[t.name] = 0));
     members.forEach((m) =>
-      m.services.forEach((s) => (counts[s] = (counts[s] || 0) + 1)),
+      (m.services || []).forEach((s) => {
+        // Match by case-insensitive name or slug
+        const match = activeTypes.find(
+          (t) =>
+            t.name.toLowerCase() === String(s).toLowerCase() ||
+            t.slug.toLowerCase() === String(s).toLowerCase(),
+        );
+        if (match) counts[match.name] = (counts[match.name] || 0) + 1;
+      }),
     );
     const total = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
-    const fills: Record<string, string> = {
-      Gym: "hsl(38, 92%, 50%)",
-      Spa: "hsl(280, 60%, 55%)",
-      Sauna: "hsl(15, 80%, 55%)",
-      Swimming: "hsl(200, 80%, 50%)",
-    };
-    return Object.entries(counts).map(([name, count]) => ({
-      name,
-      value: Math.round((count / total) * 100),
-      fill: fills[name],
+    return activeTypes.map((t) => ({
+      name: t.name,
+      value: Math.round(((counts[t.name] || 0) / total) * 100),
+      fill: t.color || "hsl(38, 92%, 50%)",
     }));
-  }, [members]);
+  }, [members, serviceTypes]);
 
   const greeting = useMemo(() => {
     const h = new Date().getHours();

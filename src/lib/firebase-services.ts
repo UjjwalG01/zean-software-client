@@ -12,7 +12,7 @@ import type {
   PaymentMethod,
   BookingStatus,
 } from "./mock-data";
-import { toIsoDayInTz, dayToTimestampInTz, nowIso } from "./tz";
+import { toIsoDayInTz, dayToTimestampInTz, nowIso, getAppTimezone } from "./tz";
 
 
 
@@ -37,13 +37,40 @@ function timeOnly(value: any): string {
   if (!value) return "";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return String(value).slice(0, 5);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  // Render the time in the app timezone so the displayed hour matches the
+  // configured locale rather than the operator's browser timezone.
+  try {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: getAppTimezone(),
+      hour: "2-digit", minute: "2-digit", hour12: false,
+    }).formatToParts(d).reduce<Record<string, string>>((acc, p) => {
+      if (p.type !== "literal") acc[p.type] = p.value;
+      return acc;
+    }, {});
+    return `${parts.hour || "00"}:${parts.minute || "00"}`;
+  } catch {
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  }
 }
 
 function at(date?: string, time?: string): string {
   const d = date || toIsoDayInTz(new Date());
-  const t = time || "00:00";
-  // Anchor as local wall-clock; using the existing helper avoids UTC day-flip.
+  // Default to the *current* wall-clock time in the configured timezone so
+  // freshly recorded events (check-ins, settlements) stamp the correct hour.
+  let t = time;
+  if (!t) {
+    try {
+      const parts = new Intl.DateTimeFormat("en-GB", {
+        timeZone: getAppTimezone(), hour: "2-digit", minute: "2-digit", hour12: false,
+      }).formatToParts(new Date()).reduce<Record<string, string>>((acc, p) => {
+        if (p.type !== "literal") acc[p.type] = p.value;
+        return acc;
+      }, {});
+      t = `${parts.hour || "00"}:${parts.minute || "00"}`;
+    } catch {
+      t = "00:00";
+    }
+  }
   return dayToTimestampInTz(d).replace(/T\d{2}:\d{2}:\d{2}/, `T${t}:00`);
 }
 
@@ -818,7 +845,10 @@ export async function addCheckInRecord(data: { memberId: string; memberName: str
     .insert({
       member_id: data.memberId || null,
       member_name: data.memberName || null,
-      check_in_at: at(data.date, new Date().toTimeString().slice(0, 5)),
+      // Use `at()` with no time so the wall-clock hour is derived in the
+      // configured app timezone — keeps stored timestamps consistent regardless
+      // of where the operator's browser is located.
+      check_in_at: at(data.date),
     })
     .select("id")
     .single();

@@ -266,9 +266,38 @@ export function useAddCheckIn() {
       }
       return fbServices.addCheckInRecord(data);
     },
-    onSuccess: () => {
+    // Optimistic update so the row flips to "Present" the moment the user clicks.
+    onMutate: async (data) => {
+      await qc.cancelQueries({ queryKey: ["checkIns"] });
+      const previous = qc.getQueryData<CheckInRecord[]>(["checkIns"]) || [];
+      const now = new Date();
+      const optimistic: CheckInRecord = {
+        id: `optimistic-${now.getTime()}`,
+        memberId: data.memberId,
+        memberName: data.memberName,
+        date: data.date,
+        checkInTime: `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
+      };
+      qc.setQueryData<CheckInRecord[]>(["checkIns"], [optimistic, ...previous]);
+      return { previous };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.previous) qc.setQueryData(["checkIns"], ctx.previous);
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ["checkIns"] });
       qc.invalidateQueries({ queryKey: ["dashboardStats"] });
+    },
+  });
+}
+
+// ─── Service Types ──────────────────────────────────────────────────
+export function useServiceTypes() {
+  return useQuery({
+    queryKey: ["serviceTypes"],
+    queryFn: async () => {
+      const { getServiceTypes } = await import("@/lib/firebase-outlets");
+      return getServiceTypes();
     },
   });
 }

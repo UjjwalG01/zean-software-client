@@ -34,6 +34,11 @@ export function DayTimelineDialog({ open, onOpenChange, date, bookings, duration
     return takenRanges.some((r) => slotStart < r.end && r.start < slotEnd);
   };
 
+  // Rule #6 — disable hours that have already passed on today.
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const isPastHour = (h: number) => date === todayStr && h <= now.getHours();
+
   const pick = (h: number) => {
     const start = `${String(h).padStart(2, "0")}:00`;
     const end = h * 60 + durationMinutes;
@@ -54,27 +59,30 @@ export function DayTimelineDialog({ open, onOpenChange, date, bookings, duration
         <DialogHeader>
           <DialogTitle>Pick a Time Slot — {date}</DialogTitle>
           <DialogDescription>
-            Tap any free hour to start. Slot duration: {durationMinutes} min. Booked slots are disabled.
+            Tap any free hour to start. Slot duration: {durationMinutes} min. Booked and past slots are disabled.
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-4 gap-2 py-2">
           {hours.map((h) => {
             const taken = isHourTaken(h);
+            const past = isPastHour(h);
+            const disabled = taken || past;
             return (
               <Button
                 key={h}
                 type="button"
-                variant={taken ? "secondary" : "outline"}
-                disabled={taken}
+                variant={disabled ? "secondary" : "outline"}
+                disabled={disabled}
                 onClick={() => pick(h)}
                 className={cn(
                   "h-12 flex-col gap-0 px-0",
-                  taken && "opacity-60 cursor-not-allowed line-through"
+                  disabled && "opacity-60 cursor-not-allowed",
+                  taken && "line-through",
                 )}
               >
                 <span className="text-sm font-semibold">{String(h).padStart(2, "0")}:00</span>
-                <span className="text-[10px] text-muted-foreground">{taken ? "Booked" : "Free"}</span>
+                <span className="text-[10px] text-muted-foreground">{past ? "Past" : taken ? "Booked" : "Free"}</span>
               </Button>
             );
           })}
