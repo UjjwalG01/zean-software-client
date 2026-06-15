@@ -36,41 +36,68 @@ interface AuthContextType {
   ) => Promise<void>;
 }
 
-const AuthContext = createContext<{ user: User | null; loading: boolean }>({
+const AuthContext = createContext<{
+  user: User | null;
+  loading: boolean;
+  appUser: AppUser | null;
+}>({
   user: null,
   loading: true,
+  appUser: null,
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [appUser, setAppUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check active session on initialization
+    let active = true;
+
+    const loadAppUser = async (email: string | null | undefined) => {
+      if (!email) {
+        if (active) setAppUser(null);
+        return;
+      }
+      try {
+        const profile = await getAppUserByEmail(email);
+        if (active) setAppUser(profile);
+      } catch {
+        if (active) setAppUser(null);
+      }
+    };
+
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!active) return;
       setUser(session?.user ?? null);
       setLoading(false);
+      loadAppUser(session?.user?.email);
     });
 
-    // Listen for global authentication status changes (Login, Logout, Token expiry)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
       setUser(session?.user ?? null);
       setLoading(false);
+      loadAppUser(session?.user?.email);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading }}>
+    <AuthContext.Provider value={{ user, loading, appUser }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
 export const useAuthContext = () => useContext(AuthContext);
+
 
 // const AuthContext = createContext<AuthContextType | null>(null);
 
