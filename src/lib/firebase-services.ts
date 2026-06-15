@@ -37,13 +37,41 @@ function timeOnly(value: any): string {
   if (!value) return "";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return String(value).slice(0, 5);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  // Render the time in the app timezone so the displayed hour matches the
+  // configured locale rather than the operator's browser timezone.
+  try {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: (require("./tz") as typeof import("./tz")).getAppTimezone(),
+      hour: "2-digit", minute: "2-digit", hour12: false,
+    }).formatToParts(d).reduce<Record<string, string>>((acc, p) => {
+      if (p.type !== "literal") acc[p.type] = p.value;
+      return acc;
+    }, {});
+    return `${parts.hour || "00"}:${parts.minute || "00"}`;
+  } catch {
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  }
 }
 
 function at(date?: string, time?: string): string {
   const d = date || toIsoDayInTz(new Date());
-  const t = time || "00:00";
-  // Anchor as local wall-clock; using the existing helper avoids UTC day-flip.
+  // Default to the *current* wall-clock time in the configured timezone so
+  // freshly recorded events (check-ins, settlements) stamp the correct hour.
+  let t = time;
+  if (!t) {
+    try {
+      const tz = (require("./tz") as typeof import("./tz")).getAppTimezone();
+      const parts = new Intl.DateTimeFormat("en-GB", {
+        timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false,
+      }).formatToParts(new Date()).reduce<Record<string, string>>((acc, p) => {
+        if (p.type !== "literal") acc[p.type] = p.value;
+        return acc;
+      }, {});
+      t = `${parts.hour || "00"}:${parts.minute || "00"}`;
+    } catch {
+      t = "00:00";
+    }
+  }
   return dayToTimestampInTz(d).replace(/T\d{2}:\d{2}:\d{2}/, `T${t}:00`);
 }
 
