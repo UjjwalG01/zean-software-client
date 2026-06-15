@@ -182,7 +182,7 @@ export async function listAuditLogs(filters: {
 
   let rows = (data || []).map((r: any) => {
     const descriptionText = r.new_value?.__description
-      || `${r.user_full_name || "system"} ${r.action}d in ${r.module || "—"}`;
+      || `${r.user_full_name || "system"} ${r.action}dj in ${r.module || "—"}`;
 
     return {
       id: r.id,

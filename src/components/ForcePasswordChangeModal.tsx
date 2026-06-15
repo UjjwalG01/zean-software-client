@@ -14,6 +14,33 @@ import { toast } from "sonner";
 import { ShieldAlert } from "lucide-react";
 
 import { changePassword, signOut } from "@/lib/auth-service";
+import { supabase } from "@/lib/supabase";
+
+// export async function handleAdminResetPassword(
+//   targetUserId: string,
+//   temporaryPassword: string,
+// ) {
+//   try {
+//     // Call the function directly through the Supabase client wrapper
+//     const { data, error } = await supabase.functions.invoke(
+//       "admin-reset-password",
+//       {
+//         body: {
+//           userId: targetUserId,
+//           newPassword: temporaryPassword,
+//         },
+//       },
+//     );
+
+//     if (error) throw error;
+
+//     toast.success("User password reset successfully!");
+//     return data;
+//   } catch (err: any) {
+//     console.error("Password reset execution failed:", err);
+//     toast.error(err.message || "Failed to reset password.");
+//   }
+// }
 
 /**
  * Force-shown modal when the logged-in user has must_change_password === true.

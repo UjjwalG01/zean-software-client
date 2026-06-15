@@ -5,7 +5,11 @@ import { useMember, useCompanySettings } from "@/hooks/use-firestore";
 import { useOutlet } from "@/contexts/OutletContext";
 import { Skeleton } from "@/components/ui/skeleton";
 
-function parseList(settings: Record<string, string>, key: string, fallback: string[]): string[] {
+function parseList(
+  settings: Record<string, string>,
+  key: string,
+  fallback: string[],
+): string[] {
   try {
     return settings[key] ? JSON.parse(settings[key]) : fallback;
   } catch {
@@ -13,7 +17,12 @@ function parseList(settings: Record<string, string>, key: string, fallback: stri
   }
 }
 
-const v = (x: any) => (x === undefined || x === null || x === "" || x === false ? "" : x === true ? "✓" : String(x));
+const v = (x: any) =>
+  x === undefined || x === null || x === "" || x === false
+    ? ""
+    : x === true
+      ? "✓"
+      : String(x);
 
 const MemberGRC = () => {
   const { id } = useParams();
@@ -49,7 +58,11 @@ const MemberGRC = () => {
     "Membership expiration will be informed before 7 days.",
   ]);
   const packages = parseList(settings, "setup_packages", []);
-  const timeSlots = parseList(settings, "setup_timeSlots", ["Morning", "Day", "Evening"]);
+  const timeSlots = parseList(settings, "setup_timeSlots", [
+    "Morning",
+    "Day",
+    "Evening",
+  ]);
   const memberPkgs: string[] = Array.isArray(m.packages) ? m.packages : [];
 
   if (isLoading && id !== "blank")
@@ -61,21 +74,40 @@ const MemberGRC = () => {
   if (!member) return <div className="p-6">Member not found</div>;
 
   const handlePrint = () => window.print();
-  const fullAddress = m.permanentAddress || (typeof m.address === "string" ? m.address : m.address?.permanent) || "";
+  const fullAddress =
+    m.permanentAddress ||
+    (typeof m.address === "string" ? m.address : m.address?.permanent) ||
+    "";
   const code = m.memberCode || m.grcNo || "—";
 
   // Premium accent per template
-  const accent = tpl === "modern" ? "#b9985a" : tpl === "elegant" ? "#1a1a2e" : "#0c3a52";
-  const accentSoft = tpl === "modern" ? "#f8f3e6" : tpl === "elegant" ? "#f4f1ec" : "#eaf2f6";
+  const accent =
+    tpl === "modern" ? "#b9985a" : tpl === "elegant" ? "#1a1a2e" : "#0c3a52";
+  const accentSoft =
+    tpl === "modern" ? "#f8f3e6" : tpl === "elegant" ? "#f4f1ec" : "#eaf2f6";
 
   // ── Reusable atoms ──
   const SH = ({ children }: { children: React.ReactNode }) => {
     if (tpl === "modern") {
       return (
-        <div style={{ marginTop: 14, marginBottom: 6, display: "flex", alignItems: "center", gap: 10 }}>
+        <div
+          style={{
+            marginTop: 14,
+            marginBottom: 6,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
           <span style={{ width: 22, height: 2, background: accent }} />
           <span
-            style={{ fontSize: baseFs, fontWeight: 700, letterSpacing: 3, color: accent, textTransform: "uppercase" }}
+            style={{
+              fontSize: baseFs,
+              fontWeight: 700,
+              letterSpacing: 3,
+              color: accent,
+              textTransform: "uppercase",
+            }}
           >
             {children}
           </span>
@@ -123,8 +155,20 @@ const MemberGRC = () => {
     );
   };
 
-  const F = ({ label, value, opts, span }: { label: string; value?: any; opts?: string[]; span?: number }) => {
-    const style: React.CSSProperties = span ? { gridColumn: `span ${span} / span ${span}` } : {};
+  const F = ({
+    label,
+    value,
+    opts,
+    span,
+  }: {
+    label: string;
+    value?: any;
+    opts?: string[];
+    span?: number;
+  }) => {
+    const style: React.CSSProperties = span
+      ? { gridColumn: `span ${span} / span ${span}` }
+      : {};
     const labelStyle: React.CSSProperties = {
       fontSize: Math.max(baseFs - 2, 8),
       fontWeight: 600,
@@ -139,7 +183,10 @@ const MemberGRC = () => {
           <div style={labelStyle}>{label}</div>
           <div style={{ display: "flex", gap: 14, fontSize: baseFs }}>
             {opts.map((opt) => (
-              <span key={opt} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <span
+                key={opt}
+                style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+              >
                 <span
                   style={{
                     display: "inline-block",
@@ -167,7 +214,8 @@ const MemberGRC = () => {
         <div style={labelStyle}>{label}</div>
         <div
           style={{
-            borderBottom: tpl === "modern" ? `1px solid ${accent}66` : "1px dotted #888",
+            borderBottom:
+              tpl === "modern" ? `1px solid ${accent}66` : "1px dotted #888",
             paddingBottom: 3,
             minHeight: 18,
             fontSize: baseFs,
@@ -184,10 +232,25 @@ const MemberGRC = () => {
   const Header = () => {
     if (tpl === "modern") {
       return (
-        <div style={{ borderBottom: `3px solid ${accent}`, paddingBottom: 14, marginBottom: 6 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 18 }}>
+        <div
+          style={{
+            borderBottom: `3px solid ${accent}`,
+            paddingBottom: 14,
+            marginBottom: 6,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-end",
+              gap: 18,
+            }}
+          >
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              {logoUrl && <img src={logoUrl} alt="logo" style={{ height: 60 }} />}
+              {logoUrl && (
+                <img src={logoUrl} alt="logo" style={{ height: 60 }} />
+              )}
               <div>
                 <div
                   style={{
@@ -201,15 +264,41 @@ const MemberGRC = () => {
                 >
                   {companyName}
                 </div>
-                <div style={{ fontSize: 10, color: "#555", marginTop: 4, letterSpacing: 1 }}>
-                  {[companyAddress, companyPhone && `T ${companyPhone}`, companyEmail].filter(Boolean).join("  ·  ")}
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: "#555",
+                    marginTop: 4,
+                    letterSpacing: 1,
+                  }}
+                >
+                  {[
+                    companyAddress,
+                    companyPhone && `T ${companyPhone}`,
+                    companyEmail,
+                  ]
+                    .filter(Boolean)
+                    .join("  ·  ")}
                 </div>
               </div>
             </div>
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 9, color: "#888", letterSpacing: 3 }}>GUEST REGISTRATION</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: accent, marginTop: 2 }}>№ {code}</div>
-              <div style={{ fontSize: 9, color: "#888", marginTop: 4 }}>{outlet?.name || ""}</div>
+              <div style={{ fontSize: 9, color: "#888", letterSpacing: 3 }}>
+                GUEST REGISTRATION
+              </div>
+              <div
+                style={{
+                  fontSize: 18,
+                  fontWeight: 700,
+                  color: accent,
+                  marginTop: 2,
+                }}
+              >
+                No. {code}
+              </div>
+              <div style={{ fontSize: 9, color: "#888", marginTop: 4 }}>
+                {outlet?.name || ""}
+              </div>
             </div>
           </div>
         </div>
@@ -230,7 +319,9 @@ const MemberGRC = () => {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              {logoUrl && <img src={logoUrl} alt="logo" style={{ height: 56 }} />}
+              {logoUrl && (
+                <img src={logoUrl} alt="logo" style={{ height: 56 }} />
+              )}
               <div>
                 <div
                   style={{
@@ -244,18 +335,54 @@ const MemberGRC = () => {
                 >
                   {companyName}
                 </div>
-                <div style={{ fontSize: 10, color: "#555", marginTop: 3 }}>{companyAddress}</div>
+                <div style={{ fontSize: 10, color: "#555", marginTop: 3 }}>
+                  {companyAddress}
+                </div>
                 <div style={{ fontSize: 10, color: "#555" }}>
-                  {[companyPhone && `Tel ${companyPhone}`, companyEmail].filter(Boolean).join("   ·   ")}
+                  {[companyPhone && `Tel ${companyPhone}`, companyEmail]
+                    .filter(Boolean)
+                    .join("   ·   ")}
                 </div>
               </div>
             </div>
             <div
-              style={{ textAlign: "center", border: `1px solid ${accent}`, padding: "8px 16px", background: "white" }}
+              style={{
+                textAlign: "center",
+                border: `1px solid ${accent}`,
+                padding: "8px 16px",
+                background: "white",
+              }}
             >
-              <div style={{ fontSize: 11, fontWeight: 700, color: accent, letterSpacing: 2 }}>REGISTRATION</div>
-              <div style={{ fontSize: 9, color: "#888", letterSpacing: 1, marginTop: 2 }}>FORM NUMBER</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: accent, marginTop: 2 }}>{code}</div>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: accent,
+                  letterSpacing: 2,
+                }}
+              >
+                REGISTRATION
+              </div>
+              <div
+                style={{
+                  fontSize: 9,
+                  color: "#888",
+                  letterSpacing: 1,
+                  marginTop: 2,
+                }}
+              >
+                FORM NUMBER
+              </div>
+              <div
+                style={{
+                  fontSize: 16,
+                  fontWeight: 700,
+                  color: accent,
+                  marginTop: 2,
+                }}
+              >
+                {code}
+              </div>
             </div>
           </div>
         </div>
@@ -277,12 +404,36 @@ const MemberGRC = () => {
       >
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           {logoUrl && (
-            <img src={logoUrl} alt="logo" style={{ height: 54, background: "white", padding: 4, borderRadius: 4 }} />
+            <img
+              src={logoUrl}
+              alt="logo"
+              style={{
+                height: 54,
+                background: "white",
+                padding: 4,
+                borderRadius: 4,
+              }}
+            />
           )}
           <div>
-            <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: 1, lineHeight: 1.1 }}>{companyName}</div>
+            <div
+              style={{
+                fontSize: 22,
+                fontWeight: 700,
+                letterSpacing: 1,
+                lineHeight: 1.1,
+              }}
+            >
+              {companyName}
+            </div>
             <div style={{ fontSize: 10, opacity: 0.9, marginTop: 3 }}>
-              {[companyAddress, companyPhone && `Tel: ${companyPhone}`, companyEmail].filter(Boolean).join("  ·  ")}
+              {[
+                companyAddress,
+                companyPhone && `Tel: ${companyPhone}`,
+                companyEmail,
+              ]
+                .filter(Boolean)
+                .join("  ·  ")}
             </div>
           </div>
         </div>
@@ -311,13 +462,21 @@ const MemberGRC = () => {
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-center justify-between print:hidden">
-        <Button variant="ghost" size="sm" onClick={() => navigate(`/members/${id}`)}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate(`/members/${id}`)}
+        >
           <ArrowLeft className="h-4 w-4 mr-1" /> Back
         </Button>
         <div className="text-xs text-muted-foreground">
-          Template: <span className="font-medium capitalize">{tpl}</span> · {baseFs}px
+          Template: <span className="font-medium capitalize">{tpl}</span> ·{" "}
+          {baseFs}px
         </div>
-        <Button onClick={handlePrint} className="gradient-gold text-primary-foreground">
+        <Button
+          onClick={handlePrint}
+          className="gradient-gold text-primary-foreground"
+        >
           <Printer className="h-4 w-4 mr-1" /> Print GRC
         </Button>
       </div>
@@ -359,7 +518,11 @@ const MemberGRC = () => {
               <F label="Religion" value={m.religion} />
               <F label="Occupation" value={m.occupation} span={2} />
               <F label="Permanent Address" value={fullAddress} span={3} />
-              <F label="Temporary Address" value={m.temporaryAddress} span={3} />
+              <F
+                label="Temporary Address"
+                value={m.temporaryAddress}
+                span={3}
+              />
             </div>
             {show.photo && (
               <div
@@ -378,7 +541,15 @@ const MemberGRC = () => {
                 }}
               >
                 {m.avatar && !m.avatar.includes("dicebear") ? (
-                  <img src={m.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <img
+                    src={m.avatar}
+                    alt=""
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
                 ) : (
                   <span style={{ letterSpacing: 2 }}>PHOTO</span>
                 )}
@@ -388,7 +559,14 @@ const MemberGRC = () => {
 
           {/* Contact */}
           <SH>Contact Information</SH>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", columnGap: 14, rowGap: 10 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(4, minmax(0,1fr))",
+              columnGap: 14,
+              rowGap: 10,
+            }}
+          >
             <F label="Phone" value={m.phone} />
             <F label="Email" value={m.email} span={2} />
             <F label="Alt. Contact" value={m.contactAlt} />
@@ -405,18 +583,36 @@ const MemberGRC = () => {
             <>
               <SH>Emergency Contact</SH>
               <div
-                style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", columnGap: 14, rowGap: 10 }}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, minmax(0,1fr))",
+                  columnGap: 14,
+                  rowGap: 10,
+                }}
               >
                 <F label="Name" value={m.emergencyName} />
-                <F label="Phone" value={m.emergencyContactNum || m.emergencyContact} />
-                <F label="Address" value={m.emergencyAddress || m.doctorContact} />
+                <F
+                  label="Phone"
+                  value={m.emergencyContactNum || m.emergencyContact}
+                />
+                <F
+                  label="Address"
+                  value={m.emergencyAddress || m.doctorContact}
+                />
               </div>
             </>
           )}
 
           {/* Membership */}
           <SH>Membership</SH>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", columnGap: 14, rowGap: 10 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(4, minmax(0,1fr))",
+              columnGap: 14,
+              rowGap: 10,
+            }}
+          >
             <F label="Tier" value={m.tier} />
             <F label="Plan" value={m.plan} />
             <F label="Time Slot" value={m.timeSlot} opts={timeSlots} />
@@ -446,7 +642,10 @@ const MemberGRC = () => {
                 }}
               >
                 {packages.map((p: string) => (
-                  <label key={p} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <label
+                    key={p}
+                    style={{ display: "flex", alignItems: "center", gap: 6 }}
+                  >
                     <span
                       style={{
                         display: "inline-block",
@@ -473,7 +672,12 @@ const MemberGRC = () => {
             <>
               <SH>Physical &amp; Medical Details</SH>
               <div
-                style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", columnGap: 14, rowGap: 10 }}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(4, minmax(0,1fr))",
+                  columnGap: 14,
+                  rowGap: 10,
+                }}
               >
                 <F label="Height (ft)" value={m.height} />
                 <F label="Weight (kg)" value={m.weight} />
@@ -489,12 +693,17 @@ const MemberGRC = () => {
                   marginTop: 10,
                 }}
               >
-                <F label="Any Heart Stroke" value={m.heartStroke ? "Yes" : "No"} opts={["Yes", "No"]} />
+                <F
+                  label="Any Heart Stroke"
+                  value={m.heartStroke ? "Yes" : "No"}
+                  opts={["Yes", "No"]}
+                />
                 <F
                   label="Breathing Difficulty"
                   value={
                     m.breathingDifficulty === true ||
-                    (typeof m.breathingDifficulty === "string" && m.breathingDifficulty.trim())
+                    (typeof m.breathingDifficulty === "string" &&
+                      m.breathingDifficulty.trim())
                       ? "Yes"
                       : "No"
                   }
@@ -503,16 +712,21 @@ const MemberGRC = () => {
                 <F
                   label="Any Skin Disease"
                   value={
-                    m.skinDisease === true || (typeof m.skinDisease === "string" && m.skinDisease.trim()) ? "Yes" : "No"
+                    m.skinDisease === true ||
+                    (typeof m.skinDisease === "string" && m.skinDisease.trim())
+                      ? "Yes"
+                      : "No"
                   }
                   opts={["Yes", "No"]}
                 />
               </div>
-              {show.preferences && Array.isArray(m.preferences) && m.preferences.length > 0 && (
-                <div style={{ marginTop: 10 }}>
-                  <F label="Preferences" value={m.preferences.join(", ")} />
-                </div>
-              )}
+              {show.preferences &&
+                Array.isArray(m.preferences) &&
+                m.preferences.length > 0 && (
+                  <div style={{ marginTop: 10 }}>
+                    <F label="Preferences" value={m.preferences.join(", ")} />
+                  </div>
+                )}
             </>
           )}
 
@@ -520,7 +734,13 @@ const MemberGRC = () => {
           <div style={{ flex: 1, minHeight: 20 }} />
 
           {/* Footer */}
-          <div style={{ marginTop: 16, paddingTop: 12, borderTop: `1.5px solid ${accent}` }}>
+          <div
+            style={{
+              marginTop: 16,
+              paddingTop: 12,
+              borderTop: `1.5px solid ${accent}`,
+            }}
+          >
             <div
               style={{
                 fontSize: Math.max(baseFs - 2, 8),
@@ -571,7 +791,13 @@ const MemberGRC = () => {
                   >
                     Preferred Notification
                   </div>
-                  <div style={{ display: "flex", gap: 14, fontSize: Math.max(baseFs - 1, 10) }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 14,
+                      fontSize: Math.max(baseFs - 1, 10),
+                    }}
+                  >
                     <span>{m.notifyPhone ? "☑" : "☐"} Phone</span>
                     <span>{m.notifyEmail ? "☑" : "☐"} Email</span>
                     <span>{m.notifySMS ? "☑" : "☐"} SMS</span>

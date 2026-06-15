@@ -42,7 +42,7 @@ import { SOFTWARE_NAME } from "@/lib/settings";
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { appUser } = useAuthContext();
+  const { user } = useAuthContext();
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: members = [], isLoading: membersLoading } = useMembers();
   const { data: expiryAlerts = [], isLoading: alertsLoading } =
@@ -135,7 +135,7 @@ const Dashboard = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold font-display">
-            {greeting}, {appUser?.fullName?.split(" ")[0] || "Admin"} 👋
+            {greeting}, {user?.user_metadata?.split(" ")[0] || "Admin"} 👋
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
             {format(today, "EEEE, MMMM d, yyyy")} · Here's what's happening at{" "}
