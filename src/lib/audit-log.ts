@@ -78,20 +78,20 @@ async function resolveActiveOutlet(): Promise<{ id: string | null; name: string 
   }
 }
 
-const { data: { user } } = await supabase.auth.getUser();
-const { data: app_user_data, error } = await supabase
-  .from("app_users")
-  .select("display_name, extras")
-  .eq("id", user.id) // Replace targetUserId with your variable containing the ID
-  .single();
-
-// console.log(username)
 /**
  * Writes logs to the database using exact matching schema properties.
  */
 export async function logAudit(entry: AuditEntry): Promise<void> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
+
+    const { data: app_user_data } = user?.id
+      ? await supabase
+          .from("app_users")
+          .select("display_name, extras")
+          .eq("id", user.id)
+          .maybeSingle()
+      : { data: null as any };
 
     const slug =
       entry.moduleSlug ||
@@ -108,9 +108,9 @@ export async function logAudit(entry: AuditEntry): Promise<void> {
     const actorEmail = user?.email ?? null;
     const currentTs = new Date().toISOString();
     const outletLabel = outlet.name || "app";
-    // const userFullName = user?.user_metadata?.display_name || user?.user_metadata?.first_name || null
-    const userFullName = app_user_data.display_name;
-    const { username } = app_user_data.extras;
+    const userFullName = app_user_data?.display_name ?? null;
+    const username = app_user_data?.extras?.username ?? null;
+
 
     const inferredEntityType = entry.entityType || slug || moduleName.toLowerCase().replace(/\s+/g, '-');
     const generatedDescription = `${userFullName || "system"} ${entry.action}d in ${inferredEntityType} inside the ${outletLabel}`;
