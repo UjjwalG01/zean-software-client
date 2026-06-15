@@ -2,3 +2,10 @@ project_id = "hhiinhpkagzcwtwmqlny"
 
 [functions.send-email]
 verify_jwt = true
+
+# admin-reset-password validates the caller's Bearer token in code (and checks
+# the user_roles table for the "admin" role) so platform JWT verification is
+# disabled here. Do not flip this to true — the function will become unreachable
+# for newly issued asymmetric tokens.
+[functions.admin-reset-password]
+verify_jwt = false
