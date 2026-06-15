@@ -1240,6 +1240,29 @@ const Bookings_Page = () => {
           setSelectedBooking(b);
           setDetailOpen(true);
         }}
+        onReschedule={async (b, newHour) => {
+          if (!scheduleDay) return;
+          const dStr = format(scheduleDay, "yyyy-MM-dd");
+          if (isPastDateTime(dStr, `${String(newHour).padStart(2, "0")}:00`)) {
+            toast.error("Cannot reschedule into a past time slot");
+            return;
+          }
+          const [sh, sm] = (b.startTime || "00:00").split(":").map(Number);
+          const [eh, em] = (b.endTime || b.startTime || "00:00").split(":").map(Number);
+          const duration = Math.max(15, (eh * 60 + em) - (sh * 60 + sm) || 60);
+          const newStart = `${String(newHour).padStart(2, "0")}:00`;
+          const endMin = newHour * 60 + duration;
+          const newEnd = `${String(Math.floor(endMin / 60) % 24).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
+          try {
+            await updateBookingMutation.mutateAsync({
+              id: b.id,
+              data: { startTime: newStart, endTime: newEnd, timeSlot: newStart },
+            });
+            toast.success(`Rescheduled to ${newStart}`);
+          } catch {
+            toast.error("Failed to reschedule booking");
+          }
+        }}
       />
 
       {isLoading ? (
