@@ -60,6 +60,7 @@ import { useAssignRole } from "@/hooks/use-permissions";
 import { useOutlet } from "@/contexts/OutletContext";
 import { getUserAssignedOutlets } from "@/lib/firebase-roles";
 import { Checkbox } from "@/components/ui/checkbox";
+import { logAudit } from "@/lib/audit-log";
 
 const roleColors: Record<UserRole, string> = {
   admin: "bg-primary/20 text-primary",
@@ -147,6 +148,15 @@ const UsersPage = () => {
           userId: newUserId as string,
           roleId: form.role,
         });
+
+        await logAudit({
+          module: "Users & Roles",
+          entityType: "user",
+          action: "create",
+          entityId: newUserId as string,
+          outletId: null,
+          newValue: { username: form.username, roleId: form.role },
+        });
       } catch (e: any) {
         toast.error(e?.message || "Role assignment failed");
       }
@@ -172,8 +182,17 @@ const UsersPage = () => {
   const toggleActive = async (id: string, current: boolean) => {
     try {
       await updateMutation.mutateAsync({ id, data: { isActive: !current } });
+      await logAudit({
+        module: "users & roles",
+        entityType: "user",
+        action: current ? "deactivate" : "activate",
+        entityId: id,
+        outletId: "No Outlet",
+        newValue: { isActive: !current },
+      });
       toast.success(current ? "User deactivated" : "User activated");
-    } catch {
+    } catch (auditErr) {
+      console.error("Audit log failed:", auditErr);
       toast.error("Update failed");
     }
   };
@@ -188,6 +207,14 @@ const UsersPage = () => {
         userId: id,
         roleId: customRoleId,
       });
+      await logAudit({
+        module: "users & roles",
+        entityType: "user",
+        action: "role_update",
+        entityId: id,
+        outletId: "No Outlet",
+        newValue: { customRoleId },
+      });
       toast.success("Role updated");
     } catch (e: any) {
       toast.error(e?.message || "Failed");
@@ -197,14 +224,22 @@ const UsersPage = () => {
   const handleDelete = async (id: string, name: string) => {
     if (
       !confirm(
-        `Remove user "${name}"? This only removes their access record. The Firebase Auth account is not deleted.`,
+        `Remove user "${name}"? This only removes their access record. The Auth account is not deleted.`,
       )
     )
       return;
     try {
       await deleteMutation.mutateAsync(id);
+      await logAudit({
+        module: "Users & Roles",
+        entityType: "user",
+        action: "delete",
+        entityId: id,
+        outletId: "No Outlet",
+      });
       toast.success("User removed");
-    } catch {
+    } catch (auditErr) {
+      console.error("Audit log failed:", auditErr);
       toast.error("Failed");
     }
   };
@@ -232,6 +267,13 @@ const UsersPage = () => {
       toast.success(
         `Password reset for ${resetTarget.fullName}. They'll be prompted to change it at next login.`,
       );
+      await logAudit({
+        module: "users & roles",
+        entityType: "user",
+        action: "password_update",
+        entityId: resetTarget.id,
+        outletId: "No Outlet",
+      });
       setResetTarget(null);
       setResetPwd("");
       setResetConfirm("");
@@ -280,6 +322,19 @@ const UsersPage = () => {
             roleId: editForm.customRoleId,
             outletIds: editOutletIds,
           } as any);
+
+          await logAudit({
+            module: "Users & Roles",
+            entityType: "user",
+            action: "update",
+            entityId: editTarget.id,
+            outletId: "General",
+            newValue: {
+              fullName: editForm.fullName,
+              customRoleId: editForm.customRoleId,
+              assignedOutlets: editOutletIds,
+            },
+          });
         } catch (e: any) {
           toast.error(e?.message || "Outlet assignment failed");
           return;
@@ -287,16 +342,10 @@ const UsersPage = () => {
       }
       toast.success("User updated");
       setEditTarget(null);
-    } catch {
+    } catch (auditErr) {
+      console.error("Audit log failed:", auditErr);
       toast.error("Update failed");
     }
-  };
-
-  const counts = {
-    total: users.length,
-    admin: users.filter((u) => u.role === "admin").length,
-    active: users.filter((u) => u.isActive).length,
-    pending: users.filter((u) => u.mustChangePassword).length,
   };
 
   return (

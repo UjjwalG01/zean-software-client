@@ -1,13 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { listAuditLogs, type AuditRow } from "@/lib/audit-log";
 import { getModules, type AppModule } from "@/lib/modules";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format } from "date-fns";
+import { format, endOfDay, parseISO } from "date-fns";
+import { toast } from "sonner";
 
 const todayISO = () => format(new Date(), "yyyy-MM-dd");
 const daysAgoISO = (n: number) => {
@@ -22,7 +36,6 @@ const AuditLogs = () => {
   const [modules, setModules] = useState<AppModule[]>([]);
   const [moduleFilter, setModuleFilter] = useState("all");
   const [actionFilter, setActionFilter] = useState("all");
-  // Default to today's date range
   const [from, setFrom] = useState(todayISO());
   const [to, setTo] = useState(todayISO());
   const [search, setSearch] = useState("");
@@ -35,20 +48,44 @@ const AuditLogs = () => {
 
   const load = async () => {
     setLoading(true);
-    const data = await listAuditLogs({
-      module: moduleFilter,
-      action: actionFilter,
-      from: from ? new Date(from).toISOString() : undefined,
-      to: to ? new Date(to + "T23:59:59").toISOString() : undefined,
-      search,
-    });
-    setRows(data);
-    setLoading(false);
+    try {
+      const toIsoString = to ? endOfDay(parseISO(to)).toISOString() : undefined;
+
+      const data = await listAuditLogs({
+        module: moduleFilter === "all" ? undefined : moduleFilter,
+        action: actionFilter === "all" ? undefined : actionFilter,
+        from: from ? parseISO(from).toISOString() : undefined,
+        to: toIsoString,
+        search: search.trim() || undefined,
+      });
+
+      const optimizedRows = (data || []).map((row: AuditRow) => {
+        const username =
+          row.user_full_name || row.actor_email?.split("@")[0] || "System User";
+        const fallbackModule =
+          row.module && row.module !== "—" ? row.module : "General";
+        const fallbackOutlet = row.outlet_name || "Outlet";
+
+        return {
+          ...row,
+          actor_email: username, // Overwrite with clear display name string logic
+          module: fallbackModule,
+          outlet_name: fallbackOutlet,
+        };
+      });
+
+      setRows(optimizedRows);
+    } catch (error: any) {
+      console.error("Failed to fetch live audit metrics:", error);
+      toast.error(error?.message || "Failed to load audit logs");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    load(); /* eslint-disable-next-line */
-  }, []);
+    load();
+  }, [moduleFilter, actionFilter, from, to, search]);
 
   const actions = useMemo(() => {
     const s = new Set<string>(["all"]);
@@ -64,14 +101,15 @@ const AuditLogs = () => {
       setFrom(daysAgoISO(n));
       setTo(todayISO());
     }
-    setTimeout(load, 0);
   };
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-2xl font-bold font-display">Audit Log</h1>
-        <p className="text-muted-foreground text-sm">Track changes across the application. Default view: today.</p>
+        <p className="text-muted-foreground text-sm">
+          Track changes across the application. Default view: today.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-6 gap-3">
@@ -106,13 +144,27 @@ const AuditLogs = () => {
             ))}
           </SelectContent>
         </Select>
-        <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="bg-muted/50 border-0" />
-        <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="bg-muted/50 border-0" />
+        <Input
+          type="date"
+          value={from}
+          onChange={(e) => setFrom(e.target.value)}
+          className="bg-muted/50 border-0"
+        />
+        <Input
+          type="date"
+          value={to}
+          onChange={(e) => setTo(e.target.value)}
+          className="bg-muted/50 border-0"
+        />
         <div className="sm:col-span-6 flex items-center gap-2 flex-wrap">
           <Button size="sm" onClick={load}>
             Apply Filters
           </Button>
-          <Button size="sm" variant="outline" onClick={() => applyQuickRange(0)}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => applyQuickRange(0)}
+          >
             Today
           </Button>
           <Button
@@ -121,15 +173,22 @@ const AuditLogs = () => {
             onClick={() => {
               setFrom(daysAgoISO(1));
               setTo(daysAgoISO(1));
-              setTimeout(load, 0);
             }}
           >
             Yesterday
           </Button>
-          <Button size="sm" variant="outline" onClick={() => applyQuickRange(6)}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => applyQuickRange(6)}
+          >
             Last 7d
           </Button>
-          <Button size="sm" variant="outline" onClick={() => applyQuickRange(29)}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => applyQuickRange(29)}
+          >
             Last 30d
           </Button>
         </div>
@@ -143,34 +202,54 @@ const AuditLogs = () => {
             ))}
           </div>
         ) : rows.length === 0 ? (
-          <p className="text-center text-muted-foreground py-10 text-sm">No audit entries match your filters.</p>
+          <p className="text-center text-muted-foreground py-10 text-sm">
+            No audit entries match your filters.
+          </p>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[160px]">When</TableHead>
-                <TableHead>User</TableHead>
+                <TableHead className="w-[180px]">When</TableHead>
+                <TableHead>User Name</TableHead>
                 <TableHead>Module</TableHead>
                 <TableHead>Action</TableHead>
-                <TableHead>Entity</TableHead>
-                <TableHead>Old → New</TableHead>
+                <TableHead>Outlet Location</TableHead>
+                <TableHead className="max-w-[420px]">
+                  Event Log Activity Details
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.map((r) => (
                 <TableRow key={r.id}>
-                  <TableCell className="text-xs">{format(new Date(r.ts), "yyyy-MM-dd HH:mm:ss")}</TableCell>
-                  <TableCell className="text-sm">{r.actor_email || "—"}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {r.ts ? format(new Date(r.ts), "yyyy-MM-dd HH:mm:ss") : "—"}
+                  </TableCell>
+                  <TableCell className="text-sm font-medium text-slate-100">
+                    {r.actor_email}
+                  </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="text-[10px]">
-                      {r.module}
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] uppercase font-mono"
+                    >
+                      {r.module || "General"}
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge className="text-[10px] bg-primary/20 text-primary border-0">{r.action}</Badge>
+                    <Badge className="text-[10px] bg-primary/20 text-primary border-0 font-bold uppercase">
+                      {r.action}
+                    </Badge>
                   </TableCell>
-                  <TableCell className="font-mono text-[11px] text-muted-foreground">{r.entity_id || "—"}</TableCell>
-                  <TableCell className="text-[11px] max-w-[420px]">{r.description}</TableCell>
+                  <TableCell className="text-xs text-slate-300">
+                    {r.outlet_name}
+                  </TableCell>
+                  <TableCell
+                    className="text-[11px] max-w-[420px] text-muted-foreground truncate"
+                    title={r.description}
+                  >
+                    {r.description || "No explicit parameters recorded."}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

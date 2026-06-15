@@ -28,6 +28,7 @@ import {
   generateMemberCode,
 } from "@/lib/firebase-services";
 import PackageSelectionModal from "@/components/PackageSelectionModal";
+import { logAudit } from "@/lib/audit-log";
 
 const STEPS = ["Personal", "Contact", "Physical & Medical", "Review"];
 
@@ -327,6 +328,16 @@ const AddMember = () => {
         // Per workflow: package selection happens AFTER member creation
         setPkgModalOpen(true);
       }
+
+      // ⚡ UPDATED: Uses the real variables from the handleSubmit scope
+      await logAudit({
+        module: "members",
+        entityType: "member",
+        action: isEdit ? "update" : "create", // Dynamically tracks if it's an edit or new creation
+        entityId: id, // The generated or existing member ID
+        outletId: outlet?.id || null, // Captures the physical outlet where the staff registered them
+        newValue: payload, // The actual form data payload
+      });
     } catch (e: any) {
       toast.error(e.message || "Failed to save");
     } finally {

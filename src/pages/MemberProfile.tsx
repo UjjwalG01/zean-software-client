@@ -35,16 +35,30 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { formatNPR } from "@/lib/mock-data";
-import { useMember, useTransactions, useBookings, useUpdateMember, useCompanySettings } from "@/hooks/use-firestore";
+import {
+  useMember,
+  useTransactions,
+  useBookings,
+  useUpdateMember,
+  useCompanySettings,
+} from "@/hooks/use-firestore";
 import { useCharges } from "@/hooks/use-charges";
 import { buildMemberLedger } from "@/lib/member-ledger";
 import { useQuery } from "@tanstack/react-query";
 import { getMemberPoolsSummary } from "@/lib/prepaid";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MemberProgress } from "@/components/MemberProgress";
 import { QuickBalanceModal } from "@/components/QuickBalanceModal";
 import { toast } from "sonner";
+import { logAudit } from "@/lib/audit-log";
 
 const MemberProfile = () => {
   const { id } = useParams();
@@ -99,25 +113,38 @@ const MemberProfile = () => {
   const handleSavePreferences = async () => {
     if (!id) return;
     try {
+      const updatePayload = {
+        preferences: prefsForm.favoriteActivities
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+        // Extra fields kept under preferences jsonb via firebase-services pass-through.
+        ...({
+          preferencesMeta: {
+            communicationChannel: prefsForm.communicationChannel,
+            language: prefsForm.language,
+            marketingOptIn: prefsForm.marketingOptIn,
+            trainerPref: prefsForm.trainerPref,
+            dietaryNotes: prefsForm.dietaryNotes,
+          },
+        } as any),
+      };
+
       await updateMember.mutateAsync({
         id,
-        data: {
-          preferences: prefsForm.favoriteActivities
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean),
-          // Extra fields kept under preferences jsonb via firebase-services pass-through.
-          ...({
-            preferencesMeta: {
-              communicationChannel: prefsForm.communicationChannel,
-              language: prefsForm.language,
-              marketingOptIn: prefsForm.marketingOptIn,
-              trainerPref: prefsForm.trainerPref,
-              dietaryNotes: prefsForm.dietaryNotes,
-            },
-          } as any),
-        } as any,
+        data: updatePayload as any,
       });
+
+      // ⚡ AUDIT LOG INSERTION
+      await logAudit({
+        module: "members",
+        entityType: "member",
+        action: "preferences_update",
+        entityId: id,
+        outletId: "No Outlet", // Assuming members remain global entities
+        newValue: updatePayload,
+      });
+
       toast.success("Preferences saved");
     } catch {
       toast.error("Failed to save preferences");
@@ -138,23 +165,41 @@ const MemberProfile = () => {
 
   const handleSaveEdit = async () => {
     if (!id) return;
-    if (!editForm.name.trim() || !editForm.email.trim() || !editForm.phone.trim()) {
+    if (
+      !editForm.name.trim() ||
+      !editForm.email.trim() ||
+      !editForm.phone.trim()
+    ) {
       toast.error("Name, email and phone are required");
       return;
     }
     const [firstName, ...rest] = editForm.name.trim().split(" ");
+
     try {
+      const updatePayload = {
+        firstName,
+        lastName: rest.join(" "),
+        email: editForm.email,
+        phone: editForm.phone,
+        address: editForm.address,
+        emergencyContactNum: editForm.emergencyContact,
+      };
+
       await updateMember.mutateAsync({
         id,
-        data: {
-          firstName,
-          lastName: rest.join(" "),
-          email: editForm.email,
-          phone: editForm.phone,
-          address: editForm.address,
-          emergencyContactNum: editForm.emergencyContact,
-        },
+        data: updatePayload,
       });
+
+      // ⚡ AUDIT LOG INSERTION
+      await logAudit({
+        module: "members",
+        entityType: "member",
+        action: "update",
+        entityId: id,
+        outletId: "No Outlet",
+        newValue: updatePayload,
+      });
+
       toast.success("Member profile updated");
       setEditOpen(false);
     } catch {
@@ -167,9 +212,23 @@ const MemberProfile = () => {
     // Deactivation switches to Inactive (hidden by default in lists);
     // reactivation restores Active so member appears again.
     const next = member.status === "Inactive" ? "Active" : "Inactive";
+
     try {
       await updateMember.mutateAsync({ id, data: { status: next } });
-      toast.success(next === "Active" ? "Member reactivated" : "Member deactivated");
+
+      // ⚡ AUDIT LOG INSERTION
+      await logAudit({
+        module: "members",
+        entityType: "member",
+        action: next === "Active" ? "reactivate" : "deactivate",
+        entityId: id,
+        outletId: "No Outlet",
+        newValue: { previousStatus: member.status, newStatus: next },
+      });
+
+      toast.success(
+        next === "Active" ? "Member reactivated" : "Member deactivated",
+      );
       setDeactivateOpen(false);
     } catch {
       toast.error("Failed to update status");
@@ -200,7 +259,11 @@ const MemberProfile = () => {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <p className="text-muted-foreground">Member not found</p>
-        <Button variant="ghost" className="mt-4" onClick={() => navigate("/members")}>
+        <Button
+          variant="ghost"
+          className="mt-4"
+          onClick={() => navigate("/members")}
+        >
           Back to Members
         </Button>
       </div>
@@ -209,7 +272,12 @@ const MemberProfile = () => {
 
   const memberTx = allTransactions.filter((t) => t.memberId === member.id);
   const memberBookings = allBookings.filter((b) => b.memberId === member.id);
-  const memberLedger = buildMemberLedger(member.id, allTransactions, (member as any).openingBalance || 0, allCharges);
+  const memberLedger = buildMemberLedger(
+    member.id,
+    allTransactions,
+    (member as any).openingBalance || 0,
+    allCharges,
+  );
   // const { data: prepaid } = useQuery({
   //   queryKey: ["prepaidPools", member.id],
   //   queryFn: () => getMemberPoolsSummary(member.id),
@@ -219,17 +287,34 @@ const MemberProfile = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/members")} className="text-muted-foreground">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate("/members")}
+          className="text-muted-foreground"
+        >
           <ArrowLeft className="h-4 w-4 mr-1" /> Back to Members
         </Button>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setQuickBalanceOpen(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setQuickBalanceOpen(true)}
+          >
             <Wallet className="h-4 w-4 mr-1" /> Quick Balance
           </Button>
-          <Button variant="outline" size="sm" onClick={() => navigate(`/members/${id}/grc`)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/members/${id}/grc`)}
+          >
             <FileText className="h-4 w-4 mr-1" /> Generate GRC
           </Button>
-          <Button variant="outline" size="sm" onClick={() => navigate(`/members/new?edit=${id}`)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/members/new?edit=${id}`)}
+          >
             <Edit className="h-4 w-4 mr-1" /> Edit
           </Button>
           <Button
@@ -261,7 +346,10 @@ const MemberProfile = () => {
               <TierBadge tier={member.tier} />
               <StatusBadge status={member.status} />
               {member.autoRenew && (
-                <Badge variant="outline" className="text-[10px] text-success border-success/30">
+                <Badge
+                  variant="outline"
+                  className="text-[10px] text-success border-success/30"
+                >
                   Auto-Renew
                 </Badge>
               )}
@@ -320,16 +408,28 @@ const MemberProfile = () => {
       {prepaid && prepaid.pools.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="glass-card rounded-lg p-4 text-center border border-primary/30 bg-primary/5">
-            <p className="text-xs text-primary uppercase tracking-wider">Total Payment Done</p>
-            <p className="text-lg font-bold font-display mt-1">{formatNPR(prepaid.totalPaid)}</p>
+            <p className="text-xs text-primary uppercase tracking-wider">
+              Total Payment Done
+            </p>
+            <p className="text-lg font-bold font-display mt-1">
+              {formatNPR(prepaid.totalPaid)}
+            </p>
           </div>
           <div className="glass-card rounded-lg p-4 text-center border border-warning/30 bg-warning/5">
-            <p className="text-xs text-warning uppercase tracking-wider">Total Used Amount</p>
-            <p className="text-lg font-bold font-display mt-1">{formatNPR(prepaid.usedAmount)}</p>
+            <p className="text-xs text-warning uppercase tracking-wider">
+              Total Used Amount
+            </p>
+            <p className="text-lg font-bold font-display mt-1">
+              {formatNPR(prepaid.usedAmount)}
+            </p>
           </div>
           <div className="glass-card rounded-lg p-4 text-center border border-success/30 bg-success/5">
-            <p className="text-xs text-success uppercase tracking-wider">Remaining Balance</p>
-            <p className="text-lg font-bold font-display mt-1">{formatNPR(prepaid.remaining)}</p>
+            <p className="text-xs text-success uppercase tracking-wider">
+              Remaining Balance
+            </p>
+            <p className="text-lg font-bold font-display mt-1">
+              {formatNPR(prepaid.remaining)}
+            </p>
           </div>
         </div>
       )}
@@ -367,7 +467,9 @@ const MemberProfile = () => {
         <TabsContent value="payments">
           <div className="glass-card rounded-xl overflow-hidden">
             {memberLedger.rows.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">No payment records</p>
+              <p className="text-center text-muted-foreground py-8">
+                No payment records
+              </p>
             ) : (
               <Table>
                 <TableHeader>
@@ -376,19 +478,28 @@ const MemberProfile = () => {
                     <TableHead>Description</TableHead>
                     <TableHead className="w-[110px]">Type</TableHead>
                     <TableHead className="w-[110px]">Method</TableHead>
-                    <TableHead className="text-right w-[120px]">Charge</TableHead>
+                    <TableHead className="text-right w-[120px]">
+                      Charge
+                    </TableHead>
                     <TableHead className="text-right w-[120px]">Paid</TableHead>
-                    <TableHead className="text-right w-[130px]">Balance</TableHead>
+                    <TableHead className="text-right w-[130px]">
+                      Balance
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {memberLedger.rows.map((r, i) => (
-                    <TableRow key={i} className={r.voided ? "opacity-50 line-through" : ""}>
+                    <TableRow
+                      key={i}
+                      className={r.voided ? "opacity-50 line-through" : ""}
+                    >
                       <TableCell className="text-xs">{r.date}</TableCell>
                       <TableCell className="text-sm">
                         {r.description}
                         {r.receiptNo && (
-                          <span className="block text-[10px] text-muted-foreground font-mono">{r.receiptNo}</span>
+                          <span className="block text-[10px] text-muted-foreground font-mono">
+                            {r.receiptNo}
+                          </span>
                         )}
                       </TableCell>
                       <TableCell>
@@ -402,14 +513,20 @@ const MemberProfile = () => {
                             {r.method}
                           </Badge>
                         ) : (
-                          <span className="text-muted-foreground text-xs">—</span>
+                          <span className="text-muted-foreground text-xs">
+                            —
+                          </span>
                         )}
                       </TableCell>
-                      <TableCell className="text-right text-sm">{r.debit ? formatNPR(r.debit) : "—"}</TableCell>
+                      <TableCell className="text-right text-sm">
+                        {r.debit ? formatNPR(r.debit) : "—"}
+                      </TableCell>
                       <TableCell className="text-right text-sm text-success">
                         {r.credit ? formatNPR(r.credit) : "—"}
                       </TableCell>
-                      <TableCell className="text-right text-sm font-semibold">{formatNPR(r.balance)}</TableCell>
+                      <TableCell className="text-right text-sm font-semibold">
+                        {formatNPR(r.balance)}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -419,19 +536,27 @@ const MemberProfile = () => {
             <div className="border-t border-border/50 p-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm bg-muted/20">
               <div>
                 <span className="text-muted-foreground">＋ Total Billed</span>
-                <div className="font-semibold">{formatNPR(memberLedger.summary.totalCharged)}</div>
+                <div className="font-semibold">
+                  {formatNPR(memberLedger.summary.totalCharged)}
+                </div>
               </div>
               <div>
                 <span className="text-muted-foreground">－ Total Paid</span>
-                <div className="font-semibold text-success">{formatNPR(memberLedger.summary.totalPaid)}</div>
+                <div className="font-semibold text-success">
+                  {formatNPR(memberLedger.summary.totalPaid)}
+                </div>
               </div>
               <div>
                 <span className="text-muted-foreground">－ Advance</span>
-                <div className="font-semibold text-primary">{formatNPR(memberLedger.summary.advance)}</div>
+                <div className="font-semibold text-primary">
+                  {formatNPR(memberLedger.summary.advance)}
+                </div>
               </div>
               <div>
                 <span className="text-muted-foreground">＝ Net Payable</span>
-                <div className="font-bold text-destructive">{formatNPR(memberLedger.summary.netPayable)}</div>
+                <div className="font-bold text-destructive">
+                  {formatNPR(memberLedger.summary.netPayable)}
+                </div>
               </div>
             </div>
           </div>
@@ -440,7 +565,9 @@ const MemberProfile = () => {
         <TabsContent value="bookings">
           <div className="glass-card rounded-xl overflow-hidden">
             {memberBookings.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">No bookings</p>
+              <p className="text-center text-muted-foreground py-8">
+                No bookings
+              </p>
             ) : (
               <Table>
                 <TableHeader>
@@ -456,7 +583,9 @@ const MemberProfile = () => {
                   {memberBookings.map((b) => (
                     <TableRow key={b.id}>
                       <TableCell className="text-sm">{b.date}</TableCell>
-                      <TableCell className="text-sm font-medium">{b.className}</TableCell>
+                      <TableCell className="text-sm font-medium">
+                        {b.className}
+                      </TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="text-[10px]">
                           {b.service}
@@ -466,7 +595,12 @@ const MemberProfile = () => {
                         {b.startTime}–{b.endTime}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={b.status === "Confirmed" ? "default" : "secondary"} className="text-[10px]">
+                        <Badge
+                          variant={
+                            b.status === "Confirmed" ? "default" : "secondary"
+                          }
+                          className="text-[10px]"
+                        >
                           {b.status}
                         </Badge>
                       </TableCell>
@@ -482,11 +616,19 @@ const MemberProfile = () => {
           <div className="glass-card rounded-xl p-6 space-y-5">
             <div className="space-y-2">
               <Label>
-                Favorite Activities <span className="text-xs text-muted-foreground">(comma separated)</span>
+                Favorite Activities{" "}
+                <span className="text-xs text-muted-foreground">
+                  (comma separated)
+                </span>
               </Label>
               <Input
                 value={prefsForm.favoriteActivities}
-                onChange={(e) => setPrefsForm((p) => ({ ...p, favoriteActivities: e.target.value }))}
+                onChange={(e) =>
+                  setPrefsForm((p) => ({
+                    ...p,
+                    favoriteActivities: e.target.value,
+                  }))
+                }
                 placeholder="e.g. Yoga, HIIT, Steam Bath"
               />
             </div>
@@ -496,7 +638,12 @@ const MemberProfile = () => {
                 <select
                   className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                   value={prefsForm.communicationChannel}
-                  onChange={(e) => setPrefsForm((p) => ({ ...p, communicationChannel: e.target.value }))}
+                  onChange={(e) =>
+                    setPrefsForm((p) => ({
+                      ...p,
+                      communicationChannel: e.target.value,
+                    }))
+                  }
                 >
                   {["Email", "SMS", "Phone", "WhatsApp"].map((o) => (
                     <option key={o}>{o}</option>
@@ -508,7 +655,9 @@ const MemberProfile = () => {
                 <select
                   className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                   value={prefsForm.language}
-                  onChange={(e) => setPrefsForm((p) => ({ ...p, language: e.target.value }))}
+                  onChange={(e) =>
+                    setPrefsForm((p) => ({ ...p, language: e.target.value }))
+                  }
                 >
                   {["English", "Nepali"].map((o) => (
                     <option key={o}>{o}</option>
@@ -519,7 +668,9 @@ const MemberProfile = () => {
                 <Label>Trainer Preference</Label>
                 <Input
                   value={prefsForm.trainerPref}
-                  onChange={(e) => setPrefsForm((p) => ({ ...p, trainerPref: e.target.value }))}
+                  onChange={(e) =>
+                    setPrefsForm((p) => ({ ...p, trainerPref: e.target.value }))
+                  }
                   placeholder="e.g. Female trainer / morning slots"
                 />
               </div>
@@ -527,7 +678,9 @@ const MemberProfile = () => {
                 <div className="flex items-center gap-2">
                   <Switch
                     checked={prefsForm.marketingOptIn}
-                    onCheckedChange={(v) => setPrefsForm((p) => ({ ...p, marketingOptIn: v }))}
+                    onCheckedChange={(v) =>
+                      setPrefsForm((p) => ({ ...p, marketingOptIn: v }))
+                    }
                   />
                   <Label className="!mt-0">Marketing / Promo opt-in</Label>
                 </div>
@@ -538,7 +691,9 @@ const MemberProfile = () => {
               <Textarea
                 rows={3}
                 value={prefsForm.dietaryNotes}
-                onChange={(e) => setPrefsForm((p) => ({ ...p, dietaryNotes: e.target.value }))}
+                onChange={(e) =>
+                  setPrefsForm((p) => ({ ...p, dietaryNotes: e.target.value }))
+                }
               />
             </div>
             <div className="flex justify-end">
@@ -555,7 +710,11 @@ const MemberProfile = () => {
         </TabsContent>
       </Tabs>
 
-      <QuickBalanceModal open={quickBalanceOpen} onOpenChange={setQuickBalanceOpen} member={member} />
+      <QuickBalanceModal
+        open={quickBalanceOpen}
+        onOpenChange={setQuickBalanceOpen}
+        member={member}
+      />
 
       {/* Edit Member Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
@@ -564,12 +723,19 @@ const MemberProfile = () => {
             <DialogTitle className="font-display flex items-center gap-2">
               <Edit className="h-4 w-4 text-primary" /> Edit Member
             </DialogTitle>
-            <DialogDescription>Update the member's contact details.</DialogDescription>
+            <DialogDescription>
+              Update the member's contact details.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 py-2">
             <div className="space-y-1.5">
               <Label>Full Name</Label>
-              <Input value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))} />
+              <Input
+                value={editForm.name}
+                onChange={(e) =>
+                  setEditForm((p) => ({ ...p, name: e.target.value }))
+                }
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -577,26 +743,40 @@ const MemberProfile = () => {
                 <Input
                   type="email"
                   value={editForm.email}
-                  onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, email: e.target.value }))
+                  }
                 />
               </div>
               <div className="space-y-1.5">
                 <Label>Phone</Label>
-                <Input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} />
+                <Input
+                  value={editForm.phone}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, phone: e.target.value }))
+                  }
+                />
               </div>
             </div>
             <div className="space-y-1.5">
               <Label>Address</Label>
               <Input
                 value={editForm.address}
-                onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))}
+                onChange={(e) =>
+                  setEditForm((p) => ({ ...p, address: e.target.value }))
+                }
               />
             </div>
             <div className="space-y-1.5">
               <Label>Emergency Contact</Label>
               <Input
                 value={editForm.emergencyContact}
-                onChange={(e) => setEditForm((p) => ({ ...p, emergencyContact: e.target.value }))}
+                onChange={(e) =>
+                  setEditForm((p) => ({
+                    ...p,
+                    emergencyContact: e.target.value,
+                  }))
+                }
               />
             </div>
           </div>
@@ -623,7 +803,9 @@ const MemberProfile = () => {
           <DialogHeader>
             <DialogTitle className="font-display flex items-center gap-2">
               <Power className="h-4 w-4 text-destructive" />
-              {member.status === "Active" ? "Deactivate Member?" : "Reactivate Member?"}
+              {member.status === "Active"
+                ? "Deactivate Member?"
+                : "Reactivate Member?"}
             </DialogTitle>
             <DialogDescription>
               {member.status === "Active"
@@ -640,7 +822,11 @@ const MemberProfile = () => {
               onClick={handleToggleActive}
               disabled={updateMember.isPending}
             >
-              {updateMember.isPending ? "Updating..." : member.status === "Active" ? "Deactivate" : "Reactivate"}
+              {updateMember.isPending
+                ? "Updating..."
+                : member.status === "Active"
+                  ? "Deactivate"
+                  : "Reactivate"}
             </Button>
           </DialogFooter>
         </DialogContent>

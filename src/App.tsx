@@ -37,6 +37,7 @@ import { useEffect } from "react";
 import { pingSupabase } from "@/lib/supabase";
 import { setAppTimezone } from "@/lib/tz";
 import { useCompanySettings } from "@/hooks/use-firestore";
+import { TitleSync } from "./components/TitleSync";
 
 const queryClient = new QueryClient();
 
@@ -104,6 +105,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <TitleSync />
           <AuthProvider>
             <Routes>
               <Route path="/login" element={<Login />} />

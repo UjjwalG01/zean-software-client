@@ -74,6 +74,7 @@ import { capitalizeFirstLetter } from "@/lib/string-case-change";
 import { methodColors } from "@/lib/utils";
 
 import { INVOICE_PREFIX } from "@/lib/settings";
+import { logAudit } from "@/lib/audit-log";
 
 import { useOutlet } from "@/contexts/OutletContext";
 import { toIsoDayInTz } from "@/lib/tz";
@@ -296,6 +297,22 @@ const Transactions = () => {
         advMember,
         amount,
       );
+      // ⚡ AUDIT LOG INSERTION
+      await logAudit({
+        module: "transactions",
+        entityType: "transaction",
+        action: "advance_create",
+        entityId: advMember, // Groups under the target member's profile
+        outletId: activeOutlet?.id || null, // Captures active branch context
+        newValue: {
+          memberId: advMember,
+          memberName: memberObj?.name || "",
+          advanceAmount: amount,
+          paymentMethod: advMethod,
+          note: advNote || null,
+          remainingCredit: leftover,
+        },
+      });
       toast.success(
         leftover > 0
           ? `Advance recorded — ${formatNPR(amount - leftover)} applied, ${formatNPR(leftover)} credit remaining`
@@ -488,6 +505,26 @@ const Transactions = () => {
       qc.invalidateQueries({ queryKey: ["transactions"] });
       qc.invalidateQueries({ queryKey: ["charges"] });
       qc.invalidateQueries({ queryKey: ["member-ledger"] });
+
+      // ⚡ AUDIT LOG INSERTION
+      await logAudit({
+        module: "transactions",
+        entityType: "transaction",
+        action: settleTxn.id.startsWith("TEMP-")
+          ? "settlement_create"
+          : "settle",
+        entityId: settleTxn.id,
+        outletId: activeOutlet?.id || settleTxn.outletId || null,
+        newValue: {
+          memberId: settleTxn.memberId,
+          memberName: settleTxn.memberName,
+          amountPaid: netDue,
+          discountApplied: discount,
+          paymentMethod: settleMethod,
+          note: settleNote || null,
+          bookingId: settleTxn.bookingId || null,
+        },
+      });
 
       toast.success(
         discount > 0
