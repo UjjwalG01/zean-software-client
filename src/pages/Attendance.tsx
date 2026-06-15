@@ -48,6 +48,7 @@ import { QRCheckInScanner } from "@/components/QRCheckInScanner";
 import { consumeForAttendance } from "@/lib/prepaid";
 import { formatNPR } from "@/lib/mock-data";
 import { logAudit } from "@/lib/audit-log";
+import { toIsoDayInTz, formatInTz, getAppTimezone } from "@/lib/tz";
 
 const Attendance = () => {
   const { data: members = [], isLoading: membersLoading } = useMembers();
