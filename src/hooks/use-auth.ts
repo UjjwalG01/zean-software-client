@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { onAuthChange } from "@/lib/firebase-auth";
+import { onAuthChange } from "@/lib/auth-service";
 import type { User } from "@supabase/supabase-js";
 
 const supabaseConfigured = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);

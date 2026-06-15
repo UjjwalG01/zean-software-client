@@ -44,7 +44,10 @@ function SupabaseProbe() {
   useEffect(() => {
     pingSupabase().then((r) => {
       // eslint-disable-next-line no-console
-      console.log(`[supabase] ${r.ok ? "✓ connected" : "✗ failed"}`, r.error || "");
+      console.log(
+        `[supabase] ${r.ok ? "✓ connected" : "✗ failed"}`,
+        r.error || "",
+      );
     });
   }, []);
   return null;
@@ -79,6 +82,10 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      {/* This global injection intercepts all authenticated views instantly.
+        If user_metadata has must_change_password set to true, the modal locks 
+        the screen window, ensuring no underlying dashboards can be interacted with.
+      */}
       <ForcePasswordChangeModal />
       {children}
     </>
@@ -86,7 +93,11 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 }
 
 const App = () => (
-  <ThemeProvider defaultTheme="dark" attribute="class" storageKey="vitafit-theme">
+  <ThemeProvider
+    defaultTheme="dark"
+    attribute="class"
+    storageKey="vitafit-theme"
+  >
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <SupabaseProbe />
@@ -94,46 +105,82 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route
-              path="/*"
-              element={
-                <AuthGuard>
-                  <OutletProvider>
-                  <TimezoneSync />
-                  <AppLayout>
-                    <Routes>
-                      <Route path="/" element={<Index />} />
-                      <Route path="/members" element={<MembersList />} />
-                      <Route path="/members/new" element={<AddMember />} />
-                      <Route path="/members/:id" element={<MemberProfile />} />
-                      <Route path="/members/:id/grc" element={<MemberGRC />} />
-                      <Route path="/bookings" element={<Bookings />} />
-                      <Route path="/attendance" element={<Attendance />} />
-                      <Route path="/forecast" element={<Forecast />} />
-                      <Route path="/transactions" element={<Transactions />} />
-                      <Route path="/reports" element={<Reports />} />
-                      <Route path="/setup/general" element={<GeneralSetup />} />
-                      <Route path="/setup/plans" element={<PlansServices />} />
-                      <Route path="/setup/users" element={<Users />} />
-                      <Route path="/setup/email-templates" element={<EmailTemplates />} />
-                      <Route path="/setup/outlets" element={<OutletsPage />} />
-                      <Route path="/setup/service-types" element={<ServiceTypesPage />} />
-                      <Route path="/setup/settings" element={<Settings />} />
-                      <Route path="/inventory" element={<Inventory />} />
-                      <Route path="/setup/stores" element={<StoresPage />} />
-                      <Route path="/setup/item-groups" element={<ItemGroupsPage />} />
-                      <Route path="/setup/charge-heads" element={<ChargeHeadsPage />} />
-                      <Route path="/audit-logs" element={<AuditLogs />} />
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </AppLayout>
-                  </OutletProvider>
-                </AuthGuard>
-              }
-            />
-          </Routes>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route
+                path="/*"
+                element={
+                  <AuthGuard>
+                    <OutletProvider>
+                      <TimezoneSync />
+                      <AppLayout>
+                        <Routes>
+                          <Route path="/" element={<Index />} />
+                          <Route path="/members" element={<MembersList />} />
+                          <Route path="/members/new" element={<AddMember />} />
+                          <Route
+                            path="/members/:id"
+                            element={<MemberProfile />}
+                          />
+                          <Route
+                            path="/members/:id/grc"
+                            element={<MemberGRC />}
+                          />
+                          <Route path="/bookings" element={<Bookings />} />
+                          <Route path="/attendance" element={<Attendance />} />
+                          <Route path="/forecast" element={<Forecast />} />
+                          <Route
+                            path="/transactions"
+                            element={<Transactions />}
+                          />
+                          <Route path="/reports" element={<Reports />} />
+                          <Route
+                            path="/setup/general"
+                            element={<GeneralSetup />}
+                          />
+                          <Route
+                            path="/setup/plans"
+                            element={<PlansServices />}
+                          />
+                          <Route path="/setup/users" element={<Users />} />
+                          <Route
+                            path="/setup/email-templates"
+                            element={<EmailTemplates />}
+                          />
+                          <Route
+                            path="/setup/outlets"
+                            element={<OutletsPage />}
+                          />
+                          <Route
+                            path="/setup/service-types"
+                            element={<ServiceTypesPage />}
+                          />
+                          <Route
+                            path="/setup/settings"
+                            element={<Settings />}
+                          />
+                          <Route path="/inventory" element={<Inventory />} />
+                          <Route
+                            path="/setup/stores"
+                            element={<StoresPage />}
+                          />
+                          <Route
+                            path="/setup/item-groups"
+                            element={<ItemGroupsPage />}
+                          />
+                          <Route
+                            path="/setup/charge-heads"
+                            element={<ChargeHeadsPage />}
+                          />
+                          <Route path="/audit-logs" element={<AuditLogs />} />
+                          <Route path="*" element={<NotFound />} />
+                        </Routes>
+                      </AppLayout>
+                    </OutletProvider>
+                  </AuthGuard>
+                }
+              />
+            </Routes>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
