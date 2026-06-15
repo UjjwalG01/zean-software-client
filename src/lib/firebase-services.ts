@@ -41,7 +41,7 @@ function timeOnly(value: any): string {
   // configured locale rather than the operator's browser timezone.
   try {
     const parts = new Intl.DateTimeFormat("en-GB", {
-      timeZone: (require("./tz") as typeof import("./tz")).getAppTimezone(),
+      timeZone: getAppTimezone(),
       hour: "2-digit", minute: "2-digit", hour12: false,
     }).formatToParts(d).reduce<Record<string, string>>((acc, p) => {
       if (p.type !== "literal") acc[p.type] = p.value;
@@ -60,9 +60,8 @@ function at(date?: string, time?: string): string {
   let t = time;
   if (!t) {
     try {
-      const tz = (require("./tz") as typeof import("./tz")).getAppTimezone();
       const parts = new Intl.DateTimeFormat("en-GB", {
-        timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false,
+        timeZone: getAppTimezone(), hour: "2-digit", minute: "2-digit", hour12: false,
       }).formatToParts(new Date()).reduce<Record<string, string>>((acc, p) => {
         if (p.type !== "literal") acc[p.type] = p.value;
         return acc;
