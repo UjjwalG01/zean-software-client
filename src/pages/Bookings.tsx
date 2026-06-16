@@ -497,8 +497,8 @@ const Bookings_Page = () => {
       }
 
       const bookingId = await addBookingMutation.mutateAsync({
-        memberId: bookMember,
-        memberName: memberObj?.name || "",
+        memberId: effectiveMemberId,
+        memberName: effectiveMemberName,
         service: selectedService.type as ServiceType,
         className: selectedService.name,
         date: bookDate,
@@ -511,21 +511,22 @@ const Bookings_Page = () => {
       } as any);
 
       // CHARGING-FIRST: post a pending Charge so the member's due balance
-      // is updated the moment the booking is created.
+      // is updated the moment the booking is created. Guest bookings skip the
+      // member-ledger step and head straight to the payment screen.
       const basePrice = Number(selectedService.price || 0);
       const finalPrice =
         useDiscountedRate && discountedRate
           ? Number(discountedRate)
           : basePrice;
       let chargeId = "";
-      if (finalPrice > 0) {
+      if (finalPrice > 0 && !isGuestBooking) {
         try {
           const { createChargeForBooking } = await import("@/lib/charges");
           chargeId = await createChargeForBooking(
             (d) => addTransactionMutation.mutateAsync(d) as Promise<string>,
             {
-              memberId: bookMember,
-              memberName: memberObj?.name || "",
+              memberId: effectiveMemberId,
+              memberName: effectiveMemberName,
               bookingId: String(bookingId || ""),
               service: selectedService.type,
               className: selectedService.name,
@@ -540,12 +541,16 @@ const Bookings_Page = () => {
         }
       }
 
-      toast.success("Booking created — redirecting to payment");
+      toast.success(
+        isGuestBooking
+          ? "Guest booking created — redirecting to payment"
+          : "Booking created — redirecting to payment",
+      );
       setDialogOpen(false);
       const params = new URLSearchParams({
         newPayment: "true",
-        memberId: bookMember,
-        memberName: memberObj?.name || "",
+        memberId: effectiveMemberId,
+        memberName: effectiveMemberName,
         service: selectedService.type,
         className: selectedService.name,
         amount: String(finalPrice),
@@ -553,6 +558,7 @@ const Bookings_Page = () => {
         chargeId: chargeId,
         outletId: selectedOutlet.id,
         locked: "1",
+        ...(isGuestBooking ? { guest: "1" } : {}),
       });
       setBookMember("");
       setMemberSearch("");
@@ -563,6 +569,9 @@ const Bookings_Page = () => {
       setBookEndTime("");
       setUseDiscountedRate(false);
       setDiscountedRate("");
+      setGuestMode(false);
+      setGuestName("");
+
       navigate(`/transactions?${params.toString()}`);
     } catch {
       toast.error("Failed to create booking");
