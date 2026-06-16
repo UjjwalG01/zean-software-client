@@ -1242,6 +1242,10 @@ const Bookings_Page = () => {
         }}
         onReschedule={async (b, newHour) => {
           if (!scheduleDay) return;
+          if (b.status === "Completed") {
+            toast.error("Completed bookings cannot be rescheduled");
+            return;
+          }
           const dStr = format(scheduleDay, "yyyy-MM-dd");
           if (isPastDateTime(dStr, `${String(newHour).padStart(2, "0")}:00`)) {
             toast.error("Cannot reschedule into a past time slot");
@@ -1254,15 +1258,19 @@ const Bookings_Page = () => {
           const endMin = newHour * 60 + duration;
           const newEnd = `${String(Math.floor(endMin / 60) % 24).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
           try {
+            // IMPORTANT: include `date` so the server-side `at(date, time)` helper
+            // doesn't default to today's date and yank the booking off its day.
+            // Status/financials are intentionally NOT touched.
             await updateBookingMutation.mutateAsync({
               id: b.id,
-              data: { startTime: newStart, endTime: newEnd, timeSlot: newStart },
+              data: { date: b.date || dStr, startTime: newStart, endTime: newEnd, timeSlot: newStart },
             });
             toast.success(`Rescheduled to ${newStart}`);
           } catch {
             toast.error("Failed to reschedule booking");
           }
         }}
+
       />
 
       {isLoading ? (
