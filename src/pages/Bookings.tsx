@@ -421,10 +421,18 @@ const Bookings_Page = () => {
       setPickerOpen(true);
       return;
     }
-    if (!bookMember || !selectedService || !bookDate) {
+    // Guest mode (sports outlets only) — accept guest name instead of member id.
+    const isGuestBooking = isSportsOutlet && guestMode;
+    if (isGuestBooking) {
+      if (!guestName.trim() || !selectedService || !bookDate) {
+        toast.error("Please fill guest name, service and date");
+        return;
+      }
+    } else if (!bookMember || !selectedService || !bookDate) {
       toast.error("Please fill member, service and date");
       return;
     }
+
     if (!bookTimeSlot && !bookStartTime) {
       toast.error("Please pick a time slot (or use 24h timeline)");
       return;
