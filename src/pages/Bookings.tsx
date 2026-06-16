@@ -186,6 +186,12 @@ const Bookings_Page = () => {
   const [bookStartTime, setBookStartTime] = useState<string>("");
   const [bookEndTime, setBookEndTime] = useState<string>("");
 
+  // "FIT Guest Mode" — only available for outlets whose service type is "sports".
+  // Lets the operator book a walk-in guest without creating a member profile.
+  const [guestMode, setGuestMode] = useState(false);
+  const [guestName, setGuestName] = useState("");
+
+
   const { data: bookings = [], isLoading } = useBookings();
   const { data: members = [] } = useMembers();
   const { data: services = [] } = useServices();
