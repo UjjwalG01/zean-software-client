@@ -190,16 +190,22 @@ export function DayScheduleDialog({
                           <div className="space-y-2">
                             {slotBookings.map((b) => {
                               const accent = getServiceColor?.(b.service);
-                              const draggable = !!onReschedule;
+                              const draggable = isReschedulable(b);
+                              const lockedTitle =
+                                onReschedule && !draggable
+                                  ? `${b.status} bookings cannot be rescheduled`
+                                  : undefined;
                               return (
                                 <div
                                   key={b.id}
                                   draggable={draggable}
                                   onDragStart={(e) => handleDragStart(e, b)}
                                   onDragEnd={() => { setDraggingId(null); setDragOverHour(null); }}
+                                  title={lockedTitle}
                                   className={cn(
                                     "w-full text-left rounded-lg border border-border/80 bg-card hover:border-primary/50 hover:shadow-md transition-all p-3 group/card relative overflow-hidden",
                                     draggable && "cursor-grab active:cursor-grabbing",
+                                    onReschedule && !draggable && "cursor-not-allowed",
                                     draggingId === b.id && "opacity-50",
                                   )}
                                   role="button"
@@ -242,6 +248,7 @@ export function DayScheduleDialog({
                                 </div>
                               );
                             })}
+
                           </div>
                         )}
                       </div>
