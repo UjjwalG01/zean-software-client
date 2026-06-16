@@ -460,6 +460,11 @@ const Bookings_Page = () => {
     }
 
     const memberObj = members.find((m) => m.id === bookMember);
+    const effectiveMemberId = isGuestBooking ? "" : bookMember;
+    const effectiveMemberName = isGuestBooking
+      ? `Guest · ${guestName.trim()}`
+      : memberObj?.name || "";
+
     try {
       // Amend flow: update the existing booking instead of creating a new one.
       if (editingBookingId) {
