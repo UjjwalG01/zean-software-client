@@ -6,7 +6,7 @@ import React, {
   useCallback,
   type ReactNode,
 } from "react";
-import { useAuth } from "@/hooks/use-auth";
+// (legacy import removed; useAuth is exported from this file)
 import {
   signIn,
   signOut,
@@ -36,14 +36,18 @@ interface AuthContextType {
   ) => Promise<void>;
 }
 
-const AuthContext = createContext<{
+interface AuthContextValue {
   user: User | null;
   loading: boolean;
   appUser: AppUser | null;
-}>({
+  refreshAppUser: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextValue>({
   user: null,
   loading: true,
   appUser: null,
+  refreshAppUser: async () => {},
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -51,21 +55,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [appUser, setAppUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const loadAppUser = useCallback(async (email: string | null | undefined) => {
+    if (!email) {
+      setAppUser(null);
+      return;
+    }
+    try {
+      const profile = await getAppUserByEmail(email);
+      setAppUser(profile);
+    } catch {
+      setAppUser(null);
+    }
+  }, []);
+
+  const refreshAppUser = useCallback(async () => {
+    await loadAppUser(user?.email);
+  }, [loadAppUser, user?.email]);
+
   useEffect(() => {
     let active = true;
-
-    const loadAppUser = async (email: string | null | undefined) => {
-      if (!email) {
-        if (active) setAppUser(null);
-        return;
-      }
-      try {
-        const profile = await getAppUserByEmail(email);
-        if (active) setAppUser(profile);
-      } catch {
-        if (active) setAppUser(null);
-      }
-    };
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!active) return;
@@ -87,16 +95,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       active = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [loadAppUser]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, appUser }}>
+    <AuthContext.Provider value={{ user, loading, appUser, refreshAppUser }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
 export const useAuthContext = () => useContext(AuthContext);
+export const useAuth = useAuthContext;
+
 
 
 // const AuthContext = createContext<AuthContextType | null>(null);

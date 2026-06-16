@@ -72,8 +72,14 @@ export function DayScheduleDialog({
   const [dragOverHour, setDragOverHour] = useState<number | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
+  const isReschedulable = (b: Booking) =>
+    !!onReschedule && b.status !== "Completed" && b.status !== "Cancelled";
+
   const handleDragStart = (e: React.DragEvent, b: Booking) => {
-    if (!onReschedule) return;
+    if (!isReschedulable(b)) {
+      e.preventDefault();
+      return;
+    }
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", b.id);
     setDraggingId(b.id);
@@ -87,11 +93,12 @@ export function DayScheduleDialog({
     if (isPastHour(hour)) return;
     const id = e.dataTransfer.getData("text/plain");
     const b = bookings.find((x) => x.id === id);
-    if (!b) return;
+    if (!b || !isReschedulable(b)) return;
     const originalHour = Number((b.startTime || "00:00").split(":")[0]);
     if (originalHour === hour) return;
     await onReschedule(b, hour);
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -183,16 +190,22 @@ export function DayScheduleDialog({
                           <div className="space-y-2">
                             {slotBookings.map((b) => {
                               const accent = getServiceColor?.(b.service);
-                              const draggable = !!onReschedule;
+                              const draggable = isReschedulable(b);
+                              const lockedTitle =
+                                onReschedule && !draggable
+                                  ? `${b.status} bookings cannot be rescheduled`
+                                  : undefined;
                               return (
                                 <div
                                   key={b.id}
                                   draggable={draggable}
                                   onDragStart={(e) => handleDragStart(e, b)}
                                   onDragEnd={() => { setDraggingId(null); setDragOverHour(null); }}
+                                  title={lockedTitle}
                                   className={cn(
                                     "w-full text-left rounded-lg border border-border/80 bg-card hover:border-primary/50 hover:shadow-md transition-all p-3 group/card relative overflow-hidden",
                                     draggable && "cursor-grab active:cursor-grabbing",
+                                    onReschedule && !draggable && "cursor-not-allowed",
                                     draggingId === b.id && "opacity-50",
                                   )}
                                   role="button"
@@ -235,6 +248,7 @@ export function DayScheduleDialog({
                                 </div>
                               );
                             })}
+
                           </div>
                         )}
                       </div>

@@ -145,11 +145,29 @@ export function useUpdateBooking() {
       }
       return fbServices.updateBooking(id, data);
     },
-    onSuccess: () => {
+    // Optimistic update so the calendar/day-schedule reflects the new time
+    // immediately — prevents the booking from "vanishing" while the server
+    // round-trip is in flight.
+    onMutate: async ({ id, data }) => {
+      await qc.cancelQueries({ queryKey: ["bookings"] });
+      const previous = qc.getQueryData<any[]>(["bookings"]);
+      if (previous) {
+        qc.setQueryData<any[]>(
+          ["bookings"],
+          previous.map((b) => (b.id === id ? { ...b, ...data } : b)),
+        );
+      }
+      return { previous };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.previous) qc.setQueryData(["bookings"], ctx.previous);
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ["bookings"] });
     },
   });
 }
+
 
 export function useDeleteBooking() {
   const qc = useQueryClient();
