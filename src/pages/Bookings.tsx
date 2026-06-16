@@ -233,6 +233,15 @@ const Bookings_Page = () => {
         (selectedOutlet.outletType || "").toUpperCase(),
       ));
 
+  // Sports outlet — enables the FIT Guest Mode toggle in the booking modal.
+  const isSportsOutlet =
+    !!selectedOutlet &&
+    ((selectedOutlet.serviceTypes || []).some(
+      (s) => (s || "").toLowerCase() === "sports",
+    ) ||
+      (selectedOutlet.outletType || "").toUpperCase() === "SPORTS");
+
+
   const setupInstructors = parseSetup(settings, "setup_instructors", [
     "Trainer Ravi",
     "Trainer Prakash",
