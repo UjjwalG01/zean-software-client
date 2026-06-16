@@ -6,7 +6,7 @@ import React, {
   useCallback,
   type ReactNode,
 } from "react";
-import { useAuth } from "@/hooks/use-auth";
+// (legacy import removed; useAuth is exported from this file)
 import {
   signIn,
   signOut,
