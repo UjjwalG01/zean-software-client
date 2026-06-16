@@ -813,83 +813,130 @@ const Bookings_Page = () => {
               )}
             </div>
 
-            {/* Member search */}
-            <div className="space-y-2">
-              <Label>Member *</Label>
-              <Popover
-                open={memberPopoverOpen}
-                onOpenChange={setMemberPopoverOpen}
-              >
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    className="w-full justify-between font-normal"
-                  >
-                    {selectedMember ? (
-                      <span className="flex items-center gap-2 truncate">
-                        <span className="truncate">{selectedMember.name}</span>
-                        {selectedMember.phone && (
-                          <span className="text-xs text-muted-foreground">
-                            {selectedMember.phone}
-                          </span>
-                        )}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">
-                        Search and select member…
-                      </span>
-                    )}
-                    <ChevronDown className="h-4 w-4 opacity-60" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent
-                  className="w-[--radix-popover-trigger-width] p-0"
-                  align="start"
+            {/* FIT Guest Mode toggle — only for sports outlets */}
+            {isSportsOutlet && !editingBookingId && (
+              <div className="rounded-lg border border-border bg-muted/30 p-1 grid grid-cols-2 gap-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setGuestMode(false)}
+                  className={cn(
+                    "py-1.5 rounded-md font-medium transition-colors",
+                    !guestMode
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-muted/60",
+                  )}
                 >
-                  <div className="p-2 border-b border-border">
-                    <div className="relative">
-                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                      <Input
-                        value={memberSearch}
-                        onChange={(e) => setMemberSearch(e.target.value)}
-                        placeholder="Search by name, phone, email"
-                        className="pl-7 h-8"
-                        autoFocus
-                      />
-                    </div>
-                  </div>
-                  <div className="max-h-64 overflow-y-auto">
-                    {filteredMembers.length === 0 ? (
-                      <p className="px-3 py-6 text-center text-xs text-muted-foreground">
-                        No members found
-                      </p>
-                    ) : (
-                      filteredMembers.map((m) => (
-                        <button
-                          key={m.id}
-                          onClick={() => {
-                            setBookMember(m.id);
-                            setMemberPopoverOpen(false);
-                          }}
-                          className="flex items-center justify-between w-full px-3 py-2 text-sm text-left hover:bg-muted/50"
-                        >
-                          <div className="flex flex-col min-w-0">
-                            <span className="truncate">{m.name}</span>
-                            <span className="text-[11px] text-muted-foreground truncate">
-                              {m.phone || m.email || "—"}
+                  Member Mode
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGuestMode(true)}
+                  className={cn(
+                    "py-1.5 rounded-md font-medium transition-colors",
+                    guestMode
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-muted/60",
+                  )}
+                >
+                  FIT Guest Mode
+                </button>
+              </div>
+            )}
+
+            {/* Member search — hidden in guest mode */}
+            {!(isSportsOutlet && guestMode) ? (
+              <div className="space-y-2">
+                <Label>Member *</Label>
+                <Popover
+                  open={memberPopoverOpen}
+                  onOpenChange={setMemberPopoverOpen}
+                >
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between font-normal"
+                    >
+                      {selectedMember ? (
+                        <span className="flex items-center gap-2 truncate">
+                          <span className="truncate">{selectedMember.name}</span>
+                          {selectedMember.phone && (
+                            <span className="text-xs text-muted-foreground">
+                              {selectedMember.phone}
                             </span>
-                          </div>
-                          {bookMember === m.id && (
-                            <Check className="h-3.5 w-3.5 text-primary" />
                           )}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          Search and select member…
+                        </span>
+                      )}
+                      <ChevronDown className="h-4 w-4 opacity-60" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-[--radix-popover-trigger-width] p-0"
+                    align="start"
+                  >
+                    <div className="p-2 border-b border-border">
+                      <div className="relative">
+                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                        <Input
+                          value={memberSearch}
+                          onChange={(e) => setMemberSearch(e.target.value)}
+                          placeholder="Search by name, phone, email"
+                          className="pl-7 h-8"
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto">
+                      {filteredMembers.length === 0 ? (
+                        <p className="px-3 py-6 text-center text-xs text-muted-foreground">
+                          No members found
+                        </p>
+                      ) : (
+                        filteredMembers.map((m) => (
+                          <button
+                            key={m.id}
+                            onClick={() => {
+                              setBookMember(m.id);
+                              setMemberPopoverOpen(false);
+                            }}
+                            className="flex items-center justify-between w-full px-3 py-2 text-sm text-left hover:bg-muted/50"
+                          >
+                            <div className="flex flex-col min-w-0">
+                              <span className="truncate">{m.name}</span>
+                              <span className="text-[11px] text-muted-foreground truncate">
+                                {m.phone || m.email || "—"}
+                              </span>
+                            </div>
+                            {bookMember === m.id && (
+                              <Check className="h-3.5 w-3.5 text-primary" />
+                            )}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>Guest Name *</Label>
+                <Input
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  placeholder="Walk-in guest full name"
+                  autoFocus
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Guest bookings skip member profile lookup — payment is
+                  collected on the spot at the next step.
+                </p>
+              </div>
+            )}
+
 
             {isMembershipOutlet ? (
               <>
