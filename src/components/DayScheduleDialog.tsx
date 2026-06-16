@@ -72,8 +72,14 @@ export function DayScheduleDialog({
   const [dragOverHour, setDragOverHour] = useState<number | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
+  const isReschedulable = (b: Booking) =>
+    !!onReschedule && b.status !== "Completed" && b.status !== "Cancelled";
+
   const handleDragStart = (e: React.DragEvent, b: Booking) => {
-    if (!onReschedule) return;
+    if (!isReschedulable(b)) {
+      e.preventDefault();
+      return;
+    }
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", b.id);
     setDraggingId(b.id);
@@ -87,11 +93,12 @@ export function DayScheduleDialog({
     if (isPastHour(hour)) return;
     const id = e.dataTransfer.getData("text/plain");
     const b = bookings.find((x) => x.id === id);
-    if (!b) return;
+    if (!b || !isReschedulable(b)) return;
     const originalHour = Number((b.startTime || "00:00").split(":")[0]);
     if (originalHour === hour) return;
     await onReschedule(b, hour);
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
