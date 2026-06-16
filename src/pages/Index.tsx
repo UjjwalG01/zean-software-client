@@ -100,30 +100,46 @@ const Dashboard = () => {
     return months.map((month) => ({ month, revenue: monthMap[month] }));
   }, [transactions]);
 
-  // Build service breakdown from configured Service Types (DB) crossed with member services.
+  // Build service breakdown from configured Service Types (DB).
+  // Count signals = (a) member.services tags + (b) bookings.service so the
+  // chart shows real activity even when members haven't been tagged yet.
   const serviceBreakdown = useMemo(() => {
     const activeTypes = (serviceTypes || []).filter((t) => t.active);
     if (activeTypes.length === 0) return [];
+    const norm = (v: unknown) => String(v || "").trim().toLowerCase();
     const counts: Record<string, number> = {};
     activeTypes.forEach((t) => (counts[t.name] = 0));
+
+    const findType = (raw: unknown) => {
+      const v = norm(raw);
+      if (!v) return null;
+      return (
+        activeTypes.find(
+          (t) => norm(t.name) === v || norm(t.slug) === v,
+        ) || null
+      );
+    };
+
     members.forEach((m) =>
       (m.services || []).forEach((s) => {
-        // Match by case-insensitive name or slug
-        const match = activeTypes.find(
-          (t) =>
-            t.name.toLowerCase() === String(s).toLowerCase() ||
-            t.slug.toLowerCase() === String(s).toLowerCase(),
-        );
+        const match = findType(s);
         if (match) counts[match.name] = (counts[match.name] || 0) + 1;
       }),
     );
-    const total = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
+    bookings.forEach((b) => {
+      const match = findType((b as any).service) || findType((b as any).className);
+      if (match) counts[match.name] = (counts[match.name] || 0) + 1;
+    });
+
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
     return activeTypes.map((t) => ({
       name: t.name,
-      value: Math.round(((counts[t.name] || 0) / total) * 100),
+      value: total > 0 ? Math.round(((counts[t.name] || 0) / total) * 100) : 0,
+      count: counts[t.name] || 0,
       fill: t.color || "hsl(38, 92%, 50%)",
     }));
-  }, [members, serviceTypes]);
+  }, [members, bookings, serviceTypes]);
+
 
   const greeting = useMemo(() => {
     const h = new Date().getHours();
