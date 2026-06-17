@@ -1271,6 +1271,21 @@ const Bookings_Page = () => {
                   )}
                 </div>
 
+                {/* Task 1: explicit booking status selector. Default Confirmed. */}
+                <div className="space-y-2">
+                  <Label>Booking Status *</Label>
+                  <Select value={bookStatus} onValueChange={(v) => setBookStatus(v as typeof bookStatus)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Confirmed">Confirmed</SelectItem>
+                      <SelectItem value="Waitlisted">Wait-listed</SelectItem>
+                      <SelectItem value="NotFixed">Not-fixed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <Button
                   onClick={handleBook}
                   disabled={
