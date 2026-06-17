@@ -314,7 +314,7 @@ export function useServiceTypes() {
   return useQuery({
     queryKey: ["serviceTypes"],
     queryFn: async () => {
-      const { getServiceTypes } = await import("@/lib/firebase-outlets");
+      const { getServiceTypes } = await import("@/lib/supabase-outlets");
       return getServiceTypes();
     },
   });
