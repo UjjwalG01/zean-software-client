@@ -1,6 +1,12 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getOutlets, type Outlet } from "@/lib/firebase-outlets";
+import { getOutlets, type Outlet } from "@/lib/supabase-outlets";
 
 interface OutletCtx {
   outlets: Outlet[];
@@ -21,7 +27,7 @@ export function OutletProvider({ children }: { children: ReactNode }) {
   });
 
   const [selectedId, setSelectedId] = useState<string | null>(() =>
-    typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null
+    typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null,
   );
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -43,7 +49,16 @@ export function OutletProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <Ctx.Provider value={{ outlets: active, selected, setSelected, isLoading, pickerOpen, setPickerOpen }}>
+    <Ctx.Provider
+      value={{
+        outlets: active,
+        selected,
+        setSelected,
+        isLoading,
+        pickerOpen,
+        setPickerOpen,
+      }}
+    >
       {children}
     </Ctx.Provider>
   );

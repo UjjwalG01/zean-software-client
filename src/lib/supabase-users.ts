@@ -1,5 +1,4 @@
 // Supabase-backed app user helpers.
-// File name is kept for compatibility with existing imports.
 
 import { supabase } from "./supabase";
 

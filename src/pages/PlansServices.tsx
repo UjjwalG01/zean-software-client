@@ -53,7 +53,7 @@ import {
 } from "@/hooks/use-firestore";
 import { useOutlet } from "@/contexts/OutletContext";
 import { useQuery } from "@tanstack/react-query";
-import { getServiceTypes } from "@/lib/firebase-outlets";
+import { getServiceTypes } from "@/lib/supabase-outlets";
 import { toast } from "sonner";
 import { logAudit } from "@/lib/audit-log";
 

@@ -1,5 +1,4 @@
 // Outlets + Service Types — Supabase-backed.
-// File name kept as "firebase-outlets" for back-compat with existing imports;
 // the implementation now talks to Supabase (tables: outlets, service_types).
 
 import { supabase } from "./supabase";

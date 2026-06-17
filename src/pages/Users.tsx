@@ -54,11 +54,11 @@ import {
 } from "@/hooks/use-app-users";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
-import type { UserRole, AppUser } from "@/lib/firebase-users";
+import type { UserRole, AppUser } from "@/lib/supabase-users";
 import { RolesManager, useRoleDefinitions } from "@/components/RolesManager";
 import { useAssignRole } from "@/hooks/use-permissions";
 import { useOutlet } from "@/contexts/OutletContext";
-import { getUserAssignedOutlets } from "@/lib/firebase-roles";
+import { getUserAssignedOutlets } from "@/lib/supabase-roles";
 import { Checkbox } from "@/components/ui/checkbox";
 import { logAudit } from "@/lib/audit-log";
 

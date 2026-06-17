@@ -1,25 +1,68 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import { Plus, Minus, Trash2, Search, Check, ShoppingCart, Pause } from "lucide-react";
+import {
+  Plus,
+  Minus,
+  Trash2,
+  Search,
+  Check,
+  ShoppingCart,
+  Pause,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { useMembers, useServices, useAddBooking, useAddTransaction, useCompanySettings } from "@/hooks/use-firestore";
-import type { Outlet } from "@/lib/firebase-outlets";
+import {
+  useMembers,
+  useServices,
+  useAddBooking,
+  useAddTransaction,
+  useCompanySettings,
+} from "@/hooks/use-firestore";
+import type { Outlet } from "@/lib/supabase-outlets";
 import { formatNPR, type ServiceType } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
-interface Props { outlet: Outlet }
+interface Props {
+  outlet: Outlet;
+}
 
-interface CartLine { serviceId: string; name: string; type: string; price: number; qty: number; placed?: boolean; bookingId?: string; chargeId?: string; }
+interface CartLine {
+  serviceId: string;
+  name: string;
+  type: string;
+  price: number;
+  qty: number;
+  placed?: boolean;
+  bookingId?: string;
+  chargeId?: string;
+}
 
-function parseSetup(s: Record<string, string>, k: string, fb: string[]): string[] {
-  try { return s[k] ? JSON.parse(s[k]) : fb; } catch { return fb; }
+function parseSetup(
+  s: Record<string, string>,
+  k: string,
+  fb: string[],
+): string[] {
+  try {
+    return s[k] ? JSON.parse(s[k]) : fb;
+  } catch {
+    return fb;
+  }
 }
 
 /**
@@ -38,11 +81,16 @@ export function OutletPOSView({ outlet }: Props) {
   const addBookingMutation = useAddBooking();
   const addTransactionMutation = useAddTransaction();
 
-  const attendants = parseSetup(settings, "setup_instructors", ["Reception", "Trainer", "Therapist"]);
+  const attendants = parseSetup(settings, "setup_instructors", [
+    "Reception",
+    "Trainer",
+    "Therapist",
+  ]);
 
   const outletServices = useMemo(
-    () => services.filter((s) => s.outletId === outlet.id && s.isActive !== false),
-    [services, outlet.id]
+    () =>
+      services.filter((s) => s.outletId === outlet.id && s.isActive !== false),
+    [services, outlet.id],
   );
 
   const [memberId, setMemberId] = useState("");
@@ -64,7 +112,7 @@ export function OutletPOSView({ outlet }: Props) {
           (m) =>
             (m.name || "").toLowerCase().includes(q) ||
             (m.phone || "").includes(q) ||
-            (m.email || "").toLowerCase().includes(q)
+            (m.email || "").toLowerCase().includes(q),
         )
       : members;
     return list.slice(0, 50);
@@ -74,7 +122,10 @@ export function OutletPOSView({ outlet }: Props) {
 
   const addToCart = () => {
     const svc = outletServices.find((s) => s.id === pickerServiceId);
-    if (!svc) { toast.error("Pick a service first"); return; }
+    if (!svc) {
+      toast.error("Pick a service first");
+      return;
+    }
     setCart((prev) => {
       const i = prev.findIndex((l) => l.serviceId === svc.id);
       if (i >= 0) {
@@ -84,7 +135,13 @@ export function OutletPOSView({ outlet }: Props) {
       }
       return [
         ...prev,
-        { serviceId: svc.id, name: svc.name, type: svc.type, price: Number(svc.price || 0), qty: pickerQty },
+        {
+          serviceId: svc.id,
+          name: svc.name,
+          type: svc.type,
+          price: Number(svc.price || 0),
+          qty: pickerQty,
+        },
       ];
     });
     setPickerServiceId("");
@@ -94,10 +151,13 @@ export function OutletPOSView({ outlet }: Props) {
   const updateQty = (id: string, delta: number) =>
     setCart((prev) =>
       prev
-        .map((l) => (l.serviceId === id ? { ...l, qty: Math.max(0, l.qty + delta) } : l))
-        .filter((l) => l.qty > 0)
+        .map((l) =>
+          l.serviceId === id ? { ...l, qty: Math.max(0, l.qty + delta) } : l,
+        )
+        .filter((l) => l.qty > 0),
     );
-  const removeLine = (id: string) => setCart((prev) => prev.filter((l) => l.serviceId !== id));
+  const removeLine = (id: string) =>
+    setCart((prev) => prev.filter((l) => l.serviceId !== id));
 
   /**
    * Create one booking+charge per cart line that hasn't been placed yet.
@@ -152,11 +212,16 @@ export function OutletPOSView({ outlet }: Props) {
               amount: line.price,
               chargeHead: line.type,
               outletId: outlet.id,
-            }
+            },
           );
         }
       }
-      updated[idx] = { ...line, placed: true, bookingId: lineBooking, chargeId: lineCharge };
+      updated[idx] = {
+        ...line,
+        placed: true,
+        bookingId: lineBooking,
+        chargeId: lineCharge,
+      };
       if (lineCharge) lastChargeId = lineCharge;
       if (lineBooking) lastBookingId = lineBooking;
     }
@@ -175,7 +240,8 @@ export function OutletPOSView({ outlet }: Props) {
 
   const handleBilling = async () => {
     try {
-      const { lastBookingId, lastChargeId, memberObj } = await buildBookingsAndCharges();
+      const { lastBookingId, lastChargeId, memberObj } =
+        await buildBookingsAndCharges();
       toast.success("Order ready — opening billing");
       const params = new URLSearchParams({
         newPayment: "true",
@@ -205,10 +271,13 @@ export function OutletPOSView({ outlet }: Props) {
         <div className="font-display font-semibold tracking-wide text-sm uppercase">
           {outlet.name}
           <span className="ml-2 text-xs text-muted-foreground">
-            [{outlet.outletType || outlet.serviceTypes.join(", ").toUpperCase()}]
+            [{outlet.outletType || outlet.serviceTypes.join(", ").toUpperCase()}
+            ]
           </span>
         </div>
-        <Badge variant="outline" className="text-[10px] uppercase">{outlet.outletCode || "POS"}</Badge>
+        <Badge variant="outline" className="text-[10px] uppercase">
+          {outlet.outletCode || "POS"}
+        </Badge>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 p-5">
@@ -216,25 +285,39 @@ export function OutletPOSView({ outlet }: Props) {
         <div className="lg:col-span-2 space-y-4">
           <div>
             <h3 className="font-semibold font-display flex items-center gap-2 mb-1">
-              <span className="h-2 w-2 rounded-full bg-primary" /> General Information
+              <span className="h-2 w-2 rounded-full bg-primary" /> General
+              Information
             </h3>
             <p className="text-[11px] text-muted-foreground">
-              Fields marked with <span className="text-destructive">*</span> are mandatory.
+              Fields marked with <span className="text-destructive">*</span> are
+              mandatory.
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Cover *</Label>
-              <Input type="number" min={1} value={cover}
-                onChange={(e) => setCover(Math.max(1, Number(e.target.value) || 1))} />
+              <Input
+                type="number"
+                min={1}
+                value={cover}
+                onChange={(e) =>
+                  setCover(Math.max(1, Number(e.target.value) || 1))
+                }
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Attendant *</Label>
               <Select value={attendant} onValueChange={setAttendant}>
-                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
                 <SelectContent>
-                  {attendants.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                  {attendants.map((a) => (
+                    <SelectItem key={a} value={a}>
+                      {a}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -244,29 +327,52 @@ export function OutletPOSView({ outlet }: Props) {
             <Label className="text-xs">Member / Guest *</Label>
             <Popover open={memberOpen} onOpenChange={setMemberOpen}>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full justify-between font-normal">
+                <Button
+                  variant="outline"
+                  className="w-full justify-between font-normal"
+                >
                   {selectedMember ? (
                     <span className="truncate">{selectedMember.name}</span>
                   ) : (
-                    <span className="text-muted-foreground">Search member…</span>
+                    <span className="text-muted-foreground">
+                      Search member…
+                    </span>
                   )}
                   <Search className="h-3.5 w-3.5 opacity-60" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+              <PopoverContent
+                className="w-[--radix-popover-trigger-width] p-0"
+                align="start"
+              >
                 <div className="p-2 border-b border-border">
-                  <Input value={memberSearch} onChange={(e) => setMemberSearch(e.target.value)}
-                    placeholder="Search name / phone / email" className="h-8" autoFocus />
+                  <Input
+                    value={memberSearch}
+                    onChange={(e) => setMemberSearch(e.target.value)}
+                    placeholder="Search name / phone / email"
+                    className="h-8"
+                    autoFocus
+                  />
                 </div>
                 <div className="max-h-64 overflow-y-auto">
                   {filteredMembers.map((m) => (
-                    <button key={m.id} onClick={() => { setMemberId(m.id); setMemberOpen(false); }}
-                      className="flex items-center justify-between w-full px-3 py-2 text-sm text-left hover:bg-muted/50">
+                    <button
+                      key={m.id}
+                      onClick={() => {
+                        setMemberId(m.id);
+                        setMemberOpen(false);
+                      }}
+                      className="flex items-center justify-between w-full px-3 py-2 text-sm text-left hover:bg-muted/50"
+                    >
                       <div className="flex flex-col min-w-0">
                         <span className="truncate">{m.name}</span>
-                        <span className="text-[11px] text-muted-foreground truncate">{m.phone || m.email || "—"}</span>
+                        <span className="text-[11px] text-muted-foreground truncate">
+                          {m.phone || m.email || "—"}
+                        </span>
                       </div>
-                      {memberId === m.id && <Check className="h-3.5 w-3.5 text-primary" />}
+                      {memberId === m.id && (
+                        <Check className="h-3.5 w-3.5 text-primary" />
+                      )}
                     </button>
                   ))}
                 </div>
@@ -276,7 +382,11 @@ export function OutletPOSView({ outlet }: Props) {
 
           <div className="space-y-1.5">
             <Label className="text-xs">Guest Name (walk-in)</Label>
-            <Input value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Optional" />
+            <Input
+              value={guestName}
+              onChange={(e) => setGuestName(e.target.value)}
+              placeholder="Optional"
+            />
           </div>
         </div>
 
@@ -284,25 +394,46 @@ export function OutletPOSView({ outlet }: Props) {
         <div className="lg:col-span-3 space-y-3">
           <div className="grid grid-cols-12 gap-2">
             <div className="col-span-8">
-              <Select value={pickerServiceId} onValueChange={setPickerServiceId}>
+              <Select
+                value={pickerServiceId}
+                onValueChange={setPickerServiceId}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder={outletServices.length === 0 ? "No services configured for this outlet" : "Choose service"} />
+                  <SelectValue
+                    placeholder={
+                      outletServices.length === 0
+                        ? "No services configured for this outlet"
+                        : "Choose service"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {outletServices.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
-                      {s.name} — {s.type}{s.price ? ` • ${formatNPR(Number(s.price))}` : ""}
+                      {s.name} — {s.type}
+                      {s.price ? ` • ${formatNPR(Number(s.price))}` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="col-span-2">
-              <Input type="number" min={1} value={pickerQty}
-                onChange={(e) => setPickerQty(Math.max(1, Number(e.target.value) || 1))} />
+              <Input
+                type="number"
+                min={1}
+                value={pickerQty}
+                onChange={(e) =>
+                  setPickerQty(Math.max(1, Number(e.target.value) || 1))
+                }
+              />
             </div>
             <div className="col-span-2">
-              <Button onClick={addToCart} className="w-full gradient-gold text-primary-foreground">Add</Button>
+              <Button
+                onClick={addToCart}
+                className="w-full gradient-gold text-primary-foreground"
+              >
+                Add
+              </Button>
             </div>
           </div>
 
@@ -314,31 +445,68 @@ export function OutletPOSView({ outlet }: Props) {
               <div className="col-span-2 text-right">Total</div>
             </div>
             {cart.length === 0 ? (
-              <div className="py-10 text-center text-xs text-muted-foreground">Cart is empty</div>
+              <div className="py-10 text-center text-xs text-muted-foreground">
+                Cart is empty
+              </div>
             ) : (
               cart.map((l) => (
-                <div key={l.serviceId} className={cn("grid grid-cols-12 items-center px-3 py-2 border-t border-border/60 text-sm", l.placed && "bg-success/5")}>
+                <div
+                  key={l.serviceId}
+                  className={cn(
+                    "grid grid-cols-12 items-center px-3 py-2 border-t border-border/60 text-sm",
+                    l.placed && "bg-success/5",
+                  )}
+                >
                   <div className="col-span-6">
                     <p className="font-medium truncate flex items-center gap-2">
                       {l.name}
                       {l.placed && (
-                        <Badge className="bg-success/20 text-success border-0 text-[9px] uppercase">Ordered</Badge>
+                        <Badge className="bg-success/20 text-success border-0 text-[9px] uppercase">
+                          Ordered
+                        </Badge>
                       )}
                     </p>
-                    <p className="text-[10px] text-muted-foreground uppercase">{l.type}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase">
+                      {l.type}
+                    </p>
                   </div>
                   <div className="col-span-2 flex items-center justify-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-6 w-6" disabled={l.placed}
-                      onClick={() => updateQty(l.serviceId, -1)}><Minus className="h-3 w-3" /></Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      disabled={l.placed}
+                      onClick={() => updateQty(l.serviceId, -1)}
+                    >
+                      <Minus className="h-3 w-3" />
+                    </Button>
                     <span className="w-6 text-center text-xs">{l.qty}</span>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" disabled={l.placed}
-                      onClick={() => updateQty(l.serviceId, 1)}><Plus className="h-3 w-3" /></Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      disabled={l.placed}
+                      onClick={() => updateQty(l.serviceId, 1)}
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
                   </div>
-                  <div className="col-span-2 text-right text-xs">{l.price.toFixed(2)}</div>
+                  <div className="col-span-2 text-right text-xs">
+                    {l.price.toFixed(2)}
+                  </div>
                   <div className="col-span-2 flex items-center justify-end gap-2">
-                    <span className="text-xs font-medium">{(l.price * l.qty).toFixed(2)}</span>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" disabled={l.placed}
-                      onClick={() => removeLine(l.serviceId)}><Trash2 className="h-3 w-3" /></Button>
+                    <span className="text-xs font-medium">
+                      {(l.price * l.qty).toFixed(2)}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-destructive"
+                      disabled={l.placed}
+                      onClick={() => removeLine(l.serviceId)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
                   </div>
                 </div>
               ))
@@ -346,22 +514,43 @@ export function OutletPOSView({ outlet }: Props) {
           </div>
 
           {/* Grand total + actions */}
-          <div className={cn("rounded-lg border border-border bg-muted/30 p-3 flex items-center justify-between")}>
-            <span className="text-xs uppercase tracking-wider text-muted-foreground">Grand Total</span>
-            <span className="text-xl font-bold font-display text-primary">{formatNPR(grandTotal)}</span>
+          <div
+            className={cn(
+              "rounded-lg border border-border bg-muted/30 p-3 flex items-center justify-between",
+            )}
+          >
+            <span className="text-xs uppercase tracking-wider text-muted-foreground">
+              Grand Total
+            </span>
+            <span className="text-xl font-bold font-display text-primary">
+              {formatNPR(grandTotal)}
+            </span>
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            <Button variant="outline" disabled={cart.length === 0 || addBookingMutation.isPending}
-              onClick={handleBilling}>
+            <Button
+              variant="outline"
+              disabled={cart.length === 0 || addBookingMutation.isPending}
+              onClick={handleBilling}
+            >
               <ShoppingCart className="h-4 w-4 mr-1" /> Billing
             </Button>
-            <Button variant="outline" disabled={cart.length === 0}
-              onClick={() => toast.info("Order held")}>
+            <Button
+              variant="outline"
+              disabled={cart.length === 0}
+              onClick={() => toast.info("Order held")}
+            >
               <Pause className="h-4 w-4 mr-1" /> Hold Order
             </Button>
-            <Button disabled={cart.length === 0 || addBookingMutation.isPending || cart.every((l) => l.placed)}
-              onClick={handlePlace} className="gradient-gold text-primary-foreground">
+            <Button
+              disabled={
+                cart.length === 0 ||
+                addBookingMutation.isPending ||
+                cart.every((l) => l.placed)
+              }
+              onClick={handlePlace}
+              className="gradient-gold text-primary-foreground"
+            >
               <Check className="h-4 w-4 mr-1" /> Place Order
             </Button>
           </div>

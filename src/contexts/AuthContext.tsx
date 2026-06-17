@@ -16,7 +16,7 @@ import {
   getAppUserByEmail,
   clearMustChangePassword,
   type AppUser,
-} from "@/lib/firebase-users";
+} from "@/lib/supabase-users";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
@@ -97,7 +97,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 export const useAuthContext = () => useContext(AuthContext);
-
 
 // const AuthContext = createContext<AuthContextType | null>(null);
 

@@ -209,7 +209,7 @@ const Settings = () => {
               <Label>Company Logo</Label>
               <div className="flex items-center gap-4">
                 <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center text-xl font-bold text-primary">
-                  VF
+                  ZEAN
                 </div>
                 <Button
                   variant="outline"

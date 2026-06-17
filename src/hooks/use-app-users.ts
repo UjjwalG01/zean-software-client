@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import * as users from "@/lib/firebase-users";
+import * as users from "@/lib/supabase-users";
 import { createFirebaseAuthUser } from "@/lib/auth-service";
 
 export function useAppUsers() {

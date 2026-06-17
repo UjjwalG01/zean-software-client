@@ -3,7 +3,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import {
   listCustomRoles, saveCustomRole, deleteCustomRole, assignRoleToUser,
   getUserPermissions, type CustomRole,
-} from "@/lib/firebase-roles";
+} from "@/lib/supabase-roles";
 
 export function useCustomRoles() {
   return useQuery({ queryKey: ["customRoles"], queryFn: listCustomRoles });

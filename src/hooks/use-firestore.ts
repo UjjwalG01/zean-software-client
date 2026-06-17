@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import * as fbServices from "@/lib/firebase-services";
+import * as fbServices from "@/lib/supabase-services";
 import {
   members as mockMembers,
   bookings as mockBookings,

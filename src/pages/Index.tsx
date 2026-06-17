@@ -42,13 +42,15 @@ import { SOFTWARE_NAME } from "@/lib/settings";
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { user } = useAuthContext();
+  const { appUser, user } = useAuthContext();
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: members = [], isLoading: membersLoading } = useMembers();
   const { data: expiryAlerts = [], isLoading: alertsLoading } =
     useExpiryAlerts();
   const { data: transactions = [] } = useTransactions();
   const { data: bookings = [] } = useBookings();
+
+  console.log(appUser, user);
 
   const recentMembers = members.slice(0, 5);
   const dashboardStats = stats || {

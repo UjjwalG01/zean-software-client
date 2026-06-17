@@ -26,7 +26,7 @@ import { useOutlet } from "@/contexts/OutletContext";
 import {
   uploadMemberAvatar,
   generateMemberCode,
-} from "@/lib/firebase-services";
+} from "@/lib/supabase-services";
 import PackageSelectionModal from "@/components/PackageSelectionModal";
 import { logAudit } from "@/lib/audit-log";
 
