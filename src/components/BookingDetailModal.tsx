@@ -436,9 +436,15 @@ export function BookingDetailModal({ booking: b, open, onOpenChange, onAmend }: 
                   </Button>
                 ) : (
                   status !== "Cancelled" && (
-                    <Button size="sm" className="flex-1 gradient-gold text-primary-foreground" onClick={handleBillNow}>
+                    <Button
+                      size="sm"
+                      className="flex-1 gradient-gold text-primary-foreground disabled:opacity-50"
+                      onClick={handleBillNow}
+                      disabled={isStrictlyFuture}
+                      title={isStrictlyFuture ? "Cannot bill a future-dated booking" : undefined}
+                    >
                       <Receipt className="h-4 w-4 mr-1" />
-                      Billing / Record Payment
+                      {isStrictlyFuture ? "Billing (Locked – Future)" : "Billing / Record Payment"}
                     </Button>
                   )
                 )}
