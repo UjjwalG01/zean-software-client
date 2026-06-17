@@ -29,6 +29,7 @@ import {
   useExpiryAlerts,
   useTransactions,
   useBookings,
+  useServiceTypes,
 } from "@/hooks/use-firestore";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +50,7 @@ const Dashboard = () => {
     useExpiryAlerts();
   const { data: transactions = [] } = useTransactions();
   const { data: bookings = [] } = useBookings();
+  const { data: serviceTypes = [] } = useServiceTypes();
 
   console.log(appUser, user);
 
@@ -100,30 +102,46 @@ const Dashboard = () => {
     return months.map((month) => ({ month, revenue: monthMap[month] }));
   }, [transactions]);
 
-  // Build service breakdown from member services
+  // Build service breakdown from configured Service Types (DB).
+  // Count signals = (a) member.services tags + (b) bookings.service so the
+  // chart shows real activity even when members haven't been tagged yet.
   const serviceBreakdown = useMemo(() => {
-    const counts: Record<string, number> = {
-      Gym: 0,
-      Spa: 0,
-      Sauna: 0,
-      Swimming: 0,
+    const activeTypes = (serviceTypes || []).filter((t) => t.active);
+    if (activeTypes.length === 0) return [];
+    const norm = (v: unknown) => String(v || "").trim().toLowerCase();
+    const counts: Record<string, number> = {};
+    activeTypes.forEach((t) => (counts[t.name] = 0));
+
+    const findType = (raw: unknown) => {
+      const v = norm(raw);
+      if (!v) return null;
+      return (
+        activeTypes.find(
+          (t) => norm(t.name) === v || norm(t.slug) === v,
+        ) || null
+      );
     };
+
     members.forEach((m) =>
-      m.services.forEach((s) => (counts[s] = (counts[s] || 0) + 1)),
+      (m.services || []).forEach((s) => {
+        const match = findType(s);
+        if (match) counts[match.name] = (counts[match.name] || 0) + 1;
+      }),
     );
-    const total = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
-    const fills: Record<string, string> = {
-      Gym: "hsl(38, 92%, 50%)",
-      Spa: "hsl(280, 60%, 55%)",
-      Sauna: "hsl(15, 80%, 55%)",
-      Swimming: "hsl(200, 80%, 50%)",
-    };
-    return Object.entries(counts).map(([name, count]) => ({
-      name,
-      value: Math.round((count / total) * 100),
-      fill: fills[name],
+    bookings.forEach((b) => {
+      const match = findType((b as any).service) || findType((b as any).className);
+      if (match) counts[match.name] = (counts[match.name] || 0) + 1;
+    });
+
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    return activeTypes.map((t) => ({
+      name: t.name,
+      value: total > 0 ? Math.round(((counts[t.name] || 0) / total) * 100) : 0,
+      count: counts[t.name] || 0,
+      fill: t.color || "hsl(38, 92%, 50%)",
     }));
-  }, [members]);
+  }, [members, bookings, serviceTypes]);
+
 
   const greeting = useMemo(() => {
     const h = new Date().getHours();
@@ -137,7 +155,7 @@ const Dashboard = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold font-display">
-            {greeting}, {user?.user_metadata?.split(" ")[0] || "Admin"} 👋
+            {greeting}, {(user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || "Admin").toString().split(" ")[0]} 👋
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
             {format(today, "EEEE, MMMM d, yyyy")} · Here's what's happening at{" "}

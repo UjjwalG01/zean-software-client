@@ -186,6 +186,12 @@ const Bookings_Page = () => {
   const [bookStartTime, setBookStartTime] = useState<string>("");
   const [bookEndTime, setBookEndTime] = useState<string>("");
 
+  // "FIT Guest Mode" — only available for outlets whose service type is "sports".
+  // Lets the operator book a walk-in guest without creating a member profile.
+  const [guestMode, setGuestMode] = useState(false);
+  const [guestName, setGuestName] = useState("");
+
+
   const { data: bookings = [], isLoading } = useBookings();
   const { data: members = [] } = useMembers();
   const { data: services = [] } = useServices();
@@ -226,6 +232,15 @@ const Bookings_Page = () => {
       ["FITNESS", "HEALTH"].includes(
         (selectedOutlet.outletType || "").toUpperCase(),
       ));
+
+  // Sports outlet — enables the FIT Guest Mode toggle in the booking modal.
+  const isSportsOutlet =
+    !!selectedOutlet &&
+    ((selectedOutlet.serviceTypes || []).some(
+      (s) => (s || "").toLowerCase() === "sports",
+    ) ||
+      (selectedOutlet.outletType || "").toUpperCase() === "SPORTS");
+
 
   const setupInstructors = parseSetup(settings, "setup_instructors", [
     "Trainer Ravi",
@@ -300,6 +315,21 @@ const Bookings_Page = () => {
   const getBookingsForDay = (day: Date) =>
     filtered.filter((b) => isSameDay(new Date(b.date), day));
 
+  /** True if a booking on `dateStr` with `startTime` (HH:MM) is in the past. */
+  const isPastDateTime = (dateStr: string, startTime?: string): boolean => {
+    if (!dateStr) return false;
+    const now = new Date();
+    const todayStr = format(now, "yyyy-MM-dd");
+    if (dateStr < todayStr) return true;
+    if (dateStr > todayStr) return false;
+    if (!startTime) return false;
+    const [h, m] = startTime.split(":").map(Number);
+    if (Number.isNaN(h)) return false;
+    const slot = new Date(now);
+    slot.setHours(h, m || 0, 0, 0);
+    return slot.getTime() <= now.getTime();
+  };
+
   const openNewBookingDialog = (day?: Date, startTime?: string) => {
     if (!selectedOutlet) {
       setPickerOpen(true);
@@ -312,8 +342,13 @@ const Bookings_Page = () => {
       toast.error("Cannot add bookings for past dates");
       return;
     }
+    const dStr = format(d, "yyyy-MM-dd");
+    if (startTime && isPastDateTime(dStr, startTime)) {
+      toast.error("Cannot create bookings in the past");
+      return;
+    }
     setEditingBookingId(null);
-    setBookDate(format(d, "yyyy-MM-dd"));
+    setBookDate(dStr);
     if (startTime) {
       const [h, m] = startTime.split(":").map(Number);
       const endMin = h * 60 + m + 60;
@@ -386,10 +421,18 @@ const Bookings_Page = () => {
       setPickerOpen(true);
       return;
     }
-    if (!bookMember || !selectedService || !bookDate) {
+    // Guest mode (sports outlets only) — accept guest name instead of member id.
+    const isGuestBooking = isSportsOutlet && guestMode;
+    if (isGuestBooking) {
+      if (!guestName.trim() || !selectedService || !bookDate) {
+        toast.error("Please fill guest name, service and date");
+        return;
+      }
+    } else if (!bookMember || !selectedService || !bookDate) {
       toast.error("Please fill member, service and date");
       return;
     }
+
     if (!bookTimeSlot && !bookStartTime) {
       toast.error("Please pick a time slot (or use 24h timeline)");
       return;
@@ -398,6 +441,11 @@ const Bookings_Page = () => {
     today.setHours(0, 0, 0, 0);
     if (new Date(bookDate) < today) {
       toast.error("Cannot create bookings for past dates");
+      return;
+    }
+    // Block past times on today (rule #6)
+    if (isPastDateTime(bookDate, bookStartTime)) {
+      toast.error("Cannot create bookings in the past");
       return;
     }
     // Prefer explicit start time (from timeline picker) over coarse time-slot bucket.
@@ -412,6 +460,11 @@ const Bookings_Page = () => {
     }
 
     const memberObj = members.find((m) => m.id === bookMember);
+    const effectiveMemberId = isGuestBooking ? "" : bookMember;
+    const effectiveMemberName = isGuestBooking
+      ? `Guest · ${guestName.trim()}`
+      : memberObj?.name || "";
+
     try {
       // Amend flow: update the existing booking instead of creating a new one.
       if (editingBookingId) {
@@ -444,8 +497,8 @@ const Bookings_Page = () => {
       }
 
       const bookingId = await addBookingMutation.mutateAsync({
-        memberId: bookMember,
-        memberName: memberObj?.name || "",
+        memberId: effectiveMemberId,
+        memberName: effectiveMemberName,
         service: selectedService.type as ServiceType,
         className: selectedService.name,
         date: bookDate,
@@ -458,21 +511,22 @@ const Bookings_Page = () => {
       } as any);
 
       // CHARGING-FIRST: post a pending Charge so the member's due balance
-      // is updated the moment the booking is created.
+      // is updated the moment the booking is created. Guest bookings skip the
+      // member-ledger step and head straight to the payment screen.
       const basePrice = Number(selectedService.price || 0);
       const finalPrice =
         useDiscountedRate && discountedRate
           ? Number(discountedRate)
           : basePrice;
       let chargeId = "";
-      if (finalPrice > 0) {
+      if (finalPrice > 0 && !isGuestBooking) {
         try {
           const { createChargeForBooking } = await import("@/lib/charges");
           chargeId = await createChargeForBooking(
             (d) => addTransactionMutation.mutateAsync(d) as Promise<string>,
             {
-              memberId: bookMember,
-              memberName: memberObj?.name || "",
+              memberId: effectiveMemberId,
+              memberName: effectiveMemberName,
               bookingId: String(bookingId || ""),
               service: selectedService.type,
               className: selectedService.name,
@@ -487,12 +541,16 @@ const Bookings_Page = () => {
         }
       }
 
-      toast.success("Booking created — redirecting to payment");
+      toast.success(
+        isGuestBooking
+          ? "Guest booking created — redirecting to payment"
+          : "Booking created — redirecting to payment",
+      );
       setDialogOpen(false);
       const params = new URLSearchParams({
         newPayment: "true",
-        memberId: bookMember,
-        memberName: memberObj?.name || "",
+        memberId: effectiveMemberId,
+        memberName: effectiveMemberName,
         service: selectedService.type,
         className: selectedService.name,
         amount: String(finalPrice),
@@ -500,6 +558,7 @@ const Bookings_Page = () => {
         chargeId: chargeId,
         outletId: selectedOutlet.id,
         locked: "1",
+        ...(isGuestBooking ? { guest: "1" } : {}),
       });
       setBookMember("");
       setMemberSearch("");
@@ -510,6 +569,9 @@ const Bookings_Page = () => {
       setBookEndTime("");
       setUseDiscountedRate(false);
       setDiscountedRate("");
+      setGuestMode(false);
+      setGuestName("");
+
       navigate(`/transactions?${params.toString()}`);
     } catch {
       toast.error("Failed to create booking");
@@ -751,83 +813,130 @@ const Bookings_Page = () => {
               )}
             </div>
 
-            {/* Member search */}
-            <div className="space-y-2">
-              <Label>Member *</Label>
-              <Popover
-                open={memberPopoverOpen}
-                onOpenChange={setMemberPopoverOpen}
-              >
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    className="w-full justify-between font-normal"
-                  >
-                    {selectedMember ? (
-                      <span className="flex items-center gap-2 truncate">
-                        <span className="truncate">{selectedMember.name}</span>
-                        {selectedMember.phone && (
-                          <span className="text-xs text-muted-foreground">
-                            {selectedMember.phone}
-                          </span>
-                        )}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">
-                        Search and select member…
-                      </span>
-                    )}
-                    <ChevronDown className="h-4 w-4 opacity-60" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent
-                  className="w-[--radix-popover-trigger-width] p-0"
-                  align="start"
+            {/* FIT Guest Mode toggle — only for sports outlets */}
+            {isSportsOutlet && !editingBookingId && (
+              <div className="rounded-lg border border-border bg-muted/30 p-1 grid grid-cols-2 gap-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setGuestMode(false)}
+                  className={cn(
+                    "py-1.5 rounded-md font-medium transition-colors",
+                    !guestMode
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-muted/60",
+                  )}
                 >
-                  <div className="p-2 border-b border-border">
-                    <div className="relative">
-                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                      <Input
-                        value={memberSearch}
-                        onChange={(e) => setMemberSearch(e.target.value)}
-                        placeholder="Search by name, phone, email"
-                        className="pl-7 h-8"
-                        autoFocus
-                      />
-                    </div>
-                  </div>
-                  <div className="max-h-64 overflow-y-auto">
-                    {filteredMembers.length === 0 ? (
-                      <p className="px-3 py-6 text-center text-xs text-muted-foreground">
-                        No members found
-                      </p>
-                    ) : (
-                      filteredMembers.map((m) => (
-                        <button
-                          key={m.id}
-                          onClick={() => {
-                            setBookMember(m.id);
-                            setMemberPopoverOpen(false);
-                          }}
-                          className="flex items-center justify-between w-full px-3 py-2 text-sm text-left hover:bg-muted/50"
-                        >
-                          <div className="flex flex-col min-w-0">
-                            <span className="truncate">{m.name}</span>
-                            <span className="text-[11px] text-muted-foreground truncate">
-                              {m.phone || m.email || "—"}
+                  Member Mode
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGuestMode(true)}
+                  className={cn(
+                    "py-1.5 rounded-md font-medium transition-colors",
+                    guestMode
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-muted/60",
+                  )}
+                >
+                  FIT Guest Mode
+                </button>
+              </div>
+            )}
+
+            {/* Member search — hidden in guest mode */}
+            {!(isSportsOutlet && guestMode) ? (
+              <div className="space-y-2">
+                <Label>Member *</Label>
+                <Popover
+                  open={memberPopoverOpen}
+                  onOpenChange={setMemberPopoverOpen}
+                >
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between font-normal"
+                    >
+                      {selectedMember ? (
+                        <span className="flex items-center gap-2 truncate">
+                          <span className="truncate">{selectedMember.name}</span>
+                          {selectedMember.phone && (
+                            <span className="text-xs text-muted-foreground">
+                              {selectedMember.phone}
                             </span>
-                          </div>
-                          {bookMember === m.id && (
-                            <Check className="h-3.5 w-3.5 text-primary" />
                           )}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          Search and select member…
+                        </span>
+                      )}
+                      <ChevronDown className="h-4 w-4 opacity-60" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-[--radix-popover-trigger-width] p-0"
+                    align="start"
+                  >
+                    <div className="p-2 border-b border-border">
+                      <div className="relative">
+                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                        <Input
+                          value={memberSearch}
+                          onChange={(e) => setMemberSearch(e.target.value)}
+                          placeholder="Search by name, phone, email"
+                          className="pl-7 h-8"
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto">
+                      {filteredMembers.length === 0 ? (
+                        <p className="px-3 py-6 text-center text-xs text-muted-foreground">
+                          No members found
+                        </p>
+                      ) : (
+                        filteredMembers.map((m) => (
+                          <button
+                            key={m.id}
+                            onClick={() => {
+                              setBookMember(m.id);
+                              setMemberPopoverOpen(false);
+                            }}
+                            className="flex items-center justify-between w-full px-3 py-2 text-sm text-left hover:bg-muted/50"
+                          >
+                            <div className="flex flex-col min-w-0">
+                              <span className="truncate">{m.name}</span>
+                              <span className="text-[11px] text-muted-foreground truncate">
+                                {m.phone || m.email || "—"}
+                              </span>
+                            </div>
+                            {bookMember === m.id && (
+                              <Check className="h-3.5 w-3.5 text-primary" />
+                            )}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>Guest Name *</Label>
+                <Input
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  placeholder="Walk-in guest full name"
+                  autoFocus
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Guest bookings skip member profile lookup — payment is
+                  collected on the spot at the next step.
+                </p>
+              </div>
+            )}
+
 
             {isMembershipOutlet ? (
               <>
@@ -1215,6 +1324,37 @@ const Bookings_Page = () => {
           setSelectedBooking(b);
           setDetailOpen(true);
         }}
+        onReschedule={async (b, newHour) => {
+          if (!scheduleDay) return;
+          if (b.status === "Completed") {
+            toast.error("Completed bookings cannot be rescheduled");
+            return;
+          }
+          const dStr = format(scheduleDay, "yyyy-MM-dd");
+          if (isPastDateTime(dStr, `${String(newHour).padStart(2, "0")}:00`)) {
+            toast.error("Cannot reschedule into a past time slot");
+            return;
+          }
+          const [sh, sm] = (b.startTime || "00:00").split(":").map(Number);
+          const [eh, em] = (b.endTime || b.startTime || "00:00").split(":").map(Number);
+          const duration = Math.max(15, (eh * 60 + em) - (sh * 60 + sm) || 60);
+          const newStart = `${String(newHour).padStart(2, "0")}:00`;
+          const endMin = newHour * 60 + duration;
+          const newEnd = `${String(Math.floor(endMin / 60) % 24).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
+          try {
+            // IMPORTANT: include `date` so the server-side `at(date, time)` helper
+            // doesn't default to today's date and yank the booking off its day.
+            // Status/financials are intentionally NOT touched.
+            await updateBookingMutation.mutateAsync({
+              id: b.id,
+              data: { date: b.date || dStr, startTime: newStart, endTime: newEnd, timeSlot: newStart },
+            });
+            toast.success(`Rescheduled to ${newStart}`);
+          } catch {
+            toast.error("Failed to reschedule booking");
+          }
+        }}
+
       />
 
       {isLoading ? (
@@ -1265,9 +1405,10 @@ const Bookings_Page = () => {
                   <TooltipTrigger asChild>
                     <div
                       className={cn(
-                        "min-h-[80px] lg:min-h-[100px] rounded-lg p-1.5 text-sm transition-colors cursor-pointer hover:ring-1 hover:ring-primary/50",
+                        "min-h-[80px] lg:min-h-[100px] rounded-lg p-1.5 text-sm transition-colors cursor-pointer hover:ring-1 hover:ring-primary/50 flex flex-col",
                         isCurrentMonth ? "bg-card" : "bg-muted/20",
                         isToday(day) && "ring-1 ring-primary",
+                        dayBookings.length > 0 && "bg-primary/5",
                       )}
                       onClick={() => handleDayClick(day)}
                       onDoubleClick={() => handleDayDoubleClick(day)}
@@ -1281,38 +1422,24 @@ const Bookings_Page = () => {
                       >
                         {format(day, "d")}
                       </span>
-                      <div className="mt-1 space-y-0.5">
-                        {dayBookings.slice(0, 2).map((b) => (
-                          <div
-                            key={b.id}
-                            className="text-[10px] truncate rounded px-1 py-0.5 cursor-pointer"
-                            style={getServiceStyle(b.service)}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleBookingClick(b);
-                            }}
-                          >
-                            {b.className}
-                          </div>
-                        ))}
-                        {dayBookings.length > 2 && (
-                          <span className="text-[10px] text-muted-foreground">
-                            +{dayBookings.length - 2} more
+                      {/* Rule #7: don't render individual bookings, only a count badge. */}
+                      {dayBookings.length > 0 && (
+                        <div className="mt-auto self-end">
+                          <span className="inline-flex items-center justify-center min-w-[26px] h-6 px-1.5 rounded-full bg-primary/15 text-primary text-[11px] font-semibold">
+                            {dayBookings.length}
                           </span>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </TooltipTrigger>
                   {dayBookings.length > 0 && (
                     <TooltipContent side="right" className="max-w-[220px]">
                       <p className="font-semibold text-xs mb-1">
-                        {format(day, "MMM d, yyyy")}
+                        {format(day, "MMM d, yyyy")} · {dayBookings.length} booking{dayBookings.length === 1 ? "" : "s"}
                       </p>
-                      {dayBookings.map((b) => (
-                        <p key={b.id} className="text-xs">
-                          {b.startTime} — {b.className} ({b.service})
-                        </p>
-                      ))}
+                      <p className="text-[11px] text-muted-foreground">
+                        Click the day to view the full schedule.
+                      </p>
                     </TooltipContent>
                   )}
                 </Tooltip>
