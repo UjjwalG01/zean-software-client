@@ -354,6 +354,36 @@ export async function deleteMember(id: string): Promise<void> {
 }
 
 // ─── Bookings ───────────────────────────────────────────────────────
+// Convert raw DB enum (e.g. 'wait-listed', 'confirmed', 'not-fixed', plus
+// legacy 'pending'/'completed'/'cancelled'/'no_show') into the canonical
+// display label used in the React layer.
+function dbStatusToDisplay(raw: unknown): string {
+  const s = String(raw || "").toLowerCase();
+  switch (s) {
+    case "wait-listed":
+    case "pending":
+      return "Waitlisted";
+    case "confirmed":
+    case "completed":
+      return "Confirmed";
+    case "not-fixed":
+    case "cancelled":
+    case "no_show":
+      return "NotFixed";
+    default:
+      return s ? s.replace(/^./, (c) => c.toUpperCase()) : "Confirmed";
+  }
+}
+
+// Inverse of dbStatusToDisplay — accepts whatever label the frontend
+// hands us and writes one of the three current enum values.
+function displayStatusToDb(value: unknown): string {
+  const s = String(value || "").toLowerCase().replace(/\s+/g, "-");
+  if (s === "waitlisted" || s === "wait-listed" || s === "pending") return "wait-listed";
+  if (s === "notfixed" || s === "not-fixed" || s === "cancelled" || s === "no-show" || s === "no_show") return "not-fixed";
+  return "confirmed";
+}
+
 function mapBookingRow(r: any): Booking {
   const notes = (() => {
     try {
@@ -362,6 +392,10 @@ function mapBookingRow(r: any): Booking {
       return {};
     }
   })();
+  // Column was renamed `status` -> `booking_status` (migration
+  // 2026-06-17_booking_status_rename.sql). Read both for back-compat
+  // during the deploy window.
+  const rawStatus = r.booking_status ?? r.status;
   return {
     id: r.id,
     memberId: r.member_id || "",
@@ -371,7 +405,7 @@ function mapBookingRow(r: any): Booking {
     date: dateOnly(r.start_at),
     startTime: timeOnly(r.start_at),
     endTime: timeOnly(r.end_at),
-    status: (r.status || "Pending").replace(/^./, (c: string) => c.toUpperCase()) as BookingStatus,
+    status: dbStatusToDisplay(rawStatus) as BookingStatus,
     instructor: notes.instructor || "",
     outletId: r.outlet_id || null,
   } as any;
