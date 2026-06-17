@@ -432,7 +432,7 @@ export async function addBooking(data: Partial<Booking> & { outletId?: string })
       outlet_id: data.outletId || null,
       start_at: at(data.date, data.startTime),
       end_at: at(data.date, data.endTime || data.startTime),
-      status: (data.status || "Pending").toLowerCase(),
+      booking_status: displayStatusToDb(data.status || "Confirmed"),
       notes: JSON.stringify({
         service: data.service || "Gym",
         className: data.className || "",
@@ -455,7 +455,7 @@ export async function updateBooking(id: string, data: Partial<Record<string, any
   if (data.date !== undefined || data.startTime !== undefined) patch.start_at = at(data.date, data.startTime);
   if (data.date !== undefined || data.endTime !== undefined)
     patch.end_at = at(data.date, data.endTime || data.startTime);
-  if (data.status !== undefined) patch.status = String(data.status).toLowerCase();
+  if (data.status !== undefined) patch.booking_status = displayStatusToDb(data.status);
   if (data.service !== undefined || data.instructor !== undefined || data.className !== undefined)
     patch.notes = JSON.stringify({ service: data.service, instructor: data.instructor, className: data.className });
   const { error } = await supabase.from("bookings").update(patch).eq("id", id);
