@@ -185,6 +185,9 @@ const Bookings_Page = () => {
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [bookStartTime, setBookStartTime] = useState<string>("");
   const [bookEndTime, setBookEndTime] = useState<string>("");
+  // Task 1: explicit booking status with the new three-value vocabulary.
+  // Default is "Confirmed" per spec.
+  const [bookStatus, setBookStatus] = useState<"Waitlisted" | "Confirmed" | "NotFixed">("Confirmed");
 
   // "FIT Guest Mode" — only available for outlets whose service type is "sports".
   // Lets the operator book a walk-in guest without creating a member profile.
