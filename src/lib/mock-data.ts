@@ -2,7 +2,13 @@ export type MemberTier = "Basic" | "Silver" | "Gold" | "Platinum";
 export type ServiceType = "Gym" | "Spa" | "Sauna" | "Swimming";
 export type MemberStatus = "Active" | "Expired" | "Expiring" | "Inactive";
 export type PaymentMethod = "cash" | "card" | "esewa" | "bank_transfer" | "mobile_wallet" | "cheque" | "other";
-export type BookingStatus = "Confirmed" | "Pending" | "Cancelled" | "Completed";
+export type BookingStatus =
+  | "Confirmed"
+  | "Pending"
+  | "Cancelled"
+  | "Completed"
+  | "Waitlisted"
+  | "NotFixed";
 
 export interface Member {
   id: string;
