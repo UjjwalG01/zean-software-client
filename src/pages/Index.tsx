@@ -40,6 +40,7 @@ import { useMemo } from "react";
 import { format, isSameDay } from "date-fns";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { SOFTWARE_NAME } from "@/lib/settings";
+import { tooltipStyle } from "@/lib/utils";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -108,7 +109,10 @@ const Dashboard = () => {
   const serviceBreakdown = useMemo(() => {
     const activeTypes = (serviceTypes || []).filter((t) => t.active);
     if (activeTypes.length === 0) return [];
-    const norm = (v: unknown) => String(v || "").trim().toLowerCase();
+    const norm = (v: unknown) =>
+      String(v || "")
+        .trim()
+        .toLowerCase();
     const counts: Record<string, number> = {};
     activeTypes.forEach((t) => (counts[t.name] = 0));
 
@@ -116,9 +120,8 @@ const Dashboard = () => {
       const v = norm(raw);
       if (!v) return null;
       return (
-        activeTypes.find(
-          (t) => norm(t.name) === v || norm(t.slug) === v,
-        ) || null
+        activeTypes.find((t) => norm(t.name) === v || norm(t.slug) === v) ||
+        null
       );
     };
 
@@ -129,7 +132,8 @@ const Dashboard = () => {
       }),
     );
     bookings.forEach((b) => {
-      const match = findType((b as any).service) || findType((b as any).className);
+      const match =
+        findType((b as any).service) || findType((b as any).className);
       if (match) counts[match.name] = (counts[match.name] || 0) + 1;
     });
 
@@ -142,7 +146,6 @@ const Dashboard = () => {
     }));
   }, [members, bookings, serviceTypes]);
 
-
   const greeting = useMemo(() => {
     const h = new Date().getHours();
     if (h < 12) return "Good morning";
@@ -154,9 +157,7 @@ const Dashboard = () => {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold font-display">
-            {greeting}, {(user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || "Admin").toString().split(" ")[0]} 👋
-          </h1>
+          <h1 className="text-2xl font-bold font-display">{greeting}</h1>
           <p className="text-muted-foreground text-sm mt-1">
             {format(today, "EEEE, MMMM d, yyyy")} · Here's what's happening at{" "}
             <i>{SOFTWARE_NAME}</i> today.
@@ -272,12 +273,7 @@ const Dashboard = () => {
                 tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
               />
               <Tooltip
-                contentStyle={{
-                  background: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: 8,
-                  color: "hsl(var(--foreground))",
-                }}
+                contentStyle={tooltipStyle}
                 formatter={(v: number) => [formatNPR(v), "Revenue"]}
               />
               <Area
@@ -308,12 +304,7 @@ const Dashboard = () => {
                 ))}
               </Pie>
               <Tooltip
-                contentStyle={{
-                  background: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: 8,
-                  color: "hsl(var(--foreground))",
-                }}
+                contentStyle={tooltipStyle}
                 formatter={(v: number) => [`${v}%`]}
               />
             </PieChart>
