@@ -507,7 +507,7 @@ const Bookings_Page = () => {
         date: bookDate,
         startTime: start,
         endTime: end,
-        status: "Pending",
+        status: bookStatus,
         outletId: selectedOutlet.id,
         instructor: bookInstructor || selectedService.instructor || "",
         timeSlot: bookTimeSlot || start,
