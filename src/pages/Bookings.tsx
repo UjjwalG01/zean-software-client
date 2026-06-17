@@ -185,6 +185,9 @@ const Bookings_Page = () => {
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [bookStartTime, setBookStartTime] = useState<string>("");
   const [bookEndTime, setBookEndTime] = useState<string>("");
+  // Task 1: explicit booking status with the new three-value vocabulary.
+  // Default is "Confirmed" per spec.
+  const [bookStatus, setBookStatus] = useState<"Waitlisted" | "Confirmed" | "NotFixed">("Confirmed");
 
   // "FIT Guest Mode" — only available for outlets whose service type is "sports".
   // Lets the operator book a walk-in guest without creating a member profile.
@@ -504,7 +507,7 @@ const Bookings_Page = () => {
         date: bookDate,
         startTime: start,
         endTime: end,
-        status: "Pending",
+        status: bookStatus,
         outletId: selectedOutlet.id,
         instructor: bookInstructor || selectedService.instructor || "",
         timeSlot: bookTimeSlot || start,
@@ -1266,6 +1269,21 @@ const Bookings_Page = () => {
                       </Select>
                     </div>
                   )}
+                </div>
+
+                {/* Task 1: explicit booking status selector. Default Confirmed. */}
+                <div className="space-y-2">
+                  <Label>Booking Status *</Label>
+                  <Select value={bookStatus} onValueChange={(v) => setBookStatus(v as typeof bookStatus)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Confirmed">Confirmed</SelectItem>
+                      <SelectItem value="Waitlisted">Wait-listed</SelectItem>
+                      <SelectItem value="NotFixed">Not-fixed</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <Button

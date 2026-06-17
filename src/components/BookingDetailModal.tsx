@@ -103,9 +103,23 @@ export function BookingDetailModal({ booking: b, open, onOpenChange, onAmend }: 
   // Cancel is allowed at any time (including past dates) as long as not already finished/cancelled.
   const canCancel = status !== "Completed" && status !== "Cancelled";
 
+  // Future-dated bookings cannot be billed (Task 2). We compare on local
+  // calendar day — anything strictly after today is rejected with a toast.
+  const isStrictlyFuture = (() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const d = new Date(b.date);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime() > today.getTime();
+  })();
+
   // "Bill" — keep the booking on this page, send the user to record payment
   // for it; the booking stays in its current status until a real payment is settled.
   const handleBillNow = async () => {
+    if (isStrictlyFuture) {
+      toast.error("Future-dated bookings cannot be billed yet.");
+      return;
+    }
     // Look up the pending charge already posted for this booking so we can
     // pass its id directly — the Transactions page will open the settlement
     // dialog immediately without depending on data refetch timing.
@@ -422,9 +436,15 @@ export function BookingDetailModal({ booking: b, open, onOpenChange, onAmend }: 
                   </Button>
                 ) : (
                   status !== "Cancelled" && (
-                    <Button size="sm" className="flex-1 gradient-gold text-primary-foreground" onClick={handleBillNow}>
+                    <Button
+                      size="sm"
+                      className="flex-1 gradient-gold text-primary-foreground disabled:opacity-50"
+                      onClick={handleBillNow}
+                      disabled={isStrictlyFuture}
+                      title={isStrictlyFuture ? "Cannot bill a future-dated booking" : undefined}
+                    >
                       <Receipt className="h-4 w-4 mr-1" />
-                      Billing / Record Payment
+                      {isStrictlyFuture ? "Billing (Locked – Future)" : "Billing / Record Payment"}
                     </Button>
                   )
                 )}
