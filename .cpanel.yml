@@ -1,0 +1,5 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home8/zeansoft/beta.zeansoftware/
+    - /bin/cp -R * $DEPLOYPATH
