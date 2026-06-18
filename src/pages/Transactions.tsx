@@ -421,6 +421,7 @@ const Transactions = () => {
       "amount",
       "locked",
       "outletId",
+      "guest",
     ].forEach((k) => next.delete(k));
     setSearchParams(next, { replace: true });
   }, [transactions, isLoading, searchParams, setSearchParams]);
