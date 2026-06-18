@@ -234,10 +234,29 @@ const Transactions = () => {
     desc: string,
     gross: number,
     date: Date,
+    extras?: {
+      memberId?: string;
+      discount?: number;
+      head?: string;
+      excludeTxnId?: string;
+    },
   ) => {
     const companyName = settings.companyName || ".............";
     const net = Math.round((gross / 1.13) * 100) / 100;
     const vat = Math.round((gross - net) * 100) / 100;
+    // Sum of prior pending charges for the member (excluding the one being settled).
+    const previousBalance =
+      extras?.memberId
+        ? transactions
+            .filter(
+              (t) =>
+                t.memberId === extras.memberId &&
+                t.type === "Charge" &&
+                t.status === "pending" &&
+                t.id !== extras.excludeTxnId,
+            )
+            .reduce((s, t) => s + (t.total || 0), 0)
+        : 0;
     const html = generateA5BillHTML({
       companyName,
       companyAddress: settings.companyAddress || "",
@@ -254,12 +273,16 @@ const Transactions = () => {
           quantity: 1,
           rate: gross,
           amount: gross,
+          head: extras?.head || "Services",
         },
       ],
       subtotal: net,
       taxableAmount: net,
       vatAmount: vat,
       grandTotal: gross,
+      previousBalance,
+      discount: extras?.discount || 0,
+      paidAmount: gross,
       attendant: "user",
       paymentMethod: settleMethod,
     });
