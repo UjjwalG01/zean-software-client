@@ -369,8 +369,11 @@ const Transactions = () => {
           t.status === "pending",
       );
     }
-    if (!charge && memberId) {
+    const isGuestFlow = searchParams.get("guest") === "1";
+    if (!charge && (memberId || isGuestFlow)) {
       // Dynamic fallback: construct a temporary charge transaction so the modal can open.
+      // Guest bookings (FIT walk-ins) have no memberId — we still want the settlement
+      // modal to open with the guest name + amount + default Cash/0 discount prefilled.
       const amountStr = searchParams.get("amount");
       const serviceStr = searchParams.get("service") || "Service";
       const classNameStr = searchParams.get("className") || "";
@@ -378,7 +381,7 @@ const Transactions = () => {
       if (amountStr) {
         charge = {
           id: `TEMP-${Date.now()}`,
-          memberId,
+          memberId: memberId || "",
           memberName: memberNameStr,
           amount: Number(amountStr),
           vat:
@@ -393,6 +396,10 @@ const Transactions = () => {
           status: "pending",
           bookingId: bookingId || undefined,
           outletId: searchParams.get("outletId") || undefined,
+          isGuest: isGuestFlow || undefined,
+          guestName: isGuestFlow
+            ? memberNameStr.replace(/^Guest\s*·\s*/i, "")
+            : undefined,
         } as any;
       }
     }
