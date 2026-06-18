@@ -234,10 +234,29 @@ const Transactions = () => {
     desc: string,
     gross: number,
     date: Date,
+    extras?: {
+      memberId?: string;
+      discount?: number;
+      head?: string;
+      excludeTxnId?: string;
+    },
   ) => {
     const companyName = settings.companyName || ".............";
     const net = Math.round((gross / 1.13) * 100) / 100;
     const vat = Math.round((gross - net) * 100) / 100;
+    // Sum of prior pending charges for the member (excluding the one being settled).
+    const previousBalance =
+      extras?.memberId
+        ? transactions
+            .filter(
+              (t) =>
+                t.memberId === extras.memberId &&
+                t.type === "Charge" &&
+                t.status === "pending" &&
+                t.id !== extras.excludeTxnId,
+            )
+            .reduce((s, t) => s + (t.total || 0), 0)
+        : 0;
     const html = generateA5BillHTML({
       companyName,
       companyAddress: settings.companyAddress || "",
@@ -254,12 +273,16 @@ const Transactions = () => {
           quantity: 1,
           rate: gross,
           amount: gross,
+          head: extras?.head || "Services",
         },
       ],
       subtotal: net,
       taxableAmount: net,
       vatAmount: vat,
       grandTotal: gross,
+      previousBalance,
+      discount: extras?.discount || 0,
+      paidAmount: gross,
       attendant: "user",
       paymentMethod: settleMethod,
     });
@@ -369,8 +392,11 @@ const Transactions = () => {
           t.status === "pending",
       );
     }
-    if (!charge && memberId) {
+    const isGuestFlow = searchParams.get("guest") === "1";
+    if (!charge && (memberId || isGuestFlow)) {
       // Dynamic fallback: construct a temporary charge transaction so the modal can open.
+      // Guest bookings (FIT walk-ins) have no memberId — we still want the settlement
+      // modal to open with the guest name + amount + default Cash/0 discount prefilled.
       const amountStr = searchParams.get("amount");
       const serviceStr = searchParams.get("service") || "Service";
       const classNameStr = searchParams.get("className") || "";
@@ -378,7 +404,7 @@ const Transactions = () => {
       if (amountStr) {
         charge = {
           id: `TEMP-${Date.now()}`,
-          memberId,
+          memberId: memberId || "",
           memberName: memberNameStr,
           amount: Number(amountStr),
           vat:
@@ -393,6 +419,10 @@ const Transactions = () => {
           status: "pending",
           bookingId: bookingId || undefined,
           outletId: searchParams.get("outletId") || undefined,
+          isGuest: isGuestFlow || undefined,
+          guestName: isGuestFlow
+            ? memberNameStr.replace(/^Guest\s*·\s*/i, "")
+            : undefined,
         } as any;
       }
     }
@@ -414,6 +444,7 @@ const Transactions = () => {
       "amount",
       "locked",
       "outletId",
+      "guest",
     ].forEach((k) => next.delete(k));
     setSearchParams(next, { replace: true });
   }, [transactions, isLoading, searchParams, setSearchParams]);
@@ -445,6 +476,8 @@ const Transactions = () => {
           bookingId: settleTxn.bookingId,
           outletId: (settleTxn as any).outletId,
           isSettlement: true,
+          isGuest: (settleTxn as any).isGuest || undefined,
+          guestName: (settleTxn as any).guestName || undefined,
         } as any);
       } else {
         // 1) Flip canonical charges row to paid (source of truth for ledger)
@@ -539,6 +572,12 @@ const Transactions = () => {
         settleTxn.description,
         netDue,
         new Date(),
+        {
+          memberId: settleTxn.memberId,
+          discount,
+          head: (settleTxn as any).serviceType || settleTxn.type || "Services",
+          excludeTxnId: settleTxn.id,
+        },
       );
 
       setSettleTxn(null);
@@ -880,6 +919,12 @@ const Transactions = () => {
                                   t.description,
                                   t.total,
                                   new Date(t.date),
+                                  {
+                                    memberId: t.memberId,
+                                    discount: Number((t as any).discount) || 0,
+                                    head: (t as any).serviceType || t.type || "Services",
+                                    excludeTxnId: t.id,
+                                  },
                                 )
                               }
                             >

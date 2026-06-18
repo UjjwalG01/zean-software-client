@@ -63,6 +63,15 @@ function numberToWords(n: number): string {
   return words.trim();
 }
 
+export interface A5BillItem {
+  description: string;
+  quantity: number;
+  rate: number;
+  amount: number;
+  /** Optional head used to group the row in the bill (Services, Spa, FIT, Record Charges, etc.). */
+  head?: string;
+}
+
 export function generateA5BillHTML(options: {
   companyName: string;
   companyTagline?: string;
@@ -77,12 +86,19 @@ export function generateA5BillHTML(options: {
   billNo: string;
   billDate: string;
   billForMonth: string;
-  items: { description: string; quantity: number; rate: number; amount: number }[];
+  items: A5BillItem[];
   subtotal: number;
   luxuryTax?: number;
   taxableAmount: number;
   vatAmount: number;
   grandTotal: number;
+  /** Existing outstanding balance carried forward from prior unsettled charges. */
+  previousBalance?: number;
+  /** Manual discount applied at settlement time. */
+  discount?: number;
+  /** Available advance/credit being applied toward this bill. */
+  advancePaid?: number;
+  /** Cash/POS amount paid right now. */
   paidAmount?: number;
   paymentMethod?: string;
   status?: string;
@@ -90,8 +106,47 @@ export function generateA5BillHTML(options: {
   attendant?: string;
 }): string {
   const o = options;
-  const paid = o.paidAmount ?? o.grandTotal;
-  const isPaidInFull = paid >= o.grandTotal;
+  const currentTotal = o.grandTotal;
+  const previousBalance = Math.max(0, o.previousBalance || 0);
+  const grossDue = currentTotal + previousBalance;
+  const discount = Math.max(0, o.discount || 0);
+  const advance = Math.max(0, o.advancePaid || 0);
+  const netPayable = grossDue - discount - advance;
+  const paid = o.paidAmount ?? Math.max(0, netPayable);
+  const isRefund = netPayable < 0;
+  const isFullyPaid = !isRefund && paid >= netPayable - 0.01;
+  const statusLabel = isRefund
+    ? "REFUND / OVERPAID"
+    : isFullyPaid
+      ? "CLEARED"
+      : paid > 0
+        ? "PARTIAL"
+        : (o.status || "PENDING").toUpperCase();
+  const statusColor = isRefund ? "#b45309" : isFullyPaid ? "#16a34a" : "#dc2626";
+
+  // Group items by head for the breakdown table.
+  const groups = new Map<string, { items: A5BillItem[]; subtotal: number }>();
+  for (const it of o.items) {
+    const key = it.head || "Services";
+    const g = groups.get(key) || { items: [], subtotal: 0 };
+    g.items.push(it);
+    g.subtotal += Number(it.amount || 0);
+    groups.set(key, g);
+  }
+
+  const groupRows = Array.from(groups.entries())
+    .map(
+      ([head, g]) => `
+        <tr class="head-row"><td colspan="2">${escHtml(head)}</td></tr>
+        ${g.items
+          .map(
+            (it) =>
+              `<tr><td>${escHtml(it.description)}</td><td class="right">NPR ${Number(it.amount).toFixed(2)}</td></tr>`,
+          )
+          .join("")}
+        <tr class="sub-row"><td class="right">Subtotal</td><td class="right">NPR ${g.subtotal.toFixed(2)}</td></tr>`,
+    )
+    .join("");
 
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Receipt ${escHtml(o.billNo)}</title>
@@ -117,15 +172,22 @@ body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 11px; color: #1
 table.items { width: 100%; border-collapse: collapse; margin: 8px 0 0; }
 table.items thead th { background: #1e3a8a; color: #fff; padding: 8px 10px; font-size: 10.5px; text-align: left; font-weight: 700; letter-spacing: 0.4px; }
 table.items thead th.right { text-align: right; }
-table.items tbody td { padding: 8px 10px; font-size: 11px; border-bottom: 1px solid #e5e7eb; }
+table.items tbody td { padding: 6px 10px; font-size: 11px; border-bottom: 1px solid #e5e7eb; }
 table.items tbody td.right { text-align: right; }
-.net-row { display: flex; justify-content: space-between; padding: 6px 10px; font-size: 11px; }
-.paid-bar { background: #1e3a8a; color: #fff; display: flex; justify-content: space-between; padding: 9px 10px; font-weight: 700; font-size: 12px; letter-spacing: 0.3px; margin-top: 2px; }
+table.items tbody tr.head-row td { background: #eef2ff; color: #1e3a8a; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; font-size: 10.5px; padding: 6px 10px; }
+table.items tbody tr.sub-row td { background: #f8fafc; color: #1e3a8a; font-weight: 700; font-size: 10.5px; }
+.summary-card { margin-top: 10px; border: 1px solid #c7d2fe; border-radius: 6px; overflow: hidden; }
+.summary-card .sr { display: flex; justify-content: space-between; padding: 6px 12px; font-size: 11px; border-bottom: 1px solid #e5e7eb; }
+.summary-card .sr:last-child { border-bottom: none; }
+.summary-card .sr.neg { color: #b45309; }
+.summary-card .sr.net { background: #1e3a8a; color: #fff; font-weight: 700; font-size: 12px; letter-spacing: .3px; }
+.summary-card .sr.paid { background: #f0fdf4; color: #16a34a; font-weight: 700; }
+.summary-card .sr.refund { background: #fffbeb; color: #b45309; font-weight: 700; }
 .meta-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 10px 4px; font-size: 11px; }
 .meta-row .method { color: #1e3a8a; font-weight: 600; }
-.status-pill { color: #16a34a; font-weight: 700; letter-spacing: 0.6px; font-size: 11px; }
+.status-pill { font-weight: 700; letter-spacing: 0.6px; font-size: 11px; }
 .remarks { font-style: italic; color: #6b7280; font-size: 10px; padding: 0 10px 8px; }
-.thanks { text-align: center; color: #b45309; font-style: italic; font-size: 10.5px; margin-top: 20px; }
+.thanks { text-align: center; color: #b45309; font-style: italic; font-size: 10.5px; margin-top: 16px; }
 .signature { text-align: right; padding: 16px 12mm 0; font-size: 10px; color: #4b5563; }
 .signature .line { display: inline-block; width: 50mm; border-bottom: 1px solid #6b7280; margin-left: 6px; height: 14px; vertical-align: bottom; }
 </style></head><body>
@@ -155,14 +217,21 @@ ${o.companyLogoUrl ? `<img class="watermark" src="${escHtml(o.companyLogoUrl)}" 
   <table class="items">
     <thead><tr><th>Fee Description</th><th class="right">Amount</th></tr></thead>
     <tbody>
-      ${o.items.map((it) => `<tr><td>${escHtml(it.description)}</td><td class="right">NPR ${it.amount.toFixed(2)}</td></tr>`).join("")}
+      ${groupRows}
     </tbody>
   </table>
-  <div class="net-row"><span>Net Amount</span><span>NPR ${o.grandTotal.toFixed(2)}</span></div>
-  <div class="paid-bar"><span>Amount Paid</span><span>NPR ${paid.toFixed(2)}</span></div>
+  <div class="summary-card">
+    ${previousBalance > 0 ? `<div class="sr"><span>Previous Balance</span><span>NPR ${previousBalance.toFixed(2)}</span></div>` : ""}
+    <div class="sr"><span>Current Total</span><span>NPR ${currentTotal.toFixed(2)}</span></div>
+    <div class="sr"><span>Grand Total</span><span>NPR ${grossDue.toFixed(2)}</span></div>
+    ${discount > 0 ? `<div class="sr neg"><span>- Discount</span><span>- NPR ${discount.toFixed(2)}</span></div>` : ""}
+    ${advance > 0 ? `<div class="sr neg"><span>- Advance Applied</span><span>- NPR ${advance.toFixed(2)}</span></div>` : ""}
+    <div class="sr net"><span>${isRefund ? "Refund / Overpaid" : "Net Payable"}</span><span>NPR ${Math.abs(netPayable).toFixed(2)}</span></div>
+    <div class="sr ${isRefund ? "refund" : "paid"}"><span>Amount Paid</span><span>NPR ${paid.toFixed(2)}</span></div>
+  </div>
   <div class="meta-row">
     <span class="method">Payment Method: ${escHtml(o.paymentMethod || "Cash")}</span>
-    <span class="status-pill">${isPaidInFull ? "PAID IN FULL" : (o.status || "PARTIAL").toUpperCase()}</span>
+    <span class="status-pill" style="color:${statusColor}">${statusLabel}</span>
   </div>
   ${o.remarks ? `<div class="remarks">Remarks: ${escHtml(o.remarks)}</div>` : ""}
   <hr class="divider" />
