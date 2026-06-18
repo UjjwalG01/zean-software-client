@@ -572,6 +572,12 @@ const Transactions = () => {
         settleTxn.description,
         netDue,
         new Date(),
+        {
+          memberId: settleTxn.memberId,
+          discount,
+          head: (settleTxn as any).serviceType || settleTxn.type || "Services",
+          excludeTxnId: settleTxn.id,
+        },
       );
 
       setSettleTxn(null);
