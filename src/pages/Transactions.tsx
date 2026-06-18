@@ -919,6 +919,12 @@ const Transactions = () => {
                                   t.description,
                                   t.total,
                                   new Date(t.date),
+                                  {
+                                    memberId: t.memberId,
+                                    discount: Number((t as any).discount) || 0,
+                                    head: (t as any).serviceType || t.type || "Services",
+                                    excludeTxnId: t.id,
+                                  },
                                 )
                               }
                             >
