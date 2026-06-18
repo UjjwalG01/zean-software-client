@@ -453,6 +453,8 @@ const Transactions = () => {
           bookingId: settleTxn.bookingId,
           outletId: (settleTxn as any).outletId,
           isSettlement: true,
+          isGuest: (settleTxn as any).isGuest || undefined,
+          guestName: (settleTxn as any).guestName || undefined,
         } as any);
       } else {
         // 1) Flip canonical charges row to paid (source of truth for ledger)
