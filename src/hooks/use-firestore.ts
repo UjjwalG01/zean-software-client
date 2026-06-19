@@ -150,17 +150,21 @@ export function useUpdateBooking() {
     // round-trip is in flight.
     onMutate: async ({ id, data }) => {
       await qc.cancelQueries({ queryKey: ["bookings"] });
-      const previous = qc.getQueryData<any[]>(["bookings"]);
-      if (previous) {
-        qc.setQueryData<any[]>(
-          ["bookings"],
-          previous.map((b) => (b.id === id ? { ...b, ...data } : b)),
-        );
-      }
-      return { previous };
+      // Snapshot every bookings query variant (["bookings"], ["bookings", {…filters}])
+      // so the rollback restores them all if the server rejects the patch.
+      const snapshots = qc.getQueriesData<any[]>({ queryKey: ["bookings"] });
+      qc.setQueriesData<any[]>({ queryKey: ["bookings"] }, (prev) => {
+        if (!Array.isArray(prev)) return prev as any;
+        return prev.map((b: any) => (b.id === id ? { ...b, ...data } : b));
+      });
+      return { snapshots };
     },
     onError: (_e, _v, ctx) => {
-      if (ctx?.previous) qc.setQueryData(["bookings"], ctx.previous);
+      if (ctx?.snapshots) {
+        for (const [key, value] of ctx.snapshots) {
+          qc.setQueryData(key, value);
+        }
+      }
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["bookings"] });
