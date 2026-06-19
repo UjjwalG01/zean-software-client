@@ -158,11 +158,33 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
             <strong className="text-warning">{formatNPR(summary.discountTotal)}</strong>
           </div>
           <div className="border-t border-border/60 mt-1 pt-1 flex justify-between text-base">
-            <strong className={summary.status === "Settled" ? "text-success" : summary.status === "Partial" ? "text-warning" : "text-destructive"}>
-              ＝ Net Payable ({summary.status})
+            <strong
+              className={
+                summary.status === "Settled"
+                  ? "text-success"
+                  : summary.status === "Partial"
+                    ? "text-warning"
+                    : summary.status === "Overpaid"
+                      ? "text-blue-500"
+                      : "text-destructive"
+              }
+            >
+              ＝ {summary.status === "Overpaid" ? "Refund Due" : "Net Payable"} ({summary.status})
             </strong>
-            <strong className={summary.status === "Settled" ? "text-success" : summary.status === "Partial" ? "text-warning" : "text-destructive"}>
-              {formatNPR(summary.netPayable)}
+            <strong
+              className={
+                summary.status === "Settled"
+                  ? "text-success"
+                  : summary.status === "Partial"
+                    ? "text-warning"
+                    : summary.status === "Overpaid"
+                      ? "text-blue-500"
+                      : "text-destructive"
+              }
+            >
+              {summary.netPayable < 0
+                ? `(${formatNPR(Math.abs(summary.netPayable))})`
+                : formatNPR(summary.netPayable)}
             </strong>
           </div>
         </div>

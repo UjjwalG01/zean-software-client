@@ -9,6 +9,7 @@ import {
   useBookings,
   useCompanySettings,
 } from "@/hooks/use-firestore";
+import { useCharges } from "@/hooks/use-charges";
 import {
   BarChart,
   Bar,
@@ -52,8 +53,16 @@ const Reports = () => {
     outletId: activeOutlet?.id,
   });
   const { data: bookings = [] } = useBookings({ outletId: activeOutlet?.id });
+  const { data: charges = [] } = useCharges();
   const { data: settings = {} } = useCompanySettings();
   const [showCashierDetails, setShowCashierDetails] = useState(false);
+
+  // Map of charge.id → charge_head for cross-referencing payments that came in via a settled_charge_id.
+  const chargeHeadById = useMemo(() => {
+    const m = new Map<string, string>();
+    charges.forEach((c) => m.set(c.id, c.charge_head || ""));
+    return m;
+  }, [charges]);
 
   const activeMembers = members.filter((m) => m.status === "Active").length;
   const totalRevenue = transactions.reduce(
@@ -122,8 +131,16 @@ const Reports = () => {
       }
     > = {};
     txInRange.forEach((t) => {
+      // Department resolution priority: explicit chargeHead on the txn → linked charge_head via settled_charge_id
+      // → service type → fall back to type label. This keeps reports aligned with the post-rewrite schema
+      // where most billed line-items live in the `charges` table and only carry a `chargeRowId` back.
+      const linkedHead =
+        (t as any).chargeRowId && chargeHeadById.get((t as any).chargeRowId);
       const department =
-        t.serviceType || (t.type === "Charge" ? "Misc Charges" : "Membership");
+        (t as any).chargeHead ||
+        linkedHead ||
+        t.serviceType ||
+        (t.type === "Charge" ? "Misc Charges" : "Membership");
       const key = `${t.date}::${department}`;
       if (!acc[key])
         acc[key] = { date: t.date, department, sales: 0, vat: 0, total: 0 };
@@ -137,7 +154,7 @@ const Reports = () => {
         a.date.localeCompare(b.date) ||
         a.department.localeCompare(b.department),
     );
-  }, [txInRange]);
+  }, [txInRange, chargeHeadById]);
 
   const dailySalesTotals = useMemo(() => {
     return dailySalesRows.reduce(
