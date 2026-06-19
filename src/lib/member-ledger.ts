@@ -27,12 +27,13 @@ export interface LedgerSummary {
   totalPaid: number;           // settlements + plain payments
   advance: number;             // advance balance available
   discountTotal: number;       // total settlement discounts
-  netPayable: number;          // max(0, totalCharged − totalPaid − advance − discountTotal)
+  /** Signed balance: positive = member owes; negative = member is owed (overpaid / refund pending). */
+  netPayable: number;
   /** Alias for netPayable — explicit "due balance" name used by Quick Balance + profile cards. */
   dueBalance: number;
   isSettled: boolean;
-  /** Settled | Partial | Unpaid | Voided — mirrors Quick Balance / Ledger Report status chip. */
-  status: "Settled" | "Partial" | "Unpaid";
+  /** Settled | Partial | Unpaid | Overpaid — mirrors Quick Balance / Ledger Report status chip. */
+  status: "Settled" | "Partial" | "Unpaid" | "Overpaid";
 }
 
 const isVoidedTx = (t: Transaction) => (t as any).voided || t.status === "voided";
@@ -217,14 +218,17 @@ export function buildMemberLedger(
     };
   });
 
-  const netPayable = Math.max(0, totalCharged - totalPaid - advance - discountTotal);
-  const isSettled = netPayable <= 0;
+  // Signed balance — keep negative values so refund / overpaid scenarios surface in UI + ledger.
+  const netPayable = totalCharged - totalPaid - advance - discountTotal;
+  const isSettled = netPayable === 0;
   const status: LedgerSummary["status"] =
-    totalCharged === 0 || isSettled
-      ? "Settled"
-      : totalPaid + advance + discountTotal > 0
-        ? "Partial"
-        : "Unpaid";
+    netPayable < 0
+      ? "Overpaid"
+      : totalCharged === 0 || isSettled
+        ? "Settled"
+        : totalPaid + advance + discountTotal > 0
+          ? "Partial"
+          : "Unpaid";
 
   return {
     rows,
