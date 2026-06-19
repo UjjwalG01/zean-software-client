@@ -12,6 +12,7 @@ import {
   endOfWeek,
   isToday,
 } from "date-fns";
+import { toZonedTime, formatInTimeZone } from "date-fns-tz";
 import {
   ChevronLeft,
   ChevronRight,
@@ -89,6 +90,8 @@ import {
 } from "@/components/ui/pagination";
 import { useUpdateBooking } from "@/hooks/use-firestore";
 
+const SYSTEM_TZ = "Asia/Katmandu";
+
 const SLOT_START: Record<string, string> = {
   Morning: "06:00",
   Day: "12:00",
@@ -135,7 +138,9 @@ const Bookings_Page = () => {
   } = useOutlet();
   const [pickerShown, setPickerShown] = useState(false);
 
-  // Show outlet picker dialog on first entry to /bookings if no outlet selected
+  // Timezone-aware local variables
+  const systemNow = useMemo(() => toZonedTime(new Date(), SYSTEM_TZ), []);
+
   useEffect(() => {
     if (!outletsLoading && !selectedOutlet && !pickerShown) {
       setPickerOpen(true);
@@ -143,16 +148,14 @@ const Bookings_Page = () => {
     }
   }, [outletsLoading, selectedOutlet, pickerShown, setPickerOpen]);
 
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [currentMonth, setCurrentMonth] = useState(systemNow);
   const [view, setView] = useState<"calendar" | "list">("calendar");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBookingId, setEditingBookingId] = useState<string | null>(null);
   const [serviceFilter, setServiceFilter] = useState<string>("all");
-  // List-view month picker (YYYY-MM) — defaults to today's month
   const [listMonth, setListMonth] = useState<string>(
-    format(new Date(), "yyyy-MM"),
+    formatInTimeZone(new Date(), SYSTEM_TZ, "yyyy-MM"),
   );
-  // Local pagination for list view
   const [listPage, setListPage] = useState(1);
   const PAGE_SIZE = 25;
   const [colorSettingsOpen, setColorSettingsOpen] = useState(false);
@@ -185,15 +188,12 @@ const Bookings_Page = () => {
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [bookStartTime, setBookStartTime] = useState<string>("");
   const [bookEndTime, setBookEndTime] = useState<string>("");
-  // Task 1: explicit booking status with the new three-value vocabulary.
-  // Default is "Confirmed" per spec.
-  const [bookStatus, setBookStatus] = useState<"Waitlisted" | "Confirmed" | "NotFixed">("Confirmed");
+  const [bookStatus, setBookStatus] = useState<
+    "Waitlisted" | "Confirmed" | "NotFixed"
+  >("Confirmed");
 
-  // "FIT Guest Mode" — only available for outlets whose service type is "sports".
-  // Lets the operator book a walk-in guest without creating a member profile.
   const [guestMode, setGuestMode] = useState(false);
   const [guestName, setGuestName] = useState("");
-
 
   const { data: bookings = [], isLoading } = useBookings();
   const { data: members = [] } = useMembers();
@@ -205,7 +205,6 @@ const Bookings_Page = () => {
   const addTransactionMutation = useAddTransaction();
   const updateBookingMutation = useUpdateBooking();
 
-  // Outlet is "membership" type when the flag is on OR when its service types include the membership slug
   const isMembershipOutlet =
     !!selectedOutlet &&
     (selectedOutlet.enableMembership === true ||
@@ -213,8 +212,6 @@ const Bookings_Page = () => {
         (s) => s.toLowerCase() === "membership",
       ));
 
-  // Outlets categorised as fitness, wellness or health use the POS-style screen
-  // instead of the calendar/list view.
   const isPOSOutlet =
     !!selectedOutlet &&
     ((selectedOutlet.serviceTypes || []).some((s) => {
@@ -225,7 +222,6 @@ const Bookings_Page = () => {
         (selectedOutlet.outletType || "").toUpperCase(),
       ));
 
-  // Fitness/health outlets hide the date filter, month picker and color-settings.
   const isFitnessOrHealth =
     !!selectedOutlet &&
     ((selectedOutlet.serviceTypes || []).some((s) => {
@@ -236,14 +232,12 @@ const Bookings_Page = () => {
         (selectedOutlet.outletType || "").toUpperCase(),
       ));
 
-  // Sports outlet — enables the FIT Guest Mode toggle in the booking modal.
   const isSportsOutlet =
     !!selectedOutlet &&
     ((selectedOutlet.serviceTypes || []).some(
       (s) => (s || "").toLowerCase() === "sports",
     ) ||
       (selectedOutlet.outletType || "").toUpperCase() === "SPORTS");
-
 
   const setupInstructors = parseSetup(settings, "setup_instructors", [
     "Trainer Ravi",
@@ -257,7 +251,6 @@ const Bookings_Page = () => {
     "Evening",
   ]);
 
-  // Services scoped to the selected outlet only
   const outletServices = useMemo(
     () =>
       services.filter(
@@ -266,7 +259,6 @@ const Bookings_Page = () => {
     [services, selectedOutlet?.id],
   );
 
-  // Service types present in this outlet (for the calendar filter dropdown)
   const outletServiceTypes = useMemo(
     () => Array.from(new Set(outletServices.map((s) => s.type))),
     [outletServices],
@@ -287,7 +279,6 @@ const Bookings_Page = () => {
     }
     if (serviceFilter !== "all")
       list = list.filter((b) => b.service === serviceFilter);
-    // List-view month filter — only when not fitness/health and in list mode
     if (view === "list" && !isFitnessOrHealth && listMonth) {
       list = list.filter((b) => (b.date || "").startsWith(listMonth));
     }
@@ -305,10 +296,10 @@ const Bookings_Page = () => {
     listMonth,
   ]);
 
-  // Reset page when filter inputs change
   useEffect(() => {
     setListPage(1);
   }, [listMonth, serviceFilter, view, selectedOutlet?.id]);
+
   const pagedList = useMemo(() => {
     const start = (listPage - 1) * PAGE_SIZE;
     return filtered.slice(start, start + PAGE_SIZE);
@@ -316,13 +307,14 @@ const Bookings_Page = () => {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
 
   const getBookingsForDay = (day: Date) =>
-    filtered.filter((b) => isSameDay(new Date(b.date), day));
+    filtered.filter((b) =>
+      isSameDay(toZonedTime(new Date(b.date), SYSTEM_TZ), day),
+    );
 
-  /** True if a booking on `dateStr` with `startTime` (HH:MM) is in the past. */
   const isPastDateTime = (dateStr: string, startTime?: string): boolean => {
     if (!dateStr) return false;
-    const now = new Date();
-    const todayStr = format(now, "yyyy-MM-dd");
+    const now = toZonedTime(new Date(), SYSTEM_TZ);
+    const todayStr = formatInTimeZone(new Date(), SYSTEM_TZ, "yyyy-MM-dd");
     if (dateStr < todayStr) return true;
     if (dateStr > todayStr) return false;
     if (!startTime) return false;
@@ -338,14 +330,14 @@ const Bookings_Page = () => {
       setPickerOpen(true);
       return;
     }
-    const d = day || new Date();
-    const today = new Date();
+    const d = day || toZonedTime(new Date(), SYSTEM_TZ);
+    const today = toZonedTime(new Date(), SYSTEM_TZ);
     today.setHours(0, 0, 0, 0);
     if (d < today) {
       toast.error("Cannot add bookings for past dates");
       return;
     }
-    const dStr = format(d, "yyyy-MM-dd");
+    const dStr = formatInTimeZone(d, SYSTEM_TZ, "yyyy-MM-dd");
     if (startTime && isPastDateTime(dStr, startTime)) {
       toast.error("Cannot create bookings in the past");
       return;
@@ -366,7 +358,6 @@ const Bookings_Page = () => {
     setDialogOpen(true);
   };
 
-  /** Open the same New-Booking modal pre-filled for an existing booking (Amend flow). */
   const openAmendBookingDialog = (b: Booking) => {
     if (!selectedOutlet) {
       setPickerOpen(true);
@@ -376,10 +367,9 @@ const Bookings_Page = () => {
     setBookDate(b.date);
     setBookStartTime(b.startTime || "");
     setBookEndTime(b.endTime || "");
-    setBookTimeSlot((b as any).timeSlot || "");
+    setBookTimeSlot((b as any).timeSlot || b.startTime || "");
     setBookMember(b.memberId);
     setBookInstructor(b.instructor || "");
-    // Match the service via className → service id
     const svc =
       outletServices.find((s) => s.name === b.className) ||
       outletServices.find((s) => s.type === b.service);
@@ -404,27 +394,22 @@ const Bookings_Page = () => {
     setDetailOpen(true);
   };
 
-  // Selected service info (drives type, rate, duration, default instructor)
   const selectedService = useMemo(
     () => outletServices.find((s) => s.id === bookServiceId) || null,
     [outletServices, bookServiceId],
   );
 
-  // Default instructor to the service's instructor when chosen
   useEffect(() => {
     if (selectedService?.instructor && !bookInstructor)
       setBookInstructor(selectedService.instructor);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedService]);
 
   const handleBook = async () => {
-    // Hard block: an outlet must be chosen before any booking can be created.
     if (!selectedOutlet?.id) {
       toast.error("Please select an outlet before creating a booking");
       setPickerOpen(true);
       return;
     }
-    // Guest mode (sports outlets only) — accept guest name instead of member id.
     const isGuestBooking = isSportsOutlet && guestMode;
     if (isGuestBooking) {
       if (!guestName.trim() || !selectedService || !bookDate) {
@@ -440,18 +425,16 @@ const Bookings_Page = () => {
       toast.error("Please pick a time slot (or use 24h timeline)");
       return;
     }
-    const today = new Date();
+    const today = toZonedTime(new Date(), SYSTEM_TZ);
     today.setHours(0, 0, 0, 0);
     if (new Date(bookDate) < today) {
       toast.error("Cannot create bookings for past dates");
       return;
     }
-    // Block past times on today (rule #6)
     if (isPastDateTime(bookDate, bookStartTime)) {
       toast.error("Cannot create bookings in the past");
       return;
     }
-    // Prefer explicit start time (from timeline picker) over coarse time-slot bucket.
     const start = bookStartTime || SLOT_START[bookTimeSlot] || "09:00";
     let end = bookEndTime;
     if (!end) {
@@ -469,7 +452,6 @@ const Bookings_Page = () => {
       : memberObj?.name || "";
 
     try {
-      // Amend flow: update the existing booking instead of creating a new one.
       if (editingBookingId) {
         await updateBookingMutation.mutateAsync({
           id: editingBookingId,
@@ -480,7 +462,9 @@ const Bookings_Page = () => {
             className: selectedService.name,
             date: bookDate,
             startTime: start,
+            start_time: start,
             endTime: end,
+            end_time: end,
             outletId: selectedOutlet.id,
             instructor: bookInstructor || selectedService.instructor || "",
             timeSlot: bookTimeSlot || start,
@@ -506,16 +490,16 @@ const Bookings_Page = () => {
         className: selectedService.name,
         date: bookDate,
         startTime: start,
+        start_time: start,
         endTime: end,
+        end_time: end,
         status: bookStatus,
+        bookingStatus: bookStatus,
         outletId: selectedOutlet.id,
         instructor: bookInstructor || selectedService.instructor || "",
         timeSlot: bookTimeSlot || start,
       } as any);
 
-      // CHARGING-FIRST: post a pending Charge so the member's due balance
-      // is updated the moment the booking is created. Guest bookings skip the
-      // member-ledger step and head straight to the payment screen.
       const basePrice = Number(selectedService.price || 0);
       const finalPrice =
         useDiscountedRate && discountedRate
@@ -539,7 +523,6 @@ const Bookings_Page = () => {
             },
           );
         } catch (e) {
-          // eslint-disable-next-line no-console
           console.warn("[bookings] failed to post charge", e);
         }
       }
@@ -604,7 +587,7 @@ const Bookings_Page = () => {
       return;
     }
     const memberObj = members.find((m) => m.id === bookMember);
-    const today = new Date();
+    const today = toZonedTime(new Date(), SYSTEM_TZ);
     const expiry = new Date(today);
     if (bookDuration === "monthly") expiry.setMonth(expiry.getMonth() + 1);
     if (bookDuration === "yearly") expiry.setFullYear(expiry.getFullYear() + 1);
@@ -792,7 +775,6 @@ const Bookings_Page = () => {
         </div>
       </div>
 
-      {/* New Booking Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -801,7 +783,6 @@ const Bookings_Page = () => {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            {/* Outlet context (read-only) */}
             <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 flex items-center gap-2 text-sm">
               <Building2
                 className="h-4 w-4"
@@ -816,7 +797,6 @@ const Bookings_Page = () => {
               )}
             </div>
 
-            {/* FIT Guest Mode toggle — only for sports outlets */}
             {isSportsOutlet && !editingBookingId && (
               <div className="rounded-lg border border-border bg-muted/30 p-1 grid grid-cols-2 gap-1 text-xs">
                 <button
@@ -846,7 +826,6 @@ const Bookings_Page = () => {
               </div>
             )}
 
-            {/* Member search — hidden in guest mode */}
             {!(isSportsOutlet && guestMode) ? (
               <div className="space-y-2">
                 <Label>Member *</Label>
@@ -862,7 +841,9 @@ const Bookings_Page = () => {
                     >
                       {selectedMember ? (
                         <span className="flex items-center gap-2 truncate">
-                          <span className="truncate">{selectedMember.name}</span>
+                          <span className="truncate">
+                            {selectedMember.name}
+                          </span>
                           {selectedMember.phone && (
                             <span className="text-xs text-muted-foreground">
                               {selectedMember.phone}
@@ -940,7 +921,6 @@ const Bookings_Page = () => {
               </div>
             )}
 
-
             {isMembershipOutlet ? (
               <>
                 <div className="space-y-2">
@@ -963,11 +943,6 @@ const Bookings_Page = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                  {plans.length === 0 && (
-                    <p className="text-[11px] text-muted-foreground">
-                      Create plans in Plans & Services → Membership Plans.
-                    </p>
-                  )}
                 </div>
 
                 {selectedPlan && (
@@ -1031,54 +1006,10 @@ const Bookings_Page = () => {
                             <p className="text-sm font-bold font-display mt-1">
                               NPR {Number(d.price || 0).toLocaleString()}
                             </p>
-                            {save > 0 ? (
-                              <p className="text-[10px] text-success mt-0.5">
-                                Save NPR {save.toLocaleString()}
-                              </p>
-                            ) : d.months > 1 && d.price > 0 ? (
-                              <p className="text-[10px] text-muted-foreground mt-0.5">
-                                No discount
-                              </p>
-                            ) : null}
                           </button>
                         );
                       })}
                     </div>
-                    {bookDuration !== "monthly" && membershipAmount > 0 && (
-                      <p className="text-[11px] text-success">
-                        Auto-discount applied — Member saves NPR{" "}
-                        {(bookDuration === "yearly"
-                          ? selectedPlan.price * 12 - membershipAmount
-                          : selectedPlan.price * 180 - membershipAmount
-                        ).toLocaleString()}{" "}
-                        vs monthly billing.
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {selectedPlan && membershipAmount > 0 && (
-                  <div className="rounded-lg border border-border/60 bg-background/50 px-3 py-2 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs">Apply Discounted Rate</Label>
-                      <Switch
-                        checked={useDiscountedRate}
-                        onCheckedChange={(v) => {
-                          setUseDiscountedRate(v);
-                          if (!v) setDiscountedRate("");
-                        }}
-                      />
-                    </div>
-                    {useDiscountedRate && (
-                      <Input
-                        type="number"
-                        min={0}
-                        max={membershipAmount}
-                        value={discountedRate}
-                        placeholder={`Max NPR ${membershipAmount.toLocaleString()}`}
-                        onChange={(e) => setDiscountedRate(e.target.value)}
-                      />
-                    )}
                   </div>
                 )}
 
@@ -1121,12 +1052,6 @@ const Bookings_Page = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                  {outletServices.length === 0 && (
-                    <p className="text-[11px] text-muted-foreground">
-                      Add services for this outlet in Plans & Services →
-                      Services.
-                    </p>
-                  )}
                 </div>
 
                 {selectedService && (
@@ -1159,7 +1084,6 @@ const Bookings_Page = () => {
                         </span>
                       </div>
                     </div>
-                    {/* Discounted-rate toggle, sits right above the rate */}
                     <div className="flex items-center justify-between rounded-md border border-border/60 bg-background/50 px-3 py-2">
                       <Label className="text-xs">Apply Discounted Rate</Label>
                       <Switch
@@ -1243,11 +1167,6 @@ const Bookings_Page = () => {
                         24h
                       </Button>
                     </div>
-                    {bookStartTime && (
-                      <p className="text-[11px] text-success">
-                        Picked from timeline: {bookStartTime} – {bookEndTime}
-                      </p>
-                    )}
                   </div>
                   {selectedService?.requiresInstructor && (
                     <div className="space-y-2">
@@ -1271,10 +1190,12 @@ const Bookings_Page = () => {
                   )}
                 </div>
 
-                {/* Task 1: explicit booking status selector. Default Confirmed. */}
                 <div className="space-y-2">
                   <Label>Booking Status *</Label>
-                  <Select value={bookStatus} onValueChange={(v) => setBookStatus(v as typeof bookStatus)}>
+                  <Select
+                    value={bookStatus}
+                    onValueChange={(v) => setBookStatus(v as typeof bookStatus)}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
@@ -1344,35 +1265,56 @@ const Bookings_Page = () => {
         }}
         onReschedule={async (b, newHour) => {
           if (!scheduleDay) return;
-          if (b.status === "Completed") {
+          if (b.status === "Completed" || b.bookingStatus === "Completed") {
             toast.error("Completed bookings cannot be rescheduled");
             return;
           }
-          const dStr = format(scheduleDay, "yyyy-MM-dd");
-          if (isPastDateTime(dStr, `${String(newHour).padStart(2, "0")}:00`)) {
+          const dStr = formatInTimeZone(scheduleDay, SYSTEM_TZ, "yyyy-MM-dd");
+          const newStart = `${String(newHour).padStart(2, "0")}:00`;
+
+          if (isPastDateTime(dStr, newStart)) {
             toast.error("Cannot reschedule into a past time slot");
             return;
           }
+
           const [sh, sm] = (b.startTime || "00:00").split(":").map(Number);
-          const [eh, em] = (b.endTime || b.startTime || "00:00").split(":").map(Number);
-          const duration = Math.max(15, (eh * 60 + em) - (sh * 60 + sm) || 60);
-          const newStart = `${String(newHour).padStart(2, "0")}:00`;
+          const [eh, em] = (b.endTime || b.startTime || "00:00")
+            .split(":")
+            .map(Number);
+          const duration = Math.max(15, eh * 60 + em - (sh * 60 + sm) || 60);
+
           const endMin = newHour * 60 + duration;
           const newEnd = `${String(Math.floor(endMin / 60) % 24).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
+
+          // Determine if target reschedule date falls on today's date within Asia/Katmandu
+          const targetIsToday = isSameDay(
+            toZonedTime(new Date(b.date || dStr), SYSTEM_TZ),
+            toZonedTime(new Date(), SYSTEM_TZ),
+          );
+          const targetStatus = targetIsToday
+            ? "Pending"
+            : b.status || b.bookingStatus || "Confirmed";
+
           try {
-            // IMPORTANT: include `date` so the server-side `at(date, time)` helper
-            // doesn't default to today's date and yank the booking off its day.
-            // Status/financials are intentionally NOT touched.
             await updateBookingMutation.mutateAsync({
               id: b.id,
-              data: { date: b.date || dStr, startTime: newStart, endTime: newEnd, timeSlot: newStart },
+              data: {
+                date: b.date || dStr,
+                // Casing Bridge: Populate both camelCase and snake_case to keep UI & DB in sync
+                startTime: newStart,
+                start_time: newStart,
+                endTime: newEnd,
+                end_time: newEnd,
+                timeSlot: newStart,
+                status: targetStatus,
+                bookingStatus: targetStatus,
+              },
             });
             toast.success(`Rescheduled to ${newStart}`);
           } catch {
             toast.error("Failed to reschedule booking");
           }
         }}
-
       />
 
       {isLoading ? (
@@ -1394,7 +1336,7 @@ const Bookings_Page = () => {
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <h2 className="text-lg font-semibold font-display">
-              {format(currentMonth, "MMMM yyyy")}
+              {formatInTimeZone(currentMonth, SYSTEM_TZ, "MMMM yyyy")}
             </h2>
             <Button
               variant="ghost"
@@ -1418,6 +1360,10 @@ const Bookings_Page = () => {
             {days.map((day) => {
               const dayBookings = getBookingsForDay(day);
               const isCurrentMonth = day.getMonth() === currentMonth.getMonth();
+              const dayIsToday = isSameDay(
+                day,
+                toZonedTime(new Date(), SYSTEM_TZ),
+              );
               return (
                 <Tooltip key={day.toISOString()}>
                   <TooltipTrigger asChild>
@@ -1425,7 +1371,7 @@ const Bookings_Page = () => {
                       className={cn(
                         "min-h-[80px] lg:min-h-[100px] rounded-lg p-1.5 text-sm transition-colors cursor-pointer hover:ring-1 hover:ring-primary/50 flex flex-col",
                         isCurrentMonth ? "bg-card" : "bg-muted/20",
-                        isToday(day) && "ring-1 ring-primary",
+                        dayIsToday && "ring-1 ring-primary",
                         dayBookings.length > 0 && "bg-primary/5",
                       )}
                       onClick={() => handleDayClick(day)}
@@ -1435,12 +1381,11 @@ const Bookings_Page = () => {
                         className={cn(
                           "text-xs",
                           !isCurrentMonth && "text-muted-foreground/40",
-                          isToday(day) && "font-bold text-primary",
+                          dayIsToday && "font-bold text-primary",
                         )}
                       >
-                        {format(day, "d")}
+                        {formatInTimeZone(day, SYSTEM_TZ, "d")}
                       </span>
-                      {/* Rule #7: don't render individual bookings, only a count badge. */}
                       {dayBookings.length > 0 && (
                         <div className="mt-auto self-end">
                           <span className="inline-flex items-center justify-center min-w-[26px] h-6 px-1.5 rounded-full bg-primary/15 text-primary text-[11px] font-semibold">
@@ -1453,7 +1398,9 @@ const Bookings_Page = () => {
                   {dayBookings.length > 0 && (
                     <TooltipContent side="right" className="max-w-[220px]">
                       <p className="font-semibold text-xs mb-1">
-                        {format(day, "MMM d, yyyy")} · {dayBookings.length} booking{dayBookings.length === 1 ? "" : "s"}
+                        {formatInTimeZone(day, SYSTEM_TZ, "MMM d, yyyy")} ·{" "}
+                        {dayBookings.length} booking
+                        {dayBookings.length === 1 ? "" : "s"}
                       </p>
                       <p className="text-[11px] text-muted-foreground">
                         Click the day to view the full schedule.
@@ -1463,22 +1410,6 @@ const Bookings_Page = () => {
                 </Tooltip>
               );
             })}
-          </div>
-          <div className="flex gap-4 mt-4 pt-4 border-t border-border">
-            {outletServiceTypes.map((s) => (
-              <div
-                key={s}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground"
-              >
-                <span
-                  className="h-2.5 w-2.5 rounded-full"
-                  style={{
-                    backgroundColor: serviceColors[s] || colorOptions[0].value,
-                  }}
-                />
-                {s}
-              </div>
-            ))}
           </div>
         </div>
       ) : (
@@ -1496,89 +1427,50 @@ const Bookings_Page = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pagedList.map((b) => (
-                  <TableRow
-                    key={b.id}
-                    className="cursor-pointer"
-                    onClick={() => handleBookingClick(b)}
-                  >
-                    <TableCell className="text-sm">{b.date}</TableCell>
-                    <TableCell className="text-sm font-medium">
-                      {b.memberName}
-                    </TableCell>
-                    <TableCell className="text-sm">{b.className}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="text-[10px]">
-                        {b.service}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {b.startTime}–{b.endTime}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          b.status === "Confirmed"
-                            ? "default"
-                            : b.status === "Pending"
-                              ? "secondary"
-                              : b.status === "Completed"
-                                ? "default"
-                                : "destructive"
-                        }
-                        className={`text-[10px] ${b.status === "Completed" ? "bg-success/20 text-success border-0" : ""}`}
-                      >
-                        {b.status}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {pagedList.map((b) => {
+                  const displayStatus =
+                    b.status || b.bookingStatus || "Confirmed";
+                  return (
+                    <TableRow
+                      key={b.id}
+                      className="cursor-pointer"
+                      onClick={() => handleBookingClick(b)}
+                    >
+                      <TableCell className="text-sm">{b.date}</TableCell>
+                      <TableCell className="text-sm font-medium">
+                        {b.memberName}
+                      </TableCell>
+                      <TableCell className="text-sm">{b.className}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="text-[10px]">
+                          {b.service}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {b.startTime}–{b.endTime}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            displayStatus === "Confirmed"
+                              ? "default"
+                              : displayStatus === "Pending"
+                                ? "secondary"
+                                : displayStatus === "Completed"
+                                  ? "default"
+                                  : "destructive"
+                          }
+                          className={`text-[10px] ${displayStatus === "Completed" ? "bg-success/20 text-success border-0" : ""}`}
+                        >
+                          {displayStatus}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
-          {totalPages > 1 && (
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setListPage((p) => Math.max(1, p - 1));
-                    }}
-                  />
-                </PaginationItem>
-                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter(
-                    (p) =>
-                      Math.abs(p - listPage) < 3 || p === 1 || p === totalPages,
-                  )
-                  .map((p) => (
-                    <PaginationItem key={p}>
-                      <PaginationLink
-                        href="#"
-                        isActive={p === listPage}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setListPage(p);
-                        }}
-                      >
-                        {p}
-                      </PaginationLink>
-                    </PaginationItem>
-                  ))}
-                <PaginationItem>
-                  <PaginationNext
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setListPage((p) => Math.min(totalPages, p + 1));
-                    }}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          )}
         </div>
       )}
     </div>

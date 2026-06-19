@@ -86,6 +86,7 @@ export interface Booking {
   endTime: string;
   status: BookingStatus;
   instructor: string;
+  bookingStatus: string;
 }
 
 export interface Transaction {
@@ -167,18 +168,18 @@ export const members: Member[] = [
 ];
 
 export const bookings: Booking[] = [
-  { id: "B001", memberId: "M001", memberName: "Aarav Sharma", service: "Gym", className: "Morning Power Yoga", date: "2026-03-26", startTime: "06:00", endTime: "07:00", status: "Confirmed", instructor: "Trainer Ravi" },
-  { id: "B002", memberId: "M002", memberName: "Priya Thapa", service: "Spa", className: "Deep Tissue Massage", date: "2026-03-26", startTime: "10:00", endTime: "11:00", status: "Confirmed", instructor: "Therapist Maya" },
-  { id: "B003", memberId: "M003", memberName: "Bikash Gurung", service: "Swimming", className: "Lap Swimming", date: "2026-03-26", startTime: "07:00", endTime: "08:00", status: "Pending", instructor: "Coach Anil" },
-  { id: "B004", memberId: "M004", memberName: "Sita Rai", service: "Sauna", className: "Sauna Session", date: "2026-03-26", startTime: "14:00", endTime: "15:00", status: "Confirmed", instructor: "Staff Binita" },
-  { id: "B005", memberId: "M006", memberName: "Anita Basnet", service: "Gym", className: "HIIT Blast", date: "2026-03-27", startTime: "08:00", endTime: "09:00", status: "Confirmed", instructor: "Trainer Ravi" },
-  { id: "B006", memberId: "M010", memberName: "Manju Karki", service: "Spa", className: "Aromatherapy", date: "2026-03-27", startTime: "11:00", endTime: "12:00", status: "Pending", instructor: "Therapist Sunita" },
-  { id: "B007", memberId: "M014", memberName: "Nisha Bhandari", service: "Swimming", className: "Aqua Fitness", date: "2026-03-27", startTime: "09:00", endTime: "10:00", status: "Confirmed", instructor: "Coach Anil" },
-  { id: "B008", memberId: "M019", memberName: "Arjun Dahal", service: "Gym", className: "Strength Training", date: "2026-03-28", startTime: "06:00", endTime: "07:30", status: "Confirmed", instructor: "Trainer Prakash" },
-  { id: "B009", memberId: "M020", memberName: "Puja Pandey", service: "Sauna", className: "Infrared Sauna", date: "2026-03-28", startTime: "15:00", endTime: "16:00", status: "Confirmed", instructor: "Staff Binita" },
-  { id: "B010", memberId: "M008", memberName: "Kabita Shrestha", service: "Spa", className: "Hot Stone Therapy", date: "2026-03-29", startTime: "10:00", endTime: "11:30", status: "Pending", instructor: "Therapist Maya" },
-  { id: "B011", memberId: "M011", memberName: "Raju Poudel", service: "Gym", className: "CrossFit WOD", date: "2026-03-29", startTime: "07:00", endTime: "08:00", status: "Confirmed", instructor: "Trainer Ravi" },
-  { id: "B012", memberId: "M016", memberName: "Sarita Dangol", service: "Swimming", className: "Water Aerobics", date: "2026-03-30", startTime: "08:00", endTime: "09:00", status: "Confirmed", instructor: "Coach Anil" },
+  { id: "B001", memberId: "M001", memberName: "Aarav Sharma", service: "Gym", className: "Morning Power Yoga", date: "2026-03-26", startTime: "06:00", endTime: "07:00", status: "Confirmed", bookingStatus: "Confirmed", instructor: "Trainer Ravi" },
+  { id: "B002", memberId: "M002", memberName: "Priya Thapa", service: "Spa", className: "Deep Tissue Massage", date: "2026-03-26", startTime: "10:00", endTime: "11:00", status: "Confirmed", bookingStatus: "Confirmed", instructor: "Therapist Maya" },
+  { id: "B003", memberId: "M003", memberName: "Bikash Gurung", service: "Swimming", className: "Lap Swimming", date: "2026-03-26", startTime: "07:00", endTime: "08:00", status: "Pending", bookingStatus: "Confirmed", instructor: "Coach Anil" },
+  { id: "B004", memberId: "M004", memberName: "Sita Rai", service: "Sauna", className: "Sauna Session", date: "2026-03-26", startTime: "14:00", endTime: "15:00", status: "Confirmed", bookingStatus: "Confirmed", instructor: "Staff Binita" },
+  { id: "B005", memberId: "M006", memberName: "Anita Basnet", service: "Gym", className: "HIIT Blast", date: "2026-03-27", startTime: "08:00", endTime: "09:00", status: "Confirmed", bookingStatus: "Confirmed", instructor: "Trainer Ravi" },
+  { id: "B006", memberId: "M010", memberName: "Manju Karki", service: "Spa", className: "Aromatherapy", date: "2026-03-27", startTime: "11:00", endTime: "12:00", status: "Pending", bookingStatus: "Confirmed", instructor: "Therapist Sunita" },
+  { id: "B007", memberId: "M014", memberName: "Nisha Bhandari", service: "Swimming", className: "Aqua Fitness", date: "2026-03-27", startTime: "09:00", endTime: "10:00", status: "Confirmed", bookingStatus: "Confirmed", instructor: "Coach Anil" },
+  { id: "B008", memberId: "M019", memberName: "Arjun Dahal", service: "Gym", className: "Strength Training", date: "2026-03-28", startTime: "06:00", endTime: "07:30", status: "Confirmed", bookingStatus: "Confirmed", instructor: "Trainer Prakash" },
+  { id: "B009", memberId: "M020", memberName: "Puja Pandey", service: "Sauna", className: "Infrared Sauna", date: "2026-03-28", startTime: "15:00", endTime: "16:00", status: "Confirmed", bookingStatus: "Confirmed", instructor: "Staff Binita" },
+  { id: "B010", memberId: "M008", memberName: "Kabita Shrestha", service: "Spa", className: "Hot Stone Therapy", date: "2026-03-29", startTime: "10:00", endTime: "11:30", status: "Pending", bookingStatus: "Confirmed", instructor: "Therapist Maya" },
+  { id: "B011", memberId: "M011", memberName: "Raju Poudel", service: "Gym", className: "CrossFit WOD", date: "2026-03-29", startTime: "07:00", endTime: "08:00", status: "Confirmed", bookingStatus: "Confirmed", instructor: "Trainer Ravi" },
+  { id: "B012", memberId: "M016", memberName: "Sarita Dangol", service: "Swimming", className: "Water Aerobics", date: "2026-03-30", startTime: "08:00", endTime: "09:00", status: "Confirmed", bookingStatus: "Confirmed", instructor: "Coach Anil" },
 ];
 
 export const transactions: Transaction[] = [

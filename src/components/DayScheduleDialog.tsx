@@ -1,12 +1,29 @@
 import { useMemo, useState } from "react";
 import { format, isSameDay } from "date-fns";
-import { Plus, Clock, User, Dumbbell, CalendarDays, GripVertical } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Plus,
+  Clock,
+  User,
+  Dumbbell,
+  CalendarDays,
+  GripVertical,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type { Booking } from "@/lib/mock-data";
+
+import { toZonedTime } from "date-fns-tz";
+
+const SYSTEM_TZ = "Asia/Katmandu";
 
 interface Props {
   open: boolean;
@@ -21,14 +38,18 @@ interface Props {
   startHour?: number;
   endHour?: number;
   /** Called when the user drops a booking on a different hour slot. */
-  onReschedule?: (booking: Booking, newStartHour: number) => Promise<void> | void;
+  onReschedule?: (
+    booking: Booking,
+    newStartHour: number,
+  ) => Promise<void> | void;
 }
 
 const statusColors: Record<string, string> = {
   Confirmed: "bg-success/15 text-success border-success/30",
   Completed: "bg-success/15 text-success border-success/30",
   Pending: "bg-amber-500/15 text-amber-500 border-amber-500/30",
-  Cancelled: "bg-destructive/15 text-destructive border-destructive/30 line-through",
+  Cancelled:
+    "bg-destructive/15 text-destructive border-destructive/30 line-through",
 };
 
 export function DayScheduleDialog({
@@ -44,8 +65,9 @@ export function DayScheduleDialog({
   onReschedule,
 }: Props) {
   const hours = useMemo(
-    () => Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i),
-    [startHour, endHour]
+    () =>
+      Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i),
+    [startHour, endHour],
   );
 
   const byHour = useMemo(() => {
@@ -63,7 +85,7 @@ export function DayScheduleDialog({
   const totalCount = bookings.length;
 
   // Disable past hours when the day being viewed is today (rule #6).
-  const now = new Date();
+  const now = toZonedTime(new Date(), SYSTEM_TZ);
   const isToday = !!date && isSameDay(date, now);
   const currentHour = now.getHours();
   const isPastHour = (h: number) => isToday && h < currentHour;
@@ -99,7 +121,6 @@ export function DayScheduleDialog({
     await onReschedule(b, hour);
   };
 
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[88vh] p-0 overflow-hidden">
@@ -111,8 +132,11 @@ export function DayScheduleDialog({
                 Schedule for {date ? format(date, "MMMM d, yyyy") : ""}
               </DialogTitle>
               <DialogDescription className="text-xs">
-                {dateLabel} • {totalCount} {totalCount === 1 ? "booking" : "bookings"}
-                {onReschedule && totalCount > 0 ? " • drag a card to another hour to reschedule" : ""}
+                {dateLabel} • {totalCount}{" "}
+                {totalCount === 1 ? "booking" : "bookings"}
+                {onReschedule && totalCount > 0
+                  ? " • drag a card to another hour to reschedule"
+                  : ""}
               </DialogDescription>
             </div>
             <Button
@@ -133,11 +157,17 @@ export function DayScheduleDialog({
                 <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4">
                   <CalendarDays className="h-6 w-6" />
                 </div>
-                <h3 className="font-semibold text-base mb-1">No bookings scheduled</h3>
+                <h3 className="font-semibold text-base mb-1">
+                  No bookings scheduled
+                </h3>
                 <p className="text-sm text-muted-foreground text-center mb-5 max-w-sm">
                   This day is clear. Click + to add the first booking.
                 </p>
-                <Button onClick={() => onAddBooking()} variant="outline" className="gap-1.5">
+                <Button
+                  onClick={() => onAddBooking()}
+                  variant="outline"
+                  className="gap-1.5"
+                >
                   <Plus className="h-4 w-4" /> Add New Booking
                 </Button>
               </div>
@@ -158,18 +188,28 @@ export function DayScheduleDialog({
                         e.dataTransfer.dropEffect = "move";
                         if (dragOverHour !== h) setDragOverHour(h);
                       }}
-                      onDragLeave={() => { if (dragOverHour === h) setDragOverHour(null); }}
+                      onDragLeave={() => {
+                        if (dragOverHour === h) setDragOverHour(null);
+                      }}
                       onDrop={(e) => handleDrop(e, h)}
                     >
                       <div className="w-14 shrink-0 pt-2 text-right">
-                        <span className={cn("text-[11px] font-mono font-medium", past ? "text-muted-foreground/40" : "text-muted-foreground")}>
+                        <span
+                          className={cn(
+                            "text-[11px] font-mono font-medium",
+                            past
+                              ? "text-muted-foreground/40"
+                              : "text-muted-foreground",
+                          )}
+                        >
                           {hourLabel}
                         </span>
                       </div>
                       <div
                         className={cn(
                           "flex-1 min-h-[64px] border-l border-border/60 pl-3 py-1.5 relative transition-colors",
-                          dropActive && "bg-primary/10 rounded-r-lg ring-1 ring-primary/40",
+                          dropActive &&
+                            "bg-primary/10 rounded-r-lg ring-1 ring-primary/40",
                         )}
                       >
                         <div className="absolute -left-1 top-3 h-2 w-2 rounded-full bg-border group-hover:bg-primary transition-colors" />
@@ -200,40 +240,62 @@ export function DayScheduleDialog({
                                   key={b.id}
                                   draggable={draggable}
                                   onDragStart={(e) => handleDragStart(e, b)}
-                                  onDragEnd={() => { setDraggingId(null); setDragOverHour(null); }}
+                                  onDragEnd={() => {
+                                    setDraggingId(null);
+                                    setDragOverHour(null);
+                                  }}
                                   title={lockedTitle}
                                   className={cn(
                                     "w-full text-left rounded-lg border border-border/80 bg-card hover:border-primary/50 hover:shadow-md transition-all p-3 group/card relative overflow-hidden",
-                                    draggable && "cursor-grab active:cursor-grabbing",
-                                    onReschedule && !draggable && "cursor-not-allowed",
+                                    draggable &&
+                                      "cursor-grab active:cursor-grabbing",
+                                    onReschedule &&
+                                      !draggable &&
+                                      "cursor-not-allowed",
                                     draggingId === b.id && "opacity-50",
                                   )}
                                   role="button"
                                   tabIndex={0}
                                   onClick={() => onBookingClick(b)}
-                                  onKeyDown={(e) => { if (e.key === "Enter") onBookingClick(b); }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") onBookingClick(b);
+                                  }}
                                 >
                                   <span
                                     className="absolute left-0 top-0 bottom-0 w-1"
-                                    style={{ backgroundColor: accent || "hsl(var(--primary))" }}
+                                    style={{
+                                      backgroundColor:
+                                        accent || "hsl(var(--primary))",
+                                    }}
                                   />
                                   <div className="flex items-start justify-between gap-2 mb-1.5 pl-2">
                                     <p className="font-semibold text-sm group-hover/card:text-primary transition-colors line-clamp-1 flex items-center gap-1.5">
-                                      {draggable && <GripVertical className="h-3 w-3 text-muted-foreground/60" />}
+                                      {draggable && (
+                                        <GripVertical className="h-3 w-3 text-muted-foreground/60" />
+                                      )}
                                       {b.className || b.service}
                                     </p>
-                                    <Badge variant="outline" className={cn("text-[10px] shrink-0", statusColors[b.status] || "")}>
+                                    <Badge
+                                      variant="outline"
+                                      className={cn(
+                                        "text-[10px] shrink-0",
+                                        statusColors[b.status] || "",
+                                      )}
+                                    >
                                       {b.status}
                                     </Badge>
                                   </div>
                                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground pl-2">
                                     <span className="inline-flex items-center gap-1">
                                       <User className="h-3 w-3 text-primary/70" />
-                                      <span className="text-foreground font-medium">{b.memberName}</span>
+                                      <span className="text-foreground font-medium">
+                                        {b.memberName}
+                                      </span>
                                     </span>
                                     <span className="inline-flex items-center gap-1">
                                       <Clock className="h-3 w-3" />
-                                      {b.startTime}{b.endTime ? ` – ${b.endTime}` : ""}
+                                      {b.startTime}
+                                      {b.endTime ? ` – ${b.endTime}` : ""}
                                     </span>
                                     {b.instructor && (
                                       <span className="inline-flex items-center gap-1">
@@ -241,14 +303,16 @@ export function DayScheduleDialog({
                                         {b.instructor}
                                       </span>
                                     )}
-                                    <Badge variant="secondary" className="text-[10px] ml-auto">
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-[10px] ml-auto"
+                                    >
                                       {b.service}
                                     </Badge>
                                   </div>
                                 </div>
                               );
                             })}
-
                           </div>
                         )}
                       </div>

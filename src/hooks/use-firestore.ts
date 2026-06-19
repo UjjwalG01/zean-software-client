@@ -19,14 +19,27 @@ import { toast } from "sonner";
 import { INVOICE_PREFIX } from "@/lib/settings";
 import { toIsoDayInTz } from "@/lib/tz";
 
-const firebaseEnabled = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
+import { isSameDay } from "date-fns";
+import { toZonedTime } from "date-fns-tz";
+
+const SYSTEM_TZ = "Asia/Katmandu";
+
+const isSupabaseEnabled = Boolean(
+  import.meta.env.VITE_SUPABASE_URL &&
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+);
+
+console.log(isSupabaseEnabled)
+
+// const firebaseEnabled = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
+// console.log(firebaseEnabled)
 
 // ─── Members ────────────────────────────────────────────────────────
 export function useMembers(filters?: { tier?: MemberTier; status?: MemberStatus; service?: ServiceType; outletId?: string }) {
   return useQuery({
     queryKey: ["members", filters],
     queryFn: async () => {
-      const list = !firebaseEnabled ? mockMembers : await fbServices.getMembers(filters);
+      const list = !isSupabaseEnabled ? mockMembers : await fbServices.getMembers(filters);
       if (filters?.outletId) {
         return list.filter((m) => !m.outletId || m.outletId === filters.outletId);
       }
@@ -40,7 +53,7 @@ export function useMember(id: string | undefined) {
     queryKey: ["member", id],
     queryFn: async () => {
       if (!id) return null;
-      if (!firebaseEnabled) return mockMembers.find((m) => m.id === id) || null;
+      if (!isSupabaseEnabled) return mockMembers.find((m) => m.id === id) || null;
       return fbServices.getMember(id);
     },
     enabled: !!id,
@@ -51,7 +64,7 @@ export function useAddMember() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: Partial<Member>) => {
-      if (!firebaseEnabled) {
+      if (!isSupabaseEnabled) {
         toast.success(`Member "${data.name}" registered (mock mode)`);
         return "mock-id";
       }
@@ -67,7 +80,7 @@ export function useUpdateMember() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Record<string, any>> }) => {
-      if (!firebaseEnabled) return;
+      if (!isSupabaseEnabled) return;
       return fbServices.updateMember(id, data);
     },
     onSuccess: () => {
@@ -80,7 +93,7 @@ export function useDeleteMember() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!firebaseEnabled) return;
+      if (!isSupabaseEnabled) return;
       return fbServices.deleteMember(id);
     },
     onSuccess: () => {
@@ -94,7 +107,7 @@ export function useBookings(filters?: { service?: ServiceType; outletId?: string
   return useQuery({
     queryKey: ["bookings", filters],
     queryFn: async () => {
-      const list = !firebaseEnabled ? mockBookings : await fbServices.getBookings(filters);
+      const list = !isSupabaseEnabled ? mockBookings : await fbServices.getBookings(filters);
       if (filters?.outletId) {
         return list.filter((b: any) => !b.outletId || b.outletId === filters.outletId);
       }
@@ -107,7 +120,7 @@ export function useAddBooking() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: Partial<Booking>) => {
-      if (!firebaseEnabled) {
+      if (!isSupabaseEnabled) {
         const newBooking = {
           id: `B-${Date.now()}`,
           memberId: data.memberId || "",
@@ -119,6 +132,7 @@ export function useAddBooking() {
           endTime: data.endTime || "",
           status: data.status || "Pending",
           instructor: data.instructor || "",
+          bookingStatus: data.bookingStatus || "Confirmed"
         } as Booking;
         mockBookings.push(newBooking);
         toast.success("Booking created (mock mode)");
@@ -131,30 +145,47 @@ export function useAddBooking() {
     },
   });
 }
-
+// Updated code for update booking
 export function useUpdateBooking() {
   const qc = useQueryClient();
+
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Record<string, any>> }) => {
-      if (!firebaseEnabled) {
+      if (!isSupabaseEnabled) {
         const b = mockBookings.find((x) => x.id === id);
-        if (b) {
-          Object.assign(b, data);
-        }
+        if (b) Object.assign(b, data);
         return;
       }
       return fbServices.updateBooking(id, data);
     },
-    // Optimistic update so the calendar/day-schedule reflects the new time
-    // immediately — prevents the booking from "vanishing" while the server
-    // round-trip is in flight.
     onMutate: async ({ id, data }) => {
       await qc.cancelQueries({ queryKey: ["bookings"] });
       const previous = qc.getQueryData<any[]>(["bookings"]);
+
       if (previous) {
         qc.setQueryData<any[]>(
           ["bookings"],
-          previous.map((b) => (b.id === id ? { ...b, ...data } : b)),
+          previous.map((b) => {
+            if (b.id === id) {
+              // Extract the newly dropped hour string safely from whichever key was passed
+              const newTime = data.startTime || data.start_time;
+
+              // Calculate if the booking is scheduled for today in Asia/Katmandu
+              const systemNow = toZonedTime(new Date(), SYSTEM_TZ);
+              const bookingDate = b.date ? new Date(b.date) : systemNow;
+              const isToday = isSameDay(bookingDate, systemNow);
+
+              return {
+                ...b,
+                ...data,
+                // Bridge the gap: write both casing styles to keep UI and DB synchronized
+                startTime: newTime,
+                start_time: newTime,
+                status: isToday ? "Pending" : (data.status || b.status)
+              };
+            }
+            return b;
+          }),
         );
       }
       return { previous };
@@ -168,12 +199,48 @@ export function useUpdateBooking() {
   });
 }
 
+// export function useUpdateBooking() {
+//   const qc = useQueryClient();
+//   return useMutation({
+//     mutationFn: async ({ id, data }: { id: string; data: Partial<Record<string, any>> }) => {
+//       if (!isSupabaseEnabled) {
+//         const b = mockBookings.find((x) => x.id === id);
+//         if (b) {
+//           Object.assign(b, data);
+//         }
+//         return;
+//       }
+//       return fbServices.updateBooking(id, data);
+//     },
+//     // Optimistic update so the calendar/day-schedule reflects the new time
+//     // immediately — prevents the booking from "vanishing" while the server
+//     // round-trip is in flight.
+//     onMutate: async ({ id, data }) => {
+//       await qc.cancelQueries({ queryKey: ["bookings"] });
+//       const previous = qc.getQueryData<any[]>(["bookings"]);
+//       if (previous) {
+//         qc.setQueryData<any[]>(
+//           ["bookings"],
+//           previous.map((b) => (b.id === id ? { ...b, ...data } : b)),
+//         );
+//       }
+//       return { previous };
+//     },
+//     onError: (_e, _v, ctx) => {
+//       if (ctx?.previous) qc.setQueryData(["bookings"], ctx.previous);
+//     },
+//     onSettled: () => {
+//       qc.invalidateQueries({ queryKey: ["bookings"] });
+//     },
+//   });
+// }
+
 
 export function useDeleteBooking() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!firebaseEnabled) {
+      if (!isSupabaseEnabled) {
         const idx = mockBookings.findIndex((x) => x.id === id);
         if (idx !== -1) mockBookings.splice(idx, 1);
         return;
@@ -191,7 +258,7 @@ export function useTransactions(filters?: { outletId?: string }) {
   return useQuery({
     queryKey: ["transactions", filters],
     queryFn: async () => {
-      const list = !firebaseEnabled ? mockTransactions : await fbServices.getTransactions();
+      const list = !isSupabaseEnabled ? mockTransactions : await fbServices.getTransactions();
       if (filters?.outletId) {
         return list.filter((t: any) => !t.outletId || t.outletId === filters.outletId);
       }
@@ -204,7 +271,7 @@ export function useAddTransaction() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: Partial<Transaction>) => {
-      if (!firebaseEnabled) {
+      if (!isSupabaseEnabled) {
         const newTx = {
           id: `T-${Date.now()}`,
           receiptNo: data.receiptNo || `${INVOICE_PREFIX}-${Date.now()}`,
@@ -238,7 +305,7 @@ export function useUpdateTransaction() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Transaction> }) => {
-      if (!firebaseEnabled) {
+      if (!isSupabaseEnabled) {
         const tx = mockTransactions.find((t) => t.id === id);
         if (tx) {
           Object.assign(tx, data);
@@ -268,7 +335,7 @@ export function useCheckIns() {
   return useQuery({
     queryKey: ["checkIns"],
     queryFn: async () => {
-      if (!firebaseEnabled) return [];
+      if (!isSupabaseEnabled) return [];
       return fbServices.getCheckIns();
     },
   });
@@ -278,7 +345,7 @@ export function useAddCheckIn() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: { memberId: string; memberName: string; date: string }) => {
-      if (!firebaseEnabled) {
+      if (!isSupabaseEnabled) {
         toast.success("Check-in recorded (mock mode)");
         return "mock-id";
       }
@@ -325,7 +392,7 @@ export function useServices() {
   return useQuery({
     queryKey: ["services"],
     queryFn: async () => {
-      if (!firebaseEnabled) return [];
+      if (!isSupabaseEnabled) return [];
       return fbServices.getServices();
     },
   });
@@ -335,7 +402,7 @@ export function useAddService() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: Partial<fbServices.FirestoreService>) => {
-      if (!firebaseEnabled) {
+      if (!isSupabaseEnabled) {
         toast.success("Service created (mock mode)");
         return "mock-id";
       }
@@ -351,7 +418,7 @@ export function useUpdateService() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Record<string, any>> }) => {
-      if (!firebaseEnabled) return;
+      if (!isSupabaseEnabled) return;
       return fbServices.updateService(id, data);
     },
     onSuccess: () => {
@@ -364,7 +431,7 @@ export function useDeleteService() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!firebaseEnabled) return;
+      if (!isSupabaseEnabled) return;
       return fbServices.deleteService(id);
     },
     onSuccess: () => {
@@ -378,7 +445,7 @@ export function useMembershipPlans() {
   return useQuery({
     queryKey: ["membershipPlans"],
     queryFn: async () => {
-      if (!firebaseEnabled) return [];
+      if (!isSupabaseEnabled) return [];
       return fbServices.getMembershipPlans();
     },
   });
@@ -388,7 +455,7 @@ export function useAddMembershipPlan() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: Partial<fbServices.FirestoreMembershipPlan>) => {
-      if (!firebaseEnabled) {
+      if (!isSupabaseEnabled) {
         toast.success("Plan created (mock mode)");
         return "mock-id";
       }
@@ -404,7 +471,7 @@ export function useUpdateMembershipPlan() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Record<string, any>> }) => {
-      if (!firebaseEnabled) return;
+      if (!isSupabaseEnabled) return;
       return fbServices.updateMembershipPlan(id, data);
     },
     onSuccess: () => {
@@ -417,7 +484,7 @@ export function useDeleteMembershipPlan() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!firebaseEnabled) return;
+      if (!isSupabaseEnabled) return;
       return fbServices.deleteMembershipPlan(id);
     },
     onSuccess: () => {
@@ -431,7 +498,7 @@ export function useCompanySettings() {
   return useQuery({
     queryKey: ["companySettings"],
     queryFn: async () => {
-      if (!firebaseEnabled) return {};
+      if (!isSupabaseEnabled) return {};
       return fbServices.getCompanySettings();
     },
   });
@@ -441,7 +508,7 @@ export function useSaveCompanySettings() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (settings: Record<string, string>) => {
-      if (!firebaseEnabled) {
+      if (!isSupabaseEnabled) {
         toast.success("Settings saved (mock mode)");
         return;
       }
@@ -458,7 +525,7 @@ export function useDashboardStats() {
   return useQuery({
     queryKey: ["dashboardStats"],
     queryFn: async () => {
-      if (!firebaseEnabled) return mockDashboardStats;
+      if (!isSupabaseEnabled) return mockDashboardStats;
       return fbServices.getDashboardStats();
     },
   });
@@ -468,7 +535,7 @@ export function useExpiryAlerts() {
   return useQuery({
     queryKey: ["expiryAlerts"],
     queryFn: async () => {
-      if (!firebaseEnabled) return mockExpiryAlerts;
+      if (!isSupabaseEnabled) return mockExpiryAlerts;
       const members = await fbServices.getMembers({ status: "Expiring" as MemberStatus });
       const now = new Date();
       return members
@@ -494,7 +561,7 @@ export function useDiscountRules() {
   return useQuery({
     queryKey: ["discountRules"],
     queryFn: async () => {
-      if (!firebaseEnabled) return [];
+      if (!isSupabaseEnabled) return [];
       return fbServices.getDiscountRules();
     },
   });
@@ -504,7 +571,7 @@ export function useSaveDiscountRules() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (rules: fbServices.DiscountRule[]) => {
-      if (!firebaseEnabled) {
+      if (!isSupabaseEnabled) {
         toast.success("Discount rules saved (mock mode)");
         return;
       }

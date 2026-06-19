@@ -89,6 +89,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+import { formatInTimeZone } from "date-fns-tz";
+
+const SYSTEM_TZ = "Asia/Katmandu";
+
 function parseSetup(
   settings: Record<string, string>,
   key: string,
@@ -245,18 +249,17 @@ const Transactions = () => {
     const net = Math.round((gross / 1.13) * 100) / 100;
     const vat = Math.round((gross - net) * 100) / 100;
     // Sum of prior pending charges for the member (excluding the one being settled).
-    const previousBalance =
-      extras?.memberId
-        ? transactions
-            .filter(
-              (t) =>
-                t.memberId === extras.memberId &&
-                t.type === "Charge" &&
-                t.status === "pending" &&
-                t.id !== extras.excludeTxnId,
-            )
-            .reduce((s, t) => s + (t.total || 0), 0)
-        : 0;
+    const previousBalance = extras?.memberId
+      ? transactions
+          .filter(
+            (t) =>
+              t.memberId === extras.memberId &&
+              t.type === "Charge" &&
+              t.status === "pending" &&
+              t.id !== extras.excludeTxnId,
+          )
+          .reduce((s, t) => s + (t.total || 0), 0)
+      : 0;
     const html = generateA5BillHTML({
       companyName,
       companyAddress: settings.companyAddress || "",
@@ -487,7 +490,7 @@ const Transactions = () => {
         if (chargeRowId) {
           try {
             const { supabase } = await import("@/lib/supabase");
-            const nowTs = new Date().toISOString();
+            const nowTs = formatInTimeZone(new Date(), SYSTEM_TZ, "yyyy-MM-dd");
             await supabase
               .from("charges")
               .update({
@@ -922,7 +925,10 @@ const Transactions = () => {
                                   {
                                     memberId: t.memberId,
                                     discount: Number((t as any).discount) || 0,
-                                    head: (t as any).serviceType || t.type || "Services",
+                                    head:
+                                      (t as any).serviceType ||
+                                      t.type ||
+                                      "Services",
                                     excludeTxnId: t.id,
                                   },
                                 )
