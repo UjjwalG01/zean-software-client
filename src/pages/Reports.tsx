@@ -131,8 +131,16 @@ const Reports = () => {
       }
     > = {};
     txInRange.forEach((t) => {
+      // Department resolution priority: explicit chargeHead on the txn → linked charge_head via settled_charge_id
+      // → service type → fall back to type label. This keeps reports aligned with the post-rewrite schema
+      // where most billed line-items live in the `charges` table and only carry a `chargeRowId` back.
+      const linkedHead =
+        (t as any).chargeRowId && chargeHeadById.get((t as any).chargeRowId);
       const department =
-        t.serviceType || (t.type === "Charge" ? "Misc Charges" : "Membership");
+        (t as any).chargeHead ||
+        linkedHead ||
+        t.serviceType ||
+        (t.type === "Charge" ? "Misc Charges" : "Membership");
       const key = `${t.date}::${department}`;
       if (!acc[key])
         acc[key] = { date: t.date, department, sales: 0, vat: 0, total: 0 };
