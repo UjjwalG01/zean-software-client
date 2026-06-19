@@ -51,7 +51,7 @@ interface MemberLedgerRow {
   totalBilled: number;
   totalPaid: number;
   netBalance: number;
-  status: "Settled" | "Partial" | "Unpaid";
+  status: "Settled" | "Partial" | "Unpaid" | "Overpaid";
   memberStatus?: string;
 }
 
@@ -205,7 +205,9 @@ export default function LedgerReport() {
         ? "bg-success/20 text-success"
         : s === "Partial"
           ? "bg-amber-500/20 text-amber-500"
-          : "bg-destructive/20 text-destructive";
+          : s === "Overpaid"
+            ? "bg-blue-500/20 text-blue-500"
+            : "bg-destructive/20 text-destructive";
     return <Badge className={cn("text-[10px] border-0", cls)}>{s}</Badge>;
   };
 
@@ -365,10 +367,16 @@ export default function LedgerReport() {
                     <div
                       className={cn(
                         "col-span-1 text-right font-semibold",
-                        m.netBalance > 0 ? "text-destructive" : "text-success",
+                        m.netBalance > 0
+                          ? "text-destructive"
+                          : m.netBalance < 0
+                            ? "text-blue-500"
+                            : "text-success",
                       )}
                     >
-                      {formatNPR(m.netBalance)}
+                      {m.netBalance < 0
+                        ? `(${formatNPR(Math.abs(m.netBalance))})`
+                        : formatNPR(m.netBalance)}
                     </div>
                     <div className="col-span-1 text-right">
                       {statusChip(m.status)}
