@@ -154,7 +154,7 @@ const Reports = () => {
         a.date.localeCompare(b.date) ||
         a.department.localeCompare(b.department),
     );
-  }, [txInRange]);
+  }, [txInRange, chargeHeadById]);
 
   const dailySalesTotals = useMemo(() => {
     return dailySalesRows.reduce(
