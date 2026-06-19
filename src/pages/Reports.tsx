@@ -9,6 +9,7 @@ import {
   useBookings,
   useCompanySettings,
 } from "@/hooks/use-firestore";
+import { useCharges } from "@/hooks/use-charges";
 import {
   BarChart,
   Bar,
@@ -52,8 +53,16 @@ const Reports = () => {
     outletId: activeOutlet?.id,
   });
   const { data: bookings = [] } = useBookings({ outletId: activeOutlet?.id });
+  const { data: charges = [] } = useCharges();
   const { data: settings = {} } = useCompanySettings();
   const [showCashierDetails, setShowCashierDetails] = useState(false);
+
+  // Map of charge.id → charge_head for cross-referencing payments that came in via a settled_charge_id.
+  const chargeHeadById = useMemo(() => {
+    const m = new Map<string, string>();
+    charges.forEach((c) => m.set(c.id, c.charge_head || ""));
+    return m;
+  }, [charges]);
 
   const activeMembers = members.filter((m) => m.status === "Active").length;
   const totalRevenue = transactions.reduce(
