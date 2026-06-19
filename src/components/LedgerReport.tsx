@@ -508,13 +508,19 @@ function MemberBillsAccordion({
           </strong>
         </span>
         <span>
-          Balance:{" "}
+          {summary.netPayable < 0 ? "Refund Due" : "Balance"}:{" "}
           <strong
             className={
-              summary.netPayable > 0 ? "text-destructive" : "text-success"
+              summary.netPayable > 0
+                ? "text-destructive"
+                : summary.netPayable < 0
+                  ? "text-blue-500"
+                  : "text-success"
             }
           >
-            {formatNPR(summary.netPayable)}
+            {summary.netPayable < 0
+              ? `(${formatNPR(Math.abs(summary.netPayable))})`
+              : formatNPR(summary.netPayable)}
           </strong>
         </span>
       </div>
