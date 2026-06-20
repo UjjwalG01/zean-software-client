@@ -191,7 +191,11 @@ export function useUpdateBooking() {
       return { previous };
     },
     onError: (_e, _v, ctx) => {
-      if (ctx?.previous) qc.setQueryData(["bookings"], ctx.previous);
+      if (ctx?.snapshots) {
+        for (const [key, value] of ctx.snapshots) {
+          qc.setQueryData(key, value);
+        }
+      }
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["bookings"] });

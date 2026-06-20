@@ -562,9 +562,21 @@ const MemberProfile = () => {
                 </div>
               </div>
               <div>
-                <span className="text-muted-foreground">＝ Net Payable</span>
-                <div className="font-bold text-destructive">
-                  {formatNPR(memberLedger.summary.netPayable)}
+                <span className="text-muted-foreground">
+                  ＝ {memberLedger.summary.netPayable < 0 ? "Refund Due" : "Net Payable"}
+                </span>
+                <div
+                  className={
+                    memberLedger.summary.netPayable < 0
+                      ? "font-bold text-blue-500"
+                      : memberLedger.summary.netPayable === 0
+                        ? "font-bold text-success"
+                        : "font-bold text-destructive"
+                  }
+                >
+                  {memberLedger.summary.netPayable < 0
+                    ? `(${formatNPR(Math.abs(memberLedger.summary.netPayable))})`
+                    : formatNPR(memberLedger.summary.netPayable)}
                 </div>
               </div>
             </div>
