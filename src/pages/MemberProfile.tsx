@@ -81,6 +81,8 @@ const MemberProfile = () => {
     emergencyContact: "",
   });
 
+  console.log(member);
+
   // Preferences tab state — wired to members.preferences (jsonb).
   const [prefsForm, setPrefsForm] = useState({
     favoriteActivities: "" as string,
@@ -152,12 +154,16 @@ const MemberProfile = () => {
   };
 
   useEffect(() => {
+    const fullAddress =
+      member.permanentAddress ||
+      (typeof member.address === "string" ? member.address : member.address) ||
+      "";
     if (member) {
       setEditForm({
         name: member.name,
         email: member.email,
         phone: member.phone,
-        address: member.address,
+        address: fullAddress,
         emergencyContact: member.emergencyContact,
       });
     }
@@ -365,12 +371,15 @@ const MemberProfile = () => {
               </span>
               <span className="flex items-center gap-2">
                 <MapPin className="h-3.5 w-3.5" />
-                {(() => {
-                  const a: any = (member as any).address;
-                  if (!a) return (member as any).permanentAddress || "";
-                  if (typeof a === "string") return a;
-                  return a.permanent || a.temporary || "";
-                })()}
+                {/* {(() => {
+                  const address: any = (member as any).address;
+                  if (!address) return (member as any).permanentAddress || "";
+                  if (typeof address === "string") return address;
+                  return address.permanent || address.temporary || "";
+                })()} */}
+                {(member.permanentAddress && member.permanentAddress) ||
+                  (member.temporaryAddress && member.temporaryAddress) ||
+                  ""}
               </span>
               <span className="flex items-center gap-2">
                 <Calendar className="h-3.5 w-3.5" />

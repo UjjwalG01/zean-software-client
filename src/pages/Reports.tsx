@@ -402,7 +402,7 @@ const Reports = () => {
                 dateRange: `${from} → ${to}`,
                 filters: { Voided: includeVoided },
               }}
-              groupBy={{ key: "date", label: "Date" }}
+              groupBy={{ key: "department", label: "Department" }}
               columns={[
                 { key: "department", label: "Department" },
                 {
