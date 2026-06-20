@@ -98,41 +98,24 @@ function throwDb(error: any, table: string): never {
 }
 
 // ─── Members ────────────────────────────────────────────────────────
+// Free-form GRC fields that don't have dedicated DB columns or structured
+// JSONB slots — these continue to live inside the catch-all `extras` JSONB.
+// Anything covered by a column or by address/emergency_contact/physical/medical
+// is intentionally NOT in this list so we never duplicate the same value in
+// two places.
 const EXTRA_KEYS = [
-  "firstName",
-  "middleName",
-  "lastName",
-  "dob",
-  "gender",
-  "nationality",
-  "religion",
   "maritalStatus",
   "residenceStatus",
   "nationalId",
   "tinNo",
   "fatherName",
-  "occupation",
-  "officeName",
-  "officeAddress",
-  "permanentAddress",
-  "temporaryAddress",
-  "contactAlt",
-  "bloodGroup",
-  "height",
-  "weight",
-  "chest",
   "arms",
   "thigh",
   "waistInch",
   "hipInch",
   "shoulder",
-  "heartStroke",
-  "breathingDifficulty",
-  "skinDisease",
   "doctorName",
   "doctorContact",
-  "emergencyName",
-  "emergencyContactNum",
   "notifyPhone",
   "notifyEmail",
   "notifySMS",
@@ -140,24 +123,62 @@ const EXTRA_KEYS = [
   "packages",
 ] as const;
 
+/** Coerce a free-form value (boolean | "true" | "yes" | "1") into a strict boolean. */
+function toBool(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (value == null) return false;
+  const s = String(value).trim().toLowerCase();
+  return s === "true" || s === "yes" || s === "1" || s === "y";
+}
+
+/** Split a stored `full_name` back into first/middle/last for forms that need them. */
+function splitFullName(full?: string): { firstName: string; middleName: string; lastName: string } {
+  const parts = String(full || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { firstName: "", middleName: "", lastName: "" };
+  if (parts.length === 1) return { firstName: parts[0], middleName: "", lastName: "" };
+  if (parts.length === 2) return { firstName: parts[0], middleName: "", lastName: parts[1] };
+  return {
+    firstName: parts[0],
+    middleName: parts.slice(1, -1).join(" "),
+    lastName: parts[parts.length - 1],
+  };
+}
+
 function mapMemberRow(r: any): Member {
   const prefs = r.preferences && typeof r.preferences === "object" ? r.preferences : {};
   const extras = r.extras && typeof r.extras === "object" ? r.extras : {};
+  const address = r.address && typeof r.address === "object" ? r.address : {};
+  const emergency = r.emergency_contact && typeof r.emergency_contact === "object" ? r.emergency_contact : {};
+  const physical = r.physical && typeof r.physical === "object" ? r.physical : {};
+  const medical = r.medical && typeof r.medical === "object" ? r.medical : {};
   const services = Array.isArray(r.services) ? r.services : Array.isArray(prefs.services) ? prefs.services : [];
+
+  const fullName = r.full_name || prefs.name || "";
+  const nameParts = splitFullName(fullName);
+
+  // For legacy rows the address column may still be a plain string (older schema).
+  const legacyAddress = typeof r.address === "string" ? r.address : "";
+
   const base: any = {
     id: r.id,
-    name: r.full_name || prefs.name || "",
+    name: fullName,
     email: r.email || "",
     phone: r.phone || "",
-    avatar: r.avatar_url || prefs.avatar || avatarUrl(r.full_name || r.email || r.id),
+    avatar: r.avatar_url || prefs.avatar || avatarUrl(fullName || r.email || r.id),
     tier: (r.tier || "Basic") as MemberTier,
     services: services as ServiceType[],
     status: (r.status || "active").replace(/^./, (c: string) => c.toUpperCase()) as MemberStatus,
     joinDate: dateOnly(r.join_date),
     expiryDate: dateOnly(r.expiry_date),
     plan: r.plan || prefs.plan || "Monthly",
-    address: r.address || prefs.address || "",
-    emergencyContact: r.emergency_contact || prefs.emergencyContact || "",
+    // Flat legacy fields preserved so old call sites keep working.
+    address:
+      address.permanent ||
+      address.temporary ||
+      legacyAddress ||
+      (typeof prefs.address === "string" ? prefs.address : "") ||
+      "",
+    emergencyContact: emergency.phone || prefs.emergencyContact || "",
     preferences: Array.isArray(prefs.preferences) ? prefs.preferences : [],
     openingBalance: Number(r.opening_balance ?? prefs.openingBalance ?? 0),
     totalPaid: Number(r.total_paid ?? prefs.totalPaid ?? 0),
@@ -167,29 +188,70 @@ function mapMemberRow(r: any): Member {
     autoRenew: Boolean(r.auto_renew ?? prefs.autoRenew ?? false),
     outletId: r.outlet_id || extras.outletId || "",
     grcNo: r.grc_no || "",
+
+    // Dedicated scalar columns (with extras fallback for legacy rows).
+    firstName: extras.firstName ?? nameParts.firstName,
+    middleName: extras.middleName ?? nameParts.middleName,
+    lastName: extras.lastName ?? nameParts.lastName,
+    dob: dateOnly(r.dob) || extras.dob || "",
+    gender: r.gender || extras.gender || "",
+    nationality: r.nationality || extras.nationality || "",
+    religion: r.religion || extras.religion || "",
+    occupation: r.occupation || extras.occupation || "",
+    officeName: r.office_name || extras.officeName || "",
+    officeAddress: r.office_address || extras.officeAddress || "",
+    contactAlt: r.contact_alt || extras.contactAlt || "",
+
+    // Structured JSONB → flat UI fields (with extras fallback for legacy rows).
+    permanentAddress: address.permanent ?? extras.permanentAddress ?? "",
+    temporaryAddress: address.temporary ?? extras.temporaryAddress ?? "",
+
+    emergencyName: emergency.name ?? extras.emergencyName ?? "",
+    emergencyContactNum: emergency.phone ?? extras.emergencyContactNum ?? "",
+    emergencyAddress: emergency.address ?? extras.emergencyAddress ?? "",
+
+    chest: physical.chest ?? extras.chest ?? "",
+    height: physical.height ?? extras.height ?? "",
+    weight: physical.weight ?? extras.weight ?? "",
+    bloodGroup: physical.blood_group ?? extras.bloodGroup ?? "",
+
+    heartStroke:
+      typeof medical.heart_stroke === "boolean" ? medical.heart_stroke : toBool(extras.heartStroke),
+    skinDisease:
+      typeof medical.skin_disease === "boolean" ? medical.skin_disease : toBool(extras.skinDisease),
+    breathingDifficulty:
+      typeof medical.breathing_difficulty === "boolean"
+        ? medical.breathing_difficulty
+        : toBool(extras.breathingDifficulty),
   };
-  for (const k of EXTRA_KEYS) base[k] = extras[k];
+
+  // Remaining free-form fields still live in extras.
+  for (const k of EXTRA_KEYS) if (base[k] === undefined) base[k] = extras[k];
   return base as Member;
 }
 
 
-function memberPayload(data: Partial<Member>) {
-  const fullName = data.name || [data.firstName, data.middleName, data.lastName].filter(Boolean).join(" ").trim();
+function memberPayload(data: Partial<Member>): Record<string, any> {
+  const fullName =
+    data.name || [data.firstName, data.middleName, data.lastName].filter(Boolean).join(" ").trim();
+
   const prefs = {
     preferences: data.preferences || [],
     plan: data.plan || "Monthly",
-    address: data.address || "",
-    emergencyContact: data.emergencyContact || "",
+    services: data.services || [],
     openingBalance: data.openingBalance || 0,
     totalPaid: data.totalPaid || 0,
     dueAmount: data.dueAmount || 0,
     membershipYears: data.membershipYears || 0,
     discount: data.discount || 0,
     autoRenew: data.autoRenew || false,
-    services: data.services || [],
   };
+
+  // Only keep genuinely-extra keys in `extras`; fields that now live in
+  // dedicated columns or structured JSONB are deliberately excluded.
   const extras: Record<string, any> = {};
   for (const k of EXTRA_KEYS) if ((data as any)[k] !== undefined) extras[k] = (data as any)[k];
+
   return {
     full_name: fullName,
     email: data.email || null,
@@ -201,6 +263,39 @@ function memberPayload(data: Partial<Member>) {
     expiry_date: data.expiryDate || null,
     outlet_id: data.outletId || null,
     grc_no: data.grcNo || null,
+
+    // Dedicated scalar columns
+    dob: data.dob || null,
+    gender: data.gender || null,
+    nationality: data.nationality || null,
+    religion: data.religion || null,
+    occupation: data.occupation || null,
+    office_name: data.officeName || null,
+    office_address: data.officeAddress || null,
+    contact_alt: data.contactAlt || null,
+
+    // Structured JSONB blobs (match db defaults exactly)
+    address: {
+      permanent: data.permanentAddress || "",
+      temporary: data.temporaryAddress || "",
+    },
+    emergency_contact: {
+      name: data.emergencyName || "",
+      phone: (data as any).emergencyContactNum || data.emergencyContact || "",
+      address: (data as any).emergencyAddress || "",
+    },
+    physical: {
+      chest: data.chest || "",
+      height: data.height || "",
+      weight: data.weight || "",
+      blood_group: data.bloodGroup || "",
+    },
+    medical: {
+      heart_stroke: toBool((data as any).heartStroke),
+      skin_disease: toBool((data as any).skinDisease),
+      breathing_difficulty: toBool((data as any).breathingDifficulty),
+    },
+
     preferences: prefs,
     extras,
   };
@@ -235,17 +330,11 @@ export async function getMember(id: string): Promise<Member | null> {
 
 /**
  * Generate a unique member code: `M` + YY + 5-digit sequence (e.g. M2600001).
- *
- * Preferred path: db/schema.sql installs a sequence + BEFORE INSERT trigger
- * that assigns this automatically when `member_code` is null. For older
- * databases (without the trigger) this client-side fallback queries the
- * highest existing code for the current year and increments it.
  */
 export async function generateMemberCode(): Promise<string> {
   const yy = String(new Date().getFullYear() % 100).padStart(2, "0");
   const prefix = `M${yy}`;
   try {
-    // Try the new column first (db/schema.sql).
     const { data, error } = await supabase
       .from("members")
       .select("member_code")
@@ -260,7 +349,6 @@ export async function generateMemberCode(): Promise<string> {
   } catch {
     /* column may not exist on legacy DBs — fall through */
   }
-  // Legacy fallback: use grc_no or total count
   const { count } = await supabase.from("members").select("id", { count: "exact", head: true });
   return `${prefix}${String((count || 0) + 1).padStart(5, "0")}`;
 }
@@ -291,33 +379,104 @@ export async function addMember(data: Partial<Member>): Promise<string> {
 export async function updateMember(id: string, data: Partial<Record<string, any>>): Promise<void> {
   const current = await getMember(id);
   const payload: Record<string, any> = { updated_at: new Date().toISOString() };
-  if (data.name !== undefined) payload.full_name = data.name;
-  if (data.email !== undefined) payload.email = data.email;
-  if (data.phone !== undefined) payload.phone = data.phone;
-  if (data.tier !== undefined) payload.tier = data.tier;
+
+  // Direct scalar column mappings (camel UI → snake DB).
+  const scalarCols: Record<string, string> = {
+    name: "full_name",
+    email: "email",
+    phone: "phone",
+    avatar: "avatar_url",
+    tier: "tier",
+    outletId: "outlet_id",
+    grcNo: "grc_no",
+    dob: "dob",
+    gender: "gender",
+    nationality: "nationality",
+    religion: "religion",
+    occupation: "occupation",
+    officeName: "office_name",
+    officeAddress: "office_address",
+    contactAlt: "contact_alt",
+  };
+  for (const [k, col] of Object.entries(scalarCols)) {
+    if (data[k] !== undefined) payload[col] = data[k] === "" ? null : data[k];
+  }
   if (data.status !== undefined) payload.status = String(data.status).toLowerCase();
   if (data.joinDate !== undefined) payload.join_date = data.joinDate;
   if (data.expiryDate !== undefined) payload.expiry_date = data.expiryDate;
-  if (data.avatar !== undefined) payload.avatar_url = data.avatar;
-  if (data.outletId !== undefined) payload.outlet_id = data.outletId || null;
-  if (data.grcNo !== undefined) payload.grc_no = data.grcNo;
-  const prefs = {
-    ...(current
-      ? {
-        preferences: current.preferences,
-        plan: current.plan,
-        address: current.address,
-        emergencyContact: current.emergencyContact,
-        services: current.services,
-        autoRenew: current.autoRenew,
-      }
-      : {}),
-  } as any;
-  for (const k of [
+
+  // Recompute full_name if the split parts changed but `name` itself wasn't sent.
+  if (
+    data.name === undefined &&
+    (data.firstName !== undefined || data.middleName !== undefined || data.lastName !== undefined)
+  ) {
+    const fn = data.firstName ?? current?.firstName ?? "";
+    const mn = data.middleName ?? current?.middleName ?? "";
+    const ln = data.lastName ?? current?.lastName ?? "";
+    payload.full_name = [fn, mn, ln].filter(Boolean).join(" ").trim();
+  }
+
+  // address JSONB
+  if (data.permanentAddress !== undefined || data.temporaryAddress !== undefined) {
+    payload.address = {
+      permanent: data.permanentAddress ?? current?.permanentAddress ?? "",
+      temporary: data.temporaryAddress ?? current?.temporaryAddress ?? "",
+    };
+  }
+
+  // emergency_contact JSONB
+  if (
+    data.emergencyName !== undefined ||
+    data.emergencyContactNum !== undefined ||
+    data.emergencyContact !== undefined ||
+    data.emergencyAddress !== undefined ||
+    data.emergencyPhone !== undefined
+  ) {
+    payload.emergency_contact = {
+      name: data.emergencyName ?? current?.emergencyName ?? "",
+      phone:
+        data.emergencyContactNum ??
+        data.emergencyPhone ??
+        data.emergencyContact ??
+        current?.emergencyContactNum ??
+        current?.emergencyContact ??
+        "",
+      address: data.emergencyAddress ?? (current as any)?.emergencyAddress ?? "",
+    };
+  }
+
+  // physical JSONB
+  if (
+    data.chest !== undefined ||
+    data.height !== undefined ||
+    data.weight !== undefined ||
+    data.bloodGroup !== undefined
+  ) {
+    payload.physical = {
+      chest: data.chest ?? current?.chest ?? "",
+      height: data.height ?? current?.height ?? "",
+      weight: data.weight ?? current?.weight ?? "",
+      blood_group: data.bloodGroup ?? current?.bloodGroup ?? "",
+    };
+  }
+
+  // medical JSONB
+  if (
+    data.heartStroke !== undefined ||
+    data.skinDisease !== undefined ||
+    data.breathingDifficulty !== undefined
+  ) {
+    payload.medical = {
+      heart_stroke: toBool(data.heartStroke ?? current?.heartStroke),
+      skin_disease: toBool(data.skinDisease ?? current?.skinDisease),
+      breathing_difficulty: toBool(data.breathingDifficulty ?? current?.breathingDifficulty),
+    };
+  }
+
+  // preferences JSONB (membership/billing flat fields)
+  const prefsKeys = [
     "preferences",
     "plan",
-    "address",
-    "emergencyContact",
     "services",
     "openingBalance",
     "totalPaid",
@@ -325,23 +484,43 @@ export async function updateMember(id: string, data: Partial<Record<string, any>
     "membershipYears",
     "discount",
     "autoRenew",
-  ]) {
-    if (data[k] !== undefined) prefs[k] = data[k];
+  ];
+  const prefsTouched: Record<string, any> = {};
+  for (const k of prefsKeys) if (data[k] !== undefined) prefsTouched[k] = data[k];
+  if (Object.keys(prefsTouched).length) {
+    payload.preferences = {
+      preferences: current?.preferences || [],
+      plan: current?.plan || "Monthly",
+      services: current?.services || [],
+      openingBalance: current?.openingBalance || 0,
+      totalPaid: current?.totalPaid || 0,
+      dueAmount: current?.dueAmount || 0,
+      membershipYears: current?.membershipYears || 0,
+      discount: current?.discount || 0,
+      autoRenew: current?.autoRenew || false,
+      ...prefsTouched,
+    };
   }
-  if (Object.keys(prefs).length) payload.preferences = prefs;
-  // extras merge
+
+  // extras: only the genuinely-extra free-form GRC keys
   const extras: Record<string, any> = {};
-  let touched = false;
-  for (const k of EXTRA_KEYS)
+  let extrasTouched = false;
+  for (const k of EXTRA_KEYS) {
     if (data[k] !== undefined) {
       extras[k] = data[k];
-      touched = true;
+      extrasTouched = true;
     }
-  if (touched) {
-    const merged = { ...((current as any) || {}) };
-    for (const k of EXTRA_KEYS) if (extras[k] === undefined) extras[k] = merged[k];
+  }
+  if (extrasTouched) {
+    // Preserve any extras we didn't touch in this call.
+    for (const k of EXTRA_KEYS) {
+      if (extras[k] === undefined && (current as any)?.[k] !== undefined) {
+        extras[k] = (current as any)[k];
+      }
+    }
     payload.extras = extras;
   }
+
   const { error } = await supabase.from("members").update(payload).eq("id", id);
   if (error) throwDb(error, "members");
   await maybeAudit("update", "member", id, current, data);
