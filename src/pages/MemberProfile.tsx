@@ -154,16 +154,12 @@ const MemberProfile = () => {
   };
 
   useEffect(() => {
-    const fullAddress =
-      member.permanentAddress ||
-      (typeof member.address === "string" ? member.address : member.address) ||
-      "";
     if (member) {
       setEditForm({
         name: member.name,
         email: member.email,
         phone: member.phone,
-        address: fullAddress,
+        address: member.address,
         emergencyContact: member.emergencyContact,
       });
     }
@@ -563,7 +559,10 @@ const MemberProfile = () => {
               </div>
               <div>
                 <span className="text-muted-foreground">
-                  ＝ {memberLedger.summary.netPayable < 0 ? "Refund Due" : "Net Payable"}
+                  ＝{" "}
+                  {memberLedger.summary.netPayable < 0
+                    ? "Refund Due"
+                    : "Net Payable"}
                 </span>
                 <div
                   className={
