@@ -36,16 +36,13 @@ export default function PackageSelectionModal({ open, onOpenChange, memberId, me
   const updateMember = useUpdateMember();
 
   const packageOptions = parseList(settings, "setup_packages", ["Gym","Cardio","Swimming","Spa","Combo"]);
-  const timeSlots = parseList(settings, "setup_timeSlots", ["Morning","Day","Evening"]);
 
   const [outletId, setOutletId] = useState(selected?.id || "");
   const [planId, setPlanId] = useState<string>("");
   const [pkgs, setPkgs] = useState<string[]>([]);
-  const [timeSlot, setTimeSlot] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { if (open && selected?.id) setOutletId(selected.id); }, [open, selected]);
-  useEffect(() => { if (!timeSlot && timeSlots.length) setTimeSlot(timeSlots[0]); }, [timeSlots, timeSlot]);
 
   const outletServices = useMemo(() => services, [services]);
   const toggle = (p: string) => setPkgs((cur) => cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]);
@@ -63,7 +60,6 @@ export default function PackageSelectionModal({ open, onOpenChange, memberId, me
           packages: pkgs,
           plan: planRow?.name || planRow?.tier || undefined,
           tier: planRow?.tier || undefined,
-          timeSlot,
         },
       });
       toast.success("Package assigned");
@@ -86,27 +82,18 @@ export default function PackageSelectionModal({ open, onOpenChange, memberId, me
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Outlet</Label>
-              <Select value={outletId} onValueChange={setOutletId}>
-                <SelectTrigger><SelectValue placeholder="Select outlet" /></SelectTrigger>
-                <SelectContent>
-                  {outlets.map((o) => (
-                    <SelectItem key={o.id} value={o.id}>
-                      {o.name}{o.outletCode ? ` [${o.outletCode}]` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Time Slot</Label>
-              <Select value={timeSlot} onValueChange={setTimeSlot}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{timeSlots.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-1.5">
+            <Label>Outlet</Label>
+            <Select value={outletId} onValueChange={setOutletId}>
+              <SelectTrigger><SelectValue placeholder="Select outlet" /></SelectTrigger>
+              <SelectContent>
+                {outlets.map((o) => (
+                  <SelectItem key={o.id} value={o.id}>
+                    {o.name}{o.outletCode ? ` [${o.outletCode}]` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-1.5">

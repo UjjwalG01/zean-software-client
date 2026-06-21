@@ -58,11 +58,6 @@ const MemberGRC = () => {
     "Membership expiration will be informed before 7 days.",
   ]);
   const packages = parseList(settings, "setup_packages", []);
-  const timeSlots = parseList(settings, "setup_timeSlots", [
-    "Morning",
-    "Day",
-    "Evening",
-  ]);
   const memberPkgs: string[] = Array.isArray(m.packages) ? m.packages : [];
 
   if (isLoading && id !== "blank")
@@ -615,7 +610,7 @@ const MemberGRC = () => {
           >
             <F label="Tier" value={m.tier} />
             <F label="Plan" value={m.plan} />
-            <F label="Time Slot" value={m.timeSlot} opts={timeSlots} />
+            <F label="Time Slot" value={(m as any).preferredStart && (m as any).preferredEnd ? `${(m as any).preferredStart} - ${(m as any).preferredEnd}` : "—"} />
             <F label="Outlet" value={outlet?.name} />
           </div>
           {show.packages && packages.length > 0 && (

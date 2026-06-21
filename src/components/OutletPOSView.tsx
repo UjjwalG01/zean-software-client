@@ -197,7 +197,7 @@ export function OutletPOSView({ outlet }: Props) {
           status: "Pending",
           outletId: outlet.id,
           instructor: attendant || "",
-          timeSlot: now,
+          
         } as any);
         lineBooking = String(bookingId || "");
         if (line.price > 0) {
