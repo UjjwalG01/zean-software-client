@@ -172,7 +172,7 @@ const Bookings_Page = () => {
   const [memberPopoverOpen, setMemberPopoverOpen] = useState(false);
   const [bookServiceId, setBookServiceId] = useState("");
   const [bookInstructor, setBookInstructor] = useState("");
-  const [bookTimeSlot, setBookTimeSlot] = useState("");
+  
 
   const [bookPlanId, setBookPlanId] = useState("");
   const [bookDuration, setBookDuration] = useState<
