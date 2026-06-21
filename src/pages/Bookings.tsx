@@ -89,9 +89,9 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { useUpdateBooking } from "@/hooks/use-firestore";
+import { underlineFirstChar } from "@/lib/string-case-change";
 
 const SYSTEM_TZ = "Asia/Katmandu";
-
 
 const defaultServiceColors: Record<string, { bg: string; dot: string }> = {
   Gym: { bg: "bg-primary/80 text-primary-foreground", dot: "bg-primary" },
@@ -172,7 +172,6 @@ const Bookings_Page = () => {
   const [memberPopoverOpen, setMemberPopoverOpen] = useState(false);
   const [bookServiceId, setBookServiceId] = useState("");
   const [bookInstructor, setBookInstructor] = useState("");
-  
 
   const [bookPlanId, setBookPlanId] = useState("");
   const [bookDuration, setBookDuration] = useState<
@@ -671,6 +670,7 @@ const Bookings_Page = () => {
             <Button
               variant={view === "calendar" ? "default" : "ghost"}
               size="sm"
+              accessKey="1"
               className="rounded-none"
               onClick={() => setView("calendar")}
             >
@@ -679,6 +679,7 @@ const Bookings_Page = () => {
             <Button
               variant={view === "list" ? "default" : "ghost"}
               size="sm"
+              accessKey="2"
               className="rounded-none"
               onClick={() => setView("list")}
             >
@@ -752,9 +753,13 @@ const Bookings_Page = () => {
             </Popover>
           )}
 
-          <Button size="sm" onClick={() => openNewBookingDialog()}>
+          <Button
+            size="sm"
+            accessKey="a"
+            onClick={() => openNewBookingDialog()}
+          >
             <Plus className="h-4 w-4 mr-1" />
-            New Booking
+            {underlineFirstChar("Add Booking")}
           </Button>
         </div>
       </div>
@@ -786,6 +791,7 @@ const Bookings_Page = () => {
                 <button
                   type="button"
                   onClick={() => setGuestMode(false)}
+                  accessKey="1"
                   className={cn(
                     "py-1.5 rounded-md font-medium transition-colors",
                     !guestMode
@@ -798,6 +804,7 @@ const Bookings_Page = () => {
                 <button
                   type="button"
                   onClick={() => setGuestMode(true)}
+                  accessKey="2"
                   className={cn(
                     "py-1.5 rounded-md font-medium transition-colors",
                     guestMode
@@ -1237,24 +1244,20 @@ const Bookings_Page = () => {
             toast.error("Completed bookings cannot be rescheduled");
             return;
           }
+
+          // 1. Generate the clean date string (e.g., "2026-06-27")
           const dStr = formatInTimeZone(scheduleDay, SYSTEM_TZ, "yyyy-MM-dd");
+
+          // 2. Generate clean daily 24h time strings (e.g., "14:00")
           const newStart = `${String(newHour).padStart(2, "0")}:00`;
+          const newEnd = `${String(newHour + 1).padStart(2, "0")}:00`;
 
           if (isPastDateTime(dStr, newStart)) {
             toast.error("Cannot reschedule into a past time slot");
             return;
           }
 
-          const [sh, sm] = (b.startTime || "00:00").split(":").map(Number);
-          const [eh, em] = (b.endTime || b.startTime || "00:00")
-            .split(":")
-            .map(Number);
-          const duration = Math.max(15, eh * 60 + em - (sh * 60 + sm) || 60);
-
-          const endMin = newHour * 60 + duration;
-          const newEnd = `${String(Math.floor(endMin / 60) % 24).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
-
-          // Determine if target reschedule date falls on today's date within Asia/Katmandu
+          // 3. Set the status state matching context rules
           const targetIsToday = isSameDay(
             toZonedTime(new Date(b.date || dStr), SYSTEM_TZ),
             toZonedTime(new Date(), SYSTEM_TZ),
@@ -1264,21 +1267,34 @@ const Bookings_Page = () => {
             : b.status || b.bookingStatus || "Confirmed";
 
           try {
+            // 4. Fire the hook with the clean nested payload layout
             await updateBookingMutation.mutateAsync({
               id: b.id,
               data: {
-                date: b.date || dStr,
-                // Casing Bridge: Populate both camelCase and snake_case to keep UI & DB in sync
+                // Core Date Properties
+                date: dStr,
+                bookingDate: dStr,
+                booking_date: dStr,
+
+                // Core 24h Daily Time Strings (NOT ISO strings)
                 startTime: newStart,
-                start_time: newStart,
+                start_time: newStart, // Will be "14:00"
                 endTime: newEnd,
-                end_time: newEnd,
+                end_time: newEnd, // Will be "15:00"
+
+                // Full Iso Calendar Timestamps
+                start_at: `${dStr}T${newStart}:00.000Z`,
+                end_at: `${dStr}T${newEnd}:00.000Z`,
+                startAt: `${dStr}T${newStart}:00.000Z`,
+                endAt: `${dStr}T${newEnd}:00.000Z`,
+
                 status: targetStatus,
                 bookingStatus: targetStatus,
               },
             });
             toast.success(`Rescheduled to ${newStart}`);
-          } catch {
+          } catch (err) {
+            console.error("Reschedule network error:", err);
             toast.error("Failed to reschedule booking");
           }
         }}

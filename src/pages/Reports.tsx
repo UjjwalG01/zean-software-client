@@ -39,7 +39,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { capitalizeFirstLetter } from "@/lib/string-case-change";
+import {
+  capitalizeFirstLetter,
+  underlineFirstChar,
+} from "@/lib/string-case-change";
 import { useOutlet } from "@/contexts/OutletContext";
 import { formatInTz, toIsoDayInTz } from "@/lib/tz";
 import { tooltipStyle } from "@/lib/utils";
@@ -89,10 +92,11 @@ const Reports = () => {
           onClick={() => loadTab(k)}
           variant="secondary"
           size="sm"
+          accessKey="l"
           className="bg-white/10 hover:bg-white/20 text-white border-white/20"
         >
           <Download className="h-4 w-4 mr-1.5" />
-          Load Report
+          {underlineFirstChar("Load Report")}
         </Button>
       </div>
     );

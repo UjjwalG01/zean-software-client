@@ -4,6 +4,10 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { exportTableToCSV, type CSVExportMeta } from "@/lib/print-utils";
 import { toast } from "sonner";
+import {
+  underlineFirstChar,
+  underlineSpecificChars,
+} from "@/lib/string-case-change";
 
 interface Column {
   key: string;
@@ -135,31 +139,34 @@ export function PremiumReportFrame({
             <Button
               variant="secondary"
               size="sm"
+              accessKey={showFilters ? "h" : "l"}
               onClick={() => setShowFilters((p) => !p)}
               className="bg-white/10 hover:bg-white/20 text-white border-white/20"
             >
               <Filter className="h-4 w-4 mr-1.5" />
-              {showFilters ? "Hide Filters" : "Load Report"}
+              {underlineFirstChar(showFilters ? "Hide Filters" : "Load Report")}
             </Button>
           )}
           <Button
             variant="secondary"
             size="sm"
+            accessKey="p"
             onClick={handlePrint}
             disabled={rows.length === 0}
             className="bg-white/10 hover:bg-white/20 text-white border-white/20"
           >
             <Printer className="h-4 w-4 mr-1.5" />
-            Print
+            {underlineFirstChar("Print")}
           </Button>
           <Button
             size="sm"
             onClick={handleExport}
+            accessKey="x"
             disabled={rows.length === 0}
             className="bg-success hover:bg-success/90 text-white"
           >
             <Download className="h-4 w-4 mr-1.5" />
-            Export Excel
+            {underlineSpecificChars("Export Excel", [1])}
           </Button>
         </div>
       </div>

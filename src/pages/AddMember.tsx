@@ -29,6 +29,8 @@ import {
 } from "@/lib/supabase-services";
 import PackageSelectionModal from "@/components/PackageSelectionModal";
 import { logAudit } from "@/lib/audit-log";
+import { getDate } from "date-fns";
+import { underlineFirstChar } from "@/lib/string-case-change";
 
 const STEPS = ["Personal", "Contact", "Physical & Medical", "Review"];
 
@@ -228,8 +230,8 @@ const AddMember = () => {
   const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Photo must be < 5MB");
+    if (file.size > 3 * 1024 * 1024) {
+      toast.error("Photo must be < 3MB");
       return;
     }
     setPhotoFile(file);
@@ -351,10 +353,11 @@ const AddMember = () => {
         <Button
           variant="ghost"
           size="sm"
+          accessKey="b"
           onClick={() => navigate("/members")}
           className="text-muted-foreground"
         >
-          <ArrowLeft className="h-4 w-4 mr-1" /> Back
+          <ArrowLeft className="h-4 w-4 mr-1" /> {underlineFirstChar("Back")}
         </Button>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           {outlet && (
@@ -433,7 +436,7 @@ const AddMember = () => {
                   <Upload className="h-4 w-4 mr-1" /> Upload Photo
                 </Button>
                 <p className="text-xs text-muted-foreground mt-1">
-                  JPG/PNG, &lt; 5MB
+                  JPG/PNG, &lt; 3MB
                 </p>
               </div>
             </div>
@@ -451,7 +454,9 @@ const AddMember = () => {
                 <Label>First Name *</Label>
                 <Input
                   value={f.firstName}
-                  placeholder="Enter first name"
+                  maxLength={20}
+                  autoFocus
+                  placeholder="E.g: Sajjan"
                   onChange={(e) => u("firstName", e.target.value)}
                 />
               </div>
@@ -459,7 +464,8 @@ const AddMember = () => {
                 <Label>Middle Name</Label>
                 <Input
                   value={f.middleName}
-                  placeholder="Enter middle name"
+                  maxLength={20}
+                  placeholder="Raj"
                   onChange={(e) => u("middleName", e.target.value)}
                 />
               </div>
@@ -467,7 +473,8 @@ const AddMember = () => {
                 <Label>Last Name *</Label>
                 <Input
                   value={f.lastName}
-                  placeholder="Enter last name"
+                  maxLength={20}
+                  placeholder="Chhetri"
                   onChange={(e) => u("lastName", e.target.value)}
                 />
               </div>
@@ -512,10 +519,6 @@ const AddMember = () => {
               </div>
               <div className="space-y-2">
                 <Label>Religion</Label>
-                {/* <Input
-                  value={f.religion}
-                  onChange={(e) => u("religion", e.target.value)}
-                /> */}
                 <Select
                   value={f.religion}
                   onValueChange={(v) => u("religion", v)}
@@ -536,6 +539,7 @@ const AddMember = () => {
                 <Label>Occupation</Label>
                 <Input
                   value={f.occupation}
+                  maxLength={30}
                   onChange={(e) => u("occupation", e.target.value)}
                 />
               </div>
@@ -565,6 +569,10 @@ const AddMember = () => {
               <Label>Mobile / Phone *</Label>
               <Input
                 value={f.phone}
+                maxLength={10}
+                placeholder="98XXXXXXXX"
+                min={9}
+                type="tel"
                 onChange={(e) => u("phone", e.target.value)}
               />
             </div>
@@ -573,6 +581,9 @@ const AddMember = () => {
               <Input
                 type="email"
                 value={f.email}
+                name="email"
+                placeholder="your-email.example.com"
+                maxLength={30}
                 onChange={(e) => u("email", e.target.value)}
               />
             </div>
@@ -580,6 +591,10 @@ const AddMember = () => {
               <Label>Alt. Contact</Label>
               <Input
                 value={f.contactAlt}
+                maxLength={10}
+                min={9}
+                placeholder="98XXXXXXXX"
+                type="tel"
                 onChange={(e) => u("contactAlt", e.target.value)}
               />
             </div>
@@ -587,6 +602,7 @@ const AddMember = () => {
               <Label>Office Name</Label>
               <Input
                 value={f.officeName}
+                max={100}
                 onChange={(e) => u("officeName", e.target.value)}
               />
             </div>
@@ -594,6 +610,7 @@ const AddMember = () => {
               <Label>Office Address</Label>
               <Input
                 value={f.officeAddress}
+                max={100}
                 onChange={(e) => u("officeAddress", e.target.value)}
               />
             </div>
@@ -605,6 +622,7 @@ const AddMember = () => {
                   <Label>Name</Label>
                   <Input
                     value={f.emergencyName}
+                    max={30}
                     onChange={(e) => u("emergencyName", e.target.value)}
                   />
                 </div>
@@ -612,6 +630,9 @@ const AddMember = () => {
                   <Label>Phone</Label>
                   <Input
                     value={f.emergencyPhone}
+                    maxLength={10}
+                    min={9}
+                    type="tel"
                     onChange={(e) => u("emergencyPhone", e.target.value)}
                   />
                 </div>
@@ -619,6 +640,7 @@ const AddMember = () => {
                   <Label>Address</Label>
                   <Input
                     value={f.emergencyAddress}
+                    max={100}
                     onChange={(e) => u("emergencyAddress", e.target.value)}
                   />
                 </div>
@@ -636,6 +658,9 @@ const AddMember = () => {
                   <Label>Height (ft.)</Label>
                   <Input
                     value={f.height}
+                    max={5}
+                    type="number"
+                    placeholder="6.1 ft"
                     onChange={(e) => u("height", e.target.value)}
                   />
                 </div>
@@ -766,15 +791,23 @@ const AddMember = () => {
         )}
 
         <div className="flex justify-between pt-4 border-t border-border">
-          <Button variant="outline" disabled={step === 0} onClick={back}>
-            Previous
+          <Button
+            variant="outline"
+            accessKey="p"
+            disabled={step === 0}
+            onClick={back}
+          >
+            {underlineFirstChar("Previous")}
           </Button>
           {step < STEPS.length - 1 ? (
-            <Button onClick={next}>Next</Button>
+            <Button accessKey="n" onClick={next}>
+              {underlineFirstChar("Next")}
+            </Button>
           ) : (
             <Button
               onClick={handleSubmit}
               disabled={saving}
+              accessKey={isEdit ? "u" : "r"}
               className="gradient-gold text-primary-foreground"
             >
               {saving ? (
@@ -783,9 +816,9 @@ const AddMember = () => {
                   Saving...
                 </>
               ) : isEdit ? (
-                "Update Member"
+                underlineFirstChar("Update Member")
               ) : (
-                "Register Member"
+                underlineFirstChar("Register Member")
               )}
             </Button>
           )}

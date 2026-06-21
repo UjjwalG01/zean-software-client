@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useMember, useCompanySettings } from "@/hooks/use-firestore";
 import { useOutlet } from "@/contexts/OutletContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import { underlineFirstChar } from "@/lib/string-case-change";
 
 function parseList(
   settings: Record<string, string>,
@@ -447,7 +448,7 @@ const MemberGRC = () => {
             REGISTRATION FORM
           </div>
           <div style={{ fontSize: 11, marginTop: 6, opacity: 0.95 }}>
-            FORM N° <strong>{code}</strong>
+            FORM NO. <strong>{code}</strong>
           </div>
         </div>
       </div>
@@ -460,9 +461,10 @@ const MemberGRC = () => {
         <Button
           variant="ghost"
           size="sm"
+          accessKey="b"
           onClick={() => navigate(`/members/${id}`)}
         >
-          <ArrowLeft className="h-4 w-4 mr-1" /> Back
+          <ArrowLeft className="h-4 w-4 mr-1" /> {underlineFirstChar("Back")}
         </Button>
         <div className="text-xs text-muted-foreground">
           Template: <span className="font-medium capitalize">{tpl}</span> ·{" "}
@@ -470,9 +472,10 @@ const MemberGRC = () => {
         </div>
         <Button
           onClick={handlePrint}
+          accessKey="p"
           className="gradient-gold text-primary-foreground"
         >
-          <Printer className="h-4 w-4 mr-1" /> Print GRC
+          <Printer className="h-4 w-4 mr-1" /> {underlineFirstChar("Print GRC")}
         </Button>
       </div>
 
@@ -610,7 +613,14 @@ const MemberGRC = () => {
           >
             <F label="Tier" value={m.tier} />
             <F label="Plan" value={m.plan} />
-            <F label="Time Slot" value={(m as any).preferredStart && (m as any).preferredEnd ? `${(m as any).preferredStart} - ${(m as any).preferredEnd}` : "—"} />
+            <F
+              label="Time Slot"
+              value={
+                (m as any).preferredStart && (m as any).preferredEnd
+                  ? `${(m as any).preferredStart} - ${(m as any).preferredEnd}`
+                  : "—"
+              }
+            />
             <F label="Outlet" value={outlet?.name} />
           </div>
           {show.packages && packages.length > 0 && (

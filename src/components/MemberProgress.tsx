@@ -33,6 +33,10 @@ import { format, parseISO, startOfMonth, subMonths, isAfter } from "date-fns";
 import { printHTML } from "@/lib/print-utils";
 import { toast } from "sonner";
 import { tooltipStyle } from "@/lib/utils";
+import {
+  underlineFirstChar,
+  underlineSpecificChars,
+} from "@/lib/string-case-change";
 
 const COLORS = [
   "hsl(38, 92%, 50%)",
@@ -231,9 +235,11 @@ td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
         <Button
           onClick={generateReportCard}
           size="sm"
+          accessKey="w"
           className="gradient-gold text-primary-foreground"
         >
-          <Download className="h-4 w-4 mr-1" /> Download Report Card (PDF)
+          <Download className="h-4 w-4 mr-1" />{" "}
+          {underlineSpecificChars("Download Report Card (PDF)", [2])}
         </Button>
       </div>
 

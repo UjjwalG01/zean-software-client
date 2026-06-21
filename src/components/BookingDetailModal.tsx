@@ -13,8 +13,25 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarDays, Clock, User, Dumbbell, Printer, Pencil, Save, X, Ban, Receipt } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  CalendarDays,
+  Clock,
+  User,
+  Dumbbell,
+  Printer,
+  Pencil,
+  Save,
+  X,
+  Ban,
+  Receipt,
+} from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import type { Booking, ServiceType } from "@/lib/mock-data";
 import {
@@ -43,7 +60,11 @@ const serviceColors: Record<string, string> = {
   Swimming: "bg-swimming/20 text-swimming",
 };
 
-function parseSetup(settings: Record<string, string>, key: string, fallback: string[]): string[] {
+function parseSetup(
+  settings: Record<string, string>,
+  key: string,
+  fallback: string[],
+): string[] {
   try {
     return settings[key] ? JSON.parse(settings[key]) : fallback;
   } catch {
@@ -57,7 +78,12 @@ function isFutureBooking(b: Booking): boolean {
   return new Date(b.date) >= today;
 }
 
-export function BookingDetailModal({ booking: b, open, onOpenChange, onAmend }: BookingDetailModalProps) {
+export function BookingDetailModal({
+  booking: b,
+  open,
+  onOpenChange,
+  onAmend,
+}: BookingDetailModalProps) {
   const navigate = useNavigate();
   const updateBooking = useUpdateBooking();
   const updateTransaction = useUpdateTransaction();
@@ -79,7 +105,12 @@ export function BookingDetailModal({ booking: b, open, onOpenChange, onAmend }: 
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
 
-  const setupServiceTypes = parseSetup(settings, "setup_serviceTypes", ["Gym", "Spa", "Sauna", "Swimming"]);
+  const setupServiceTypes = parseSetup(settings, "setup_serviceTypes", [
+    "Gym",
+    "Spa",
+    "Sauna",
+    "Swimming",
+  ]);
 
   useEffect(() => {
     if (b) {
@@ -99,7 +130,8 @@ export function BookingDetailModal({ booking: b, open, onOpenChange, onAmend }: 
 
   const status = localStatus || b.status;
   // Amend is only allowed for not-yet-completed/cancelled bookings on or after today.
-  const canEdit = isFutureBooking(b) && status !== "Completed" && status !== "Cancelled";
+  const canEdit =
+    isFutureBooking(b) && status !== "Completed" && status !== "Cancelled";
   // Cancel is allowed at any time (including past dates) as long as not already finished/cancelled.
   const canCancel = status !== "Completed" && status !== "Cancelled";
 
@@ -124,10 +156,13 @@ export function BookingDetailModal({ booking: b, open, onOpenChange, onAmend }: 
     // pass its id directly — the Transactions page will open the settlement
     // dialog immediately without depending on data refetch timing.
     const linkedCharge = transactions.find(
-      (t) => t.bookingId === b.id && t.type === "Charge" && t.status === "pending",
+      (t) =>
+        t.bookingId === b.id && t.type === "Charge" && t.status === "pending",
     );
     // Look up default price
-    const svc = services.find((s) => s.name === b.className || s.type === b.service);
+    const svc = services.find(
+      (s) => s.name === b.className || s.type === b.service,
+    );
     const amount = svc ? String(svc.price || 0) : "0";
 
     onOpenChange(false);
@@ -161,8 +196,11 @@ export function BookingDetailModal({ booking: b, open, onOpenChange, onAmend }: 
         id: b.id,
         data: {
           bookingDate: editForm.date,
+          booking_date: editForm.date, // Aligns with schema column
           startTime: editForm.startTime,
           endTime: editForm.endTime || editForm.startTime,
+          start_time: editForm.startTime, // Prevents UTC fallback shift (:45)
+          end_time: editForm.endTime || editForm.startTime, // Prevents UTC fallback shift (:45)
           service: editForm.service,
           className: editForm.className,
           instructor: editForm.instructor,
@@ -186,15 +224,23 @@ export function BookingDetailModal({ booking: b, open, onOpenChange, onAmend }: 
     try {
       await updateBooking.mutateAsync({
         id: b.id,
-        data: { status: "Cancelled", cancelReason, cancelledAt: new Date().toISOString() } as any,
+        data: {
+          status: "Cancelled",
+          cancelReason,
+          cancelledAt: new Date().toISOString(),
+        } as any,
       });
       // Auto-void any pending charge tied to this booking so the member's
       // due balance is rolled back (charging-first integrity).
       const linkedCharges = transactions.filter(
-        (t) => t.bookingId === b.id && t.type === "Charge" && t.status === "pending",
+        (t) =>
+          t.bookingId === b.id && t.type === "Charge" && t.status === "pending",
       );
       for (const c of linkedCharges) {
-        await updateTransaction.mutateAsync({ id: c.id, data: { status: "voided" } as any });
+        await updateTransaction.mutateAsync({
+          id: c.id,
+          data: { status: "voided" } as any,
+        });
         // Also void the canonical row in the dedicated `charges` table.
         const chargeRowId = (c as any).chargeRowId as string | undefined;
         if (chargeRowId) {
@@ -202,7 +248,10 @@ export function BookingDetailModal({ booking: b, open, onOpenChange, onAmend }: 
             const { supabase } = await import("@/lib/supabase");
             await supabase
               .from("charges")
-              .update({ status: "unpaid", meta: { voided: true, bookingId: b.id } })
+              .update({
+                status: "unpaid",
+                meta: { voided: true, bookingId: b.id },
+              })
               .eq("id", chargeRowId);
           } catch (err) {
             // eslint-disable-next-line no-console
@@ -241,7 +290,14 @@ export function BookingDetailModal({ booking: b, open, onOpenChange, onAmend }: 
       billNo: `BK-${b.id.slice(0, 8)}`,
       billDate: format(new Date(), "dd/MM/yyyy"),
       billForMonth: `${b.className} — ${format(new Date(b.date), "MMMM yyyy")}`,
-      items: [{ description: `${b.service} — ${b.className}`, quantity: 1, rate, amount }],
+      items: [
+        {
+          description: `${b.service} — ${b.className}`,
+          quantity: 1,
+          rate,
+          amount,
+        },
+      ],
       subtotal: amount,
       taxableAmount,
       vatAmount,
@@ -277,14 +333,18 @@ export function BookingDetailModal({ booking: b, open, onOpenChange, onAmend }: 
                 <Label>Class / Session</Label>
                 <Input
                   value={editForm.className}
-                  onChange={(e) => setEditForm((p) => ({ ...p, className: e.target.value }))}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, className: e.target.value }))
+                  }
                 />
               </div>
               <div className="space-y-1.5">
                 <Label>Service</Label>
                 <Select
                   value={editForm.service}
-                  onValueChange={(v) => setEditForm((p) => ({ ...p, service: v as ServiceType }))}
+                  onValueChange={(v) =>
+                    setEditForm((p) => ({ ...p, service: v as ServiceType }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -304,7 +364,9 @@ export function BookingDetailModal({ booking: b, open, onOpenChange, onAmend }: 
                   <Input
                     type="date"
                     value={editForm.date}
-                    onChange={(e) => setEditForm((p) => ({ ...p, date: e.target.value }))}
+                    onChange={(e) =>
+                      setEditForm((p) => ({ ...p, date: e.target.value }))
+                    }
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -312,7 +374,9 @@ export function BookingDetailModal({ booking: b, open, onOpenChange, onAmend }: 
                   <Input
                     type="time"
                     value={editForm.startTime}
-                    onChange={(e) => setEditForm((p) => ({ ...p, startTime: e.target.value }))}
+                    onChange={(e) =>
+                      setEditForm((p) => ({ ...p, startTime: e.target.value }))
+                    }
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -320,7 +384,9 @@ export function BookingDetailModal({ booking: b, open, onOpenChange, onAmend }: 
                   <Input
                     type="time"
                     value={editForm.endTime}
-                    onChange={(e) => setEditForm((p) => ({ ...p, endTime: e.target.value }))}
+                    onChange={(e) =>
+                      setEditForm((p) => ({ ...p, endTime: e.target.value }))
+                    }
                   />
                 </div>
               </div>
@@ -328,7 +394,9 @@ export function BookingDetailModal({ booking: b, open, onOpenChange, onAmend }: 
                 <Label>Instructor</Label>
                 <Input
                   value={editForm.instructor}
-                  onChange={(e) => setEditForm((p) => ({ ...p, instructor: e.target.value }))}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, instructor: e.target.value }))
+                  }
                 />
               </div>
               <DialogFooter className="pt-2">
@@ -350,7 +418,11 @@ export function BookingDetailModal({ booking: b, open, onOpenChange, onAmend }: 
             <div className="space-y-4">
               <div className="rounded-lg border border-border/50 bg-muted/30 p-4 text-center">
                 <p className="font-semibold text-lg">{b.className}</p>
-                <Badge className={`text-xs mt-2 border-0 ${serviceColors[b.service] || ""}`}>{b.service}</Badge>
+                <Badge
+                  className={`text-xs mt-2 border-0 ${serviceColors[b.service] || ""}`}
+                >
+                  {b.service}
+                </Badge>
               </div>
 
               <div className="space-y-3">
@@ -377,7 +449,9 @@ export function BookingDetailModal({ booking: b, open, onOpenChange, onAmend }: 
                 <div className="flex items-center gap-3 text-sm">
                   <Dumbbell className="h-4 w-4 text-muted-foreground" />
                   <span className="text-muted-foreground">Instructor</span>
-                  <span className="ml-auto font-medium">{b.instructor || "—"}</span>
+                  <span className="ml-auto font-medium">
+                    {b.instructor || "—"}
+                  </span>
                 </div>
                 <Separator />
                 <div className="flex items-center gap-3 text-sm">
@@ -430,7 +504,12 @@ export function BookingDetailModal({ booking: b, open, onOpenChange, onAmend }: 
                 )}
                 {/* Completed bookings: print bill only, no further billing/payment redirect */}
                 {status === "Completed" ? (
-                  <Button size="sm" variant="outline" className="flex-1" onClick={handleGenerateBill}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={handleGenerateBill}
+                  >
                     <Printer className="h-4 w-4 mr-1" />
                     Print Bill
                   </Button>
@@ -441,10 +520,16 @@ export function BookingDetailModal({ booking: b, open, onOpenChange, onAmend }: 
                       className="flex-1 gradient-gold text-primary-foreground disabled:opacity-50"
                       onClick={handleBillNow}
                       disabled={isStrictlyFuture}
-                      title={isStrictlyFuture ? "Cannot bill a future-dated booking" : undefined}
+                      title={
+                        isStrictlyFuture
+                          ? "Cannot bill a future-dated booking"
+                          : undefined
+                      }
                     >
                       <Receipt className="h-4 w-4 mr-1" />
-                      {isStrictlyFuture ? "Billing (Locked – Future)" : "Billing / Record Payment"}
+                      {isStrictlyFuture
+                        ? "Billing (Locked – Future)"
+                        : "Billing / Record Payment"}
                     </Button>
                   )
                 )}
@@ -464,7 +549,8 @@ export function BookingDetailModal({ booking: b, open, onOpenChange, onAmend }: 
               <Ban className="h-4 w-4 text-amber-500" /> Cancel Booking?
             </DialogTitle>
             <DialogDescription>
-              Cancel <strong>{b.memberName}</strong>'s booking on {b.date}. The slot will be freed up.
+              Cancel <strong>{b.memberName}</strong>'s booking on {b.date}. The
+              slot will be freed up.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">

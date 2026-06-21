@@ -49,6 +49,7 @@ import { consumeForAttendance } from "@/lib/prepaid";
 import { formatNPR } from "@/lib/mock-data";
 import { logAudit } from "@/lib/audit-log";
 import { toIsoDayInTz, formatInTz, getAppTimezone } from "@/lib/tz";
+import { underlineSpecificChars } from "@/lib/string-case-change";
 
 const Attendance = () => {
   const { data: members = [], isLoading: membersLoading } = useMembers();
@@ -257,11 +258,11 @@ const Attendance = () => {
 
       <Tabs defaultValue="checkin" className="space-y-4">
         <TabsList className="bg-muted/50">
-          <TabsTrigger value="checkin">
+          <TabsTrigger accessKey="1" value="checkin">
             <UserCheck className="h-3.5 w-3.5 mr-1" />
             Mark Attendance
           </TabsTrigger>
-          <TabsTrigger value="report">
+          <TabsTrigger accessKey="2" value="report">
             <Calendar className="h-3.5 w-3.5 mr-1" />
             Attendance Report
           </TabsTrigger>
@@ -274,6 +275,7 @@ const Attendance = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search members..."
+                autoFocus
                 className="pl-9 bg-muted/50 border-0"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -296,39 +298,6 @@ const Attendance = () => {
               Today: {format(new Date(), "dd MMM yyyy")}
             </Badge>
           </div>
-
-          {/* Summary cards */}
-          {/* <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
-            <div className="glass-card rounded-xl p-4 flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-success/20 flex items-center justify-center">
-                <UserCheck className="h-5 w-5 text-success" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Present</p>
-                <p className="text-xl font-bold font-display">{todayCheckIns.length}</p>
-              </div>
-            </div>
-            <div className="glass-card rounded-xl p-4 flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-destructive/20 flex items-center justify-center">
-                <UserX className="h-5 w-5 text-destructive" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Absent</p>
-                <p className="text-xl font-bold font-display">{activeMembers.length - todayCheckIns.length}</p>
-              </div>
-            </div>
-            <div className="glass-card rounded-xl p-4 flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-primary/20 flex items-center justify-center">
-                <Filter className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Attendance Rate</p>
-                <p className="text-xl font-bold font-display">
-                  {activeMembers.length > 0 ? Math.round((todayCheckIns.length / activeMembers.length) * 100) : 0}%
-                </p>
-              </div>
-            </div>
-          </div> */}
 
           {/* Members table */}
           <div className="glass-card rounded-xl overflow-hidden mt-4">
@@ -359,7 +328,9 @@ const Attendance = () => {
                 </TableHeader>
                 <TableBody>
                   {filteredMembers.map((m) => {
-                    const todayCi = todayCheckIns.find((c) => c.memberId === m.id);
+                    const todayCi = todayCheckIns.find(
+                      (c) => c.memberId === m.id,
+                    );
                     const isPresent = !!todayCi;
                     const lastCi = [...checkIns]
                       .filter((c) => c.memberId === m.id)
@@ -381,7 +352,9 @@ const Attendance = () => {
                           —
                         </TableCell>
                         <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
-                          {lastCi?.date ? `${lastCi.date}${lastCi.checkInTime ? " · " + lastCi.checkInTime : ""}` : "—"}
+                          {lastCi?.date
+                            ? `${lastCi.date}${lastCi.checkInTime ? " · " + lastCi.checkInTime : ""}`
+                            : "—"}
                         </TableCell>
                         <TableCell>
                           <Badge
@@ -453,11 +426,12 @@ const Attendance = () => {
             <Button
               variant="outline"
               size="sm"
+              accessKey="x"
               className="ml-auto"
               onClick={handleExportReport}
             >
               <Download className="h-4 w-4 mr-1" />
-              Export Report
+              {underlineSpecificChars("Export Report", [1])}
             </Button>
           </div>
 

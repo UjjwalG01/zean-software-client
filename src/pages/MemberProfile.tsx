@@ -59,6 +59,10 @@ import { MemberProgress } from "@/components/MemberProgress";
 import { QuickBalanceModal } from "@/components/QuickBalanceModal";
 import { toast } from "sonner";
 import { logAudit } from "@/lib/audit-log";
+import {
+  underlineFirstChar,
+  underlineSpecificChars,
+} from "@/lib/string-case-change";
 
 const MemberProfile = () => {
   const { id } = useParams();
@@ -292,32 +296,39 @@ const MemberProfile = () => {
         <Button
           variant="ghost"
           size="sm"
+          accessKey="b"
           onClick={() => navigate("/members")}
           className="text-muted-foreground"
         >
-          <ArrowLeft className="h-4 w-4 mr-1" /> Back to Members
+          <ArrowLeft className="h-4 w-4 mr-1" />{" "}
+          {underlineFirstChar("Back to Members")}
         </Button>
         <div className="flex gap-2">
           <Button
             variant="outline"
             size="sm"
+            accessKey="q"
             onClick={() => setQuickBalanceOpen(true)}
           >
-            <Wallet className="h-4 w-4 mr-1" /> Quick Balance
+            <Wallet className="h-4 w-4 mr-1" />{" "}
+            {underlineFirstChar("Quick Balance")}
           </Button>
           <Button
             variant="outline"
             size="sm"
+            accessKey="r"
             onClick={() => navigate(`/members/${id}/grc`)}
           >
-            <FileText className="h-4 w-4 mr-1" /> Generate GRC
+            <FileText className="h-4 w-4 mr-1" />{" "}
+            {underlineSpecificChars("Generate GRC", [4])}
           </Button>
           <Button
             variant="outline"
             size="sm"
+            accessKey="e"
             onClick={() => navigate(`/members/new?edit=${id}`)}
           >
-            <Edit className="h-4 w-4 mr-1" /> Edit
+            <Edit className="h-4 w-4 mr-1" /> {underlineFirstChar("Edit")}
           </Button>
           <Button
             variant={member.status === "Inactive" ? "default" : "destructive"}
@@ -367,12 +378,7 @@ const MemberProfile = () => {
               </span>
               <span className="flex items-center gap-2">
                 <MapPin className="h-3.5 w-3.5" />
-                {/* {(() => {
-                  const address: any = (member as any).address;
-                  if (!address) return (member as any).permanentAddress || "";
-                  if (typeof address === "string") return address;
-                  return address.permanent || address.temporary || "";
-                })()} */}
+
                 {(member.permanentAddress && member.permanentAddress) ||
                   (member.temporaryAddress && member.temporaryAddress) ||
                   ""}

@@ -17,16 +17,31 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/StatCard";
 import { PremiumReportFrame } from "@/components/PremiumReportFrame";
-import { useInventoryItems, useInventoryStores, useItemGroups, useInventoryMutations } from "@/hooks/use-inventory";
+import {
+  useInventoryItems,
+  useInventoryStores,
+  useItemGroups,
+  useInventoryMutations,
+} from "@/hooks/use-inventory";
 import { AddItemModal } from "@/components/inventory/AddItemModal";
 import { AddStockModal } from "@/components/inventory/AddStockModal";
 import { MovementsDrawer } from "@/components/inventory/MovementsDrawer";
 import type { InventoryItem } from "@/lib/inventory-store";
 import { toast } from "sonner";
+import {
+  underlineFirstChar,
+  underlineSpecificChars,
+} from "@/lib/string-case-change";
 
 export default function Inventory() {
   const qc = useQueryClient();
@@ -43,22 +58,34 @@ export default function Inventory() {
   const [addItemOpen, setAddItemOpen] = useState(false);
   const [editing, setEditing] = useState<InventoryItem | null>(null);
   const [stockMode, setStockMode] = useState<"purchase" | "issue" | null>(null);
-  const [stockDefaultItemId, setStockDefaultItemId] = useState<string | undefined>();
+  const [stockDefaultItemId, setStockDefaultItemId] = useState<
+    string | undefined
+  >();
   const [movementsItemId, setMovementsItemId] = useState<string | null>(null);
 
-  const storeName = (id: string) => stores.find((s) => s.id === id)?.name || "—";
-  const groupName = (id: string) => groups.find((g) => g.id === id)?.name || "—";
+  const storeName = (id: string) =>
+    stores.find((s) => s.id === id)?.name || "—";
+  const groupName = (id: string) =>
+    groups.find((g) => g.id === id)?.name || "—";
 
   const filtered = useMemo(() => {
     return items.filter((i) => {
       if (storeFilter !== "all" && i.storeId !== storeFilter) return false;
       if (groupFilter !== "all" && i.groupId !== groupFilter) return false;
-      if (statusFilter === "low" && !(i.quantity > 0 && i.quantity <= i.reorderLevel)) return false;
+      if (
+        statusFilter === "low" &&
+        !(i.quantity > 0 && i.quantity <= i.reorderLevel)
+      )
+        return false;
       if (statusFilter === "out" && i.quantity !== 0) return false;
       if (statusFilter === "in" && !(i.quantity > i.reorderLevel)) return false;
       if (search) {
         const q = search.toLowerCase();
-        if (!i.name.toLowerCase().includes(q) && !i.code.toLowerCase().includes(q)) return false;
+        if (
+          !i.name.toLowerCase().includes(q) &&
+          !i.code.toLowerCase().includes(q)
+        )
+          return false;
       }
       return true;
     });
@@ -71,11 +98,14 @@ export default function Inventory() {
   }, [filtered]);
 
   const allVal = items.reduce((s, i) => s + i.quantity * i.rate, 0);
-  const lowCount = items.filter((i) => i.active && i.quantity <= i.reorderLevel).length;
+  const lowCount = items.filter(
+    (i) => i.active && i.quantity <= i.reorderLevel,
+  ).length;
 
   const statusBadge = (i: InventoryItem) => {
     if (i.quantity === 0) return <Badge variant="destructive">Out</Badge>;
-    if (i.quantity <= i.reorderLevel) return <Badge className="bg-warning text-warning-foreground">Low</Badge>;
+    if (i.quantity <= i.reorderLevel)
+      return <Badge className="bg-warning text-warning-foreground">Low</Badge>;
     return <Badge variant="secondary">In Stock</Badge>;
   };
 
@@ -93,55 +123,59 @@ export default function Inventory() {
           <h1 className="text-2xl font-bold font-display flex items-center gap-2">
             <Package className="h-6 w-6 text-primary" /> Inventory
           </h1>
-          <p className="text-sm text-muted-foreground">Track stock, valuation, and movements across all stores.</p>
+          <p className="text-sm text-muted-foreground">
+            Track stock, valuation, and movements across all stores.
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
+            accessKey="l"
             onClick={() => {
               qc.invalidateQueries({ queryKey: ["inv"] });
               toast.success("Stock reloaded");
             }}
             disabled={isFetching}
           >
-            <RefreshCw className={`h-4 w-4 mr-1.5 ${isFetching ? "animate-spin" : ""}`} /> Load
+            <RefreshCw
+              className={`h-4 w-4 mr-1.5 ${isFetching ? "animate-spin" : ""}`}
+            />{" "}
+            {underlineFirstChar("Load")}
           </Button>
           <Button
             variant="outline"
+            accessKey="i"
             onClick={() => {
               setStockDefaultItemId(undefined);
               setStockMode("issue");
             }}
           >
-            <PackageMinus className="h-4 w-4 mr-1.5" /> Issue Stock
+            <PackageMinus className="h-4 w-4 mr-1.5" />{" "}
+            {underlineFirstChar("Issue Stock")}
           </Button>
           <Button
             variant="outline"
+            accessKey="s"
             onClick={() => {
               setStockDefaultItemId(undefined);
               setStockMode("purchase");
             }}
           >
-            <PackagePlus className="h-4 w-4 mr-1.5" /> Add Stock
+            <PackagePlus className="h-4 w-4 mr-1" />{" "}
+            {underlineSpecificChars("Add Stock", [4])}
           </Button>
           <Button
             className="gradient-gold text-primary-foreground"
+            accessKey="a"
             onClick={() => {
               setEditing(null);
               setAddItemOpen(true);
             }}
           >
-            <Plus className="h-4 w-4 mr-1.5" /> Add Item
+            <Plus className="h-4 w-4 mr-1.5" /> {underlineFirstChar("Add Item")}
           </Button>
         </div>
       </div>
-
-      {/* <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard title="Total Items" value={String(items.length)} change={0} icon={Boxes} />
-        <StatCard title="Total Valuation" value={`NPR ${Math.round(allVal).toLocaleString()}`} change={0} icon={Coins} iconColor="bg-primary" />
-        <StatCard title="Low / Out of Stock" value={String(lowCount)} change={0} icon={AlertTriangle} />
-        <StatCard title="Active Stores" value={String(stores.filter((s) => s.active).length)} change={0} icon={Warehouse} />
-      </div> */}
 
       <PremiumReportFrame
         title="Current Stock Position"
@@ -150,7 +184,9 @@ export default function Inventory() {
         filters={
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Store</label>
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Store
+              </label>
               <Select value={storeFilter} onValueChange={setStoreFilter}>
                 <SelectTrigger>
                   <SelectValue />
@@ -166,7 +202,9 @@ export default function Inventory() {
               </Select>
             </div>
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Group</label>
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Group
+              </label>
               <Select value={groupFilter} onValueChange={setGroupFilter}>
                 <SelectTrigger>
                   <SelectValue />
@@ -182,7 +220,9 @@ export default function Inventory() {
               </Select>
             </div>
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Status</label>
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Status
+              </label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger>
                   <SelectValue />
@@ -196,7 +236,9 @@ export default function Inventory() {
               </Select>
             </div>
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Search</label>
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Search
+              </label>
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -237,7 +279,9 @@ export default function Inventory() {
             align: "right",
             width: "140px",
             format: (r) => (
-              <span className="font-semibold text-primary">{Math.round(r._valuation).toLocaleString()}</span>
+              <span className="font-semibold text-primary">
+                {Math.round(r._valuation).toLocaleString()}
+              </span>
             ),
             exportFormat: (r) => String(Math.round(r._valuation)),
           },
@@ -247,7 +291,12 @@ export default function Inventory() {
             align: "center",
             width: "100px",
             format: (r) => statusBadge(r),
-            exportFormat: (r) => (r.quantity === 0 ? "Out" : r.quantity <= r.reorderLevel ? "Low" : "In Stock"),
+            exportFormat: (r) =>
+              r.quantity === 0
+                ? "Out"
+                : r.quantity <= r.reorderLevel
+                  ? "Low"
+                  : "In Stock",
           },
           {
             key: "actions",
@@ -256,7 +305,12 @@ export default function Inventory() {
             width: "150px",
             format: (r) => (
               <div className="flex justify-end gap-1">
-                <Button variant="ghost" size="icon" title="Movements" onClick={() => setMovementsItemId(r.id)}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Movements"
+                  onClick={() => setMovementsItemId(r.id)}
+                >
                   <History className="h-4 w-4" />
                 </Button>
                 <Button
@@ -308,21 +362,32 @@ export default function Inventory() {
           label: "Filtered Totals",
           cells: {
             quantity: <span>{totals.qty}</span>,
-            _valuation: <span className="text-primary">NPR {Math.round(totals.val).toLocaleString()}</span>,
+            _valuation: (
+              <span className="text-primary">
+                NPR {Math.round(totals.val).toLocaleString()}
+              </span>
+            ),
           },
         }}
         exportFilename="inventory_stock"
         emptyMessage="No inventory items match the current filters."
       />
 
-      <AddItemModal open={addItemOpen} onOpenChange={setAddItemOpen} editing={editing} />
+      <AddItemModal
+        open={addItemOpen}
+        onOpenChange={setAddItemOpen}
+        editing={editing}
+      />
       <AddStockModal
         open={stockMode !== null}
         onOpenChange={(v) => !v && setStockMode(null)}
         mode={stockMode || "purchase"}
         defaultItemId={stockDefaultItemId}
       />
-      <MovementsDrawer itemId={movementsItemId} onClose={() => setMovementsItemId(null)} />
+      <MovementsDrawer
+        itemId={movementsItemId}
+        onClose={() => setMovementsItemId(null)}
+      />
     </div>
   );
 }

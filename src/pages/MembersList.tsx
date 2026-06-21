@@ -3,10 +3,23 @@ import { useNavigate } from "react-router-dom";
 import { Search, Plus, Download, FileText } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { TierBadge } from "@/components/TierBadge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,6 +28,10 @@ import { exportTableToCSV } from "@/lib/print-utils";
 import type { ServiceType } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import {
+  underlineFirstChar,
+  underlineSpecificChars,
+} from "@/lib/string-case-change";
 
 const MembersList = () => {
   const navigate = useNavigate();
@@ -23,7 +40,10 @@ const MembersList = () => {
   const [statusFilter, setStatusFilter] = useState<string>("active-set");
   const [serviceFilter, setServiceFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
-  const [photoPreview, setPhotoPreview] = useState<{ url: string; name: string } | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<{
+    url: string;
+    name: string;
+  } | null>(null);
   const perPage = 10;
 
   const { data: members = [], isLoading } = useMembers();
@@ -44,7 +64,9 @@ const MembersList = () => {
           : statusFilter === "all"
             ? true
             : m.status === statusFilter;
-      const matchService = serviceFilter === "all" || m.services.includes(serviceFilter as ServiceType);
+      const matchService =
+        serviceFilter === "all" ||
+        m.services.includes(serviceFilter as ServiceType);
       return matchSearch && matchTier && matchStatus && matchService;
     });
   }, [members, search, tierFilter, statusFilter, serviceFilter]);
@@ -53,7 +75,18 @@ const MembersList = () => {
   const totalPages = Math.ceil(filtered.length / perPage);
 
   const handleExport = () => {
-    const headers = ["Name", "Email", "Phone", "Tier", "Status", "Services", "Plan", "Total Paid", "Due", "Expiry"];
+    const headers = [
+      "Name",
+      "Email",
+      "Phone",
+      "Tier",
+      "Status",
+      "Services",
+      "Plan",
+      "Total Paid",
+      "Due",
+      "Expiry",
+    ];
     const rows = filtered.map((m) => [
       m.name,
       m.email,
@@ -66,18 +99,23 @@ const MembersList = () => {
       String(m.dueAmount),
       m.expiryDate,
     ]);
-    exportTableToCSV(headers, rows, `members-${format(new Date(), "yyyyMMdd")}.csv`, {
-      propertyName: settings.companyName || ".............",
-      reportTitle: "Members Report",
-      dateRange: format(new Date(), "PPP"),
-      filters: {
-        Search: search || "—",
-        Tier: tierFilter === "all" ? "All" : tierFilter,
-        Status: statusFilter === "all" ? "All" : statusFilter,
-        Service: serviceFilter === "all" ? "All" : serviceFilter,
-        "Total Records": String(filtered.length),
+    exportTableToCSV(
+      headers,
+      rows,
+      `members-${format(new Date(), "yyyyMMdd")}.csv`,
+      {
+        propertyName: settings.companyName || ".............",
+        reportTitle: "Members Report",
+        dateRange: format(new Date(), "PPP"),
+        filters: {
+          Search: search || "—",
+          Tier: tierFilter === "all" ? "All" : tierFilter,
+          Status: statusFilter === "all" ? "All" : statusFilter,
+          Service: serviceFilter === "all" ? "All" : serviceFilter,
+          "Total Records": String(filtered.length),
+        },
       },
-    });
+    );
     toast.success(`Exported ${filtered.length} members to CSV`);
   };
 
@@ -86,20 +124,36 @@ const MembersList = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold font-display">Members</h1>
-          <p className="text-muted-foreground text-sm">{filtered.length} members found</p>
+          <p className="text-muted-foreground text-sm">
+            {filtered.length} members found
+          </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleExport}>
+          <Button
+            variant="outline"
+            accessKey="x"
+            size="sm"
+            onClick={handleExport}
+          >
             <Download className="h-4 w-4 mr-1" />
-            Export
+            {underlineSpecificChars("Export", [1])}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => window.open("/members/blank/grc", "_blank")}>
+          <Button
+            variant="outline"
+            size="sm"
+            accessKey="r"
+            onClick={() => window.open("/members/blank/grc", "_blank")}
+          >
             <FileText className="h-4 w-4 mr-1" />
-            Generate Blank GRC
+            {underlineSpecificChars("Generate Blank GRC", [4])}
           </Button>
-          <Button size="sm" onClick={() => navigate("/members/new")}>
+          <Button
+            size="sm"
+            accessKey="a"
+            onClick={() => navigate("/members/new")}
+          >
             <Plus className="h-4 w-4 mr-1" />
-            Add Member
+            {underlineFirstChar("Add Member")}
           </Button>
         </div>
       </div>
@@ -112,6 +166,8 @@ const MembersList = () => {
             placeholder="Search by member ID, name, email, phone..."
             className="pl-9 bg-muted/50 border-0"
             value={search}
+            accessKey="/"
+            autoFocus
             onChange={(e) => {
               setSearch(e.target.value);
               setPage(1);
@@ -147,7 +203,9 @@ const MembersList = () => {
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="active-set">Active + Expiring + Expired</SelectItem>
+            <SelectItem value="active-set">
+              Active + Expiring + Expired
+            </SelectItem>
             <SelectItem value="all">All (incl. Inactive)</SelectItem>
             <SelectItem value="Active">Active only</SelectItem>
             <SelectItem value="Expired">Expired only</SelectItem>
@@ -188,7 +246,9 @@ const MembersList = () => {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>Member</TableHead>
-                <TableHead className="hidden lg:table-cell">Member ID</TableHead>
+                <TableHead className="hidden lg:table-cell">
+                  Member ID
+                </TableHead>
                 <TableHead className="hidden md:table-cell">Phone</TableHead>
                 <TableHead>Tier</TableHead>
                 <TableHead className="hidden lg:table-cell">Plan</TableHead>
@@ -200,14 +260,19 @@ const MembersList = () => {
             </TableHeader>
             <TableBody>
               {paginated.map((m) => (
-                <TableRow key={m.id} className="cursor-pointer" onClick={() => navigate(`/members/${m.id}`)}>
+                <TableRow
+                  key={m.id}
+                  className="cursor-pointer"
+                  onClick={() => navigate(`/members/${m.id}`)}
+                >
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar
                         className="h-8 w-8 cursor-zoom-in ring-1 ring-transparent hover:ring-primary/60"
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (m.avatar) setPhotoPreview({ url: m.avatar, name: m.name });
+                          if (m.avatar)
+                            setPhotoPreview({ url: m.avatar, name: m.name });
                         }}
                       >
                         <AvatarImage src={m.avatar} alt={m.name} />
@@ -220,24 +285,34 @@ const MembersList = () => {
                       </Avatar>
                       <div>
                         <p className="font-medium text-sm">{m.name}</p>
-                        <p className="text-xs text-muted-foreground">{m.email}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {m.email}
+                        </p>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
                     {m.grcNo ? `${m.grcNo}` : "—"}
                   </TableCell>
-                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{m.phone}</TableCell>
+                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                    {m.phone}
+                  </TableCell>
                   <TableCell>
                     <TierBadge tier={m.tier} />
                   </TableCell>
-                  <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">{m.plan}</TableCell>
+                  <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
+                    {m.plan}
+                  </TableCell>
 
                   <TableCell>
                     <StatusBadge status={m.status} />
                   </TableCell>
-                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{m.joinDate}</TableCell>
-                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{m.expiryDate}</TableCell>
+                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                    {m.joinDate}
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                    {m.expiryDate}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -252,17 +327,30 @@ const MembersList = () => {
             Page {page} of {totalPages}
           </p>
           <div className="flex gap-1">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage(page - 1)}
+            >
               Previous
             </Button>
-            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage(page + 1)}
+            >
               Next
             </Button>
           </div>
         </div>
       )}
 
-      <Dialog open={!!photoPreview} onOpenChange={(o) => !o && setPhotoPreview(null)}>
+      <Dialog
+        open={!!photoPreview}
+        onOpenChange={(o) => !o && setPhotoPreview(null)}
+      >
         <DialogContent className="max-w-md p-2">
           {photoPreview && (
             <div className="space-y-2">
@@ -271,7 +359,9 @@ const MembersList = () => {
                 alt={photoPreview.name}
                 className="w-full h-auto rounded-lg object-contain max-h-[70vh]"
               />
-              <p className="text-center text-sm font-medium">{photoPreview.name}</p>
+              <p className="text-center text-sm font-medium">
+                {photoPreview.name}
+              </p>
             </div>
           )}
         </DialogContent>

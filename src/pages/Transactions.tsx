@@ -70,7 +70,11 @@ import {
 import { applyAdvance, settleOldestCharges } from "@/lib/charges";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { capitalizeFirstLetter } from "@/lib/string-case-change";
+import {
+  capitalizeFirstLetter,
+  underlineFirstChar,
+  underlineSpecificChars,
+} from "@/lib/string-case-change";
 import { methodColors } from "@/lib/utils";
 
 import { INVOICE_PREFIX } from "@/lib/settings";
@@ -606,6 +610,7 @@ const Transactions = () => {
           <Button
             variant="outline"
             size="sm"
+            accessKey="x"
             onClick={() => {
               const headers = [
                 "Receipt #",
@@ -650,21 +655,22 @@ const Transactions = () => {
             }}
           >
             <Download className="h-4 w-4 mr-1" />
-            Export
+            {underlineSpecificChars("Export", [1])}
           </Button>
           <Button
             variant="outline"
             size="sm"
+            accessKey="r"
             onClick={() => setChargeOpen(true)}
           >
             <FileText className="h-4 w-4 mr-1" />
-            Record Charge
+            {underlineFirstChar("Record Charge")}
           </Button>
           <Dialog open={advanceOpen} onOpenChange={setAdvanceOpen}>
             <DialogTrigger asChild>
-              <Button size="sm">
+              <Button accessKey="a" size="sm">
                 <Plus className="h-4 w-4 mr-1" />
-                Add Advance
+                {underlineFirstChar("Add Advance")}
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -750,21 +756,6 @@ const Transactions = () => {
       />
       <RecordChargeModal open={chargeOpen} onOpenChange={setChargeOpen} />
 
-      {/* <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="glass-card rounded-xl p-4">
-          <p className="text-xs text-muted-foreground">Total Collections</p>
-          <p className="text-xl font-bold font-display mt-1">{formatNPR(totalAmount)}</p>
-        </div>
-        <div className="glass-card rounded-xl p-4">
-          <p className="text-xs text-muted-foreground">Total VAT Collected</p>
-          <p className="text-xl font-bold font-display mt-1">{formatNPR(totalVat)}</p>
-        </div>
-        <div className="glass-card rounded-xl p-4">
-          <p className="text-xs text-muted-foreground">Net Amount</p>
-          <p className="text-xl font-bold font-display mt-1">{formatNPR(totalAmount - totalVat)}</p>
-        </div>
-      </div> */}
-
       <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
         <div className="relative flex-1 justify-center min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -772,6 +763,7 @@ const Transactions = () => {
             placeholder="Search by member, receipt, description..."
             className="pl-9 justify-center bg-muted/50 border-0"
             value={search}
+            autoFocus
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
@@ -788,19 +780,6 @@ const Transactions = () => {
             ))}
           </SelectContent>
         </Select>
-        {/* <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-[130px] bg-muted/50 border-0">
-            <SelectValue placeholder="Type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            {paymentTypes.map((t) => (
-              <SelectItem key={t} value={t}>
-                {t}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select> */}
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[130px] bg-muted/50 border-0">
             <SelectValue placeholder="Status" />

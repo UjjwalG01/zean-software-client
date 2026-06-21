@@ -167,21 +167,32 @@ export function useUpdateBooking() {
           ["bookings"],
           previous.map((b) => {
             if (b.id === id) {
-              // Extract the newly dropped hour string safely from whichever key was passed
-              const newTime = data.startTime || data.start_time;
-
-              // Calculate if the booking is scheduled for today in Asia/Katmandu
               const systemNow = toZonedTime(new Date(), SYSTEM_TZ);
-              const bookingDate = b.date ? new Date(b.date) : systemNow;
+
+              // 1. FIX: Read target date from the incoming payload first, fallback to old date
+              const targetDateStr = data.date || data.booking_date || b.date || b.booking_date;
+              const bookingDate = targetDateStr ? new Date(targetDateStr) : systemNow;
               const isToday = isSameDay(bookingDate, systemNow);
+
+              // 2. FIX: Determine correct status based on the new target date
+              const targetStatus = isToday ? "Pending" : (data.status || b.status || "Confirmed");
 
               return {
                 ...b,
                 ...data,
-                // Bridge the gap: write both casing styles to keep UI and DB synchronized
-                startTime: newTime,
-                start_time: newTime,
-                status: isToday ? "Pending" : (data.status || b.status)
+                // 3. FIX: Keep all database snake_case and camelCase field mappings in parity
+                date: targetDateStr,
+                bookingDate: targetDateStr,
+                booking_date: targetDateStr,
+
+                startTime: data.startTime || data.start_time || b.startTime,
+                start_time: data.start_time || data.startTime || b.start_time,
+
+                endTime: data.endTime || data.end_time || b.endTime,
+                end_time: data.end_time || data.endTime || b.end_time,
+
+                status: targetStatus,
+                bookingStatus: targetStatus,
               };
             }
             return b;

@@ -42,6 +42,10 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 import { handlePrintReport } from "@/lib/print-utils";
+import {
+  underlineFirstChar,
+  underlineSpecificChars,
+} from "@/lib/string-case-change";
 
 interface MemberLedgerRow {
   memberId: string;
@@ -235,19 +239,21 @@ export default function LedgerReport() {
               disabled={isLoading}
               variant="secondary"
               size="sm"
+              accessKey="l"
               className="bg-white/10 hover:bg-white/20 text-white border-white/20"
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 mr-1 animate-spin" />
               ) : null}
               <Filter className="h-4 w-4 mr-1.5" />
-              Load Report
+              {underlineFirstChar("Load Report")}
             </Button>
           )}
           {/* // Handle Print Report of the members ledger if expanded, prints the sub details too */}
           <Button
             variant="secondary"
             size="sm"
+            accessKey="p"
             onClick={() =>
               handlePrintReport(
                 headers,
@@ -260,16 +266,17 @@ export default function LedgerReport() {
             className="bg-white/10 hover:bg-white/20 text-white border-white/20"
           >
             <Printer className="h-4 w-4 mr-1.5" />
-            Print
+            {underlineFirstChar("Print")}
           </Button>
           <Button
             size="sm"
+            accessKey="x"
             onClick={handleExport}
             disabled={!loaded || ledger.length === 0}
             className="bg-success hover:bg-success/90 text-white"
           >
             <Download className="h-4 w-4 mr-1.5" />
-            Export CSV
+            {underlineSpecificChars("Export CSV", [1])}
           </Button>
         </div>
       </div>
