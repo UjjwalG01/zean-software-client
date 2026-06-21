@@ -343,7 +343,6 @@ const Bookings_Page = () => {
       setBookEndTime(
         `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`,
       );
-      setBookTimeSlot("");
     }
     setDialogOpen(true);
   };
@@ -357,7 +356,6 @@ const Bookings_Page = () => {
     setBookDate(b.date);
     setBookStartTime(b.startTime || "");
     setBookEndTime(b.endTime || "");
-    setBookTimeSlot((b as any).timeSlot || b.startTime || "");
     setBookMember(b.memberId);
     setBookInstructor(b.instructor || "");
     const svc =
@@ -411,8 +409,8 @@ const Bookings_Page = () => {
       return;
     }
 
-    if (!bookTimeSlot && !bookStartTime) {
-      toast.error("Please pick a time slot (or use 24h timeline)");
+    if (!bookStartTime) {
+      toast.error("Please pick a start time (use the 24h timeline)");
       return;
     }
     const today = toZonedTime(new Date(), SYSTEM_TZ);
@@ -425,7 +423,7 @@ const Bookings_Page = () => {
       toast.error("Cannot create bookings in the past");
       return;
     }
-    const start = bookStartTime || SLOT_START[bookTimeSlot] || "09:00";
+    const start = bookStartTime;
     let end = bookEndTime;
     if (!end) {
       const [h, m] = start.split(":").map(Number);
@@ -457,7 +455,6 @@ const Bookings_Page = () => {
             end_time: end,
             outletId: selectedOutlet.id,
             instructor: bookInstructor || selectedService.instructor || "",
-            timeSlot: bookTimeSlot || start,
           } as any,
         });
         toast.success("Booking updated");
@@ -467,7 +464,6 @@ const Bookings_Page = () => {
         setMemberSearch("");
         setBookServiceId("");
         setBookInstructor("");
-        setBookTimeSlot("");
         setBookStartTime("");
         setBookEndTime("");
         return;
@@ -487,7 +483,6 @@ const Bookings_Page = () => {
         bookingStatus: bookStatus,
         outletId: selectedOutlet.id,
         instructor: bookInstructor || selectedService.instructor || "",
-        timeSlot: bookTimeSlot || start,
       } as any);
 
       const basePrice = Number(selectedService.price || 0);
@@ -540,7 +535,6 @@ const Bookings_Page = () => {
       setMemberSearch("");
       setBookServiceId("");
       setBookInstructor("");
-      setBookTimeSlot("");
       setBookStartTime("");
       setBookEndTime("");
       setUseDiscountedRate(false);
@@ -1121,31 +1115,16 @@ const Bookings_Page = () => {
                   <div className="space-y-2">
                     <Label>Time Slot *</Label>
                     <div className="flex gap-2">
-                      <Select
-                        value={bookTimeSlot}
-                        onValueChange={(v) => {
-                          setBookTimeSlot(v);
-                          setBookStartTime("");
-                          setBookEndTime("");
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue
-                            placeholder={
-                              bookStartTime
-                                ? `${bookStartTime}–${bookEndTime}`
-                                : "Select slot"
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {setupTimeSlots.map((t) => (
-                            <SelectItem key={t} value={t}>
-                              {t}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Input
+                        readOnly
+                        value={
+                          bookStartTime && bookEndTime
+                            ? `${bookStartTime} - ${bookEndTime}`
+                            : bookStartTime || ""
+                        }
+                        placeholder="Use 24h to pick a slot"
+                        className="bg-muted/30 cursor-default"
+                      />
                       <Button
                         type="button"
                         variant="outline"
