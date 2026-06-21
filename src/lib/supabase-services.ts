@@ -255,7 +255,7 @@ function memberPayload(data: Partial<Member>): Record<string, any> {
   const extras: Record<string, any> = {};
   for (const k of EXTRA_KEYS) if ((data as any)[k] !== undefined) extras[k] = (data as any)[k];
 
-  return {
+  const payload: Record<string, any> = {
     full_name: fullName,
     email: data.email || null,
     phone: data.phone || null,
@@ -266,6 +266,8 @@ function memberPayload(data: Partial<Member>): Record<string, any> {
     expiry_date: data.expiryDate || null,
     outlet_id: data.outletId || null,
     grc_no: data.grcNo || null,
+    plan_id: (data as any).planId || null,
+    marital_status: (data as any).maritalStatus || null,
 
     // Dedicated scalar columns
     dob: data.dob || null,
@@ -276,6 +278,9 @@ function memberPayload(data: Partial<Member>): Record<string, any> {
     office_name: data.officeName || null,
     office_address: data.officeAddress || null,
     contact_alt: data.contactAlt || null,
+
+    // text[] column
+    member_preferences: Array.isArray(data.preferences) ? data.preferences : [],
 
     // Structured JSONB blobs (match db defaults exactly)
     address: {
@@ -302,6 +307,8 @@ function memberPayload(data: Partial<Member>): Record<string, any> {
     preferences: prefs,
     extras,
   };
+  if ((data as any).memberCode) payload.member_code = (data as any).memberCode;
+  return payload;
 }
 
 export async function getMembers(filters?: {
