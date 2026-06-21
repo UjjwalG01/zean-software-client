@@ -378,7 +378,7 @@ const Attendance = () => {
                           </Badge>
                         </TableCell>
                         <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
-                          {m.timeSlot}
+                          —
                         </TableCell>
                         <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
                           {lastCi?.date ? `${lastCi.date}${lastCi.checkInTime ? " · " + lastCi.checkInTime : ""}` : "—"}

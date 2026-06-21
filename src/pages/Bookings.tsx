@@ -92,11 +92,6 @@ import { useUpdateBooking } from "@/hooks/use-firestore";
 
 const SYSTEM_TZ = "Asia/Katmandu";
 
-const SLOT_START: Record<string, string> = {
-  Morning: "06:00",
-  Day: "12:00",
-  Evening: "18:00",
-};
 
 const defaultServiceColors: Record<string, { bg: string; dot: string }> = {
   Gym: { bg: "bg-primary/80 text-primary-foreground", dot: "bg-primary" },
@@ -177,7 +172,7 @@ const Bookings_Page = () => {
   const [memberPopoverOpen, setMemberPopoverOpen] = useState(false);
   const [bookServiceId, setBookServiceId] = useState("");
   const [bookInstructor, setBookInstructor] = useState("");
-  const [bookTimeSlot, setBookTimeSlot] = useState("");
+  
 
   const [bookPlanId, setBookPlanId] = useState("");
   const [bookDuration, setBookDuration] = useState<
@@ -244,11 +239,6 @@ const Bookings_Page = () => {
     "Trainer Prakash",
     "Therapist Maya",
     "Coach Anil",
-  ]);
-  const setupTimeSlots = parseSetup(settings, "setup_timeSlots", [
-    "Morning",
-    "Day",
-    "Evening",
   ]);
 
   const outletServices = useMemo(
@@ -353,7 +343,6 @@ const Bookings_Page = () => {
       setBookEndTime(
         `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`,
       );
-      setBookTimeSlot("");
     }
     setDialogOpen(true);
   };
@@ -367,7 +356,6 @@ const Bookings_Page = () => {
     setBookDate(b.date);
     setBookStartTime(b.startTime || "");
     setBookEndTime(b.endTime || "");
-    setBookTimeSlot((b as any).timeSlot || b.startTime || "");
     setBookMember(b.memberId);
     setBookInstructor(b.instructor || "");
     const svc =
@@ -421,8 +409,8 @@ const Bookings_Page = () => {
       return;
     }
 
-    if (!bookTimeSlot && !bookStartTime) {
-      toast.error("Please pick a time slot (or use 24h timeline)");
+    if (!bookStartTime) {
+      toast.error("Please pick a start time (use the 24h timeline)");
       return;
     }
     const today = toZonedTime(new Date(), SYSTEM_TZ);
@@ -435,7 +423,7 @@ const Bookings_Page = () => {
       toast.error("Cannot create bookings in the past");
       return;
     }
-    const start = bookStartTime || SLOT_START[bookTimeSlot] || "09:00";
+    const start = bookStartTime;
     let end = bookEndTime;
     if (!end) {
       const [h, m] = start.split(":").map(Number);
@@ -467,7 +455,6 @@ const Bookings_Page = () => {
             end_time: end,
             outletId: selectedOutlet.id,
             instructor: bookInstructor || selectedService.instructor || "",
-            timeSlot: bookTimeSlot || start,
           } as any,
         });
         toast.success("Booking updated");
@@ -477,7 +464,6 @@ const Bookings_Page = () => {
         setMemberSearch("");
         setBookServiceId("");
         setBookInstructor("");
-        setBookTimeSlot("");
         setBookStartTime("");
         setBookEndTime("");
         return;
@@ -497,7 +483,6 @@ const Bookings_Page = () => {
         bookingStatus: bookStatus,
         outletId: selectedOutlet.id,
         instructor: bookInstructor || selectedService.instructor || "",
-        timeSlot: bookTimeSlot || start,
       } as any);
 
       const basePrice = Number(selectedService.price || 0);
@@ -550,7 +535,6 @@ const Bookings_Page = () => {
       setMemberSearch("");
       setBookServiceId("");
       setBookInstructor("");
-      setBookTimeSlot("");
       setBookStartTime("");
       setBookEndTime("");
       setUseDiscountedRate(false);
@@ -1131,31 +1115,16 @@ const Bookings_Page = () => {
                   <div className="space-y-2">
                     <Label>Time Slot *</Label>
                     <div className="flex gap-2">
-                      <Select
-                        value={bookTimeSlot}
-                        onValueChange={(v) => {
-                          setBookTimeSlot(v);
-                          setBookStartTime("");
-                          setBookEndTime("");
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue
-                            placeholder={
-                              bookStartTime
-                                ? `${bookStartTime}–${bookEndTime}`
-                                : "Select slot"
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {setupTimeSlots.map((t) => (
-                            <SelectItem key={t} value={t}>
-                              {t}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Input
+                        readOnly
+                        value={
+                          bookStartTime && bookEndTime
+                            ? `${bookStartTime} - ${bookEndTime}`
+                            : bookStartTime || ""
+                        }
+                        placeholder="Use 24h to pick a slot"
+                        className="bg-muted/30 cursor-default"
+                      />
                       <Button
                         type="button"
                         variant="outline"
@@ -1238,7 +1207,6 @@ const Bookings_Page = () => {
         onPick={(s, e) => {
           setBookStartTime(s);
           setBookEndTime(e);
-          setBookTimeSlot("");
         }}
       />
 
@@ -1305,7 +1273,6 @@ const Bookings_Page = () => {
                 start_time: newStart,
                 endTime: newEnd,
                 end_time: newEnd,
-                timeSlot: newStart,
                 status: targetStatus,
                 bookingStatus: targetStatus,
               },

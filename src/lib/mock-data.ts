@@ -69,7 +69,7 @@ export interface Member {
   notifyPhone?: boolean;
   notifyEmail?: boolean;
   notifySMS?: boolean;
-  timeSlot?: string;
+  
   packages?: string[];
   outletId?: string;
   grcNo?: string;
@@ -80,6 +80,8 @@ export interface Booking {
   memberId: string;
   memberName: string;
   service: ServiceType;
+  serviceId?: string;
+  serviceType?: string;
   className: string;
   date: string;
   startTime: string;
@@ -87,6 +89,18 @@ export interface Booking {
   status: BookingStatus;
   instructor: string;
   bookingStatus: string;
+  employeeId?: string;
+  memberPackageId?: string;
+  moduleId?: string;
+  outletId?: string | null;
+  originalRate?: number;
+  rate?: number;
+  discountAmount?: number;
+  discountReason?: string;
+  cancelReason?: string;
+  cancelledAt?: string;
+  amendedFrom?: string;
+  notes?: string;
 }
 
 export interface Transaction {

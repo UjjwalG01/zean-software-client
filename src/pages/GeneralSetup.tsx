@@ -104,11 +104,6 @@ const GeneralSetup = () => {
     "Meditation",
     "Boxing",
   ]);
-  const timeSlots = useSetupList("setup_timeSlots", [
-    "Morning",
-    "Day",
-    "Evening",
-  ]);
   const bloodGroups = useSetupList("setup_bloodGroups", [
     "A+",
     "A-",
@@ -139,12 +134,6 @@ const GeneralSetup = () => {
       cat: "setup_planDurations",
       label: "Plan Durations",
       hook: planDurations,
-    },
-    {
-      key: "timeSlots",
-      cat: "setup_timeSlots",
-      label: "Time Slots",
-      hook: timeSlots,
     },
     {
       key: "bloodGroups",

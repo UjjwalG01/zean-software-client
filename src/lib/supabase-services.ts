@@ -104,7 +104,6 @@ function throwDb(error: any, table: string): never {
 // is intentionally NOT in this list so we never duplicate the same value in
 // two places.
 const EXTRA_KEYS = [
-  "maritalStatus",
   "residenceStatus",
   "nationalId",
   "tinNo",
@@ -119,7 +118,6 @@ const EXTRA_KEYS = [
   "notifyPhone",
   "notifyEmail",
   "notifySMS",
-  "timeSlot",
   "packages",
 ] as const;
 
@@ -161,6 +159,7 @@ function mapMemberRow(r: any): Member {
 
   const base: any = {
     id: r.id,
+    memberCode: r.member_code || "",
     name: fullName,
     email: r.email || "",
     phone: r.phone || "",
@@ -171,6 +170,8 @@ function mapMemberRow(r: any): Member {
     joinDate: dateOnly(r.join_date),
     expiryDate: dateOnly(r.expiry_date),
     plan: r.plan || prefs.plan || "Monthly",
+    planId: r.plan_id || "",
+    maritalStatus: r.marital_status || extras.maritalStatus || "",
     // Flat legacy fields preserved so old call sites keep working.
     address:
       address.permanent ||
@@ -179,7 +180,9 @@ function mapMemberRow(r: any): Member {
       (typeof prefs.address === "string" ? prefs.address : "") ||
       "",
     emergencyContact: emergency.phone || prefs.emergencyContact || "",
-    preferences: Array.isArray(prefs.preferences) ? prefs.preferences : [],
+    preferences: Array.isArray(r.member_preferences) && r.member_preferences.length
+      ? r.member_preferences
+      : Array.isArray(prefs.preferences) ? prefs.preferences : [],
     openingBalance: Number(r.opening_balance ?? prefs.openingBalance ?? 0),
     totalPaid: Number(r.total_paid ?? prefs.totalPaid ?? 0),
     dueAmount: Number(r.due_amount ?? prefs.dueAmount ?? 0),
@@ -252,7 +255,7 @@ function memberPayload(data: Partial<Member>): Record<string, any> {
   const extras: Record<string, any> = {};
   for (const k of EXTRA_KEYS) if ((data as any)[k] !== undefined) extras[k] = (data as any)[k];
 
-  return {
+  const payload: Record<string, any> = {
     full_name: fullName,
     email: data.email || null,
     phone: data.phone || null,
@@ -263,6 +266,8 @@ function memberPayload(data: Partial<Member>): Record<string, any> {
     expiry_date: data.expiryDate || null,
     outlet_id: data.outletId || null,
     grc_no: data.grcNo || null,
+    plan_id: (data as any).planId || null,
+    marital_status: (data as any).maritalStatus || null,
 
     // Dedicated scalar columns
     dob: data.dob || null,
@@ -273,6 +278,9 @@ function memberPayload(data: Partial<Member>): Record<string, any> {
     office_name: data.officeName || null,
     office_address: data.officeAddress || null,
     contact_alt: data.contactAlt || null,
+
+    // text[] column
+    member_preferences: Array.isArray(data.preferences) ? data.preferences : [],
 
     // Structured JSONB blobs (match db defaults exactly)
     address: {
@@ -299,6 +307,8 @@ function memberPayload(data: Partial<Member>): Record<string, any> {
     preferences: prefs,
     extras,
   };
+  if ((data as any).memberCode) payload.member_code = (data as any).memberCode;
+  return payload;
 }
 
 export async function getMembers(filters?: {
@@ -389,6 +399,9 @@ export async function updateMember(id: string, data: Partial<Record<string, any>
     tier: "tier",
     outletId: "outlet_id",
     grcNo: "grc_no",
+    memberCode: "member_code",
+    planId: "plan_id",
+    maritalStatus: "marital_status",
     dob: "dob",
     gender: "gender",
     nationality: "nationality",
@@ -404,6 +417,9 @@ export async function updateMember(id: string, data: Partial<Record<string, any>
   if (data.status !== undefined) payload.status = String(data.status).toLowerCase();
   if (data.joinDate !== undefined) payload.join_date = data.joinDate;
   if (data.expiryDate !== undefined) payload.expiry_date = data.expiryDate;
+  if (data.preferences !== undefined && Array.isArray(data.preferences)) {
+    payload.member_preferences = data.preferences;
+  }
 
   // Recompute full_name if the split parts changed but `name` itself wasn't sent.
   if (
@@ -564,29 +580,42 @@ function displayStatusToDb(value: unknown): string {
 }
 
 function mapBookingRow(r: any): Booking {
-  const notes = (() => {
+  // Some legacy rows still encode service/className/instructor inside
+  // the `notes` text column as JSON. Read it as a fallback only.
+  const notesFallback = (() => {
     try {
-      return r.notes ? JSON.parse(r.notes) : {};
+      return r.notes && r.notes.trim().startsWith("{") ? JSON.parse(r.notes) : {};
     } catch {
       return {};
     }
   })();
-  // Column was renamed `status` -> `booking_status` (migration
-  // 2026-06-17_booking_status_rename.sql). Read both for back-compat
-  // during the deploy window.
   const rawStatus = r.booking_status ?? r.status;
   return {
     id: r.id,
     memberId: r.member_id || "",
     memberName: r.member_name || "",
-    service: (notes.service || r.service_type || "Gym") as ServiceType,
-    className: r.service_name || notes.className || "",
-    date: dateOnly(r.start_at),
-    startTime: timeOnly(r.start_at),
-    endTime: timeOnly(r.end_at),
-    status: dbStatusToDisplay(rawStatus) as BookingStatus,
-    instructor: notes.instructor || "",
+    serviceId: r.service_id || "",
+    service: (r.service_type || notesFallback.service || "Gym") as ServiceType,
+    serviceType: r.service_type || notesFallback.service || "",
+    className: r.class_name || r.service_name || notesFallback.className || "",
+    instructor: r.instructor || notesFallback.instructor || "",
+    employeeId: r.employee_id || "",
+    memberPackageId: r.member_package_id || "",
+    moduleId: r.module_id || "",
     outletId: r.outlet_id || null,
+    date: dateOnly(r.start_at ?? r.start_time),
+    startTime: timeOnly(r.start_time ?? r.start_at),
+    endTime: timeOnly(r.end_time ?? r.end_at),
+    status: dbStatusToDisplay(rawStatus) as BookingStatus,
+    bookingStatus: dbStatusToDisplay(rawStatus),
+    originalRate: Number(r.original_rate ?? 0),
+    rate: Number(r.rate ?? 0),
+    discountAmount: Number(r.discount_amount ?? 0),
+    discountReason: r.discount_reason || "",
+    cancelReason: r.cancel_reason || "",
+    cancelledAt: r.cancelled_at || "",
+    amendedFrom: r.amended_from || "",
+    notes: typeof r.notes === "string" && !r.notes.trim().startsWith("{") ? r.notes : "",
   } as any;
 }
 
@@ -602,22 +631,34 @@ export async function getBookings(filters?: { service?: ServiceType }): Promise<
 }
 
 export async function addBooking(data: Partial<Booking> & { outletId?: string }): Promise<string> {
+  const startTs = at(data.date, data.startTime);
+  const endTs = at(data.date, data.endTime || data.startTime);
+  const insertRow: Record<string, any> = {
+    member_id: data.memberId || null,
+    member_name: data.memberName || null,
+    service_id: (data as any).serviceId || null,
+    service_name: data.className || (data as any).serviceName || null,
+    service_type: data.service || (data as any).serviceType || null,
+    class_name: data.className || null,
+    instructor: data.instructor || null,
+    employee_id: (data as any).employeeId || null,
+    member_package_id: (data as any).memberPackageId || null,
+    module_id: (data as any).moduleId || null,
+    outlet_id: data.outletId || null,
+    start_at: startTs,
+    end_at: endTs,
+    start_time: startTs,
+    end_time: endTs,
+    original_rate: (data as any).originalRate ?? null,
+    rate: (data as any).rate ?? null,
+    discount_amount: (data as any).discountAmount ?? 0,
+    discount_reason: (data as any).discountReason || null,
+    booking_status: displayStatusToDb(data.status || "Confirmed"),
+    notes: typeof (data as any).notes === "string" ? (data as any).notes : null,
+  };
   const { data: row, error } = await supabase
     .from("bookings")
-    .insert({
-      member_id: data.memberId || null,
-      member_name: data.memberName || null,
-      service_name: data.className || data.service || null,
-      outlet_id: data.outletId || null,
-      start_at: at(data.date, data.startTime),
-      end_at: at(data.date, data.endTime || data.startTime),
-      booking_status: displayStatusToDb(data.status || "Confirmed"),
-      notes: JSON.stringify({
-        service: data.service || "Gym",
-        className: data.className || "",
-        instructor: data.instructor || "",
-      }),
-    })
+    .insert(insertRow)
     .select("id")
     .single();
   if (error) throwDb(error, "bookings");
@@ -629,14 +670,38 @@ export async function updateBooking(id: string, data: Partial<Record<string, any
   const patch: Record<string, any> = { updated_at: new Date().toISOString() };
   if (data.memberId !== undefined) patch.member_id = data.memberId || null;
   if (data.memberName !== undefined) patch.member_name = data.memberName;
-  if (data.className !== undefined) patch.service_name = data.className;
+  if (data.serviceId !== undefined) patch.service_id = data.serviceId || null;
+  if (data.service !== undefined || data.serviceType !== undefined)
+    patch.service_type = data.serviceType ?? data.service ?? null;
+  if (data.className !== undefined) {
+    patch.service_name = data.className;
+    patch.class_name = data.className;
+  }
+  if (data.instructor !== undefined) patch.instructor = data.instructor || null;
+  if (data.employeeId !== undefined) patch.employee_id = data.employeeId || null;
+  if (data.memberPackageId !== undefined) patch.member_package_id = data.memberPackageId || null;
+  if (data.moduleId !== undefined) patch.module_id = data.moduleId || null;
   if (data.outletId !== undefined) patch.outlet_id = data.outletId || null;
-  if (data.date !== undefined || data.startTime !== undefined) patch.start_at = at(data.date, data.startTime);
-  if (data.date !== undefined || data.endTime !== undefined)
-    patch.end_at = at(data.date, data.endTime || data.startTime);
-  if (data.status !== undefined) patch.booking_status = displayStatusToDb(data.status);
-  if (data.service !== undefined || data.instructor !== undefined || data.className !== undefined)
-    patch.notes = JSON.stringify({ service: data.service, instructor: data.instructor, className: data.className });
+  if (data.date !== undefined || data.startTime !== undefined || data.start_time !== undefined) {
+    const startTs = at(data.date, data.startTime ?? data.start_time);
+    patch.start_at = startTs;
+    patch.start_time = startTs;
+  }
+  if (data.date !== undefined || data.endTime !== undefined || data.end_time !== undefined) {
+    const endTs = at(data.date, data.endTime ?? data.end_time ?? data.startTime ?? data.start_time);
+    patch.end_at = endTs;
+    patch.end_time = endTs;
+  }
+  if (data.status !== undefined || data.bookingStatus !== undefined)
+    patch.booking_status = displayStatusToDb(data.status ?? data.bookingStatus);
+  if (data.originalRate !== undefined) patch.original_rate = data.originalRate;
+  if (data.rate !== undefined) patch.rate = data.rate;
+  if (data.discountAmount !== undefined) patch.discount_amount = data.discountAmount;
+  if (data.discountReason !== undefined) patch.discount_reason = data.discountReason || null;
+  if (data.cancelReason !== undefined) patch.cancel_reason = data.cancelReason || null;
+  if (data.cancelledAt !== undefined) patch.cancelled_at = data.cancelledAt || null;
+  if (data.notes !== undefined && typeof data.notes === "string") patch.notes = data.notes;
+
   const { error } = await supabase.from("bookings").update(patch).eq("id", id);
   if (error) throwDb(error, "bookings");
   await maybeAudit("update", "booking", id, null, data);
