@@ -1207,7 +1207,6 @@ const Bookings_Page = () => {
         onPick={(s, e) => {
           setBookStartTime(s);
           setBookEndTime(e);
-          setBookTimeSlot("");
         }}
       />
 
@@ -1274,7 +1273,6 @@ const Bookings_Page = () => {
                 start_time: newStart,
                 endTime: newEnd,
                 end_time: newEnd,
-                timeSlot: newStart,
                 status: targetStatus,
                 bookingStatus: targetStatus,
               },
