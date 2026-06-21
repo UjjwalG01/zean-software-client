@@ -399,6 +399,9 @@ export async function updateMember(id: string, data: Partial<Record<string, any>
     tier: "tier",
     outletId: "outlet_id",
     grcNo: "grc_no",
+    memberCode: "member_code",
+    planId: "plan_id",
+    maritalStatus: "marital_status",
     dob: "dob",
     gender: "gender",
     nationality: "nationality",
@@ -414,6 +417,9 @@ export async function updateMember(id: string, data: Partial<Record<string, any>
   if (data.status !== undefined) payload.status = String(data.status).toLowerCase();
   if (data.joinDate !== undefined) payload.join_date = data.joinDate;
   if (data.expiryDate !== undefined) payload.expiry_date = data.expiryDate;
+  if (data.preferences !== undefined && Array.isArray(data.preferences)) {
+    payload.member_preferences = data.preferences;
+  }
 
   // Recompute full_name if the split parts changed but `name` itself wasn't sent.
   if (
