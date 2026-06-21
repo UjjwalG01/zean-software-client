@@ -92,11 +92,6 @@ import { useUpdateBooking } from "@/hooks/use-firestore";
 
 const SYSTEM_TZ = "Asia/Katmandu";
 
-const SLOT_START: Record<string, string> = {
-  Morning: "06:00",
-  Day: "12:00",
-  Evening: "18:00",
-};
 
 const defaultServiceColors: Record<string, { bg: string; dot: string }> = {
   Gym: { bg: "bg-primary/80 text-primary-foreground", dot: "bg-primary" },
@@ -244,11 +239,6 @@ const Bookings_Page = () => {
     "Trainer Prakash",
     "Therapist Maya",
     "Coach Anil",
-  ]);
-  const setupTimeSlots = parseSetup(settings, "setup_timeSlots", [
-    "Morning",
-    "Day",
-    "Evening",
   ]);
 
   const outletServices = useMemo(
