@@ -104,7 +104,6 @@ function throwDb(error: any, table: string): never {
 // is intentionally NOT in this list so we never duplicate the same value in
 // two places.
 const EXTRA_KEYS = [
-  "maritalStatus",
   "residenceStatus",
   "nationalId",
   "tinNo",
@@ -119,7 +118,6 @@ const EXTRA_KEYS = [
   "notifyPhone",
   "notifyEmail",
   "notifySMS",
-  "timeSlot",
   "packages",
 ] as const;
 
@@ -161,6 +159,7 @@ function mapMemberRow(r: any): Member {
 
   const base: any = {
     id: r.id,
+    memberCode: r.member_code || "",
     name: fullName,
     email: r.email || "",
     phone: r.phone || "",
@@ -171,6 +170,8 @@ function mapMemberRow(r: any): Member {
     joinDate: dateOnly(r.join_date),
     expiryDate: dateOnly(r.expiry_date),
     plan: r.plan || prefs.plan || "Monthly",
+    planId: r.plan_id || "",
+    maritalStatus: r.marital_status || extras.maritalStatus || "",
     // Flat legacy fields preserved so old call sites keep working.
     address:
       address.permanent ||
@@ -179,7 +180,9 @@ function mapMemberRow(r: any): Member {
       (typeof prefs.address === "string" ? prefs.address : "") ||
       "",
     emergencyContact: emergency.phone || prefs.emergencyContact || "",
-    preferences: Array.isArray(prefs.preferences) ? prefs.preferences : [],
+    preferences: Array.isArray(r.member_preferences) && r.member_preferences.length
+      ? r.member_preferences
+      : Array.isArray(prefs.preferences) ? prefs.preferences : [],
     openingBalance: Number(r.opening_balance ?? prefs.openingBalance ?? 0),
     totalPaid: Number(r.total_paid ?? prefs.totalPaid ?? 0),
     dueAmount: Number(r.due_amount ?? prefs.dueAmount ?? 0),
