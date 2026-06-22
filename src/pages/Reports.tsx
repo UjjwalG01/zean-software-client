@@ -44,7 +44,7 @@ import {
   underlineFirstChar,
 } from "@/lib/string-case-change";
 import { useOutlet } from "@/contexts/OutletContext";
-import { formatInTz, toIsoDayInTz } from "@/lib/tz";
+import { formatInTz, formatMonthShort, toIsoDayInTz } from "@/lib/tz";
 import { tooltipStyle } from "@/lib/utils";
 
 const LedgerReport = lazy(() => import("@/components/LedgerReport"));
