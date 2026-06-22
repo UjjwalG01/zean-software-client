@@ -1,19 +1,19 @@
 /**
- * Global timezone helper. All app date formatting + day-bucketing should go
- * through these helpers so a single setting controls the entire UI.
- *
- * The active timezone is whatever is stored in companySettings.timezone, with
- * the browser's IANA timezone (`Intl.DateTimeFormat().resolvedOptions()`) as
- * the default suggestion.
+ * Global timezone helper. All app date formatting + day-bucketing must go
+ * through these helpers so a single configured timezone controls every read,
+ * write and render — the browser's local clock never influences storage.
  */
+
+/** Locked canonical timezone for the whole app. */
+export const SYSTEM_TZ = "Asia/Kathmandu";
 
 let _override: string | null = null;
 
 export function getBrowserTimezone(): string {
   try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kathmandu";
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || SYSTEM_TZ;
   } catch {
-    return "Asia/Kathmandu";
+    return SYSTEM_TZ;
   }
 }
 
@@ -23,7 +23,7 @@ export function setAppTimezone(tz?: string | null) {
 }
 
 export function getAppTimezone(): string {
-  return _override || getBrowserTimezone();
+  return _override || SYSTEM_TZ;
 }
 
 /** List of all IANA timezones the runtime knows about (best-effort, with fallback). */
