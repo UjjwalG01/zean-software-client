@@ -38,6 +38,7 @@ import { AlertTriangle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMemo } from "react";
 import { format, isSameDay } from "date-fns";
+import { formatMonthShort } from "@/lib/tz";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { SOFTWARE_NAME } from "@/lib/settings";
 import { tooltipStyle } from "@/lib/utils";
