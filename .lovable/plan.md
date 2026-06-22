@@ -1,242 +1,63 @@
-# Step-by-step manual refactor
+## Global Time Handling Refactor
 
-Work through these in order. Each step lists the **file**, the **lines/area** to touch, and the **exact change**. Nothing here is auto-applied — you do it yourself.
-
----
-
-## PART A — Remove the Time-Slot feature (Morning / Day / Evening)
-
-### A1. Booking creation flow — `src/pages/Bookings.tsx`
-
-1. **Delete the slot→time map** at lines 95–99:
-  ```ts
-   const TIME_SLOT_DEFAULT: Record<string,string> = {
-     Morning: "06:00", Day: "12:00", Evening: "18:00",
-   };
-  ```
-2. **Delete the setup list** at lines 248–252 (`setupTimeSlots = parseSetup(... "setup_timeSlots" ...)`) and every reference to `setupTimeSlots`.
-3. Remove the state hook `bookTimeSlot` / `setBookTimeSlot` (search the file) and any `<Select>` UI in the Add/Edit booking dialog labelled "Time Slot".
-4. In `handleSubmit` (line 470) and the duplicate insert path (line 500), drop the `timeSlot: bookTimeSlot || start,` line.
-5. In the drag-reschedule handler (~line 1308), drop `timeSlot: newStart,` as well.
-6. At line 370 (`setBookTimeSlot((b as any).timeSlot || …)`) remove the entire line.
-
-&nbsp;
-
-## Important thing to note: 
-
-## The time slot {morning, day, end} should be removed and in the time slot input field, the selected time range should be default value in readonly mode. So while amend and drag the booking in day scheduler, the time slot must be updated with the book start time and book end time. The date must be strictly pulled from the saved date timestamps and GMT from the settings. 
-
-Ensure that the time slot ui is not removed instead, it should be readonly mode, where value comes from the selected start and end time. 
-
->> Also update the GRC time with the time slot to be {start time - end time}. If anything conflicts with this, take this statement as final.
-
-### A2. Package selection — `src/components/PackageSelectionModal.tsx`
-
-- Lines 39, 44, 48, 66, 105–107: remove `timeSlots`, the `timeSlot` state, the `useEffect` that seeds it, the field in the payload (line 66), and the `<Select>` block (lines 105–107).
-
-### A3. POS view — `src/components/OutletPOSView.tsx`
-
-- Line 200: delete `timeSlot: now,` from the object literal.
-
-### A4. Member type & extras — keep only the schema-mapped fields
-
-- `src/lib/mock-data.ts` line 72: delete `timeSlot?: string;` from the `Member` interface.
-- `src/lib/supabase-services.ts` line 122: remove `"timeSlot",` from `EXTRA_KEYS`.
-
-### A5. GRC print — `src/pages/MemberGRC.tsx`
-
-- Lines 61–64: delete the `timeSlots = parseList(... "setup_timeSlots" ...)` block.
-- Line 618: delete the `<F label="Time Slot" value={m.timeSlot} opts={timeSlots} />` row from the printable form.
-
-### A6. Attendance display — `src/pages/Attendance.tsx`
-
-- Line 381: remove the `{m.timeSlot}` cell (and its surrounding `<td>`/header so columns stay aligned).
-
-### A7. General Setup admin — `src/pages/GeneralSetup.tsx`
-
-- Lines 107–110 and lines 144–147: delete the `timeSlots` `useSetupList` and the matching config block (`key: "timeSlots"`, `cat: "setup_timeSlots"`). This removes the admin editor for the now-defunct list.
-
-### A8. Mock & seed data
-
-- `src/lib/mock-data.ts`: remove any `timeSlot:` keys from seed member objects (grep `timeSlot:` inside the file).
-- `src/pages/EmailTemplates.tsx` line 42 (`className: "Morning Yoga"`) is just sample copy — leave it unless you want to rename.
-
-### A9. (Optional, after deploy) database cleanup
-
-Run once in the SQL editor; `extras` is JSONB so no DDL is needed:
-
-```sql
-update public.members set extras = extras - 'timeSlot' where extras ? 'timeSlot';
-```
-
-Also delete the row from your `settings` table where `category = 'setup_timeSlots'`.
+Goal: every timestamp in the app is read, written, and rendered through one set of helpers tied to a single configured timezone (default `Asia/Kathmandu`). The browser's local clock never influences storage or display. Manual time inputs (booking start/end) stay as user-entered wall-clock strings — no auto-shifting.
 
 ---
 
-## PART B — Align `bookings` mapping with the real schema
+### 1. Lock the canonical TZ in `src/lib/tz.ts`
 
-The current code in `src/lib/supabase-services.ts` (lines 566–649) only reads/writes a tiny subset of the booking columns and crams `service`, `className`, `instructor` into a stringified `notes` JSON. The schema gives each of those a dedicated column. Refactor as follows:
+- Add `SYSTEM_TZ` constant = `"Asia/Kathmandu"` exported alongside existing helpers.
+- Change `getBrowserTimezone()` callers: settings can still override via `setAppTimezone`, but the default seed becomes `SYSTEM_TZ` instead of `Intl…resolvedOptions().timeZone`.
+- Add three new helpers (so the rest of the app never touches `toLocale*` again):
+  - `formatDateTime(value)` → `dd MMM yyyy, HH:mm` in active TZ
+  - `formatDate(value)` → `dd MMM yyyy` in active TZ
+  - `formatTime(value)` → `HH:mm` in active TZ
+  - `formatMonthShort(value)` → `MMM` in active TZ (replaces `toLocaleString("en",{month:"short"})`)
+- Re-export `nowIso()` as the single source for "current instant to persist".
 
-### B1. Extend the `Booking` type — `src/lib/mock-data.ts`
+### 2. Database writes — uniform ISO
 
-Add the missing fields to the interface (all optional except the existing ones):
+Audit every insert/update path and replace ad‑hoc date construction with `nowIso()` / `toIsoDayInTz(new Date())`:
 
-```ts
-serviceId?: string;
-serviceType?: string;       // already exists on some rows — make canonical
-employeeId?: string;
-memberPackageId?: string;
-moduleId?: string;
-originalRate?: number;
-rate?: number;
-discountAmount?: number;
-discountReason?: string;
-cancelReason?: string;
-cancelledAt?: string;
-amendedFrom?: string;
-```
+- `src/lib/audit-log.ts`, `src/lib/charges.ts`, `src/lib/charge-heads-store.ts`, `src/lib/prepaid.ts`, `src/lib/inventory-store.ts`, `src/lib/supabase-services.ts`, `src/lib/supabase-roles.ts`, `src/lib/supabase-users.ts`, `src/lib/email-templates.ts`, `src/hooks/use-firestore.ts`
+- `src/pages/Transactions.tsx` (settle/void/refund handlers) and `src/components/TransactionDetailModal.tsx` already use `toISOString()` — keep, but route through `nowIso()` for grep consistency.
+- Day-keyed columns (`bookings.date`, `check_ins.date`, `transactions.date`) always go through `toIsoDayInTz(new Date())` or `dayToTimestampInTz(day)`. No `format(new Date(), "yyyy-MM-dd")` allowed.
+- Replace the remaining direct `format(new Date(), "yyyy-MM-dd")` writes in `src/components/OutletPOSView.tsx` and `src/pages/Reports.tsx` (where they feed DB filters) with `toIsoDayInTz(new Date())`.
 
-### B2. Replace `mapBookingRow` (lines 566–591)
+### 3. Frontend display — purge `toLocale*Date/Time`
 
-Map every column directly — stop parsing `notes` for primary data:
+Replace every usage with the new tz helpers. Files to touch:
 
-```ts
-function mapBookingRow(r: any): Booking {
-  const rawStatus = r.booking_status ?? r.status;
-  return {
-    id: r.id,
-    memberId: r.member_id || "",
-    memberName: r.member_name || "",
-    serviceId: r.service_id || "",
-    service: (r.service_type || "Gym") as ServiceType,
-    serviceType: r.service_type || "",
-    className: r.class_name || r.service_name || "",
-    instructor: r.instructor || "",
-    employeeId: r.employee_id || "",
-    memberPackageId: r.member_package_id || "",
-    moduleId: r.module_id || "",
-    outletId: r.outlet_id || null,
-    date: dateOnly(r.start_at ?? r.start_time),
-    startTime: timeOnly(r.start_time ?? r.start_at),
-    endTime: timeOnly(r.end_time ?? r.end_at),
-    status: dbStatusToDisplay(rawStatus) as BookingStatus,
-    originalRate: Number(r.original_rate ?? 0),
-    rate: Number(r.rate ?? 0),
-    discountAmount: Number(r.discount_amount ?? 0),
-    discountReason: r.discount_reason || "",
-    cancelReason: r.cancel_reason || "",
-    cancelledAt: r.cancelled_at || "",
-    amendedFrom: r.amended_from || "",
-  } as any;
-}
-```
+| File | Current call | Replacement |
+| --- | --- | --- |
+| `src/components/inventory/MovementsDrawer.tsx` | `new Date(m.createdAt).toLocaleString()` | `formatDateTime(m.createdAt)` |
+| `src/components/PremiumReportFrame.tsx` | `new Date().toLocaleString()` footer | `formatDateTime(nowIso())` |
+| `src/components/MemberProgress.tsx` (HTML report) | `new Date().toLocaleString()` | `formatDateTime(nowIso())` |
+| `src/lib/print-utils.ts` | `new Date().toLocaleString()` (3 places) and `new Date(t.date).toLocaleString("en", {month:"long",year:"numeric"})` | `formatDateTime(nowIso())` / `formatInTz(t.date,{month:"long",year:"numeric"})` |
+| `src/components/test.html` | inline `toLocaleString()` | static placeholder (template only) |
+| `src/pages/Index.tsx` line 99 | `new Date(t.date).toLocaleString("en",{month:"short"})` | `formatMonthShort(t.date)` |
+| `src/pages/Reports.tsx` line 311 | same | `formatMonthShort(m.joinDate)` |
 
-### B3. Rewrite `addBooking` (lines 604–626)
+Currency `toLocaleString()` calls (Inventory, Bookings, chart tooltip, `formatNPR`) are **not** touched — they format numbers, not dates.
 
-Write to dedicated columns; populate **both** `start_at`/`end_at` and `start_time`/`end_time` (the exclusion constraint uses `start_time`/`end_time`):
+Audit table / ledger / transactions rendering: confirm they already format through `formatInTz` or `format(parseISO(...), …)` derived from ISO. Any `format(new Date(x), …)` that bypasses TZ becomes `formatInTz(x, {...})`.
 
-```ts
-const startTs = at(data.date, data.startTime);
-const endTs   = at(data.date, data.endTime || data.startTime);
-const insert = {
-  member_id: data.memberId || null,
-  member_name: data.memberName || null,
-  service_id: (data as any).serviceId || null,
-  service_name: data.className || null,
-  service_type: data.service || null,
-  class_name: data.className || null,
-  instructor: data.instructor || null,
-  employee_id: (data as any).employeeId || null,
-  member_package_id: (data as any).memberPackageId || null,
-  module_id: (data as any).moduleId || null,
-  outlet_id: data.outletId || null,
-  start_at: startTs, end_at: endTs,
-  start_time: startTs, end_time: endTs,
-  original_rate: (data as any).originalRate ?? null,
-  rate: (data as any).rate ?? null,
-  discount_amount: (data as any).discountAmount ?? 0,
-  discount_reason: (data as any).discountReason || null,
-  booking_status: displayStatusToDb(data.status || "Confirmed"),
-  notes: typeof data.notes === "string" ? data.notes : null,
-};
-```
+### 4. Booking time slots — manual only
 
-Remove the JSON-stringified `notes` payload — `notes` is plain `text` in the schema and should hold free-form notes only.
+- `src/pages/Bookings.tsx`: `startTime` / `endTime` remain string fields ("HH:mm") taken from the form. When persisting, build `start_at`/`end_at` with `zonedStringToUtcIso(`${date}T${startTime}:00`, SYSTEM_TZ)` (already happens via `dayToTimestampInTz`-style helper — extend `tz.ts` with `wallTimeToUtcIso(day, hhmm)` and use it inside `addBooking`/`updateBooking`).
+- Remove `systemNow`/`toZonedTime(new Date(), SYSTEM_TZ)` derived defaults that auto-pick a slot. The "now" button still works, but only when the user clicks it — no implicit recalculation on render.
+- `src/components/DayTimelineDialog.tsx`, `src/components/DayScheduleDialog.tsx`: the red "current time" line is computed once on open from `toZonedTime(new Date(), SYSTEM_TZ)`; keep it but never use it to mutate booking data.
+- `src/components/OutletPOSView.tsx`: `const now = format(new Date(),"HH:mm")` is only used as a default input value — keep, but source from `formatTime(nowIso())` so it respects the configured TZ.
 
-### B4. Rewrite `updateBooking` (lines 628–643)
+### 5. Verification
 
-Mirror B3: map each camelCase key to its column, and when `date`/`startTime`/`endTime` change update **both** the `_at` and `_time` pair. Add patches for the new fields (`rate`, `originalRate`, `discountAmount`, `discountReason`, `cancelReason`, `cancelledAt`, `serviceId`, `serviceType`, `instructor`, `moduleId`, `employeeId`, `memberPackageId`).
+- `rg "toLocaleDateString|toLocaleTimeString|toLocaleString\(\)" src` returns only number-formatting cases (currency, chart tooltips).
+- `rg "new Date\(.*\)\.toISOString\(\)" src` — every hit lives inside `tz.ts` or is wrapped by `nowIso()`.
+- Manual smoke test in browser with device TZ forced to `America/New_York`: a booking entered as 18:00 still renders 18:00 in the calendar, the audit log, and the printed GRC; transactions created "today" stay on today's date in the ledger.
+- TypeScript build passes (no `any` introduced; helpers typed `(value: string | Date) => string`).
 
-### B5. Cancellation path
+### Out of scope
 
-Wherever the UI sets a booking to "NotFixed"/cancelled, also pass `cancelReason` and stamp `cancelledAt: new Date().toISOString()` so the new columns are populated.
-
----
-
-## PART C — Align `members` mapping with the real schema
-
-Most member fields are already mapped (see lines 147–301). Three gaps remain — fix them so legacy `extras` shims can finally be retired:
-
-### C1. `member_code` & `marital_status`
-
-- In `mapMemberRow` add: `memberCode: r.member_code || "",` and `maritalStatus: r.marital_status || extras.maritalStatus || "",`.
-- In `memberPayload` add: `member_code: data.memberCode || undefined,` (let the trigger fill it) and `marital_status: (data as any).maritalStatus || null,`.
-- Remove `"maritalStatus"` from `EXTRA_KEYS` (line 107).
-
-### C2. `member_preferences` text[]
-
-The DB column is `member_preferences text[]`, but the code currently shoves the array inside the `preferences` JSONB blob. Add:
-
-```ts
-member_preferences: Array.isArray(data.preferences) ? data.preferences : [],
-```
-
-to `memberPayload`, and read it back in `mapMemberRow` with `Array.isArray(r.member_preferences) ? r.member_preferences : prefs.preferences || []`.
-
-### C3. `plan_id`
-
-Add column mapping:
-
-- read: `planId: r.plan_id || "",`
-- write: `plan_id: data.planId || null,` in both insert & update paths.
-
-### C4. After this refactor, `extras` should only contain
-
-`residenceStatus, nationalId, tinNo, fatherName, arms, thigh, waistInch, hipInch, shoulder, doctorName, doctorContact, notifyPhone, notifyEmail, notifySMS, packages`.
-Update `EXTRA_KEYS` to exactly that list (drops `maritalStatus`, `timeSlot`).
-
-### C5. Optional one-time SQL backfill
-
-```sql
-update public.members
-set marital_status = (extras->>'maritalStatus')::marital_enum
-where marital_status is null and extras ? 'maritalStatus';
-
-update public.members
-set member_preferences = coalesce(
-  array(select jsonb_array_elements_text(preferences->'preferences')),
-  member_preferences
-)
-where member_preferences = '{}'::text[]
-  and preferences ? 'preferences';
-```
-
----
-
-## PART D — Verification checklist after each part
-
-After A: open Bookings, Add-Booking dialog, Package modal, POS, GRC print, Attendance, General Setup → no "Time Slot" field anywhere; no console errors.  
-After B: create a booking, edit it, drag-reschedule it, cancel it — open the row in Supabase and confirm `start_time`, `end_time`, `service_type`, `class_name`, `instructor`, `rate`, `discount_amount`, `booking_status`, `cancel_reason`, `cancelled_at` are all populated correctly.  
-After C: create a member, edit, view in MemberGRC and MemberProfile — confirm `member_code`, `marital_status`, `plan_id`, `member_preferences` are all writing to columns (not `extras`) in Supabase.
-
-
-
----
-
-## Things you may need to fix manually if they break
-
-- **Reports / Forecast** components that group bookings by `serviceType` or read `b.className` from `notes` JSON — after B2 these read directly from columns, so any place still parsing `JSON.parse(b.notes)` needs to be deleted.
-- **BookingDetailModal** — if it shows instructor/class via `notes`, update to read from the new flat fields.
-- **No-overlap EXCLUDE constraint** — once B3/B4 always write `start_time`/`end_time`, you may see DB rejection "conflicting key value" for overlapping confirmed bookings at the same outlet. That is the schema enforcing your business rule; surface it to the user as "slot already booked".
-- **Setup table** — manually delete the row `category='setup_timeSlots'` from your `settings` table.
-- **Legacy `members.extras.timeSlot` / `maritalStatus**` values — run the optional SQL in A9 / C5.
+- SQL migrations / column types — DB already stores `timestamptz`.
+- Number `toLocaleString` calls used for currency formatting.
+- Changing the user-visible date format strings beyond what's required to route through tz helpers.

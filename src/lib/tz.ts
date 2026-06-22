@@ -1,19 +1,19 @@
 /**
- * Global timezone helper. All app date formatting + day-bucketing should go
- * through these helpers so a single setting controls the entire UI.
- *
- * The active timezone is whatever is stored in companySettings.timezone, with
- * the browser's IANA timezone (`Intl.DateTimeFormat().resolvedOptions()`) as
- * the default suggestion.
+ * Global timezone helper. All app date formatting + day-bucketing must go
+ * through these helpers so a single configured timezone controls every read,
+ * write and render — the browser's local clock never influences storage.
  */
+
+/** Locked canonical timezone for the whole app. */
+export const SYSTEM_TZ = "Asia/Kathmandu";
 
 let _override: string | null = null;
 
 export function getBrowserTimezone(): string {
   try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kathmandu";
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || SYSTEM_TZ;
   } catch {
-    return "Asia/Kathmandu";
+    return SYSTEM_TZ;
   }
 }
 
@@ -23,7 +23,7 @@ export function setAppTimezone(tz?: string | null) {
 }
 
 export function getAppTimezone(): string {
-  return _override || getBrowserTimezone();
+  return _override || SYSTEM_TZ;
 }
 
 /** List of all IANA timezones the runtime knows about (best-effort, with fallback). */
@@ -94,6 +94,48 @@ export function dayToTimestampInTz(day: string, tz: string = getAppTimezone()): 
 /** Current timestamp ISO — always returns `new Date().toISOString()` but routed through here for grep-ability. */
 export function nowIso(): string {
   return new Date().toISOString();
+}
+
+/** "dd MMM yyyy, HH:mm" in the active TZ. */
+export function formatDateTime(value: Date | string | number | null | undefined): string {
+  if (value == null || value === "") return "";
+  return formatInTz(value as Date | string, {
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  });
+}
+
+/** "dd MMM yyyy" in the active TZ. */
+export function formatDate(value: Date | string | number | null | undefined): string {
+  if (value == null || value === "") return "";
+  return formatInTz(value as Date | string, {
+    day: "2-digit", month: "short", year: "numeric",
+  });
+}
+
+/** "HH:mm" in the active TZ. */
+export function formatTime(value: Date | string | number | null | undefined): string {
+  if (value == null || value === "") return "";
+  return formatInTz(value as Date | string, {
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  });
+}
+
+/** Short month name (e.g. "Jan") in the active TZ. */
+export function formatMonthShort(value: Date | string | number | null | undefined): string {
+  if (value == null || value === "") return "";
+  return formatInTz(value as Date | string, { month: "short" });
+}
+
+/**
+ * Build a UTC ISO from a wall-clock day + "HH:mm" (manual user input) anchored
+ * to the active timezone. Use for booking start_at / end_at so the operator's
+ * device clock can never shift the persisted instant.
+ */
+export function wallTimeToUtcIso(day: string, hhmm: string, tz: string = getAppTimezone()): string {
+  if (!day || !hhmm) return "";
+  const [h = "00", m = "00"] = hhmm.split(":");
+  return zonedStringToUtcIso(`${day}T${h.padStart(2, "0")}:${m.padStart(2, "0")}:00`, tz);
 }
 
 /**

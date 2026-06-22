@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { formatDateTime, nowIso } from "@/lib/tz";
 import {
   Activity,
   Calendar as CalIcon,
@@ -214,7 +215,7 @@ td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
     </table>
   </div>
 
-  <div class="footer">Generated ${new Date().toLocaleString()} · ${propertyName}</div>
+  <div class="footer">Generated ${formatDateTime(nowIso())} · ${propertyName}</div>
   <script>window.onload=()=>{setTimeout(()=>window.print(),200)}</script>
 </body></html>`;
     printHTML(html);

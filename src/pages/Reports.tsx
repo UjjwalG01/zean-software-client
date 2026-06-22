@@ -44,7 +44,7 @@ import {
   underlineFirstChar,
 } from "@/lib/string-case-change";
 import { useOutlet } from "@/contexts/OutletContext";
-import { formatInTz, toIsoDayInTz } from "@/lib/tz";
+import { formatInTz, formatMonthShort, toIsoDayInTz } from "@/lib/tz";
 import { tooltipStyle } from "@/lib/utils";
 
 const LedgerReport = lazy(() => import("@/components/LedgerReport"));
@@ -308,7 +308,7 @@ const Reports = () => {
     );
     sorted.forEach((m, i) => {
       const month = m.joinDate
-        ? new Date(m.joinDate).toLocaleString("en", { month: "short" })
+        ? formatMonthShort(m.joinDate)
         : "Unknown";
       if (!monthMap[month]) monthMap[month] = { newMembers: 0, total: 0 };
       monthMap[month].newMembers++;

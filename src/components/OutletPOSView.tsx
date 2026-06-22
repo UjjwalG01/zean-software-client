@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
+import { formatDate, formatTime, nowIso, toIsoDayInTz } from "@/lib/tz";
 import {
   Plus,
   Minus,
@@ -167,8 +168,8 @@ export function OutletPOSView({ outlet }: Props) {
   const buildBookingsAndCharges = async () => {
     if (!memberId) throw new Error("Select a member/guest first");
     if (cart.length === 0) throw new Error("Cart is empty");
-    const today = format(new Date(), "yyyy-MM-dd");
-    const now = format(new Date(), "HH:mm");
+    const today = toIsoDayInTz(new Date());
+    const now = formatTime(nowIso());
     const memberObj = members.find((m) => m.id === memberId);
     let lastChargeId = "";
     let lastBookingId = "";
@@ -266,7 +267,7 @@ export function OutletPOSView({ outlet }: Props) {
       {/* Header bar */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-muted/30">
         <div className="text-xs text-muted-foreground">
-          <span className="font-mono">{format(new Date(), "dd/MM/yyyy")}</span>
+          <span className="font-mono">{formatDate(nowIso())}</span>
         </div>
         <div className="font-display font-semibold tracking-wide text-sm uppercase">
           {outlet.name}
