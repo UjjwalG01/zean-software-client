@@ -96,6 +96,48 @@ export function nowIso(): string {
   return new Date().toISOString();
 }
 
+/** "dd MMM yyyy, HH:mm" in the active TZ. */
+export function formatDateTime(value: Date | string | number | null | undefined): string {
+  if (value == null || value === "") return "";
+  return formatInTz(value as Date | string, {
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  });
+}
+
+/** "dd MMM yyyy" in the active TZ. */
+export function formatDate(value: Date | string | number | null | undefined): string {
+  if (value == null || value === "") return "";
+  return formatInTz(value as Date | string, {
+    day: "2-digit", month: "short", year: "numeric",
+  });
+}
+
+/** "HH:mm" in the active TZ. */
+export function formatTime(value: Date | string | number | null | undefined): string {
+  if (value == null || value === "") return "";
+  return formatInTz(value as Date | string, {
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  });
+}
+
+/** Short month name (e.g. "Jan") in the active TZ. */
+export function formatMonthShort(value: Date | string | number | null | undefined): string {
+  if (value == null || value === "") return "";
+  return formatInTz(value as Date | string, { month: "short" });
+}
+
+/**
+ * Build a UTC ISO from a wall-clock day + "HH:mm" (manual user input) anchored
+ * to the active timezone. Use for booking start_at / end_at so the operator's
+ * device clock can never shift the persisted instant.
+ */
+export function wallTimeToUtcIso(day: string, hhmm: string, tz: string = getAppTimezone()): string {
+  if (!day || !hhmm) return "";
+  const [h = "00", m = "00"] = hhmm.split(":");
+  return zonedStringToUtcIso(`${day}T${h.padStart(2, "0")}:${m.padStart(2, "0")}:00`, tz);
+}
+
 /**
  * Convert a "wall clock" timestamp in `tz` (no offset suffix) into a UTC ISO string.
  * Uses an offset-probing trick because there is no built-in API.
