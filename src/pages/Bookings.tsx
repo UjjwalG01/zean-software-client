@@ -13,52 +13,17 @@ import {
   isToday,
 } from "date-fns";
 import { toZonedTime, formatInTimeZone } from "date-fns-tz";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  List,
-  CalendarDays as CalIcon,
-  Settings,
-  Search,
-  Check,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, List, CalendarDays as CalIcon, Settings, Search, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { BookingDetailModal } from "@/components/BookingDetailModal";
 import { DayTimelineDialog } from "@/components/DayTimelineDialog";
 import { DayScheduleDialog } from "@/components/DayScheduleDialog";
@@ -109,11 +74,7 @@ const colorOptions = [
   { label: "Red", value: "hsl(0,84%,60%)", tw: "bg-destructive" },
 ];
 
-function parseSetup(
-  settings: Record<string, string>,
-  key: string,
-  fallback: string[],
-): string[] {
+function parseSetup(settings: Record<string, string>, key: string, fallback: string[]): string[] {
   try {
     return settings[key] ? JSON.parse(settings[key]) : fallback;
   } catch {
@@ -148,9 +109,7 @@ const Bookings_Page = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBookingId, setEditingBookingId] = useState<string | null>(null);
   const [serviceFilter, setServiceFilter] = useState<string>("all");
-  const [listMonth, setListMonth] = useState<string>(
-    formatInTimeZone(new Date(), SYSTEM_TZ, "yyyy-MM"),
-  );
+  const [listMonth, setListMonth] = useState<string>(formatInTimeZone(new Date(), SYSTEM_TZ, "yyyy-MM"));
   const [listPage, setListPage] = useState(1);
   const PAGE_SIZE = 25;
   const [colorSettingsOpen, setColorSettingsOpen] = useState(false);
@@ -174,17 +133,13 @@ const Bookings_Page = () => {
   const [bookInstructor, setBookInstructor] = useState("");
 
   const [bookPlanId, setBookPlanId] = useState("");
-  const [bookDuration, setBookDuration] = useState<
-    "monthly" | "yearly" | "longTerm"
-  >("monthly");
+  const [bookDuration, setBookDuration] = useState<"monthly" | "yearly" | "longTerm">("monthly");
   const [useDiscountedRate, setUseDiscountedRate] = useState(false);
   const [discountedRate, setDiscountedRate] = useState<string>("");
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [bookStartTime, setBookStartTime] = useState<string>("");
   const [bookEndTime, setBookEndTime] = useState<string>("");
-  const [bookStatus, setBookStatus] = useState<
-    "Waitlisted" | "Confirmed" | "NotFixed"
-  >("Confirmed");
+  const [bookStatus, setBookStatus] = useState<"Waitlisted" | "Confirmed" | "NotFixed">("Confirmed");
 
   const [guestMode, setGuestMode] = useState(false);
   const [guestName, setGuestName] = useState("");
@@ -202,9 +157,7 @@ const Bookings_Page = () => {
   const isMembershipOutlet =
     !!selectedOutlet &&
     (selectedOutlet.enableMembership === true ||
-      (selectedOutlet.serviceTypes || []).some(
-        (s) => s.toLowerCase() === "membership",
-      ));
+      (selectedOutlet.serviceTypes || []).some((s) => s.toLowerCase() === "membership"));
 
   const isPOSOutlet =
     !!selectedOutlet &&
@@ -212,9 +165,7 @@ const Bookings_Page = () => {
       const x = (s || "").toLowerCase();
       return x === "fitness" || x === "wellness" || x === "health";
     }) ||
-      ["FITNESS", "WELLNESS", "HEALTH"].includes(
-        (selectedOutlet.outletType || "").toUpperCase(),
-      ));
+      ["FITNESS", "WELLNESS", "HEALTH"].includes((selectedOutlet.outletType || "").toUpperCase()));
 
   const isFitnessOrHealth =
     !!selectedOutlet &&
@@ -222,15 +173,11 @@ const Bookings_Page = () => {
       const x = (s || "").toLowerCase();
       return x === "fitness" || x === "health";
     }) ||
-      ["FITNESS", "HEALTH"].includes(
-        (selectedOutlet.outletType || "").toUpperCase(),
-      ));
+      ["FITNESS", "HEALTH"].includes((selectedOutlet.outletType || "").toUpperCase()));
 
   const isSportsOutlet =
     !!selectedOutlet &&
-    ((selectedOutlet.serviceTypes || []).some(
-      (s) => (s || "").toLowerCase() === "sports",
-    ) ||
+    ((selectedOutlet.serviceTypes || []).some((s) => (s || "").toLowerCase() === "sports") ||
       (selectedOutlet.outletType || "").toUpperCase() === "SPORTS");
 
   const setupInstructors = parseSetup(settings, "setup_instructors", [
@@ -241,17 +188,11 @@ const Bookings_Page = () => {
   ]);
 
   const outletServices = useMemo(
-    () =>
-      services.filter(
-        (s) => s.outletId === selectedOutlet?.id && s.isActive !== false,
-      ),
+    () => services.filter((s) => s.outletId === selectedOutlet?.id && s.isActive !== false),
     [services, selectedOutlet?.id],
   );
 
-  const outletServiceTypes = useMemo(
-    () => Array.from(new Set(outletServices.map((s) => s.type))),
-    [outletServices],
-  );
+  const outletServiceTypes = useMemo(() => Array.from(new Set(outletServices.map((s) => s.type))), [outletServices]);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -262,12 +203,9 @@ const Bookings_Page = () => {
   const filtered = useMemo(() => {
     let list = bookings;
     if (selectedOutlet) {
-      list = list.filter(
-        (b: any) => !b.outletId || b.outletId === selectedOutlet.id,
-      );
+      list = list.filter((b: any) => !b.outletId || b.outletId === selectedOutlet.id);
     }
-    if (serviceFilter !== "all")
-      list = list.filter((b) => b.service === serviceFilter);
+    if (serviceFilter !== "all") list = list.filter((b) => b.service === serviceFilter);
     if (view === "list" && !isFitnessOrHealth && listMonth) {
       list = list.filter((b) => (b.date || "").startsWith(listMonth));
     }
@@ -276,14 +214,7 @@ const Bookings_Page = () => {
       const bd = `${b.date || ""} ${b.startTime || ""}`;
       return bd.localeCompare(ad);
     });
-  }, [
-    bookings,
-    serviceFilter,
-    selectedOutlet,
-    view,
-    isFitnessOrHealth,
-    listMonth,
-  ]);
+  }, [bookings, serviceFilter, selectedOutlet, view, isFitnessOrHealth, listMonth]);
 
   useEffect(() => {
     setListPage(1);
@@ -296,9 +227,7 @@ const Bookings_Page = () => {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
 
   const getBookingsForDay = (day: Date) =>
-    filtered.filter((b) =>
-      isSameDay(toZonedTime(new Date(b.date), SYSTEM_TZ), day),
-    );
+    filtered.filter((b) => isSameDay(toZonedTime(new Date(b.date), SYSTEM_TZ), day));
 
   const isPastDateTime = (dateStr: string, startTime?: string): boolean => {
     if (!dateStr) return false;
@@ -339,9 +268,7 @@ const Bookings_Page = () => {
       const eh = Math.floor(endMin / 60) % 24;
       const em = endMin % 60;
       setBookStartTime(startTime);
-      setBookEndTime(
-        `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`,
-      );
+      setBookEndTime(`${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`);
     }
     setDialogOpen(true);
   };
@@ -357,9 +284,7 @@ const Bookings_Page = () => {
     setBookEndTime(b.endTime || "");
     setBookMember(b.memberId);
     setBookInstructor(b.instructor || "");
-    const svc =
-      outletServices.find((s) => s.name === b.className) ||
-      outletServices.find((s) => s.type === b.service);
+    const svc = outletServices.find((s) => s.name === b.className) || outletServices.find((s) => s.type === b.service);
     setBookServiceId(svc?.id || "");
     setUseDiscountedRate(false);
     setDiscountedRate("");
@@ -387,8 +312,7 @@ const Bookings_Page = () => {
   );
 
   useEffect(() => {
-    if (selectedService?.instructor && !bookInstructor)
-      setBookInstructor(selectedService.instructor);
+    if (selectedService?.instructor && !bookInstructor) setBookInstructor(selectedService.instructor);
   }, [selectedService]);
 
   const handleBook = async () => {
@@ -434,9 +358,7 @@ const Bookings_Page = () => {
 
     const memberObj = members.find((m) => m.id === bookMember);
     const effectiveMemberId = isGuestBooking ? "" : bookMember;
-    const effectiveMemberName = isGuestBooking
-      ? `Guest · ${guestName.trim()}`
-      : memberObj?.name || "";
+    const effectiveMemberName = isGuestBooking ? `Guest · ${guestName.trim()}` : memberObj?.name || "";
 
     try {
       if (editingBookingId) {
@@ -485,36 +407,28 @@ const Bookings_Page = () => {
       } as any);
 
       const basePrice = Number(selectedService.price || 0);
-      const finalPrice =
-        useDiscountedRate && discountedRate
-          ? Number(discountedRate)
-          : basePrice;
+      const finalPrice = useDiscountedRate && discountedRate ? Number(discountedRate) : basePrice;
       let chargeId = "";
       if (finalPrice > 0 && !isGuestBooking) {
         try {
           const { createChargeForBooking } = await import("@/lib/charges");
-          chargeId = await createChargeForBooking(
-            (d) => addTransactionMutation.mutateAsync(d) as Promise<string>,
-            {
-              memberId: effectiveMemberId,
-              memberName: effectiveMemberName,
-              bookingId: String(bookingId || ""),
-              service: selectedService.type,
-              className: selectedService.name,
-              amount: finalPrice,
-              chargeHead: selectedService.type,
-              outletId: selectedOutlet?.id,
-            },
-          );
+          chargeId = await createChargeForBooking((d) => addTransactionMutation.mutateAsync(d) as Promise<string>, {
+            memberId: effectiveMemberId,
+            memberName: effectiveMemberName,
+            bookingId: String(bookingId || ""),
+            service: selectedService.type,
+            className: selectedService.name,
+            amount: finalPrice,
+            chargeHead: selectedService.type,
+            outletId: selectedOutlet?.id,
+          });
         } catch (e) {
           console.warn("[bookings] failed to post charge", e);
         }
       }
 
       toast.success(
-        isGuestBooking
-          ? "Guest booking created — redirecting to payment"
-          : "Booking created — redirecting to payment",
+        isGuestBooking ? "Guest booking created — redirecting to payment" : "Booking created — redirecting to payment",
       );
       setDialogOpen(false);
       const params = new URLSearchParams({
@@ -547,16 +461,12 @@ const Bookings_Page = () => {
     }
   };
 
-  const selectedPlan = useMemo(
-    () => plans.find((p) => p.id === bookPlanId) || null,
-    [plans, bookPlanId],
-  );
+  const selectedPlan = useMemo(() => plans.find((p) => p.id === bookPlanId) || null, [plans, bookPlanId]);
 
   const membershipAmount = useMemo(() => {
     if (!selectedPlan) return 0;
     if (bookDuration === "yearly") return Number(selectedPlan.yearlyPrice || 0);
-    if (bookDuration === "longTerm")
-      return Number(selectedPlan.longTermPrice || 0);
+    if (bookDuration === "longTerm") return Number(selectedPlan.longTermPrice || 0);
     return Number(selectedPlan.price || 0);
   }, [selectedPlan, bookDuration]);
 
@@ -574,14 +484,8 @@ const Bookings_Page = () => {
     const expiry = new Date(today);
     if (bookDuration === "monthly") expiry.setMonth(expiry.getMonth() + 1);
     if (bookDuration === "yearly") expiry.setFullYear(expiry.getFullYear() + 1);
-    if (bookDuration === "longTerm")
-      expiry.setFullYear(expiry.getFullYear() + 15);
-    const durationLabel =
-      bookDuration === "monthly"
-        ? "Monthly"
-        : bookDuration === "yearly"
-          ? "Yearly"
-          : "15-Year";
+    if (bookDuration === "longTerm") expiry.setFullYear(expiry.getFullYear() + 15);
+    const durationLabel = bookDuration === "monthly" ? "Monthly" : bookDuration === "yearly" ? "Yearly" : "15-Year";
     try {
       await updateMemberMutation.mutateAsync({
         id: bookMember,
@@ -594,10 +498,7 @@ const Bookings_Page = () => {
       });
       toast.success("Membership enrolled — proceed to payment");
       setDialogOpen(false);
-      const finalAmount =
-        useDiscountedRate && discountedRate
-          ? Number(discountedRate)
-          : membershipAmount;
+      const finalAmount = useDiscountedRate && discountedRate ? Number(discountedRate) : membershipAmount;
       const params = new URLSearchParams({
         newPayment: "true",
         memberId: bookMember,
@@ -645,21 +546,14 @@ const Bookings_Page = () => {
         <div className="space-y-1">
           <h1 className="text-2xl font-bold font-display">Bookings</h1>
           <div className="flex items-center gap-3 flex-wrap">
-            <p className="text-muted-foreground text-sm">
-              {filtered.length} bookings
-            </p>
+            <p className="text-muted-foreground text-sm">{filtered.length} bookings</p>
             {outlets.length > 0 && (
               <button
                 onClick={() => setPickerOpen(true)}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border border-border/60 bg-muted/40 hover:bg-muted/70 transition-colors"
               >
-                <Building2
-                  className="h-3 w-3"
-                  style={{ color: selectedOutlet?.color }}
-                />
-                <span className="font-medium">
-                  {selectedOutlet ? selectedOutlet.name : "Choose outlet"}
-                </span>
+                <Building2 className="h-3 w-3" style={{ color: selectedOutlet?.color }} />
+                <span className="font-medium">{selectedOutlet ? selectedOutlet.name : "Choose outlet"}</span>
                 <ChevronDown className="h-3 w-3 opacity-60" />
               </button>
             )}
@@ -710,10 +604,7 @@ const Bookings_Page = () => {
           )}
 
           {!isFitnessOrHealth && (
-            <Popover
-              open={colorSettingsOpen}
-              onOpenChange={setColorSettingsOpen}
-            >
+            <Popover open={colorSettingsOpen} onOpenChange={setColorSettingsOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="icon">
                   <Settings className="h-4 w-4" />
@@ -722,10 +613,7 @@ const Bookings_Page = () => {
               <PopoverContent className="w-64" align="end">
                 <p className="font-semibold text-sm mb-3">Calendar Colors</p>
                 {outletServiceTypes.map((svc) => (
-                  <div
-                    key={svc}
-                    className="flex items-center justify-between mb-2"
-                  >
+                  <div key={svc} className="flex items-center justify-between mb-2">
                     <span className="text-sm">{svc}</span>
                     <div className="flex gap-1">
                       {colorOptions.map((c) => (
@@ -733,9 +621,7 @@ const Bookings_Page = () => {
                           key={c.value}
                           className={cn(
                             "h-5 w-5 rounded-full border-2 transition-all",
-                            serviceColors[svc] === c.value
-                              ? "border-foreground scale-110"
-                              : "border-transparent",
+                            serviceColors[svc] === c.value ? "border-foreground scale-110" : "border-transparent",
                           )}
                           style={{ backgroundColor: c.value }}
                           onClick={() =>
@@ -753,11 +639,7 @@ const Bookings_Page = () => {
             </Popover>
           )}
 
-          <Button
-            size="sm"
-            accessKey="a"
-            onClick={() => openNewBookingDialog()}
-          >
+          <Button size="sm" accessKey="a" onClick={() => openNewBookingDialog()}>
             <Plus className="h-4 w-4 mr-1" />
             {underlineFirstChar("Add Booking")}
           </Button>
@@ -767,16 +649,11 @@ const Bookings_Page = () => {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-display">
-              {editingBookingId ? "Amend Booking" : "New Booking"}
-            </DialogTitle>
+            <DialogTitle className="font-display">{editingBookingId ? "Amend Booking" : "New Booking"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 flex items-center gap-2 text-sm">
-              <Building2
-                className="h-4 w-4"
-                style={{ color: selectedOutlet?.color }}
-              />
+              <Building2 className="h-4 w-4" style={{ color: selectedOutlet?.color }} />
               <span className="text-muted-foreground">Outlet</span>
               <span className="font-medium">{selectedOutlet?.name || "—"}</span>
               {selectedService?.type && (
@@ -820,39 +697,23 @@ const Bookings_Page = () => {
             {!(isSportsOutlet && guestMode) ? (
               <div className="space-y-2">
                 <Label>Member *</Label>
-                <Popover
-                  open={memberPopoverOpen}
-                  onOpenChange={setMemberPopoverOpen}
-                >
+                <Popover open={memberPopoverOpen} onOpenChange={setMemberPopoverOpen}>
                   <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      className="w-full justify-between font-normal"
-                    >
+                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
                       {selectedMember ? (
                         <span className="flex items-center gap-2 truncate">
-                          <span className="truncate">
-                            {selectedMember.name}
-                          </span>
+                          <span className="truncate">{selectedMember.name}</span>
                           {selectedMember.phone && (
-                            <span className="text-xs text-muted-foreground">
-                              {selectedMember.phone}
-                            </span>
+                            <span className="text-xs text-muted-foreground">{selectedMember.phone}</span>
                           )}
                         </span>
                       ) : (
-                        <span className="text-muted-foreground">
-                          Search and select member…
-                        </span>
+                        <span className="text-muted-foreground">Search and select member…</span>
                       )}
                       <ChevronDown className="h-4 w-4 opacity-60" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent
-                    className="w-[--radix-popover-trigger-width] p-0"
-                    align="start"
-                  >
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                     <div className="p-2 border-b border-border">
                       <div className="relative">
                         <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -867,9 +728,7 @@ const Bookings_Page = () => {
                     </div>
                     <div className="max-h-64 overflow-y-auto">
                       {filteredMembers.length === 0 ? (
-                        <p className="px-3 py-6 text-center text-xs text-muted-foreground">
-                          No members found
-                        </p>
+                        <p className="px-3 py-6 text-center text-xs text-muted-foreground">No members found</p>
                       ) : (
                         filteredMembers.map((m) => (
                           <button
@@ -886,9 +745,7 @@ const Bookings_Page = () => {
                                 {m.phone || m.email || "—"}
                               </span>
                             </div>
-                            {bookMember === m.id && (
-                              <Check className="h-3.5 w-3.5 text-primary" />
-                            )}
+                            {bookMember === m.id && <Check className="h-3.5 w-3.5 text-primary" />}
                           </button>
                         ))
                       )}
@@ -906,8 +763,7 @@ const Bookings_Page = () => {
                   autoFocus
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  Guest bookings skip member profile lookup — payment is
-                  collected on the spot at the next step.
+                  Guest bookings skip member profile lookup — payment is collected on the spot at the next step.
                 </p>
               </div>
             )}
@@ -918,13 +774,7 @@ const Bookings_Page = () => {
                   <Label>Membership Plan *</Label>
                   <Select value={bookPlanId} onValueChange={setBookPlanId}>
                     <SelectTrigger>
-                      <SelectValue
-                        placeholder={
-                          plans.length === 0
-                            ? "No plans configured"
-                            : "Select plan"
-                        }
-                      />
+                      <SelectValue placeholder={plans.length === 0 ? "No plans configured" : "Select plan"} />
                     </SelectTrigger>
                     <SelectContent>
                       {plans.map((p) => (
@@ -939,67 +789,59 @@ const Bookings_Page = () => {
                 {selectedPlan && (
                   <div className="space-y-2">
                     <Label>Duration *</Label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(
-                        [
-                          {
-                            key: "monthly",
-                            label: "Monthly",
-                            price: selectedPlan.price,
-                            baseline: selectedPlan.price,
-                            months: 1,
-                          },
-                          {
-                            key: "yearly",
-                            label: "1 Year",
-                            price: selectedPlan.yearlyPrice || 0,
-                            baseline: selectedPlan.price * 12,
-                            months: 12,
-                          },
-                          {
-                            key: "longTerm",
-                            label: "15 Years",
-                            price: selectedPlan.longTermPrice || 0,
-                            baseline: selectedPlan.price * 180,
-                            months: 180,
-                          },
-                        ] as const
-                      ).map((d) => {
-                        const save =
-                          d.baseline > 0 && d.price > 0
-                            ? Math.max(0, d.baseline - d.price)
-                            : 0;
-                        const pct =
-                          d.baseline > 0 && save > 0
-                            ? Math.round((save / d.baseline) * 100)
-                            : 0;
-                        return (
-                          <button
-                            key={d.key}
-                            type="button"
-                            onClick={() => setBookDuration(d.key)}
-                            disabled={!d.price}
-                            className={cn(
-                              "relative rounded-lg border p-3 text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
-                              bookDuration === d.key
-                                ? "border-primary bg-primary/10"
-                                : "border-border bg-muted/30 hover:bg-muted/50",
-                            )}
-                          >
-                            {pct > 0 && (
-                              <span className="absolute -top-2 -right-2 text-[9px] font-bold bg-success text-white px-1.5 py-0.5 rounded-full shadow-md">
-                                -{pct}%
-                              </span>
-                            )}
-                            <p className="text-xs text-muted-foreground">
-                              {d.label}
-                            </p>
-                            <p className="text-sm font-bold font-display mt-1">
-                              NPR {Number(d.price || 0).toLocaleString()}
-                            </p>
-                          </button>
-                        );
-                      })}
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">Select Booking Duration</label>
+                      <Select
+                        value={bookDuration}
+                        onValueChange={(val) => setBookDuration(val as "monthly" | "yearly" | "longTerm")}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Choose package duration" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(
+                            [
+                              {
+                                key: "monthly",
+                                label: "Monthly",
+                                price: selectedPlan.price,
+                                baseline: selectedPlan.price,
+                              },
+                              {
+                                key: "yearly",
+                                label: "1 Year",
+                                price: selectedPlan.yearlyPrice || 0,
+                                baseline: selectedPlan.price * 12,
+                              },
+                              {
+                                key: "longTerm",
+                                label: "15 Years",
+                                price: selectedPlan.longTermPrice || 0,
+                                baseline: selectedPlan.price * 180,
+                              },
+                            ] as const
+                          ).map((d) => {
+                            const save = d.baseline > 0 && d.price > 0 ? Math.max(0, d.baseline - d.price) : 0;
+                            const pct = d.baseline > 0 && save > 0 ? Math.round((save / d.baseline) * 100) : 0;
+
+                            return (
+                              <SelectItem key={d.key} value={d.key} disabled={!d.price}>
+                                <div className="flex items-center justify-between w-full gap-4">
+                                  <span>{d.label}</span>
+                                  <span className="font-semibold text-muted-foreground">
+                                    NPR {Number(d.price || 0).toLocaleString()}
+                                    {pct > 0 && (
+                                      <span className="ml-2 text-[10px] bg-success/20 text-success font-bold px-1.5 py-0.5 rounded">
+                                        -{pct}%
+                                      </span>
+                                    )}
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 )}
@@ -1027,11 +869,7 @@ const Bookings_Page = () => {
                   >
                     <SelectTrigger>
                       <SelectValue
-                        placeholder={
-                          outletServices.length === 0
-                            ? "No services for this outlet"
-                            : "Select service"
-                        }
+                        placeholder={outletServices.length === 0 ? "No services for this outlet" : "Select service"}
                       />
                     </SelectTrigger>
                     <SelectContent>
@@ -1049,30 +887,18 @@ const Bookings_Page = () => {
                   <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2 text-sm">
                     <div className="grid grid-cols-3 gap-2">
                       <div>
-                        <span className="text-muted-foreground text-xs block">
-                          Duration
-                        </span>
+                        <span className="text-muted-foreground text-xs block">Duration</span>
+                        <span className="font-medium">{selectedService.duration || 0} min</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground text-xs block">Instructor</span>
                         <span className="font-medium">
-                          {selectedService.duration || 0} min
+                          {selectedService.requiresInstructor ? selectedService.instructor || "—" : "Not required"}
                         </span>
                       </div>
                       <div>
-                        <span className="text-muted-foreground text-xs block">
-                          Instructor
-                        </span>
-                        <span className="font-medium">
-                          {selectedService.requiresInstructor
-                            ? selectedService.instructor || "—"
-                            : "Not required"}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground text-xs block">
-                          Standard Rate
-                        </span>
-                        <span className="font-medium">
-                          NPR {selectedService.price || 0}
-                        </span>
+                        <span className="text-muted-foreground text-xs block">Standard Rate</span>
+                        <span className="font-medium">NPR {selectedService.price || 0}</span>
                       </div>
                     </div>
                     <div className="flex items-center justify-between rounded-md border border-border/60 bg-background/50 px-3 py-2">
@@ -1087,9 +913,7 @@ const Bookings_Page = () => {
                     </div>
                     {useDiscountedRate && (
                       <div className="space-y-1.5">
-                        <Label className="text-xs">
-                          Discounted Rate (NPR, VAT incl.)
-                        </Label>
+                        <Label className="text-xs">Discounted Rate (NPR, VAT incl.)</Label>
                         <Input
                           type="number"
                           min={0}
@@ -1106,29 +930,19 @@ const Bookings_Page = () => {
                 <div
                   className={cn(
                     "grid gap-3",
-                    selectedService?.requiresInstructor
-                      ? "grid-cols-1 sm:grid-cols-3"
-                      : "grid-cols-1 sm:grid-cols-2",
+                    selectedService?.requiresInstructor ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2",
                   )}
                 >
                   <div className="space-y-2">
                     <Label>Date *</Label>
-                    <Input
-                      type="date"
-                      value={bookDate}
-                      onChange={(e) => setBookDate(e.target.value)}
-                    />
+                    <Input type="date" value={bookDate} onChange={(e) => setBookDate(e.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <Label>Time Slot *</Label>
                     <div className="flex gap-2">
                       <Input
                         readOnly
-                        value={
-                          bookStartTime && bookEndTime
-                            ? `${bookStartTime} - ${bookEndTime}`
-                            : bookStartTime || ""
-                        }
+                        value={bookStartTime && bookEndTime ? `${bookStartTime} - ${bookEndTime}` : bookStartTime || ""}
                         placeholder="Use 24h to pick a slot"
                         className="bg-muted/30 cursor-default"
                       />
@@ -1147,10 +961,7 @@ const Bookings_Page = () => {
                   {selectedService?.requiresInstructor && (
                     <div className="space-y-2">
                       <Label>Instructor *</Label>
-                      <Select
-                        value={bookInstructor}
-                        onValueChange={setBookInstructor}
-                      >
+                      <Select value={bookInstructor} onValueChange={setBookInstructor}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select instructor" />
                         </SelectTrigger>
@@ -1168,10 +979,7 @@ const Bookings_Page = () => {
 
                 <div className="space-y-2">
                   <Label>Booking Status *</Label>
-                  <Select
-                    value={bookStatus}
-                    onValueChange={(v) => setBookStatus(v as typeof bookStatus)}
-                  >
+                  <Select value={bookStatus} onValueChange={(v) => setBookStatus(v as typeof bookStatus)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
@@ -1185,10 +993,7 @@ const Bookings_Page = () => {
 
                 <Button
                   onClick={handleBook}
-                  disabled={
-                    addBookingMutation.isPending ||
-                    updateBookingMutation.isPending
-                  }
+                  disabled={addBookingMutation.isPending || updateBookingMutation.isPending}
                   className="w-full gradient-gold text-primary-foreground"
                 >
                   {editingBookingId
@@ -1262,9 +1067,7 @@ const Bookings_Page = () => {
             toZonedTime(new Date(b.date || dStr), SYSTEM_TZ),
             toZonedTime(new Date(), SYSTEM_TZ),
           );
-          const targetStatus = targetIsToday
-            ? "Pending"
-            : b.status || b.bookingStatus || "Confirmed";
+          const targetStatus = targetIsToday ? "Pending" : b.status || b.bookingStatus || "Confirmed";
 
           try {
             // 4. Fire the hook with the clean nested payload layout
@@ -1311,30 +1114,19 @@ const Bookings_Page = () => {
       ) : view === "calendar" ? (
         <div className="glass-card rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-            >
+            <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <h2 className="text-lg font-semibold font-display">
               {formatInTimeZone(currentMonth, SYSTEM_TZ, "MMMM yyyy")}
             </h2>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-            >
+            <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
           <div className="grid grid-cols-7 gap-px mb-1">
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-              <div
-                key={d}
-                className="text-center text-xs font-medium text-muted-foreground py-2"
-              >
+              <div key={d} className="text-center text-xs font-medium text-muted-foreground py-2">
                 {d}
               </div>
             ))}
@@ -1343,10 +1135,7 @@ const Bookings_Page = () => {
             {days.map((day) => {
               const dayBookings = getBookingsForDay(day);
               const isCurrentMonth = day.getMonth() === currentMonth.getMonth();
-              const dayIsToday = isSameDay(
-                day,
-                toZonedTime(new Date(), SYSTEM_TZ),
-              );
+              const dayIsToday = isSameDay(day, toZonedTime(new Date(), SYSTEM_TZ));
               return (
                 <Tooltip key={day.toISOString()}>
                   <TooltipTrigger asChild>
@@ -1381,13 +1170,10 @@ const Bookings_Page = () => {
                   {dayBookings.length > 0 && (
                     <TooltipContent side="right" className="max-w-[220px]">
                       <p className="font-semibold text-xs mb-1">
-                        {formatInTimeZone(day, SYSTEM_TZ, "MMM d, yyyy")} ·{" "}
-                        {dayBookings.length} booking
+                        {formatInTimeZone(day, SYSTEM_TZ, "MMM d, yyyy")} · {dayBookings.length} booking
                         {dayBookings.length === 1 ? "" : "s"}
                       </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        Click the day to view the full schedule.
-                      </p>
+                      <p className="text-[11px] text-muted-foreground">Click the day to view the full schedule.</p>
                     </TooltipContent>
                   )}
                 </Tooltip>
@@ -1411,18 +1197,11 @@ const Bookings_Page = () => {
               </TableHeader>
               <TableBody>
                 {pagedList.map((b) => {
-                  const displayStatus =
-                    b.status || b.bookingStatus || "Confirmed";
+                  const displayStatus = b.status || b.bookingStatus || "Confirmed";
                   return (
-                    <TableRow
-                      key={b.id}
-                      className="cursor-pointer"
-                      onClick={() => handleBookingClick(b)}
-                    >
+                    <TableRow key={b.id} className="cursor-pointer" onClick={() => handleBookingClick(b)}>
                       <TableCell className="text-sm">{b.date}</TableCell>
-                      <TableCell className="text-sm font-medium">
-                        {b.memberName}
-                      </TableCell>
+                      <TableCell className="text-sm font-medium">{b.memberName}</TableCell>
                       <TableCell className="text-sm">{b.className}</TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="text-[10px]">
