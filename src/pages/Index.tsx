@@ -96,7 +96,7 @@ const Dashboard = () => {
     months.forEach((m) => (monthMap[m] = 0));
     transactions.forEach((t) => {
       if (t.date) {
-        const month = new Date(t.date).toLocaleString("en", { month: "short" });
+        const month = formatMonthShort(t.date);
         monthMap[month] = (monthMap[month] || 0) + t.total;
       }
     });

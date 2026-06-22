@@ -97,7 +97,7 @@ export function PremiumReportFrame({
         tr:nth-child(even) td { background: #f8fafc; }
         </style></head><body>
         <h1>${title}</h1>
-        <div class="meta">${propertyName || ""} · Generated ${new Date().toLocaleString()}</div>
+        <div class="meta">${propertyName || ""} · Generated ${formatDateTime(nowIso())}</div>
         <table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table>
         </body></html>`;
     const w = window.open("", "_blank", "width=900,height=700");

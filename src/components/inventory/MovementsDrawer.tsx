@@ -2,6 +2,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useItemMovements, useInventoryItems } from "@/hooks/use-inventory";
+import { formatDateTime } from "@/lib/tz";
 
 interface Props { itemId: string | null; onClose: () => void; }
 
@@ -46,7 +47,7 @@ export function MovementsDrawer({ itemId, onClose }: Props) {
               <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">No movements yet</TableCell></TableRow>
             ) : rows.map((m) => (
               <TableRow key={m.id}>
-                <TableCell className="text-xs">{new Date(m.createdAt).toLocaleString()}</TableCell>
+                <TableCell className="text-xs">{formatDateTime(m.createdAt)}</TableCell>
                 <TableCell>
                   <Badge variant={m.type === "issue" ? "destructive" : m.type === "purchase" ? "default" : "secondary"} className="capitalize">{m.type}</Badge>
                 </TableCell>

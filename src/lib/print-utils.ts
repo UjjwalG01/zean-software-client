@@ -285,7 +285,7 @@ export function exportTableToCSV(headers: string[], rows: string[][], filename: 
     if (meta.propertyName) lines.push(csvEscape(meta.propertyName));
     if (meta.reportTitle) lines.push(csvEscape(meta.reportTitle));
     if (meta.dateRange) lines.push(csvEscape(`Date: ${meta.dateRange}`));
-    lines.push(csvEscape(`Generated: ${meta.generatedAt || new Date().toLocaleString()}`));
+    lines.push(csvEscape(`Generated: ${meta.generatedAt || formatDateTime(nowIso())}`));
     if (meta.filters && Object.keys(meta.filters).length > 0) {
       lines.push(csvEscape("Filters:"));
       Object.entries(meta.filters).forEach(([k, v]) => {
@@ -335,7 +335,7 @@ export function generateReceiptHTML(
     guestName: t.memberName,
     billNo: t.receiptNo,
     billDate: t.date,
-    billForMonth: new Date(t.date).toLocaleString("en", { month: "long", year: "numeric" }),
+    billForMonth: formatInTz(t.date, { month: "long", year: "numeric" }),
     items: [{ description: t.description, quantity: 1, rate: t.amount, amount: t.amount }],
     subtotal: t.amount,
     taxableAmount: t.amount,
@@ -366,7 +366,7 @@ td { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; }
 tr:nth-child(even) td { background: #f8fafc; }
 </style></head><body>
 <h1>${title}</h1>
-<div class="meta">${propertyName || ""} · Generated ${new Date().toLocaleString()}</div>
+<div class="meta">${propertyName || ""} · Generated ${formatDateTime(nowIso())}</div>
 <table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table>
 </body></html>`;
   const w = window.open("", "_blank", "width=900,height=700");
