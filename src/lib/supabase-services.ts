@@ -909,92 +909,241 @@ export async function deleteService(id: string): Promise<void> {
   if (error) throwDb(error, "services");
 }
 
+// ─── Plan Durations (reusable lookup) ───────────────────────────────
+export interface PlanDuration {
+  id: string;
+  months: number;
+  name: string;
+  sortOrder: number;
+  active: boolean;
+}
+
+function mapDurationRow(r: any): PlanDuration {
+  return {
+    id: r.id,
+    months: Number(r.months || 0),
+    name: r.name || "",
+    sortOrder: Number(r.sort_order || 0),
+    active: r.active !== false,
+  };
+}
+
+export async function getPlanDurations(): Promise<PlanDuration[]> {
+  const { data, error } = await supabase
+    .from("plan_durations")
+    .select("*")
+    .order("sort_order", { ascending: true })
+    .order("months", { ascending: true });
+  if (error) {
+    console.warn("[plan_durations] read failed:", error.message);
+    return [];
+  }
+  return (data || []).map(mapDurationRow);
+}
+
+export async function addPlanDuration(data: Partial<PlanDuration>): Promise<string> {
+  const { data: row, error } = await supabase
+    .from("plan_durations")
+    .insert({
+      months: Number(data.months || 1),
+      name: data.name || `${data.months} months`,
+      sort_order: Number(data.sortOrder || 0),
+      active: data.active !== false,
+    })
+    .select("id")
+    .single();
+  if (error) throwDb(error, "plan_durations");
+  return row.id;
+}
+
+export async function updatePlanDuration(id: string, data: Partial<PlanDuration>): Promise<void> {
+  const patch: Record<string, any> = {};
+  if (data.months !== undefined) patch.months = Number(data.months);
+  if (data.name !== undefined) patch.name = data.name;
+  if (data.sortOrder !== undefined) patch.sort_order = Number(data.sortOrder);
+  if (data.active !== undefined) patch.active = data.active;
+  const { error } = await supabase.from("plan_durations").update(patch).eq("id", id);
+  if (error) throwDb(error, "plan_durations");
+}
+
+export async function deletePlanDuration(id: string): Promise<void> {
+  const { error } = await supabase.from("plan_durations").delete().eq("id", id);
+  if (error) throwDb(error, "plan_durations");
+}
+
 // ─── Membership Plans ───────────────────────────────────────────────
+export interface MembershipPlanPrice {
+  durationId: string;
+  months: number;
+  name: string;
+  price: number;
+}
+
 export interface FirestoreMembershipPlan {
   id: string;
   name: string;
   tier: string;
+  durationMonths: number;
+  includedServices: string[];
+  autoRenew: boolean;
+  autoDiscount: boolean;
+  prices: MembershipPlanPrice[];
+  // Legacy mirrors kept so older screens still read a value.
   price: number;
   yearlyPrice?: number;
   longTermPrice?: number;
-  durationInMonths?: number;
-  membershipTypeId?: string;
   includes?: string;
-  autoRenew?: boolean;
+  durationInMonths?: number;
 }
 
-function mapPlanRow(r: any): FirestoreMembershipPlan {
+function mapPlanRow(r: any, durations: PlanDuration[]): FirestoreMembershipPlan {
+  // Legacy JSON metadata fallback (older rows store extras in description as JSON).
   const meta = (() => {
     try {
-      return r.description?.startsWith("{") ? JSON.parse(r.description) : {};
+      return typeof r.description === "string" && r.description.startsWith("{")
+        ? JSON.parse(r.description)
+        : {};
     } catch {
       return {};
     }
   })();
+
+  const includedFromCol: string[] = Array.isArray(r.included_services) ? r.included_services : [];
+  const legacyIncludes: string = meta.includes || (typeof r.description === "string" && !r.description.startsWith("{") ? r.description : "") || r.includes || "";
+  const includedServices = includedFromCol.length > 0
+    ? includedFromCol
+    : legacyIncludes
+      ? legacyIncludes.split(/[+,]/).map((s: string) => s.trim()).filter(Boolean)
+      : [];
+
+  const priceRows: any[] = Array.isArray(r.membership_plan_prices) ? r.membership_plan_prices : [];
+  const prices: MembershipPlanPrice[] = priceRows
+    .map((pr) => {
+      const d = durations.find((x) => x.id === pr.duration_id);
+      return {
+        durationId: pr.duration_id,
+        months: d?.months || 0,
+        name: d?.name || "",
+        price: Number(pr.price || 0),
+      };
+    })
+    .sort((a, b) => a.months - b.months);
+
+  const durationMonths = Number(r.duration_months ?? Math.round(Number(r.duration_days || 30) / 30));
+  const headlinePrice = prices.length > 0 ? prices[0].price : Number(r.price || 0);
+
   return {
     id: r.id,
     name: r.name || "",
     tier: r.tier || "Basic",
-    price: Number(r.price || 0),
-    yearlyPrice: Number(meta.yearlyPrice || 0),
-    longTermPrice: Number(meta.longTermPrice || 0),
-    durationInMonths: Math.round(Number(r.duration_days || 30) / 30),
-    membershipTypeId: meta.membershipTypeId || "",
-    includes: meta.includes || r.description || "",
-    autoRenew: Boolean(meta.autoRenew || false),
+    durationMonths,
+    includedServices,
+    autoRenew: Boolean(r.auto_renew ?? meta.autoRenew ?? false),
+    autoDiscount: Boolean(r.auto_discount ?? meta.autoDiscount ?? false),
+    prices,
+    // Legacy mirrors
+    price: headlinePrice,
+    yearlyPrice: Number(r.yearly_price || meta.yearlyPrice || 0),
+    longTermPrice: Number(r.long_term_price || meta.longTermPrice || 0),
+    includes: includedServices.join(" + "),
+    durationInMonths: durationMonths,
   };
 }
 
 export async function getMembershipPlans(): Promise<FirestoreMembershipPlan[]> {
-  const { data, error } = await supabase.from("membership_plans").select("*").order("price", { ascending: true });
+  const durations = await getPlanDurations();
+  const { data, error } = await supabase
+    .from("membership_plans")
+    .select("*, membership_plan_prices(*)")
+    .order("price", { ascending: true });
   if (error) {
     console.warn("[membership_plans] read failed:", error.message);
     return [];
   }
-  return (data || []).map(mapPlanRow);
+  return (data || []).map((r) => mapPlanRow(r, durations));
+}
+
+async function syncPlanPrices(planId: string, prices: MembershipPlanPrice[] | undefined): Promise<void> {
+  if (!Array.isArray(prices)) return;
+  const { data: existing } = await supabase
+    .from("membership_plan_prices")
+    .select("id, duration_id")
+    .eq("plan_id", planId);
+  const existingByDuration = new Map<string, string>();
+  (existing || []).forEach((row: any) => existingByDuration.set(row.duration_id, row.id));
+
+  const keepDurationIds = new Set<string>();
+  for (const p of prices) {
+    if (!p.durationId) continue;
+    keepDurationIds.add(p.durationId);
+    const existingId = existingByDuration.get(p.durationId);
+    if (existingId) {
+      await supabase
+        .from("membership_plan_prices")
+        .update({ price: Number(p.price || 0) })
+        .eq("id", existingId);
+    } else {
+      await supabase
+        .from("membership_plan_prices")
+        .insert({ plan_id: planId, duration_id: p.durationId, price: Number(p.price || 0) });
+    }
+  }
+  // Delete rows that are no longer in the payload.
+  const toDelete = (existing || []).filter((row: any) => !keepDurationIds.has(row.duration_id));
+  if (toDelete.length > 0) {
+    await supabase
+      .from("membership_plan_prices")
+      .delete()
+      .in("id", toDelete.map((r: any) => r.id));
+  }
 }
 
 export async function addMembershipPlan(data: Partial<FirestoreMembershipPlan>): Promise<string> {
+  const headline = (data.prices && data.prices[0]?.price) || data.price || 0;
+  const durationMonths = data.durationMonths || data.durationInMonths || 1;
   const { data: row, error } = await supabase
     .from("membership_plans")
     .insert({
       name: data.name || data.tier || "Plan",
       tier: data.tier || "Basic",
-      price: data.price || 0,
-      duration_days: (data.durationInMonths || 1) * 30,
+      price: headline,
+      duration_days: durationMonths * 30,
+      duration_months: durationMonths,
+      included_services: data.includedServices || [],
+      auto_renew: !!data.autoRenew,
+      auto_discount: !!data.autoDiscount,
       active: true,
-      description: JSON.stringify({
-        yearlyPrice: data.yearlyPrice || 0,
-        longTermPrice: data.longTermPrice || 0,
-        includes: data.includes || "",
-        autoRenew: data.autoRenew || false,
-        membershipTypeId: data.membershipTypeId || "",
-      }),
     })
     .select("id")
     .single();
   if (error) throwDb(error, "membership_plans");
+  await syncPlanPrices(row.id, data.prices);
   return row.id;
 }
 
 export async function updateMembershipPlan(id: string, data: Partial<Record<string, any>>): Promise<void> {
-  const current = (await getMembershipPlans()).find((p) => p.id === id);
   const patch: Record<string, any> = {};
   if (data.name !== undefined) patch.name = data.name;
   if (data.tier !== undefined) patch.tier = data.tier;
-  if (data.price !== undefined) patch.price = data.price;
-  if (data.durationInMonths !== undefined) patch.duration_days = data.durationInMonths * 30;
-  const meta = {
-    yearlyPrice: current?.yearlyPrice || 0,
-    longTermPrice: current?.longTermPrice || 0,
-    includes: current?.includes || "",
-    autoRenew: current?.autoRenew || false,
-    membershipTypeId: current?.membershipTypeId || "",
-    ...data,
-  };
-  patch.description = JSON.stringify(meta);
-  const { error } = await supabase.from("membership_plans").update(patch).eq("id", id);
-  if (error) throwDb(error, "membership_plans");
+  if (data.durationMonths !== undefined) {
+    patch.duration_months = Number(data.durationMonths);
+    patch.duration_days = Number(data.durationMonths) * 30;
+  }
+  if (data.includedServices !== undefined) patch.included_services = data.includedServices;
+  if (data.autoRenew !== undefined) patch.auto_renew = !!data.autoRenew;
+  if (data.autoDiscount !== undefined) patch.auto_discount = !!data.autoDiscount;
+  if (Array.isArray(data.prices) && data.prices.length > 0) {
+    patch.price = Number(data.prices[0].price || 0);
+  } else if (data.price !== undefined) {
+    patch.price = Number(data.price);
+  }
+  if (Object.keys(patch).length > 0) {
+    const { error } = await supabase.from("membership_plans").update(patch).eq("id", id);
+    if (error) throwDb(error, "membership_plans");
+  }
+  if (data.prices !== undefined) {
+    await syncPlanPrices(id, data.prices);
+  }
 }
 
 export async function deleteMembershipPlan(id: string): Promise<void> {
