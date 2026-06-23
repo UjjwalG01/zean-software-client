@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Plus,
   Edit,
@@ -7,6 +7,8 @@ import {
   Save,
   Percent,
   Building2,
+  X,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +41,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { TierBadge } from "@/components/TierBadge";
 import { formatNPR } from "@/lib/mock-data";
+import { formatMonths } from "@/lib/duration";
 import {
   useMembershipPlans,
   useAddMembershipPlan,
@@ -50,6 +53,10 @@ import {
   useDeleteService,
   useDiscountRules,
   useSaveDiscountRules,
+  usePlanDurations,
+  useAddPlanDuration,
+  useUpdatePlanDuration,
+  useDeletePlanDuration,
 } from "@/hooks/use-firestore";
 import { useOutlet } from "@/contexts/OutletContext";
 import { useQuery } from "@tanstack/react-query";
