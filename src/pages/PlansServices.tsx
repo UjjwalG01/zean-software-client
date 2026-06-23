@@ -165,13 +165,22 @@ const PlansServices = () => {
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
   const [editPlanId, setEditPlanId] = useState<string | null>(null);
   const [editServiceId, setEditServiceId] = useState<string | null>(null);
-  const [newPlan, setNewPlan] = useState({
+  const emptyPlan = {
+    name: "",
     tier: "Basic",
-    monthly: "",
-    yearly: "",
-    longTerm: "",
-    includes: "",
-  });
+    durationMonths: "1",
+    includedServices: [] as string[],
+    autoRenew: false,
+    autoDiscount: false,
+    prices: [] as { durationId: string; price: string }[],
+  };
+  const [newPlan, setNewPlan] = useState(emptyPlan);
+  const [includeInput, setIncludeInput] = useState("");
+
+  // Plan-duration setup state
+  const [durationDialogOpen, setDurationDialogOpen] = useState(false);
+  const [editDurationId, setEditDurationId] = useState<string | null>(null);
+  const [durationDraft, setDurationDraft] = useState({ months: "", name: "" });
   const [newService, setNewService] = useState({
     name: "",
     outletId: "",
@@ -203,8 +212,12 @@ const PlansServices = () => {
   const updateServiceMutation = useUpdateService();
   const deleteServiceMutation = useDeleteService();
   const saveDiscountsMutation = useSaveDiscountRules();
+  const { data: planDurations = [], isLoading: durationsLoading } = usePlanDurations();
+  const addDurationMutation = useAddPlanDuration();
+  const updateDurationMutation = useUpdatePlanDuration();
+  const deleteDurationMutation = useDeletePlanDuration();
 
-  const plans = firestorePlans.length > 0 ? firestorePlans : fallbackPlans;
+  const plans = firestorePlans.length > 0 ? firestorePlans : (fallbackPlans as any);
   const services =
     firestoreServices.length > 0 ? firestoreServices : fallbackServices;
 
