@@ -150,6 +150,7 @@ const Bookings_Page = () => {
   const { data: members = [] } = useMembers();
   const { data: services = [] } = useServices();
   const { data: plans = [] } = useMembershipPlans();
+  const { data: planDurations = [] } = usePlanDurations();
   const { data: settings = {} } = useCompanySettings();
   const addBookingMutation = useAddBooking();
   const updateMemberMutation = useUpdateMember();
@@ -465,16 +466,47 @@ const Bookings_Page = () => {
 
   const selectedPlan = useMemo(() => plans.find((p) => p.id === bookPlanId) || null, [plans, bookPlanId]);
 
-  const membershipAmount = useMemo(() => {
-    if (!selectedPlan) return 0;
-    if (bookDuration === "yearly") return Number(selectedPlan.yearlyPrice || 0);
-    if (bookDuration === "longTerm") return Number(selectedPlan.longTermPrice || 0);
-    return Number(selectedPlan.price || 0);
-  }, [selectedPlan, bookDuration]);
+  const planPriceOptions = useMemo(() => {
+    if (!selectedPlan || !Array.isArray((selectedPlan as any).prices)) return [];
+    return (selectedPlan as any).prices
+      .map((pr: any) => {
+        const d = planDurations.find((x) => x.id === pr.durationId);
+        return {
+          durationId: pr.durationId,
+          months: d?.months ?? pr.months ?? 0,
+          name: d?.name || pr.name || "",
+          price: Number(pr.price || 0),
+        };
+      })
+      .filter((p: any) => p.durationId && p.price > 0)
+      .sort((a: any, b: any) => a.months - b.months);
+  }, [selectedPlan, planDurations]);
+
+  const selectedDuration = useMemo(
+    () => planPriceOptions.find((p: any) => p.durationId === bookDurationId) || null,
+    [planPriceOptions, bookDurationId],
+  );
+
+  const membershipAmount = selectedDuration ? selectedDuration.price : 0;
+
+  // Auto-select first available duration when plan changes
+  useEffect(() => {
+    if (!selectedPlan) {
+      setBookDurationId("");
+      return;
+    }
+    if (!bookDurationId || !planPriceOptions.find((p: any) => p.durationId === bookDurationId)) {
+      setBookDurationId(planPriceOptions[0]?.durationId || "");
+    }
+  }, [selectedPlan, planPriceOptions, bookDurationId]);
 
   const handleEnrollMembership = async () => {
     if (!bookMember || !selectedPlan) {
       toast.error("Select a member and a membership plan");
+      return;
+    }
+    if (!selectedDuration) {
+      toast.error("Select a duration");
       return;
     }
     if (membershipAmount <= 0) {
@@ -484,10 +516,8 @@ const Bookings_Page = () => {
     const memberObj = members.find((m) => m.id === bookMember);
     const today = toZonedTime(new Date(), SYSTEM_TZ);
     const expiry = new Date(today);
-    if (bookDuration === "monthly") expiry.setMonth(expiry.getMonth() + 1);
-    if (bookDuration === "yearly") expiry.setFullYear(expiry.getFullYear() + 1);
-    if (bookDuration === "longTerm") expiry.setFullYear(expiry.getFullYear() + 15);
-    const durationLabel = bookDuration === "monthly" ? "Monthly" : bookDuration === "yearly" ? "Yearly" : "15-Year";
+    expiry.setMonth(expiry.getMonth() + (selectedDuration.months || 1));
+    const durationLabel = selectedDuration.name || formatMonths(selectedDuration.months || 1);
     try {
       await updateMemberMutation.mutateAsync({
         id: bookMember,
@@ -513,7 +543,7 @@ const Bookings_Page = () => {
       setBookMember("");
       setMemberSearch("");
       setBookPlanId("");
-      setBookDuration("monthly");
+      setBookDurationId("");
       navigate(`/transactions?${params.toString()}`);
     } catch {
       toast.error("Failed to enroll membership");
