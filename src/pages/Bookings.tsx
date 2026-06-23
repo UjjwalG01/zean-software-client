@@ -37,9 +37,11 @@ import {
   useServices,
   useCompanySettings,
   useMembershipPlans,
+  usePlanDurations,
   useUpdateMember,
   useAddTransaction,
 } from "@/hooks/use-firestore";
+import { formatMonths } from "@/lib/duration";
 import { useOutlet } from "@/contexts/OutletContext";
 import { Building2, ChevronDown } from "lucide-react";
 import type { Booking, ServiceType } from "@/lib/mock-data";
@@ -133,7 +135,7 @@ const Bookings_Page = () => {
   const [bookInstructor, setBookInstructor] = useState("");
 
   const [bookPlanId, setBookPlanId] = useState("");
-  const [bookDuration, setBookDuration] = useState<"monthly" | "yearly" | "longTerm">("monthly");
+  const [bookDurationId, setBookDurationId] = useState<string>("");
   const [useDiscountedRate, setUseDiscountedRate] = useState(false);
   const [discountedRate, setDiscountedRate] = useState<string>("");
   const [timelineOpen, setTimelineOpen] = useState(false);
