@@ -506,6 +506,50 @@ export function useDeleteMembershipPlan() {
   });
 }
 
+// ─── Plan Durations ─────────────────────────────────────────────────
+export function usePlanDurations() {
+  return useQuery({
+    queryKey: ["planDurations"],
+    queryFn: async () => {
+      if (!isSupabaseEnabled) return [];
+      return fbServices.getPlanDurations();
+    },
+  });
+}
+
+export function useAddPlanDuration() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: Partial<fbServices.PlanDuration>) => {
+      if (!isSupabaseEnabled) return "mock";
+      return fbServices.addPlanDuration(data);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["planDurations"] }),
+  });
+}
+
+export function useUpdatePlanDuration() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<fbServices.PlanDuration> }) => {
+      if (!isSupabaseEnabled) return;
+      return fbServices.updatePlanDuration(id, data);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["planDurations"] }),
+  });
+}
+
+export function useDeletePlanDuration() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!isSupabaseEnabled) return;
+      return fbServices.deletePlanDuration(id);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["planDurations"] }),
+  });
+}
+
 // ─── Company Settings ───────────────────────────────────────────────
 export function useCompanySettings() {
   return useQuery({

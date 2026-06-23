@@ -37,9 +37,11 @@ import {
   useServices,
   useCompanySettings,
   useMembershipPlans,
+  usePlanDurations,
   useUpdateMember,
   useAddTransaction,
 } from "@/hooks/use-firestore";
+import { formatMonths } from "@/lib/duration";
 import { useOutlet } from "@/contexts/OutletContext";
 import { Building2, ChevronDown } from "lucide-react";
 import type { Booking, ServiceType } from "@/lib/mock-data";
@@ -133,7 +135,7 @@ const Bookings_Page = () => {
   const [bookInstructor, setBookInstructor] = useState("");
 
   const [bookPlanId, setBookPlanId] = useState("");
-  const [bookDuration, setBookDuration] = useState<"monthly" | "yearly" | "longTerm">("monthly");
+  const [bookDurationId, setBookDurationId] = useState<string>("");
   const [useDiscountedRate, setUseDiscountedRate] = useState(false);
   const [discountedRate, setDiscountedRate] = useState<string>("");
   const [timelineOpen, setTimelineOpen] = useState(false);
@@ -148,6 +150,7 @@ const Bookings_Page = () => {
   const { data: members = [] } = useMembers();
   const { data: services = [] } = useServices();
   const { data: plans = [] } = useMembershipPlans();
+  const { data: planDurations = [] } = usePlanDurations();
   const { data: settings = {} } = useCompanySettings();
   const addBookingMutation = useAddBooking();
   const updateMemberMutation = useUpdateMember();
@@ -463,16 +466,47 @@ const Bookings_Page = () => {
 
   const selectedPlan = useMemo(() => plans.find((p) => p.id === bookPlanId) || null, [plans, bookPlanId]);
 
-  const membershipAmount = useMemo(() => {
-    if (!selectedPlan) return 0;
-    if (bookDuration === "yearly") return Number(selectedPlan.yearlyPrice || 0);
-    if (bookDuration === "longTerm") return Number(selectedPlan.longTermPrice || 0);
-    return Number(selectedPlan.price || 0);
-  }, [selectedPlan, bookDuration]);
+  const planPriceOptions = useMemo(() => {
+    if (!selectedPlan || !Array.isArray((selectedPlan as any).prices)) return [];
+    return (selectedPlan as any).prices
+      .map((pr: any) => {
+        const d = planDurations.find((x) => x.id === pr.durationId);
+        return {
+          durationId: pr.durationId,
+          months: d?.months ?? pr.months ?? 0,
+          name: d?.name || pr.name || "",
+          price: Number(pr.price || 0),
+        };
+      })
+      .filter((p: any) => p.durationId && p.price > 0)
+      .sort((a: any, b: any) => a.months - b.months);
+  }, [selectedPlan, planDurations]);
+
+  const selectedDuration = useMemo(
+    () => planPriceOptions.find((p: any) => p.durationId === bookDurationId) || null,
+    [planPriceOptions, bookDurationId],
+  );
+
+  const membershipAmount = selectedDuration ? selectedDuration.price : 0;
+
+  // Auto-select first available duration when plan changes
+  useEffect(() => {
+    if (!selectedPlan) {
+      setBookDurationId("");
+      return;
+    }
+    if (!bookDurationId || !planPriceOptions.find((p: any) => p.durationId === bookDurationId)) {
+      setBookDurationId(planPriceOptions[0]?.durationId || "");
+    }
+  }, [selectedPlan, planPriceOptions, bookDurationId]);
 
   const handleEnrollMembership = async () => {
     if (!bookMember || !selectedPlan) {
       toast.error("Select a member and a membership plan");
+      return;
+    }
+    if (!selectedDuration) {
+      toast.error("Select a duration");
       return;
     }
     if (membershipAmount <= 0) {
@@ -482,10 +516,8 @@ const Bookings_Page = () => {
     const memberObj = members.find((m) => m.id === bookMember);
     const today = toZonedTime(new Date(), SYSTEM_TZ);
     const expiry = new Date(today);
-    if (bookDuration === "monthly") expiry.setMonth(expiry.getMonth() + 1);
-    if (bookDuration === "yearly") expiry.setFullYear(expiry.getFullYear() + 1);
-    if (bookDuration === "longTerm") expiry.setFullYear(expiry.getFullYear() + 15);
-    const durationLabel = bookDuration === "monthly" ? "Monthly" : bookDuration === "yearly" ? "Yearly" : "15-Year";
+    expiry.setMonth(expiry.getMonth() + (selectedDuration.months || 1));
+    const durationLabel = selectedDuration.name || formatMonths(selectedDuration.months || 1);
     try {
       await updateMemberMutation.mutateAsync({
         id: bookMember,
@@ -511,7 +543,7 @@ const Bookings_Page = () => {
       setBookMember("");
       setMemberSearch("");
       setBookPlanId("");
-      setBookDuration("monthly");
+      setBookDurationId("");
       navigate(`/transactions?${params.toString()}`);
     } catch {
       toast.error("Failed to enroll membership");
@@ -777,9 +809,9 @@ const Bookings_Page = () => {
                       <SelectValue placeholder={plans.length === 0 ? "No plans configured" : "Select plan"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {plans.map((p) => (
+                      {plans.map((p: any) => (
                         <SelectItem key={p.id} value={p.id}>
-                          {p.tier} — {p.includes || p.name}
+                          {p.tier} — {p.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -788,63 +820,90 @@ const Bookings_Page = () => {
 
                 {selectedPlan && (
                   <div className="space-y-2">
-                    <Label>Duration *</Label>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-muted-foreground">Select Booking Duration</label>
-                      <Select
-                        value={bookDuration}
-                        onValueChange={(val) => setBookDuration(val as "monthly" | "yearly" | "longTerm")}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Choose package duration" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(
-                            [
-                              {
-                                key: "monthly",
-                                label: "Monthly",
-                                price: selectedPlan.price,
-                                baseline: selectedPlan.price,
-                              },
-                              {
-                                key: "yearly",
-                                label: "1 Year",
-                                price: selectedPlan.yearlyPrice || 0,
-                                baseline: selectedPlan.price * 12,
-                              },
-                              {
-                                key: "longTerm",
-                                label: "15 Years",
-                                price: selectedPlan.longTermPrice || 0,
-                                baseline: selectedPlan.price * 180,
-                              },
-                            ] as const
-                          ).map((d) => {
-                            const save = d.baseline > 0 && d.price > 0 ? Math.max(0, d.baseline - d.price) : 0;
-                            const pct = d.baseline > 0 && save > 0 ? Math.round((save / d.baseline) * 100) : 0;
+                    <Label>Select Booking Duration *</Label>
+                    <Select value={bookDurationId} onValueChange={setBookDurationId}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue
+                          placeholder={
+                            planPriceOptions.length === 0 ? "No price tiers configured" : "Choose duration"
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {planPriceOptions.map((d: any) => {
+                          const baseline =
+                            planPriceOptions[0] && planPriceOptions[0].months > 0
+                              ? (planPriceOptions[0].price / planPriceOptions[0].months) * d.months
+                              : 0;
+                          const save = baseline > d.price ? baseline - d.price : 0;
+                          const pct = baseline > 0 && save > 0 ? Math.round((save / baseline) * 100) : 0;
+                          return (
+                            <SelectItem key={d.durationId} value={d.durationId}>
+                              <div className="flex items-center justify-between w-full gap-4">
+                                <span>
+                                  {d.name} · {formatMonths(d.months)}
+                                </span>
+                                <span className="font-semibold text-muted-foreground">
+                                  NPR {Number(d.price || 0).toLocaleString()}
+                                  {pct > 0 && (
+                                    <span className="ml-2 text-[10px] bg-success/20 text-success font-bold px-1.5 py-0.5 rounded">
+                                      -{pct}%
+                                    </span>
+                                  )}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
 
-                            return (
-                              <SelectItem key={d.key} value={d.key} disabled={!d.price}>
-                                <div className="flex items-center justify-between w-full gap-4">
-                                  <span>{d.label}</span>
-                                  <span className="font-semibold text-muted-foreground">
-                                    NPR {Number(d.price || 0).toLocaleString()}
-                                    {pct > 0 && (
-                                      <span className="ml-2 text-[10px] bg-success/20 text-success font-bold px-1.5 py-0.5 rounded">
-                                        -{pct}%
-                                      </span>
-                                    )}
-                                  </span>
-                                </div>
-                              </SelectItem>
-                            );
-                          })}
-                        </SelectContent>
-                      </Select>
+                    {/* Selected plan details */}
+                    <div className="mt-2 rounded-lg border border-border bg-muted/30 p-3 space-y-2 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{selectedPlan.name || selectedPlan.tier}</span>
+                        <Badge variant="secondary" className="text-[10px]">
+                          {selectedPlan.tier}
+                        </Badge>
+                      </div>
+                      {selectedDuration && (
+                        <div className="flex items-center justify-between text-muted-foreground">
+                          <span>
+                            {selectedDuration.name} · {formatMonths(selectedDuration.months)}
+                          </span>
+                          <span className="font-semibold text-foreground">
+                            NPR {selectedDuration.price.toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                      {Array.isArray((selectedPlan as any).includedServices) &&
+                        (selectedPlan as any).includedServices.length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {(selectedPlan as any).includedServices.map((s: string) => (
+                              <Badge key={s} variant="outline" className="text-[10px]">
+                                {s}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      <div className="flex items-center gap-3 pt-1 text-[11px] text-muted-foreground">
+                        {(selectedPlan as any).autoRenew && (
+                          <span className="inline-flex items-center gap-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                            Auto-Renew
+                          </span>
+                        )}
+                        {(selectedPlan as any).autoDiscount && (
+                          <span className="inline-flex items-center gap-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                            Auto-Discount
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
+
 
                 <Button
                   onClick={handleEnrollMembership}
