@@ -614,6 +614,7 @@ const PlansServices = () => {
       <Tabs defaultValue="plans" className="space-y-4">
         <TabsList className="bg-muted/50">
           <TabsTrigger value="plans">Membership Plans</TabsTrigger>
+          <TabsTrigger value="durations">Plan Durations</TabsTrigger>
           <TabsTrigger value="services">Services</TabsTrigger>
           <TabsTrigger value="discounts">Auto-Discounts</TabsTrigger>
         </TabsList>
@@ -627,13 +628,8 @@ const PlansServices = () => {
                 setPlanDialogOpen(o);
                 if (!o) {
                   setEditPlanId(null);
-                  setNewPlan({
-                    tier: "Basic",
-                    monthly: "",
-                    yearly: "",
-                    longTerm: "",
-                    includes: "",
-                  });
+                  setNewPlan(emptyPlan);
+                  setIncludeInput("");
                 }
               }}
             >
@@ -643,88 +639,206 @@ const PlansServices = () => {
                   Add Plan
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="font-display">
                     {editPlanId ? "Edit" : "Add"} Membership Plan
                   </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Tier</Label>
-                    <Select
-                      value={newPlan.tier}
-                      onValueChange={(v) =>
-                        setNewPlan((p) => ({ ...p, tier: v }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {["Basic", "Silver", "Gold", "Platinum", "Diamond"].map(
-                          (t) => (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Plan Name *</Label>
+                      <Input
+                        placeholder="e.g. Silver Annual"
+                        value={newPlan.name}
+                        onChange={(e) => setNewPlan((p) => ({ ...p, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Tier *</Label>
+                      <Select
+                        value={newPlan.tier}
+                        onValueChange={(v) => setNewPlan((p) => ({ ...p, tier: v }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {["Basic", "Silver", "Gold", "Platinum", "Diamond"].map((t) => (
                             <SelectItem key={t} value={t}>
                               {t}
                             </SelectItem>
-                          ),
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label>Monthly (NPR)</Label>
-                      <Input
-                        type="number"
-                        placeholder="0"
-                        value={newPlan.monthly}
-                        onChange={(e) =>
-                          setNewPlan((p) => ({ ...p, monthly: e.target.value }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Yearly (NPR)</Label>
-                      <Input
-                        type="number"
-                        placeholder="0"
-                        value={newPlan.yearly}
-                        onChange={(e) =>
-                          setNewPlan((p) => ({ ...p, yearly: e.target.value }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>15-Year (NPR)</Label>
-                      <Input
-                        type="number"
-                        placeholder="0"
-                        value={newPlan.longTerm}
-                        onChange={(e) =>
-                          setNewPlan((p) => ({
-                            ...p,
-                            longTerm: e.target.value,
-                          }))
-                        }
-                      />
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
+
+                  <div className="space-y-2">
+                    <Label>Base Duration (months) *</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      placeholder="1"
+                      value={newPlan.durationMonths}
+                      onChange={(e) => setNewPlan((p) => ({ ...p, durationMonths: e.target.value }))}
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      {Number(newPlan.durationMonths) > 0
+                        ? formatMonths(Number(newPlan.durationMonths))
+                        : "Enter total months — auto-converts to years after 12."}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Price Tiers *</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={addPriceTier}
+                        disabled={newPlan.prices.length >= planDurations.filter((d) => d.active).length}
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Add Tier
+                      </Button>
+                    </div>
+                    {planDurations.length === 0 && (
+                      <p className="text-xs text-destructive">
+                        No plan durations configured. Add some in the Plan Durations tab.
+                      </p>
+                    )}
+                    <div className="space-y-2">
+                      {newPlan.prices.length === 0 ? (
+                        <p className="text-xs text-muted-foreground py-2">
+                          No tiers yet — click "Add Tier" to attach a duration + price.
+                        </p>
+                      ) : (
+                        newPlan.prices.map((row, idx) => {
+                          const usedIds = new Set(
+                            newPlan.prices.filter((_, i) => i !== idx).map((p) => p.durationId),
+                          );
+                          return (
+                            <div key={idx} className="grid grid-cols-[1fr_140px_auto] gap-2 items-end">
+                              <div>
+                                <Label className="text-[11px] text-muted-foreground">Duration</Label>
+                                <Select
+                                  value={row.durationId}
+                                  onValueChange={(v) => updatePriceTier(idx, { durationId: v })}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select duration" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {planDurations
+                                      .filter((d) => d.active)
+                                      .map((d) => (
+                                        <SelectItem
+                                          key={d.id}
+                                          value={d.id}
+                                          disabled={usedIds.has(d.id)}
+                                        >
+                                          {d.name} · {formatMonths(d.months)}
+                                        </SelectItem>
+                                      ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <Label className="text-[11px] text-muted-foreground">Price (NPR)</Label>
+                                <Input
+                                  type="number"
+                                  placeholder="0"
+                                  value={row.price}
+                                  onChange={(e) => updatePriceTier(idx, { price: e.target.value })}
+                                />
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive"
+                                onClick={() => removePriceTier(idx)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     <Label>Included Services</Label>
-                    <Input
-                      placeholder="e.g. Gym + Spa + Sauna"
-                      value={newPlan.includes}
-                      onChange={(e) =>
-                        setNewPlan((p) => ({ ...p, includes: e.target.value }))
-                      }
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Type and press Enter (e.g. Gym)"
+                        value={includeInput}
+                        onChange={(e) => setIncludeInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addIncludedService();
+                          } else if (e.key === "Backspace" && !includeInput && newPlan.includedServices.length > 0) {
+                            removeIncludedService(newPlan.includedServices[newPlan.includedServices.length - 1]);
+                          }
+                        }}
+                      />
+                      <Button type="button" variant="outline" onClick={addIncludedService}>
+                        Add
+                      </Button>
+                    </div>
+                    {newPlan.includedServices.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {newPlan.includedServices.map((s) => (
+                          <Badge key={s} variant="secondary" className="gap-1">
+                            {s}
+                            <button
+                              type="button"
+                              onClick={() => removeIncludedService(s)}
+                              className="hover:text-destructive"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="rounded-lg border border-border bg-muted/30 p-3 flex items-center justify-between">
+                      <div>
+                        <Label className="text-sm">Auto-Renew</Label>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          Renew at end of term automatically.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={newPlan.autoRenew}
+                        onCheckedChange={(v) => setNewPlan((p) => ({ ...p, autoRenew: v }))}
+                      />
+                    </div>
+                    <div className="rounded-lg border border-border bg-muted/30 p-3 flex items-center justify-between">
+                      <div>
+                        <Label className="text-sm">Auto-Discount</Label>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          Apply loyalty discount rules.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={newPlan.autoDiscount}
+                        onCheckedChange={(v) => setNewPlan((p) => ({ ...p, autoDiscount: v }))}
+                      />
+                    </div>
+                  </div>
+
                   <Button
                     onClick={handleCreatePlan}
-                    disabled={
-                      addPlanMutation.isPending || updatePlanMutation.isPending
-                    }
+                    disabled={addPlanMutation.isPending || updatePlanMutation.isPending}
                     className="w-full gradient-gold text-primary-foreground"
                   >
                     {addPlanMutation.isPending || updatePlanMutation.isPending
@@ -745,76 +859,207 @@ const PlansServices = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {plans.map((plan) => (
-                <div
-                  key={plan.id}
-                  className="glass-card rounded-xl p-5 space-y-4"
-                >
-                  <div className="flex items-center justify-between">
-                    <TierBadge tier={plan.tier as any} />
-                    <Crown className="h-4 w-4 text-primary/60" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold font-display">
-                      {formatNPR(plan.price)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">per month</p>
-                  </div>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Yearly</span>
-                      <span className="font-medium">
-                        {formatNPR(plan.yearlyPrice || 0)}
-                      </span>
+              {plans.map((plan: any) => {
+                const priceList = Array.isArray(plan.prices) ? plan.prices : [];
+                const headline = priceList[0]?.price ?? plan.price ?? 0;
+                return (
+                  <div key={plan.id} className="glass-card rounded-xl p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <TierBadge tier={plan.tier as any} />
+                        {plan.autoDiscount && (
+                          <Badge variant="outline" className="text-[10px]">
+                            <Percent className="h-2.5 w-2.5 mr-0.5" /> Auto
+                          </Badge>
+                        )}
+                      </div>
+                      <Crown className="h-4 w-4 text-primary/60" />
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">15-Year</span>
-                      <span className="font-medium">
-                        {formatNPR(plan.longTermPrice || 0)}
-                      </span>
+                    <div>
+                      <p className="text-sm font-medium truncate">{plan.name || plan.tier}</p>
+                      <p className="text-2xl font-bold font-display">{formatNPR(headline)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {priceList[0]?.name || formatMonths(plan.durationMonths || plan.durationInMonths || 1)}
+                      </p>
+                    </div>
+                    {priceList.length > 0 && (
+                      <div className="space-y-1.5 text-sm">
+                        {priceList.map((p: any) => (
+                          <div key={p.durationId} className="flex justify-between">
+                            <span className="text-muted-foreground text-xs">
+                              {p.name || formatMonths(p.months || 0)}
+                            </span>
+                            <span className="font-medium text-xs">{formatNPR(p.price)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">Includes</p>
+                      <div className="flex flex-wrap gap-1">
+                        {(plan.includedServices && plan.includedServices.length > 0
+                          ? plan.includedServices
+                          : plan.includes
+                            ? String(plan.includes).split(/[+,]/).map((s: string) => s.trim()).filter(Boolean)
+                            : []
+                        ).map((s: string) => (
+                          <Badge key={s} variant="secondary" className="text-[10px]">
+                            {s}
+                          </Badge>
+                        ))}
+                        {((!plan.includedServices || plan.includedServices.length === 0) && !plan.includes) && (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Auto-Renew</span>
+                      <Switch
+                        checked={plan.autoRenew || false}
+                        onCheckedChange={() => handleToggleAutoRenew(plan.id, plan.autoRenew || false)}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => openEditPlan(plan)}
+                      >
+                        <Edit className="h-3.5 w-3.5 mr-1" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 text-destructive hover:bg-destructive/10"
+                        onClick={() => handleDeletePlan(plan.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Includes</span>
-                    <span className="font-medium text-right text-xs">
-                      {plan.includes || "—"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">
-                      Auto-Renew
-                    </span>
-                    <Switch
-                      checked={plan.autoRenew || false}
-                      onCheckedChange={() =>
-                        handleToggleAutoRenew(plan.id, plan.autoRenew || false)
-                      }
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => openEditPlan(plan)}
-                    >
-                      <Edit className="h-3.5 w-3.5 mr-1" />
-                      Edit
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-9 w-9 text-destructive hover:bg-destructive/10"
-                      onClick={() => handleDeletePlan(plan.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </TabsContent>
+
+        {/* ─── Plan Durations ─── */}
+        <TabsContent value="durations">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                Reusable duration presets. These power every plan & booking duration dropdown.
+              </p>
+            </div>
+            <Button size="sm" onClick={openAddDuration}>
+              <Plus className="h-4 w-4 mr-1" />
+              Add Duration
+            </Button>
+          </div>
+          {durationsLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 rounded-lg" />
+              ))}
+            </div>
+          ) : (
+            <div className="glass-card rounded-xl overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="w-32">Months</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead className="w-32 text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {planDurations.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center text-sm text-muted-foreground py-8">
+                        No durations yet. Add one to start.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    planDurations.map((d) => (
+                      <TableRow key={d.id}>
+                        <TableCell className="font-medium">{d.months}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span>{d.name}</span>
+                            <span className="text-[11px] text-muted-foreground">{formatMonths(d.months)}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditDuration(d)}>
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                              onClick={() => handleDeleteDuration(d.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          <Dialog open={durationDialogOpen} onOpenChange={setDurationDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="font-display">
+                  {editDurationId ? "Edit" : "Add"} Duration
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Months *</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={durationDraft.months}
+                    onChange={(e) => setDurationDraft((d) => ({ ...d, months: e.target.value }))}
+                    placeholder="12"
+                  />
+                  {Number(durationDraft.months) > 0 && (
+                    <p className="text-[11px] text-muted-foreground">{formatMonths(Number(durationDraft.months))}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Name *</Label>
+                  <Input
+                    value={durationDraft.name}
+                    onChange={(e) => setDurationDraft((d) => ({ ...d, name: e.target.value }))}
+                    placeholder="Yearly"
+                  />
+                </div>
+                <Button
+                  onClick={handleSaveDuration}
+                  className="w-full gradient-gold text-primary-foreground"
+                  disabled={addDurationMutation.isPending || updateDurationMutation.isPending}
+                >
+                  {addDurationMutation.isPending || updateDurationMutation.isPending
+                    ? "Saving..."
+                    : editDurationId
+                      ? "Update Duration"
+                      : "Create Duration"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </TabsContent>
+
 
         {/* ─── Services ─── */}
         <TabsContent value="services">
