@@ -799,7 +799,7 @@ const Bookings_Page = () => {
                       : "text-muted-foreground hover:bg-muted/60",
                   )}
                 >
-                  Member Mode
+                  <u>1.</u> Member Mode
                 </button>
                 <button
                   type="button"
@@ -812,7 +812,7 @@ const Bookings_Page = () => {
                       : "text-muted-foreground hover:bg-muted/60",
                   )}
                 >
-                  FIT Guest Mode
+                  <u>2.</u> FIT Guest Mode
                 </button>
               </div>
             )}
@@ -939,67 +939,76 @@ const Bookings_Page = () => {
                 {selectedPlan && (
                   <div className="space-y-2">
                     <Label>Duration *</Label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(
-                        [
-                          {
-                            key: "monthly",
-                            label: "Monthly",
-                            price: selectedPlan.price,
-                            baseline: selectedPlan.price,
-                            months: 1,
-                          },
-                          {
-                            key: "yearly",
-                            label: "1 Year",
-                            price: selectedPlan.yearlyPrice || 0,
-                            baseline: selectedPlan.price * 12,
-                            months: 12,
-                          },
-                          {
-                            key: "longTerm",
-                            label: "15 Years",
-                            price: selectedPlan.longTermPrice || 0,
-                            baseline: selectedPlan.price * 180,
-                            months: 180,
-                          },
-                        ] as const
-                      ).map((d) => {
-                        const save =
-                          d.baseline > 0 && d.price > 0
-                            ? Math.max(0, d.baseline - d.price)
-                            : 0;
-                        const pct =
-                          d.baseline > 0 && save > 0
-                            ? Math.round((save / d.baseline) * 100)
-                            : 0;
-                        return (
-                          <button
-                            key={d.key}
-                            type="button"
-                            onClick={() => setBookDuration(d.key)}
-                            disabled={!d.price}
-                            className={cn(
-                              "relative rounded-lg border p-3 text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
-                              bookDuration === d.key
-                                ? "border-primary bg-primary/10"
-                                : "border-border bg-muted/30 hover:bg-muted/50",
-                            )}
-                          >
-                            {pct > 0 && (
-                              <span className="absolute -top-2 -right-2 text-[9px] font-bold bg-success text-white px-1.5 py-0.5 rounded-full shadow-md">
-                                -{pct}%
-                              </span>
-                            )}
-                            <p className="text-xs text-muted-foreground">
-                              {d.label}
-                            </p>
-                            <p className="text-sm font-bold font-display mt-1">
-                              NPR {Number(d.price || 0).toLocaleString()}
-                            </p>
-                          </button>
-                        );
-                      })}
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">
+                        Select Booking Duration
+                      </label>
+                      <Select
+                        value={bookDuration}
+                        onValueChange={(val) =>
+                          setBookDuration(
+                            val as "monthly" | "yearly" | "longTerm",
+                          )
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Choose package duration" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(
+                            [
+                              {
+                                key: "monthly",
+                                label: "Monthly",
+                                price: selectedPlan.price,
+                                baseline: selectedPlan.price,
+                              },
+                              {
+                                key: "yearly",
+                                label: "1 Year",
+                                price: selectedPlan.yearlyPrice || 0,
+                                baseline: selectedPlan.price * 12,
+                              },
+                              {
+                                key: "longTerm",
+                                label: "15 Years",
+                                price: selectedPlan.longTermPrice || 0,
+                                baseline: selectedPlan.price * 180,
+                              },
+                            ] as const
+                          ).map((d) => {
+                            const save =
+                              d.baseline > 0 && d.price > 0
+                                ? Math.max(0, d.baseline - d.price)
+                                : 0;
+                            const pct =
+                              d.baseline > 0 && save > 0
+                                ? Math.round((save / d.baseline) * 100)
+                                : 0;
+
+                            return (
+                              <SelectItem
+                                key={d.key}
+                                value={d.key}
+                                disabled={!d.price}
+                              >
+                                <div className="flex items-center justify-between w-full gap-4">
+                                  <span>{d.label}</span>
+                                  <span className="font-semibold text-muted-foreground">
+                                    NPR {Number(d.price || 0).toLocaleString()}
+                                    {pct > 0 && (
+                                      <span className="ml-2 text-[10px] bg-success/20 text-success font-bold px-1.5 py-0.5 rounded">
+                                        -{pct}%
+                                      </span>
+                                    )}
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 )}
