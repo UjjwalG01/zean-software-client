@@ -235,56 +235,64 @@ const PlansServices = () => {
   const [discountsEdited, setDiscountsEdited] = useState(false);
 
   const handleCreatePlan = async () => {
+    if (!newPlan.name.trim()) {
+      toast.error("Plan name is required");
+      return;
+    }
+    const cleanPrices = newPlan.prices
+      .filter((p) => p.durationId)
+      .map((p) => ({ durationId: p.durationId, price: Number(p.price) || 0 }));
+    if (cleanPrices.length === 0) {
+      toast.error("Add at least one price tier");
+      return;
+    }
+    const seen = new Set<string>();
+    for (const p of cleanPrices) {
+      if (seen.has(p.durationId)) {
+        toast.error("Each duration can only have one price");
+        return;
+      }
+      seen.add(p.durationId);
+    }
+
     try {
       const planPayload = {
-        name: newPlan.tier,
+        name: newPlan.name,
         tier: newPlan.tier,
-        price: Number(newPlan.monthly) || 0,
-        yearlyPrice: Number(newPlan.yearly) || 0,
-        longTermPrice: Number(newPlan.longTerm) || 0,
-        includes: newPlan.includes,
+        durationMonths: Number(newPlan.durationMonths) || 1,
+        includedServices: newPlan.includedServices,
+        autoRenew: newPlan.autoRenew,
+        autoDiscount: newPlan.autoDiscount,
+        prices: cleanPrices,
       };
 
       if (editPlanId) {
-        await updatePlanMutation.mutateAsync({
-          id: editPlanId,
-          data: planPayload,
-        });
-
+        await updatePlanMutation.mutateAsync({ id: editPlanId, data: planPayload });
         await logAudit({
           module: "Plans & Services",
           entityType: "plan",
           action: "update",
           entityId: editPlanId,
-          outletId: null, // Global administrative structural changes
+          outletId: null,
           newValue: planPayload,
         });
-
         toast.success("Plan updated!");
       } else {
         const addedPlanId = await addPlanMutation.mutateAsync(planPayload);
-
         await logAudit({
           module: "Plans & Services",
           entityType: "plan",
           action: "create",
-          entityId:
-            typeof addedPlanId === "string" ? addedPlanId : newPlan.tier,
+          entityId: typeof addedPlanId === "string" ? addedPlanId : newPlan.name,
           outletId: null,
           newValue: planPayload,
         });
-
         toast.success("Plan created!");
       }
       setPlanDialogOpen(false);
       setEditPlanId(null);
-      setNewPlan({
-        tier: "Basic",
-        monthly: "",
-        yearly: "",
-        longTerm: "",
-        includes: "",
-      });
+      setNewPlan(emptyPlan);
+      setIncludeInput("");
     } catch {
       toast.error("Failed to save plan");
     }
@@ -293,13 +301,99 @@ const PlansServices = () => {
   const openEditPlan = (plan: any) => {
     setEditPlanId(plan.id);
     setNewPlan({
-      tier: plan.tier,
-      monthly: String(plan.price),
-      yearly: String(plan.yearlyPrice || 0),
-      longTerm: String(plan.longTermPrice || 0),
-      includes: plan.includes || "",
+      name: plan.name || plan.tier,
+      tier: plan.tier || "Basic",
+      durationMonths: String(plan.durationMonths || plan.durationInMonths || 1),
+      includedServices: Array.isArray(plan.includedServices)
+        ? plan.includedServices
+        : (plan.includes ? String(plan.includes).split(/[+,]/).map((s: string) => s.trim()).filter(Boolean) : []),
+      autoRenew: !!plan.autoRenew,
+      autoDiscount: !!plan.autoDiscount,
+      prices: Array.isArray(plan.prices) && plan.prices.length > 0
+        ? plan.prices.map((p: any) => ({ durationId: p.durationId, price: String(p.price) }))
+        : [],
     });
+    setIncludeInput("");
     setPlanDialogOpen(true);
+  };
+
+  const addPriceTier = () => {
+    const used = new Set(newPlan.prices.map((p) => p.durationId));
+    const next = planDurations.find((d) => d.active && !used.has(d.id));
+    setNewPlan((p) => ({
+      ...p,
+      prices: [...p.prices, { durationId: next?.id || "", price: "" }],
+    }));
+  };
+
+  const updatePriceTier = (idx: number, patch: Partial<{ durationId: string; price: string }>) => {
+    setNewPlan((p) => ({
+      ...p,
+      prices: p.prices.map((row, i) => (i === idx ? { ...row, ...patch } : row)),
+    }));
+  };
+
+  const removePriceTier = (idx: number) => {
+    setNewPlan((p) => ({ ...p, prices: p.prices.filter((_, i) => i !== idx) }));
+  };
+
+  const addIncludedService = () => {
+    const v = includeInput.trim();
+    if (!v) return;
+    if (newPlan.includedServices.includes(v)) {
+      setIncludeInput("");
+      return;
+    }
+    setNewPlan((p) => ({ ...p, includedServices: [...p.includedServices, v] }));
+    setIncludeInput("");
+  };
+
+  const removeIncludedService = (val: string) => {
+    setNewPlan((p) => ({
+      ...p,
+      includedServices: p.includedServices.filter((s) => s !== val),
+    }));
+  };
+
+  // Plan-duration handlers
+  const openAddDuration = () => {
+    setEditDurationId(null);
+    setDurationDraft({ months: "", name: "" });
+    setDurationDialogOpen(true);
+  };
+
+  const openEditDuration = (d: any) => {
+    setEditDurationId(d.id);
+    setDurationDraft({ months: String(d.months), name: d.name });
+    setDurationDialogOpen(true);
+  };
+
+  const handleSaveDuration = async () => {
+    const months = Number(durationDraft.months);
+    const name = durationDraft.name.trim();
+    if (!months || months <= 0) return toast.error("Enter months (>0)");
+    if (!name) return toast.error("Enter a name");
+    try {
+      if (editDurationId) {
+        await updateDurationMutation.mutateAsync({ id: editDurationId, data: { months, name } });
+        toast.success("Duration updated");
+      } else {
+        await addDurationMutation.mutateAsync({ months, name, sortOrder: months });
+        toast.success("Duration added");
+      }
+      setDurationDialogOpen(false);
+    } catch {
+      toast.error("Failed to save duration");
+    }
+  };
+
+  const handleDeleteDuration = async (id: string) => {
+    try {
+      await deleteDurationMutation.mutateAsync(id);
+      toast.success("Duration removed");
+    } catch {
+      toast.error("Cannot delete — duration is referenced by plans");
+    }
   };
 
   const handleDeletePlan = async (id: string) => {
