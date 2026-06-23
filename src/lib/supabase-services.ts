@@ -974,9 +974,9 @@ export async function deletePlanDuration(id: string): Promise<void> {
 // ─── Membership Plans ───────────────────────────────────────────────
 export interface MembershipPlanPrice {
   durationId: string;
-  months: number;
-  name: string;
   price: number;
+  months?: number;
+  name?: string;
 }
 
 export interface FirestoreMembershipPlan {
