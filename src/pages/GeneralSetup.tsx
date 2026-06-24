@@ -70,13 +70,6 @@ function useSetupList(key: string, fallback: string[]) {
 }
 
 const GeneralSetup = () => {
-  const planDurations = useSetupList("setup_planDurations", [
-    "Monthly",
-    "Quarterly",
-    "Half-Yearly",
-    "Yearly",
-    "15-Year",
-  ]);
   const paymentModes = useSetupList("setup_paymentModes", [
     "cash",
     "card",
@@ -130,12 +123,6 @@ const GeneralSetup = () => {
 
   const sections = [
     {
-      key: "planDurations",
-      cat: "setup_planDurations",
-      label: "Plan Durations",
-      hook: planDurations,
-    },
-    {
       key: "bloodGroups",
       cat: "setup_bloodGroups",
       label: "Blood Groups",
@@ -183,7 +170,7 @@ const GeneralSetup = () => {
         </p>
       </div>
 
-      <Tabs defaultValue="planDurations" className="space-y-4">
+      <Tabs defaultValue="bloodGroups" className="space-y-4">
         <TabsList className="bg-muted/50 flex-wrap h-auto gap-1">
           {sections.map((s) => (
             <TabsTrigger key={s.key} value={s.key}>
