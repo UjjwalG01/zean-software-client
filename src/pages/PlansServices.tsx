@@ -1181,7 +1181,7 @@ const PlansServices = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Duration (min)</Label>
                       <Input
@@ -1210,20 +1210,6 @@ const PlansServices = () => {
                         }
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label>Capacity</Label>
-                      <Input
-                        type="number"
-                        placeholder="20"
-                        value={newService.capacity}
-                        onChange={(e) =>
-                          setNewService((s) => ({
-                            ...s,
-                            capacity: e.target.value,
-                          }))
-                        }
-                      />
-                    </div>
                   </div>
                   <div className="rounded-lg border border-border bg-muted/30 p-3 flex items-center justify-between">
                     <div>
@@ -1247,16 +1233,29 @@ const PlansServices = () => {
                   {newService.requiresInstructor && (
                     <div className="space-y-2">
                       <Label>Default Instructor</Label>
-                      <Input
-                        placeholder="e.g. Trainer Ravi"
+                      <Select
                         value={newService.instructor}
-                        onChange={(e) =>
-                          setNewService((s) => ({
-                            ...s,
-                            instructor: e.target.value,
-                          }))
+                        onValueChange={(v) =>
+                          setNewService((s) => ({ ...s, instructor: v }))
                         }
-                      />
+                      >
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={
+                              instructorOptions.length === 0
+                                ? "Add instructors in General Setup first"
+                                : "Select instructor"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {instructorOptions.map((name) => (
+                            <SelectItem key={name} value={name}>
+                              {name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   )}
                   <Button
