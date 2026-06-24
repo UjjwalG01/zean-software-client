@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { signIn } from "@/lib/auth-service";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,9 +11,16 @@ import { SOFTWARE_NAME } from "@/lib/settings";
 
 const Login = () => {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (params.get("deactivated") === "1") {
+      toast.error("User deactivated");
+    }
+  }, [params]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,13 +36,15 @@ const Login = () => {
     } catch (err: any) {
       const raw = (err?.message || "").toLowerCase();
       const msg =
-        raw.includes("invalid login") || raw.includes("invalid credentials")
-          ? "Invalid email or password"
-          : raw.includes("email not confirmed")
-            ? "Email not confirmed. Contact your administrator."
-            : raw.includes("rate") || raw.includes("too many")
-              ? "Too many attempts. Try again later."
-              : err?.message || "Login failed. Please try again.";
+        raw.includes("user deactivated")
+          ? "User deactivated"
+          : raw.includes("invalid login") || raw.includes("invalid credentials")
+            ? "Invalid email or password"
+            : raw.includes("email not confirmed")
+              ? "Email not confirmed. Contact your administrator."
+              : raw.includes("rate") || raw.includes("too many")
+                ? "Too many attempts. Try again later."
+                : err?.message || "Login failed. Please try again.";
       toast.error(msg);
     } finally {
       setLoading(false);
