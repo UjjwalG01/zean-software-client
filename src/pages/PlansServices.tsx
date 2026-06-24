@@ -1297,9 +1297,6 @@ const PlansServices = () => {
                     <TableHead className="hidden md:table-cell">
                       Instructor
                     </TableHead>
-                    <TableHead className="hidden lg:table-cell">
-                      Capacity
-                    </TableHead>
                     <TableHead className="text-right">Rate</TableHead>
                     <TableHead className="w-20"></TableHead>
                   </TableRow>
@@ -1335,9 +1332,6 @@ const PlansServices = () => {
                           </TableCell>
                           <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
                             {s.instructor || "—"}
-                          </TableCell>
-                          <TableCell className="hidden lg:table-cell text-sm">
-                            {s.capacity || "—"}
                           </TableCell>
                           <TableCell className="text-right font-medium text-sm">
                             {formatNPR(s.price)}
