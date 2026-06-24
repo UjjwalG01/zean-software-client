@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
-import { Mail, Building, Shield, Loader2, Globe } from "lucide-react";
+import { Mail, Building, Shield, Loader2, Globe, DatabaseBackup } from "lucide-react";
+import { exportPropertyBackup, downloadBackup } from "@/lib/backup";
+import { useOutlet } from "@/contexts/OutletContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +25,23 @@ import { toast } from "sonner";
 const Settings = () => {
   const { data: settings = {}, isLoading } = useCompanySettings();
   const saveMutation = useSaveCompanySettings();
+  const { currentOutlet } = useOutlet() as any;
+  const [backupBusy, setBackupBusy] = useState(false);
+
+  const handleBackup = async () => {
+    setBackupBusy(true);
+    const tid = toast.loading("Preparing backup…");
+    try {
+      const outletId = currentOutlet?.id || null;
+      const bundle = await exportPropertyBackup(outletId);
+      downloadBackup(bundle, currentOutlet?.name || (settings as any)?.companyName || "property");
+      toast.success("Backup downloaded", { id: tid });
+    } catch (e: any) {
+      toast.error(e?.message || "Backup failed", { id: tid });
+    } finally {
+      setBackupBusy(false);
+    }
+  };
 
   console.log(settings);
 
