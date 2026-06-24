@@ -175,6 +175,22 @@ export const getStores    = (): InventoryStore[] => _stores;
 export const getGroups    = (): ItemGroup[]     => _groups;
 export const getItems     = (): InventoryItem[] => _items;
 export const getItem      = (id: string)        => _items.find((i) => i.id === id);
+/**
+ * Suggest the next item code in the form `ITM-0001` based on existing items.
+ * Falls back to `ITM-0001` if no numbered codes are found.
+ */
+export function nextItemCode(prefix = "ITM-"): string {
+  const re = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}?(\\d+)$`, "i");
+  let max = 0;
+  for (const it of _items) {
+    const m = (it.code || "").match(re) || (it.code || "").match(/^(\d+)$/);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (!Number.isNaN(n) && n > max) max = n;
+    }
+  }
+  return `${prefix}${String(max + 1).padStart(4, "0")}`;
+}
 export const getMovements = (): StockMovement[] => {
   const all: StockMovement[] = [];
   _movByItem.forEach((arr) => all.push(...arr));
@@ -212,6 +228,18 @@ export async function saveStore(s: Omit<InventoryStore, "id"> & { id?: string })
   return _stores[_stores.length - 1];
 }
 export async function deleteStore(id: string) {
+  // Block deletion if any items reference this store.
+  let linkedItems = _items.filter((i) => i.storeId === id).length;
+  try {
+    const { count } = await supabase
+      .from("inv_items")
+      .select("id", { count: "exact", head: true })
+      .eq("store_id", id);
+    if (typeof count === "number") linkedItems = Math.max(linkedItems, count);
+  } catch { /* use local count */ }
+  if (linkedItems > 0) {
+    throw new Error("Cannot delete this store — it has items linked to it. Move or delete those items first.");
+  }
   await dbDelete("inv_stores", id);
   _stores = _stores.filter((s) => s.id !== id); persistLocal();
 }
@@ -230,6 +258,17 @@ export async function saveGroup(g: Omit<ItemGroup, "id"> & { id?: string }): Pro
   return _groups[_groups.length - 1];
 }
 export async function deleteGroup(id: string) {
+  let linkedItems = _items.filter((i) => i.groupId === id).length;
+  try {
+    const { count } = await supabase
+      .from("inv_items")
+      .select("id", { count: "exact", head: true })
+      .eq("group_id", id);
+    if (typeof count === "number") linkedItems = Math.max(linkedItems, count);
+  } catch { /* use local count */ }
+  if (linkedItems > 0) {
+    throw new Error("Cannot delete this group — items are assigned to it. Reassign or remove those items first.");
+  }
   await dbDelete("inv_item_groups", id);
   _groups = _groups.filter((g) => g.id !== id); persistLocal();
 }
