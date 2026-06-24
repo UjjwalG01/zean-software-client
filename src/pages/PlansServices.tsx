@@ -57,6 +57,7 @@ import {
   useAddPlanDuration,
   useUpdatePlanDuration,
   useDeletePlanDuration,
+  useCompanySettings,
 } from "@/hooks/use-firestore";
 import { useOutlet } from "@/contexts/OutletContext";
 import { useQuery } from "@tanstack/react-query";
@@ -114,7 +115,6 @@ const fallbackServices = [
     type: "Gym",
     duration: 60,
     price: 500,
-    capacity: 20,
     instructor: "Trainer Ravi",
     isActive: true,
   },
@@ -124,7 +124,6 @@ const fallbackServices = [
     type: "Gym",
     duration: 45,
     price: 600,
-    capacity: 15,
     instructor: "Trainer Ravi",
     isActive: true,
   },
@@ -134,7 +133,6 @@ const fallbackServices = [
     type: "Spa",
     duration: 90,
     price: 2500,
-    capacity: 1,
     instructor: "Therapist Maya",
     isActive: true,
   },
@@ -144,7 +142,6 @@ const fallbackServices = [
     type: "Sauna",
     duration: 30,
     price: 500,
-    capacity: 8,
     instructor: "Staff Binita",
     isActive: true,
   },
@@ -154,7 +151,6 @@ const fallbackServices = [
     type: "Swimming",
     duration: 60,
     price: 400,
-    capacity: 6,
     instructor: "Coach Anil",
     isActive: true,
   },
@@ -187,7 +183,6 @@ const PlansServices = () => {
     type: "",
     duration: "",
     price: "",
-    capacity: "",
     instructor: "",
     requiresInstructor: false,
   });
@@ -212,6 +207,17 @@ const PlansServices = () => {
   const updateServiceMutation = useUpdateService();
   const deleteServiceMutation = useDeleteService();
   const saveDiscountsMutation = useSaveDiscountRules();
+  const { data: companySettings = {} } = useCompanySettings();
+  const instructorOptions: string[] = (() => {
+    try {
+      const raw = (companySettings as any)?.setup_instructors;
+      if (!raw) return [];
+      const arr = typeof raw === "string" ? JSON.parse(raw) : raw;
+      return Array.isArray(arr) ? arr.filter((x) => typeof x === "string") : [];
+    } catch {
+      return [];
+    }
+  })();
   const { data: planDurations = [], isLoading: durationsLoading } = usePlanDurations();
   const addDurationMutation = useAddPlanDuration();
   const updateDurationMutation = useUpdatePlanDuration();
@@ -444,7 +450,6 @@ const PlansServices = () => {
     type: "",
     duration: "",
     price: "",
-    capacity: "",
     instructor: "",
     requiresInstructor: false,
   };
@@ -469,7 +474,6 @@ const PlansServices = () => {
         outletId: newService.outletId,
         duration: Number(newService.duration) || 60,
         price: Number(newService.price) || 0,
-        capacity: Number(newService.capacity) || 1,
         instructor: newService.requiresInstructor ? newService.instructor : "",
         requiresInstructor: newService.requiresInstructor,
       };
@@ -526,7 +530,6 @@ const PlansServices = () => {
       type: svc.type || "",
       duration: String(svc.duration),
       price: String(svc.price),
-      capacity: String(svc.capacity || ""),
       instructor: svc.instructor || "",
       requiresInstructor: svc.requiresInstructor === true,
     });
