@@ -57,6 +57,7 @@ import {
   useAddPlanDuration,
   useUpdatePlanDuration,
   useDeletePlanDuration,
+  useCompanySettings,
 } from "@/hooks/use-firestore";
 import { useOutlet } from "@/contexts/OutletContext";
 import { useQuery } from "@tanstack/react-query";
@@ -114,7 +115,6 @@ const fallbackServices = [
     type: "Gym",
     duration: 60,
     price: 500,
-    capacity: 20,
     instructor: "Trainer Ravi",
     isActive: true,
   },
@@ -124,7 +124,6 @@ const fallbackServices = [
     type: "Gym",
     duration: 45,
     price: 600,
-    capacity: 15,
     instructor: "Trainer Ravi",
     isActive: true,
   },
@@ -134,7 +133,6 @@ const fallbackServices = [
     type: "Spa",
     duration: 90,
     price: 2500,
-    capacity: 1,
     instructor: "Therapist Maya",
     isActive: true,
   },
@@ -144,7 +142,6 @@ const fallbackServices = [
     type: "Sauna",
     duration: 30,
     price: 500,
-    capacity: 8,
     instructor: "Staff Binita",
     isActive: true,
   },
@@ -154,7 +151,6 @@ const fallbackServices = [
     type: "Swimming",
     duration: 60,
     price: 400,
-    capacity: 6,
     instructor: "Coach Anil",
     isActive: true,
   },
@@ -187,7 +183,6 @@ const PlansServices = () => {
     type: "",
     duration: "",
     price: "",
-    capacity: "",
     instructor: "",
     requiresInstructor: false,
   });
@@ -212,6 +207,17 @@ const PlansServices = () => {
   const updateServiceMutation = useUpdateService();
   const deleteServiceMutation = useDeleteService();
   const saveDiscountsMutation = useSaveDiscountRules();
+  const { data: companySettings = {} } = useCompanySettings();
+  const instructorOptions: string[] = (() => {
+    try {
+      const raw = (companySettings as any)?.setup_instructors;
+      if (!raw) return [];
+      const arr = typeof raw === "string" ? JSON.parse(raw) : raw;
+      return Array.isArray(arr) ? arr.filter((x) => typeof x === "string") : [];
+    } catch {
+      return [];
+    }
+  })();
   const { data: planDurations = [], isLoading: durationsLoading } = usePlanDurations();
   const addDurationMutation = useAddPlanDuration();
   const updateDurationMutation = useUpdatePlanDuration();
@@ -444,7 +450,6 @@ const PlansServices = () => {
     type: "",
     duration: "",
     price: "",
-    capacity: "",
     instructor: "",
     requiresInstructor: false,
   };
@@ -469,7 +474,6 @@ const PlansServices = () => {
         outletId: newService.outletId,
         duration: Number(newService.duration) || 60,
         price: Number(newService.price) || 0,
-        capacity: Number(newService.capacity) || 1,
         instructor: newService.requiresInstructor ? newService.instructor : "",
         requiresInstructor: newService.requiresInstructor,
       };
@@ -526,7 +530,6 @@ const PlansServices = () => {
       type: svc.type || "",
       duration: String(svc.duration),
       price: String(svc.price),
-      capacity: String(svc.capacity || ""),
       instructor: svc.instructor || "",
       requiresInstructor: svc.requiresInstructor === true,
     });
@@ -1178,7 +1181,7 @@ const PlansServices = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Duration (min)</Label>
                       <Input
@@ -1207,20 +1210,6 @@ const PlansServices = () => {
                         }
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label>Capacity</Label>
-                      <Input
-                        type="number"
-                        placeholder="20"
-                        value={newService.capacity}
-                        onChange={(e) =>
-                          setNewService((s) => ({
-                            ...s,
-                            capacity: e.target.value,
-                          }))
-                        }
-                      />
-                    </div>
                   </div>
                   <div className="rounded-lg border border-border bg-muted/30 p-3 flex items-center justify-between">
                     <div>
@@ -1244,16 +1233,29 @@ const PlansServices = () => {
                   {newService.requiresInstructor && (
                     <div className="space-y-2">
                       <Label>Default Instructor</Label>
-                      <Input
-                        placeholder="e.g. Trainer Ravi"
+                      <Select
                         value={newService.instructor}
-                        onChange={(e) =>
-                          setNewService((s) => ({
-                            ...s,
-                            instructor: e.target.value,
-                          }))
+                        onValueChange={(v) =>
+                          setNewService((s) => ({ ...s, instructor: v }))
                         }
-                      />
+                      >
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={
+                              instructorOptions.length === 0
+                                ? "Add instructors in General Setup first"
+                                : "Select instructor"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {instructorOptions.map((name) => (
+                            <SelectItem key={name} value={name}>
+                              {name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   )}
                   <Button
@@ -1295,9 +1297,6 @@ const PlansServices = () => {
                     <TableHead className="hidden md:table-cell">
                       Instructor
                     </TableHead>
-                    <TableHead className="hidden lg:table-cell">
-                      Capacity
-                    </TableHead>
                     <TableHead className="text-right">Rate</TableHead>
                     <TableHead className="w-20"></TableHead>
                   </TableRow>
@@ -1333,9 +1332,6 @@ const PlansServices = () => {
                           </TableCell>
                           <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
                             {s.instructor || "—"}
-                          </TableCell>
-                          <TableCell className="hidden lg:table-cell text-sm">
-                            {s.capacity || "—"}
                           </TableCell>
                           <TableCell className="text-right font-medium text-sm">
                             {formatNPR(s.price)}

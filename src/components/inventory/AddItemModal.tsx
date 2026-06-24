@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useInventoryStores, useItemGroups, useInventoryMutations } from "@/hooks/use-inventory";
+import { useInventoryStores, useItemGroups, useInventoryMutations, useInventoryItems } from "@/hooks/use-inventory";
+import { nextItemCode } from "@/lib/inventory-store";
 import { toast } from "sonner";
 import type { InventoryItem } from "@/lib/inventory-store";
 
@@ -19,6 +20,7 @@ const UNITS = ["pcs", "kg", "ltr", "box", "pack"];
 export function AddItemModal({ open, onOpenChange, editing }: Props) {
   const { data: stores = [] } = useInventoryStores();
   const { data: groups = [] } = useItemGroups();
+  useInventoryItems(); // ensure cache populated so nextItemCode reads latest items
   const { createItem, updateItem } = useInventoryMutations();
 
   const [form, setForm] = useState({
@@ -34,7 +36,7 @@ export function AddItemModal({ open, onOpenChange, editing }: Props) {
         rate: editing.rate, reorderLevel: editing.reorderLevel, active: editing.active,
       });
     } else if (open) {
-      setForm({ code: "", name: "", groupId: groups[0]?.id || "", storeId: stores[0]?.id || "", unit: "pcs", quantity: 0, rate: 0, reorderLevel: 0, active: true });
+      setForm({ code: nextItemCode(), name: "", groupId: groups[0]?.id || "", storeId: stores[0]?.id || "", unit: "pcs", quantity: 0, rate: 0, reorderLevel: 0, active: true });
     }
   }, [editing, open, groups, stores]);
 
@@ -58,7 +60,7 @@ export function AddItemModal({ open, onOpenChange, editing }: Props) {
       <DialogContent className="max-w-lg">
         <DialogHeader><DialogTitle>{editing ? "Edit Item" : "Add Inventory Item"}</DialogTitle></DialogHeader>
         <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5"><Label>Code</Label><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} /></div>
+          <div className="space-y-1.5"><Label>Code{!editing && <span className="text-[10px] text-muted-foreground ml-1">(auto)</span>}</Label><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} readOnly={!editing} /></div>
           <div className="space-y-1.5"><Label>Unit</Label>
             <Select value={form.unit} onValueChange={(v) => setForm({ ...form, unit: v })}>
               <SelectTrigger><SelectValue /></SelectTrigger>

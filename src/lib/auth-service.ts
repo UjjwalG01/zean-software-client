@@ -8,6 +8,21 @@ import { supabase } from "./supabase";
 export async function signIn(email: string, password: string) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw new Error(error.message);
+  // Verify the user has not been deactivated by an admin.
+  try {
+    const { data: row } = await supabase
+      .from("app_users")
+      .select("active")
+      .eq("email", email)
+      .maybeSingle();
+    if (row && row.active === false) {
+      await supabase.auth.signOut();
+      throw new Error("User deactivated");
+    }
+  } catch (e: any) {
+    if (e?.message === "User deactivated") throw e;
+    // ignore lookup failures — RLS or schema issues shouldn't block valid sign-ins
+  }
   return data;
 }
 
