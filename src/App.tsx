@@ -8,6 +8,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { AuthProvider, useAuthContext } from "@/contexts/AuthContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ForcePasswordChangeModal } from "@/components/ForcePasswordChangeModal";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
 import MembersList from "./pages/MembersList";
 import MemberProfile from "./pages/MemberProfile";
@@ -64,7 +65,7 @@ function TimezoneSync() {
 }
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuthContext();
+  const { user, loading, appUser } = useAuthContext();
 
   if (loading) {
     return (
@@ -81,12 +82,15 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
+  // Block deactivated users from reaching any protected page.
+  if (appUser && appUser.isActive === false) {
+    // Best-effort sign-out so the session token is dropped immediately.
+    import("@/lib/auth-service").then((m) => m.signOut()).catch(() => {});
+    return <Navigate to="/login?deactivated=1" replace />;
+  }
+
   return (
     <>
-      {/* This global injection intercepts all authenticated views instantly.
-        If user_metadata has must_change_password set to true, the modal locks 
-        the screen window, ensuring no underlying dashboards can be interacted with.
-      */}
       <ForcePasswordChangeModal />
       {children}
     </>
@@ -106,6 +110,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <TitleSync />
+          <ErrorBoundary>
           <AuthProvider>
             <Routes>
               <Route path="/login" element={<Login />} />
@@ -184,6 +189,7 @@ const App = () => (
               />
             </Routes>
           </AuthProvider>
+          </ErrorBoundary>
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
