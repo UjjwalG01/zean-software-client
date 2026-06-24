@@ -25,16 +25,16 @@ import { toast } from "sonner";
 const Settings = () => {
   const { data: settings = {}, isLoading } = useCompanySettings();
   const saveMutation = useSaveCompanySettings();
-  const { currentOutlet } = useOutlet() as any;
+  const { selected } = useOutlet();
   const [backupBusy, setBackupBusy] = useState(false);
 
   const handleBackup = async () => {
     setBackupBusy(true);
     const tid = toast.loading("Preparing backup…");
     try {
-      const outletId = currentOutlet?.id || null;
+      const outletId = selected?.id || null;
       const bundle = await exportPropertyBackup(outletId);
-      downloadBackup(bundle, currentOutlet?.name || (settings as any)?.companyName || "property");
+      downloadBackup(bundle, selected?.name || (settings as any)?.companyName || "property");
       toast.success("Backup downloaded", { id: tid });
     } catch (e: any) {
       toast.error(e?.message || "Backup failed", { id: tid });
