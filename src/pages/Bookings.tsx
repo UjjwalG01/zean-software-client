@@ -72,9 +72,11 @@ import {
   useServices,
   useCompanySettings,
   useMembershipPlans,
+  usePlanDurations,
   useUpdateMember,
   useAddTransaction,
 } from "@/hooks/use-firestore";
+import { formatMonths } from "@/lib/duration";
 import { useOutlet } from "@/contexts/OutletContext";
 import { Building2, ChevronDown } from "lucide-react";
 import type { Booking, ServiceType } from "@/lib/mock-data";
@@ -92,13 +94,6 @@ import { useUpdateBooking } from "@/hooks/use-firestore";
 import { underlineFirstChar } from "@/lib/string-case-change";
 
 const SYSTEM_TZ = "Asia/Katmandu";
-
-const defaultServiceColors: Record<string, { bg: string; dot: string }> = {
-  Gym: { bg: "bg-primary/80 text-primary-foreground", dot: "bg-primary" },
-  Spa: { bg: "bg-spa text-white", dot: "bg-spa" },
-  Sauna: { bg: "bg-sauna text-white", dot: "bg-sauna" },
-  Swimming: { bg: "bg-swimming text-white", dot: "bg-swimming" },
-};
 
 const colorOptions = [
   { label: "Gold", value: "hsl(38,92%,50%)", tw: "bg-primary" },
@@ -174,9 +169,7 @@ const Bookings_Page = () => {
   const [bookInstructor, setBookInstructor] = useState("");
 
   const [bookPlanId, setBookPlanId] = useState("");
-  const [bookDuration, setBookDuration] = useState<
-    "monthly" | "yearly" | "longTerm"
-  >("monthly");
+  const [bookDurationId, setBookDurationId] = useState<string>("");
   const [useDiscountedRate, setUseDiscountedRate] = useState(false);
   const [discountedRate, setDiscountedRate] = useState<string>("");
   const [timelineOpen, setTimelineOpen] = useState(false);
@@ -188,11 +181,13 @@ const Bookings_Page = () => {
 
   const [guestMode, setGuestMode] = useState(false);
   const [guestName, setGuestName] = useState("");
+  const [membershipListOpen, setMembershipListOpen] = useState(false);
 
   const { data: bookings = [], isLoading } = useBookings();
   const { data: members = [] } = useMembers();
   const { data: services = [] } = useServices();
   const { data: plans = [] } = useMembershipPlans();
+  const { data: planDurations = [] } = usePlanDurations();
   const { data: settings = {} } = useCompanySettings();
   const addBookingMutation = useAddBooking();
   const updateMemberMutation = useUpdateMember();
@@ -295,23 +290,43 @@ const Bookings_Page = () => {
   }, [filtered, listPage]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
 
-  const getBookingsForDay = (day: Date) =>
-    filtered.filter((b) =>
-      isSameDay(toZonedTime(new Date(b.date), SYSTEM_TZ), day),
+  const getBookingsForDay = (day: Date) => {
+    // 1. Convert the calendar grid day into a clean string relative to Kathmandu
+    const dayStr = formatInTimeZone(day, SYSTEM_TZ, "yyyy-MM-dd");
+
+    // 2. Perform a bulletproof string-to-string comparison
+    return filtered.filter(
+      (b) =>
+        b.date === dayStr &&
+        b.status?.toLowerCase() !== "pending" &&
+        b.bookingStatus?.toLowerCase() !== "cancelled",
     );
+  };
 
   const isPastDateTime = (dateStr: string, startTime?: string): boolean => {
     if (!dateStr) return false;
-    const now = toZonedTime(new Date(), SYSTEM_TZ);
+
+    // 1. Get the current date in Kathmandu as a pure string
     const todayStr = formatInTimeZone(new Date(), SYSTEM_TZ, "yyyy-MM-dd");
-    if (dateStr < todayStr) return true;
-    if (dateStr > todayStr) return false;
+
+    // 2. Clear-cut date checks
+    if (dateStr < todayStr) return true; // Definitely in the past
+    if (dateStr > todayStr) return false; // Definitely in the future
+
+    // 3. If dateStr === todayStr, evaluate the time slot
     if (!startTime) return false;
-    const [h, m] = startTime.split(":").map(Number);
-    if (Number.isNaN(h)) return false;
-    const slot = new Date(now);
-    slot.setHours(h, m || 0, 0, 0);
-    return slot.getTime() <= now.getTime();
+    const [slotH, slotM] = startTime.split(":").map(Number);
+    if (Number.isNaN(slotH)) return false;
+
+    // 4. Extract Kathmandu's exact current hours & minutes as standalone numbers
+    const currentHour = Number(formatInTimeZone(new Date(), SYSTEM_TZ, "H"));
+    const currentMin = Number(formatInTimeZone(new Date(), SYSTEM_TZ, "m"));
+
+    // 5. Convert both times to total minutes elapsed since midnight for a pure numeric comparison
+    const slotTotalMinutes = slotH * 60 + (slotM || 0);
+    const currentTotalMinutes = currentHour * 60 + currentMin;
+
+    return slotTotalMinutes <= currentTotalMinutes;
   };
 
   const openNewBookingDialog = (day?: Date, startTime?: string) => {
@@ -322,15 +337,21 @@ const Bookings_Page = () => {
     const d = day || toZonedTime(new Date(), SYSTEM_TZ);
     const today = toZonedTime(new Date(), SYSTEM_TZ);
     today.setHours(0, 0, 0, 0);
-    if (d < today) {
+
+    // 🔄 MODIFIED: Allow past dates ONLY for membership outlets
+    if (d < today && !isMembershipOutlet) {
       toast.error("Cannot add bookings for past dates");
       return;
     }
+
     const dStr = formatInTimeZone(d, SYSTEM_TZ, "yyyy-MM-dd");
-    if (startTime && isPastDateTime(dStr, startTime)) {
+
+    // 🔄 MODIFIED: Allow past times slots ONLY for membership outlets
+    if (startTime && isPastDateTime(dStr, startTime) && !isMembershipOutlet) {
       toast.error("Cannot create bookings in the past");
       return;
     }
+
     setEditingBookingId(null);
     setBookDate(dStr);
     if (startTime) {
@@ -368,7 +389,11 @@ const Bookings_Page = () => {
 
   const handleDayClick = (day: Date) => {
     setScheduleDay(day);
-    setScheduleOpen(true);
+    if (isMembershipOutlet) {
+      setMembershipListOpen(true);
+    } else {
+      setScheduleOpen(true);
+    }
   };
 
   const handleDayDoubleClick = (day: Date) => {
@@ -414,11 +439,11 @@ const Bookings_Page = () => {
     }
     const today = toZonedTime(new Date(), SYSTEM_TZ);
     today.setHours(0, 0, 0, 0);
-    if (new Date(bookDate) < today) {
+    if (new Date(bookDate) < today && !isMembershipOutlet) {
       toast.error("Cannot create bookings for past dates");
       return;
     }
-    if (isPastDateTime(bookDate, bookStartTime)) {
+    if (isPastDateTime(bookDate, bookStartTime) && !isMembershipOutlet) {
       toast.error("Cannot create bookings in the past");
       return;
     }
@@ -513,8 +538,8 @@ const Bookings_Page = () => {
 
       toast.success(
         isGuestBooking
-          ? "Guest booking created — redirecting to payment"
-          : "Booking created — redirecting to payment",
+          ? "Guest booking created!"
+          : "Booking created! Charge added to account balance.",
       );
       setDialogOpen(false);
       const params = new URLSearchParams({
@@ -541,7 +566,7 @@ const Bookings_Page = () => {
       setGuestMode(false);
       setGuestName("");
 
-      navigate(`/transactions?${params.toString()}`);
+      // navigate(`/transactions?${params.toString()}`);
     } catch {
       toast.error("Failed to create booking");
     }
@@ -552,37 +577,111 @@ const Bookings_Page = () => {
     [plans, bookPlanId],
   );
 
-  const membershipAmount = useMemo(() => {
-    if (!selectedPlan) return 0;
-    if (bookDuration === "yearly") return Number(selectedPlan.yearlyPrice || 0);
-    if (bookDuration === "longTerm")
-      return Number(selectedPlan.longTermPrice || 0);
-    return Number(selectedPlan.price || 0);
-  }, [selectedPlan, bookDuration]);
+  const planPriceOptions = useMemo(() => {
+    if (!selectedPlan || !Array.isArray((selectedPlan as any).prices))
+      return [];
+    return (selectedPlan as any).prices
+      .map((pr: any) => {
+        const d = planDurations.find((x) => x.id === pr.durationId);
+        return {
+          durationId: pr.durationId,
+          months: d?.months ?? pr.months ?? 0,
+          name: d?.name || pr.name || "",
+          price: Number(pr.price || 0),
+        };
+      })
+      .filter((p: any) => p.durationId && p.price > 0)
+      .sort((a: any, b: any) => a.months - b.months);
+  }, [selectedPlan, planDurations]);
+
+  const selectedDuration = useMemo(
+    () =>
+      planPriceOptions.find((p: any) => p.durationId === bookDurationId) ||
+      null,
+    [planPriceOptions, bookDurationId],
+  );
+
+  const membershipAmount = selectedDuration ? selectedDuration.price : 0;
+
+  // Auto-select first available duration when plan changes
+  useEffect(() => {
+    if (!selectedPlan) {
+      setBookDurationId("");
+      return;
+    }
+    if (
+      !bookDurationId ||
+      !planPriceOptions.find((p: any) => p.durationId === bookDurationId)
+    ) {
+      setBookDurationId(planPriceOptions[0]?.durationId || "");
+    }
+  }, [selectedPlan, planPriceOptions, bookDurationId]);
 
   const handleEnrollMembership = async () => {
     if (!bookMember || !selectedPlan) {
       toast.error("Select a member and a membership plan");
       return;
     }
+    if (!selectedDuration) {
+      toast.error("Select a duration");
+      return;
+    }
     if (membershipAmount <= 0) {
       toast.error("Selected duration has no price configured");
       return;
     }
+
     const memberObj = members.find((m) => m.id === bookMember);
     const today = toZonedTime(new Date(), SYSTEM_TZ);
-    const expiry = new Date(today);
-    if (bookDuration === "monthly") expiry.setMonth(expiry.getMonth() + 1);
-    if (bookDuration === "yearly") expiry.setFullYear(expiry.getFullYear() + 1);
-    if (bookDuration === "longTerm")
-      expiry.setFullYear(expiry.getFullYear() + 15);
+
+    const enrollmentDate =
+      bookDate || formatInTimeZone(today, SYSTEM_TZ, "yyyy-MM-dd");
+
+    // 🛑 NEW: Check if the member already has an active enrollment on this specific date
+    const isDuplicate = bookings.some(
+      (b) =>
+        b.memberId === bookMember &&
+        b.date === enrollmentDate &&
+        b.service === "Membership" &&
+        b.status.toLowerCase() !== "pending" &&
+        b.bookingStatus !== "Cancelled",
+    );
+
+    if (isDuplicate) {
+      toast.error(
+        `${memberObj?.name || "Member"} is already enrolled on ${enrollmentDate}`,
+      );
+      return;
+    }
+
+    const baseDate = bookDate ? new Date(bookDate) : new Date(today);
+    const expiry = new Date(baseDate);
+    expiry.setMonth(expiry.getMonth() + (selectedDuration.months || 1));
+
     const durationLabel =
-      bookDuration === "monthly"
-        ? "Monthly"
-        : bookDuration === "yearly"
-          ? "Yearly"
-          : "15-Year";
+      selectedDuration.name || formatMonths(selectedDuration.months || 1);
+    const finalAmount =
+      useDiscountedRate && discountedRate
+        ? Number(discountedRate)
+        : membershipAmount;
+
     try {
+      // 1. Write calendar entry
+      await addBookingMutation.mutateAsync({
+        memberId: bookMember,
+        memberName: memberObj?.name || "",
+        service: "Membership",
+        className: `${selectedPlan.tier} · ${durationLabel}`,
+        date: enrollmentDate,
+        startTime: "00:00",
+        endTime: "23:59",
+        status: "Confirmed",
+        bookingStatus: "Confirmed",
+        outletId: selectedOutlet.id,
+        instructor: "",
+      } as any);
+
+      // 2. Update Member metadata
       await updateMemberMutation.mutateAsync({
         id: bookMember,
         data: {
@@ -592,26 +691,39 @@ const Bookings_Page = () => {
           status: "Active",
         },
       });
-      toast.success("Membership enrolled — proceed to payment");
+
+      // 3. Post Ledger Charge Entry
+      if (finalAmount > 0) {
+        try {
+          const { createChargeForBooking } = await import("@/lib/charges");
+          await createChargeForBooking(
+            (d) => addTransactionMutation.mutateAsync(d) as Promise<string>,
+            {
+              memberId: bookMember,
+              memberName: memberObj?.name || "",
+              bookingId: "",
+              service: "Membership",
+              className: `${selectedPlan.tier} · ${durationLabel}`,
+              amount: finalAmount,
+              chargeHead: "Membership",
+              outletId: selectedOutlet?.id,
+            },
+          );
+        } catch (e) {
+          console.warn("[membership] failed to post debit charge", e);
+        }
+      }
+
+      toast.success(`Membership enrolled successfully for ${enrollmentDate}!`);
       setDialogOpen(false);
-      const finalAmount =
-        useDiscountedRate && discountedRate
-          ? Number(discountedRate)
-          : membershipAmount;
-      const params = new URLSearchParams({
-        newPayment: "true",
-        memberId: bookMember,
-        memberName: memberObj?.name || "",
-        service: "Membership",
-        className: `${selectedPlan.tier} · ${durationLabel}`,
-        amount: String(finalAmount),
-        locked: "1",
-      });
+
+      // Reset inputs
       setBookMember("");
       setMemberSearch("");
       setBookPlanId("");
-      setBookDuration("monthly");
-      navigate(`/transactions?${params.toString()}`);
+      setBookDurationId("");
+      setUseDiscountedRate(false);
+      setDiscountedRate("");
     } catch {
       toast.error("Failed to enroll membership");
     }
@@ -927,9 +1039,9 @@ const Bookings_Page = () => {
                       />
                     </SelectTrigger>
                     <SelectContent>
-                      {plans.map((p) => (
+                      {plans.map((p: any) => (
                         <SelectItem key={p.id} value={p.id}>
-                          {p.tier} — {p.includes || p.name}
+                          {p.tier} — {p.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -938,81 +1050,118 @@ const Bookings_Page = () => {
 
                 {selectedPlan && (
                   <div className="space-y-2">
-                    <Label>Duration *</Label>
+                    <Label>Select Booking Duration *</Label>
+                    <Select
+                      value={bookDurationId}
+                      onValueChange={setBookDurationId}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue
+                          placeholder={
+                            planPriceOptions.length === 0
+                              ? "No price tiers configured"
+                              : "Choose duration"
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {planPriceOptions.map((d: any) => {
+                          const baseline =
+                            planPriceOptions[0] &&
+                            planPriceOptions[0].months > 0
+                              ? (planPriceOptions[0].price /
+                                  planPriceOptions[0].months) *
+                                d.months
+                              : 0;
+                          const save =
+                            baseline > d.price ? baseline - d.price : 0;
+                          const pct =
+                            baseline > 0 && save > 0
+                              ? Math.round((save / baseline) * 100)
+                              : 0;
+                          return (
+                            <SelectItem key={d.durationId} value={d.durationId}>
+                              <div className="flex items-center justify-between w-full gap-4">
+                                <span>
+                                  {d.name} · {formatMonths(d.months)}
+                                </span>
+                                <span className="font-semibold text-muted-foreground">
+                                  NPR {Number(d.price || 0).toLocaleString()}
+                                  {pct > 0 && (
+                                    <span className="ml-2 text-[10px] bg-success/20 text-success font-bold px-1.5 py-0.5 rounded">
+                                      -{pct}%
+                                    </span>
+                                  )}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
 
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        Select Booking Duration
-                      </label>
-                      <Select
-                        value={bookDuration}
-                        onValueChange={(val) =>
-                          setBookDuration(
-                            val as "monthly" | "yearly" | "longTerm",
-                          )
-                        }
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Choose package duration" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(
-                            [
-                              {
-                                key: "monthly",
-                                label: "Monthly",
-                                price: selectedPlan.price,
-                                baseline: selectedPlan.price,
-                              },
-                              {
-                                key: "yearly",
-                                label: "1 Year",
-                                price: selectedPlan.yearlyPrice || 0,
-                                baseline: selectedPlan.price * 12,
-                              },
-                              {
-                                key: "longTerm",
-                                label: "15 Years",
-                                price: selectedPlan.longTermPrice || 0,
-                                baseline: selectedPlan.price * 180,
-                              },
-                            ] as const
-                          ).map((d) => {
-                            const save =
-                              d.baseline > 0 && d.price > 0
-                                ? Math.max(0, d.baseline - d.price)
-                                : 0;
-                            const pct =
-                              d.baseline > 0 && save > 0
-                                ? Math.round((save / d.baseline) * 100)
-                                : 0;
-
-                            return (
-                              <SelectItem
-                                key={d.key}
-                                value={d.key}
-                                disabled={!d.price}
-                              >
-                                <div className="flex items-center justify-between w-full gap-4">
-                                  <span>{d.label}</span>
-                                  <span className="font-semibold text-muted-foreground">
-                                    NPR {Number(d.price || 0).toLocaleString()}
-                                    {pct > 0 && (
-                                      <span className="ml-2 text-[10px] bg-success/20 text-success font-bold px-1.5 py-0.5 rounded">
-                                        -{pct}%
-                                      </span>
-                                    )}
-                                  </span>
-                                </div>
-                              </SelectItem>
-                            );
-                          })}
-                        </SelectContent>
-                      </Select>
+                    {/* Selected plan details */}
+                    <div className="mt-2 rounded-lg border border-border bg-muted/30 p-3 space-y-2 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">
+                          {selectedPlan.name || selectedPlan.tier}
+                        </span>
+                        <Badge variant="secondary" className="text-[10px]">
+                          {selectedPlan.tier}
+                        </Badge>
+                      </div>
+                      {selectedDuration && (
+                        <div className="flex items-center justify-between text-muted-foreground">
+                          <span>
+                            {selectedDuration.name} ·{" "}
+                            {formatMonths(selectedDuration.months)}
+                          </span>
+                          <span className="font-semibold text-foreground">
+                            NPR {selectedDuration.price.toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                      {Array.isArray((selectedPlan as any).includedServices) &&
+                        (selectedPlan as any).includedServices.length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {(selectedPlan as any).includedServices.map(
+                              (s: string) => (
+                                <Badge
+                                  key={s}
+                                  variant="outline"
+                                  className="text-[10px]"
+                                >
+                                  {s}
+                                </Badge>
+                              ),
+                            )}
+                          </div>
+                        )}
+                      <div className="flex items-center gap-3 pt-1 text-[11px] text-muted-foreground">
+                        {(selectedPlan as any).autoRenew && (
+                          <span className="inline-flex items-center gap-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                            Auto-Renew
+                          </span>
+                        )}
+                        {(selectedPlan as any).autoDiscount && (
+                          <span className="inline-flex items-center gap-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                            Auto-Discount
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
-
+                <div className="space-y-2 mb-4">
+                  <Label>Enrollment Date *</Label>
+                  <Input
+                    type="date"
+                    value={bookDate}
+                    onChange={(e) => setBookDate(e.target.value)}
+                  />
+                </div>
                 <Button
                   onClick={handleEnrollMembership}
                   disabled={updateMemberMutation.isPending || !selectedPlan}
@@ -1214,6 +1363,90 @@ const Bookings_Page = () => {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={membershipListOpen} onOpenChange={setMembershipListOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader className="flex flex-row items-center justify-between border-b border-border pb-3">
+            <div className="space-y-0.5">
+              <DialogTitle className="font-display text-base">
+                Enrolled Members
+              </DialogTitle>
+              <p className="text-xs text-muted-foreground">
+                {scheduleDay
+                  ? formatInTimeZone(scheduleDay, SYSTEM_TZ, "MMMM d, yyyy")
+                  : ""}
+              </p>
+            </div>
+
+            <Button
+              size="sm"
+              className="h-8 text-xs gradient-gold text-primary-foreground"
+              onClick={() => {
+                setMembershipListOpen(false);
+                openNewBookingDialog(scheduleDay || undefined);
+              }}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Enroll Member
+            </Button>
+          </DialogHeader>
+
+          <div className="space-y-3 mt-4 max-h-[60vh] overflow-y-auto pr-1">
+            {scheduleDay && getBookingsForDay(scheduleDay).length === 0 ? (
+              // ✨ Cleaned Empty State: Text message only, no extra button here
+              <div className="text-center py-10 border border-dashed border-border rounded-lg bg-muted/10">
+                <p className="text-sm text-muted-foreground">
+                  No member enrollments for this day.
+                </p>
+              </div>
+            ) : (
+              scheduleDay &&
+              getBookingsForDay(scheduleDay).map((b) => (
+                <div
+                  key={b.id}
+                  className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30"
+                >
+                  <div className="flex flex-col min-w-0 pr-2">
+                    <span className="font-medium text-sm truncate">
+                      {b.memberName}
+                    </span>
+                    <span className="text-xs text-muted-foreground truncate">
+                      {b.className}
+                    </span>
+                  </div>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="h-8 text-xs shrink-0"
+                    onClick={async () => {
+                      if (
+                        confirm(
+                          `Are you sure you want to cancel ${b.memberName}'s enrollment?`,
+                        )
+                      ) {
+                        try {
+                          await updateBookingMutation.mutateAsync({
+                            id: b.id,
+                            data: {
+                              status: "Cancelled",
+                              bookingStatus: "Cancelled",
+                            } as any,
+                          });
+                          toast.success("Enrollment successfully cancelled");
+                        } catch {
+                          toast.error("Failed to terminate enrollment entry");
+                        }
+                      }
+                    }}
+                  >
+                    Cancel Enrollment
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <DayTimelineDialog
         open={timelineOpen}
         onOpenChange={setTimelineOpen}
@@ -1249,7 +1482,10 @@ const Bookings_Page = () => {
         }}
         onReschedule={async (b, newHour) => {
           if (!scheduleDay) return;
-          if (b.status === "Completed" || b.bookingStatus === "Completed") {
+          if (
+            b.status.toLowerCase() === "pending" ||
+            b.bookingStatus === "Completed"
+          ) {
             toast.error("Completed bookings cannot be rescheduled");
             return;
           }
@@ -1361,7 +1597,7 @@ const Bookings_Page = () => {
                   <TooltipTrigger asChild>
                     <div
                       className={cn(
-                        "min-h-[80px] lg:min-h-[100px] rounded-lg p-1.5 text-sm transition-colors cursor-pointer hover:ring-1 hover:ring-primary/50 flex flex-col",
+                        "min-h-[90px] lg:min-h-[115px] rounded-lg p-1.5 text-sm transition-colors cursor-pointer hover:ring-1 hover:ring-primary/50 flex flex-col justify-between",
                         isCurrentMonth ? "bg-card" : "bg-muted/20",
                         dayIsToday && "ring-1 ring-primary",
                         dayBookings.length > 0 && "bg-primary/5",
@@ -1369,22 +1605,49 @@ const Bookings_Page = () => {
                       onClick={() => handleDayClick(day)}
                       onDoubleClick={() => handleDayDoubleClick(day)}
                     >
-                      <span
-                        className={cn(
-                          "text-xs",
-                          !isCurrentMonth && "text-muted-foreground/40",
-                          dayIsToday && "font-bold text-primary",
-                        )}
-                      >
-                        {formatInTimeZone(day, SYSTEM_TZ, "d")}
-                      </span>
-                      {dayBookings.length > 0 && (
-                        <div className="mt-auto self-end">
-                          <span className="inline-flex items-center justify-center min-w-[26px] h-6 px-1.5 rounded-full bg-primary/15 text-primary text-[11px] font-semibold">
+                      {/* Top Row: Day Number and Total Bookings Count Badge */}
+                      <div className="flex items-center justify-between w-full">
+                        <span
+                          className={cn(
+                            "text-xs font-semibold",
+                            !isCurrentMonth && "text-muted-foreground/40",
+                            dayIsToday && "font-bold text-primary",
+                          )}
+                        >
+                          {formatInTimeZone(day, SYSTEM_TZ, "d")}
+                        </span>
+                        {dayBookings.length > 0 && (
+                          <span className="inline-flex items-center justify-center h-4 min-w-[18px] px-1 rounded bg-primary/15 text-primary text-[10px] font-bold">
                             {dayBookings.length}
                           </span>
-                        </div>
-                      )}
+                        )}
+                      </div>
+
+                      {/* Color-Coded Micro Rows for Each Active Booking */}
+                      <div className="flex-1 flex flex-col gap-1 overflow-hidden mt-1.5 w-full">
+                        {dayBookings.slice(0, 3).map((b) => (
+                          <div
+                            key={b.id}
+                            className="text-[10px] px-1.5 py-0.5 rounded text-white truncate font-medium tracking-wide shadow-sm flex items-center gap-1"
+                            style={{
+                              backgroundColor:
+                                serviceColors[b.service] || "hsl(38,92%,50%)",
+                            }}
+                          >
+                            <span className="text-[9px] font-mono opacity-80 shrink-0">
+                              {b.startTime}
+                            </span>
+                            <span className="truncate">
+                              {b.className || b.service}
+                            </span>
+                          </div>
+                        ))}
+                        {dayBookings.length > 3 && (
+                          <div className="text-[9px] text-muted-foreground font-semibold px-1 mt-auto">
+                            +{dayBookings.length - 3} more
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </TooltipTrigger>
                   {dayBookings.length > 0 && (
@@ -1462,6 +1725,36 @@ const Bookings_Page = () => {
                 })}
               </TableBody>
             </Table>
+            {view === "list" && totalPages > 1 && (
+              <Pagination className="mt-4">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => setListPage((p) => Math.max(1, p - 1))}
+                      aria-disabled={listPage === 1}
+                    />
+                  </PaginationItem>
+                  {Array.from({ length: totalPages }).map((_, i) => (
+                    <PaginationItem key={i}>
+                      <PaginationLink
+                        isActive={listPage === i + 1}
+                        onClick={() => setListPage(i + 1)}
+                      >
+                        {i + 1}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ))}
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() =>
+                        setListPage((p) => Math.min(totalPages, p + 1))
+                      }
+                      aria-disabled={listPage === totalPages}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            )}
           </div>
         </div>
       )}

@@ -135,6 +135,7 @@ const Transactions = () => {
   const [advAmount, setAdvAmount] = useState("");
   const [advMethod, setAdvMethod] = useState<PaymentMethod>("cash");
   const [advNote, setAdvNote] = useState("");
+  const [advDiscount, setAdvDiscount] = useState("");
 
   const [settleTxn, setSettleTxn] = useState<Transaction | null>(null);
   const [settleMethod, setSettleMethod] = useState<PaymentMethod>("cash");
@@ -225,6 +226,42 @@ const Transactions = () => {
     0,
   );
   const totalVat = activeForTotals.reduce((sum, t) => sum + t.vat, 0);
+
+  const memberFinancials = useMemo(() => {
+    if (!advMember)
+      return { grossCharges: 0, availableAdvance: 0, netPayable: 0 };
+
+    // 1. Sum up all unpaid charges
+    const grossCharges = transactions
+      .filter(
+        (t) =>
+          t.memberId === advMember &&
+          t.type === "Charge" &&
+          statusLabel(t) === "Pending",
+      )
+      .reduce((sum, t) => sum + (t.total || 0), 0);
+
+    // 2. Sum up any unutilized advance deposits or credits
+    const availableAdvance = transactions
+      .filter(
+        (t) =>
+          t.memberId === advMember &&
+          t.type === "Advance" &&
+          (t.status === "pending" || t.status === "unpaid" || !t.status),
+      )
+      .reduce((sum, t) => sum + (t.total || t.amount || 0), 0);
+
+    // 3. Compute net amount the member actually owes right now
+    const netPayable = Math.max(0, grossCharges - availableAdvance);
+
+    return { grossCharges, availableAdvance, netPayable };
+  }, [advMember, transactions]);
+
+  // Calculate the final checkout figure after entering an optional discount
+  const finalBatchNetPayable = Math.max(
+    0,
+    memberFinancials.netPayable - (Number(advDiscount) || 0),
+  );
 
   // Local pagination
   useEffect(() => {
@@ -349,6 +386,7 @@ const Transactions = () => {
           : `Advance of ${formatNPR(amount)} applied to pending charges`,
       );
       setAdvanceOpen(false);
+      setAdvDiscount("");
       setAdvMember("");
       setAdvAmount("");
       setAdvNote("");
@@ -666,22 +704,34 @@ const Transactions = () => {
             <FileText className="h-4 w-4 mr-1" />
             {underlineFirstChar("Record Charge")}
           </Button>
-          <Dialog open={advanceOpen} onOpenChange={setAdvanceOpen}>
+
+          <Dialog
+            open={advanceOpen}
+            onOpenChange={(o) => {
+              setAdvanceOpen(o);
+              if (!o) {
+                setAdvDiscount(""); // Reset discount when closed
+              }
+            }}
+          >
             <DialogTrigger asChild>
               <Button accessKey="a" size="sm">
                 <Plus className="h-4 w-4 mr-1" />
-                {underlineFirstChar("Add Advance")}
+                {underlineFirstChar("Add Advance / Checkout")}
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle className="font-display">Add Advance</DialogTitle>
+                <DialogTitle className="font-display">
+                  Account Settlement & Advance
+                </DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 <p className="text-xs text-muted-foreground">
-                  Advances are deducted from the member's outstanding due
-                  balance. Any leftover is kept as credit.
+                  Apply a payment to clear a member's accumulated balance. Any
+                  leftover amount is safely saved as a profile credit indicator.
                 </p>
+
                 <div className="space-y-2">
                   <Label>Member *</Label>
                   <Select value={advMember} onValueChange={setAdvMember}>
@@ -697,8 +747,77 @@ const Transactions = () => {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* 📊 ACCUMULATED LEDGER BREAKDOWN CARD */}
+                {advMember && (
+                  <div className="p-3 rounded-lg border border-border bg-muted/40 space-y-2 text-sm animate-fade-in">
+                    <div className="flex justify-between items-center text-xs text-muted-foreground">
+                      <span>Gross Outstanding Tab:</span>
+                      <span className="font-mono font-medium">
+                        {formatNPR(memberFinancials.grossCharges)}
+                      </span>
+                    </div>
+                    {memberFinancials.availableAdvance > 0 && (
+                      <div className="flex justify-between items-center text-xs text-success">
+                        <span>Available Profile Credit:</span>
+                        <span className="font-mono font-medium">
+                          -{formatNPR(memberFinancials.availableAdvance)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="pt-2 border-t border-border/60 flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-medium text-muted-foreground block">
+                          Net Outstanding Balance:
+                        </span>
+                        <span className="font-mono font-bold text-base text-primary">
+                          {formatNPR(memberFinancials.netPayable)}
+                        </span>
+                      </div>
+                      {memberFinancials.netPayable > 0 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs bg-background hover:bg-primary hover:text-primary-foreground transition-all"
+                          onClick={() =>
+                            setAdvAmount(String(finalBatchNetPayable))
+                          }
+                        >
+                          Use Net Total
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 🏷️ BATCH DISCOUNT INPUT FIELD */}
+                {advMember && memberFinancials.netPayable > 0 && (
+                  <div className="grid grid-cols-2 gap-3 animate-fade-in">
+                    <div className="space-y-2">
+                      <Label>Apply Discount (NPR)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={memberFinancials.netPayable}
+                        placeholder="0"
+                        value={advDiscount}
+                        onChange={(e) => setAdvDiscount(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Final Net Payable</Label>
+                      <Input
+                        value={formatNPR(finalBatchNetPayable)}
+                        readOnly
+                        className="bg-muted/40 font-semibold text-success font-mono"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-2">
-                  <Label>Advance Amount (NPR) *</Label>
+                  <Label>Payment Amount (NPR) *</Label>
                   <Input
                     type="number"
                     placeholder="0"
@@ -706,6 +825,7 @@ const Transactions = () => {
                     onChange={(e) => setAdvAmount(e.target.value)}
                   />
                 </div>
+
                 <div className="space-y-2">
                   <Label>Payment Method</Label>
                   <Select
@@ -718,21 +838,23 @@ const Transactions = () => {
                     <SelectContent>
                       {paymentModes.map((m) => (
                         <SelectItem key={m} value={m}>
-                          {m}
+                          {capitalizeFirstLetter(m.replace(/_/g, " "))}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+
                 <div className="space-y-2">
                   <Label>Note</Label>
                   <Textarea
                     rows={2}
                     value={advNote}
                     onChange={(e) => setAdvNote(e.target.value)}
-                    placeholder="Optional context"
+                    placeholder="Optional checkout context"
                   />
                 </div>
+
                 <Button
                   onClick={handleAddAdvance}
                   disabled={addTransactionMutation.isPending}
@@ -740,8 +862,11 @@ const Transactions = () => {
                 >
                   <Receipt className="h-4 w-4 mr-1" />
                   {addTransactionMutation.isPending
-                    ? "Saving..."
-                    : "Record Advance"}
+                    ? "Processing Settlement..."
+                    : Number(advAmount) === finalBatchNetPayable &&
+                        finalBatchNetPayable > 0
+                      ? "Clear Total Account & Checkout"
+                      : "Record Payment"}
                 </Button>
               </div>
             </DialogContent>

@@ -54,7 +54,11 @@ export function TransactionDetailModal({
   if (!t) return null;
 
   const companyName = settings.companyName || ".............";
-  const paidAmount = t.total;
+
+  // 🔄 MODIFIED: Calculate actual paid volume net of any applied discounts
+  const discountAmount = Number((t as any).discount) || 0;
+  const paidAmount = Math.max(0, t.total - discountAmount);
+
   const balanceAmount = 0;
   const isVoided = t.voided || t.status === "voided";
 
@@ -74,7 +78,7 @@ export function TransactionDetailModal({
       return;
     }
     if (voidConfirmText.trim().toUpperCase() !== "VOID") {
-      toast.error('Type VOID to confirm');
+      toast.error("Type VOID to confirm");
       return;
     }
     setVoiding(true);
@@ -167,9 +171,20 @@ export function TransactionDetailModal({
                 <span className="text-muted-foreground">VAT (13%)</span>
                 <span>{formatNPR(t.vat)}</span>
               </div>
+
+              {/* 🏷️ NEW: Discount Line-Item breakdown indicator */}
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-sm text-destructive">
+                  <span>Discount Applied</span>
+                  <span className="font-medium">
+                    -{formatNPR(discountAmount)}
+                  </span>
+                </div>
+              )}
+
               <Separator />
               <div className="flex justify-between text-sm font-bold">
-                <span>Total Amount</span>
+                <span>Total Gross Amount</span>
                 <span className="text-primary">{formatNPR(t.total)}</span>
               </div>
             </div>
@@ -194,7 +209,7 @@ export function TransactionDetailModal({
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Paid Amount</span>
-                <span className="text-success font-medium">
+                <span className="text-success font-medium font-mono">
                   {t.status === "pending" || t.status === "voided"
                     ? 0
                     : formatNPR(paidAmount)}
@@ -203,7 +218,7 @@ export function TransactionDetailModal({
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Balance Due</span>
                 {t.status === "pending" || t.status === "voided" ? (
-                  formatNPR(paidAmount)
+                  formatNPR(t.total)
                 ) : (
                   <span
                     className={
@@ -300,18 +315,27 @@ export function TransactionDetailModal({
             <AlertDialogHeader>
               <AlertDialogTitle>Void this transaction?</AlertDialogTitle>
               <AlertDialogDescription>
-                You are about to void receipt <b>{t.receiptNo}</b> ({formatNPR(t.total)}) for{" "}
-                <b>{t.memberName}</b>. This zeroes its financial impact and cannot be undone.
+                You are about to void receipt <b>{t.receiptNo}</b> (
+                {formatNPR(t.total)}) for <b>{t.memberName}</b>. This zeroes its
+                financial impact and cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="space-y-3 py-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">Reason *</Label>
-                <Input value={voidReason} onChange={(e) => setVoidReason(e.target.value)} placeholder="e.g. duplicate posting" />
+                <Input
+                  value={voidReason}
+                  onChange={(e) => setVoidReason(e.target.value)}
+                  placeholder="e.g. duplicate posting"
+                />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Type VOID to confirm</Label>
-                <Input value={voidConfirmText} onChange={(e) => setVoidConfirmText(e.target.value)} placeholder="VOID" />
+                <Input
+                  value={voidConfirmText}
+                  onChange={(e) => setVoidConfirmText(e.target.value)}
+                  placeholder="VOID"
+                />
               </div>
             </div>
             <AlertDialogFooter>

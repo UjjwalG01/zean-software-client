@@ -549,39 +549,30 @@ export async function deleteMember(id: string): Promise<void> {
 }
 
 // ─── Bookings ───────────────────────────────────────────────────────
-// Convert raw DB enum (e.g. 'wait-listed', 'confirmed', 'not-fixed', plus
-// legacy 'pending'/'completed'/'cancelled'/'no_show') into the canonical
-// display label used in the React layer.
-function dbStatusToDisplay(raw: unknown): string {
-  const s = String(raw || "").toLowerCase();
-  switch (s) {
-    case "wait-listed":
-    case "pending":
-      return "Waitlisted";
-    case "confirmed":
-    case "completed":
-      return "Confirmed";
-    case "not-fixed":
-    case "cancelled":
-    case "no_show":
-      return "NotFixed";
-    default:
-      return s ? s.replace(/^./, (c) => c.toUpperCase()) : "Confirmed";
-  }
+/** Standardizes Scheduling/Booking Statuses */
+function dbBookingStatusToDisplay(raw: unknown): BookingStatus {
+  const s = String(raw || "").toLowerCase().replace(/[\s_]+/g, "-");
+  if (s === "wait-listed" || s === "waitlisted") return "Wait-listed" as BookingStatus;
+  if (s === "not-fixed" || s === "notfixed") return "not-fixed" as BookingStatus;
+  return "confirmed" as BookingStatus;
 }
 
-// Inverse of dbStatusToDisplay — accepts whatever label the frontend
-// hands us and writes one of the three current enum values.
-function displayStatusToDb(value: unknown): string {
-  const s = String(value || "").toLowerCase().replace(/\s+/g, "-");
-  if (s === "waitlisted" || s === "wait-listed" || s === "pending") return "wait-listed";
-  if (s === "notfixed" || s === "not-fixed" || s === "cancelled" || s === "no-show" || s === "no_show") return "not-fixed";
+function displayBookingStatusToDb(value: unknown): string {
+  const s = String(value || "").toLowerCase().replace(/[\s_]+/g, "-");
+  if (s === "waitlisted" || s === "wait-listed") return "wait-listed";
+  if (s === "notfixed" || s === "not-fixed") return "not-fixed";
   return "confirmed";
 }
 
+/** Standardizes Financial/Payment Statuses */
+function dbPaymentStatusToDisplay(raw: unknown): string {
+  const s = String(raw || "").toLowerCase();
+  const validFinancialStatuses = ["pending", "unpaid", "paid", "voided", "settled", "overpaid"];
+  return validFinancialStatuses.includes(s) ? s : "pending";
+}
+
+// ─── Updated Booking Row Mapper ───────────────────────────────────
 function mapBookingRow(r: any): Booking {
-  // Some legacy rows still encode service/className/instructor inside
-  // the `notes` text column as JSON. Read it as a fallback only.
   const notesFallback = (() => {
     try {
       return r.notes && r.notes.trim().startsWith("{") ? JSON.parse(r.notes) : {};
@@ -589,7 +580,7 @@ function mapBookingRow(r: any): Booking {
       return {};
     }
   })();
-  const rawStatus = r.booking_status ?? r.status;
+
   return {
     id: r.id,
     memberId: r.member_id || "",
@@ -606,8 +597,11 @@ function mapBookingRow(r: any): Booking {
     date: dateOnly(r.start_at ?? r.start_time),
     startTime: timeOnly(r.start_time ?? r.start_at),
     endTime: timeOnly(r.end_time ?? r.end_at),
-    status: dbStatusToDisplay(rawStatus) as BookingStatus,
-    bookingStatus: dbStatusToDisplay(rawStatus),
+
+    // Decoupled Assignments
+    status: dbPaymentStatusToDisplay(r.status),               // Financial (pending, paid, etc.)
+    bookingStatus: dbBookingStatusToDisplay(r.booking_status), // Scheduling (confirmed, wait-listed, etc.)
+
     originalRate: Number(r.original_rate ?? 0),
     rate: Number(r.rate ?? 0),
     discountAmount: Number(r.discount_amount ?? 0),
@@ -633,6 +627,7 @@ export async function getBookings(filters?: { service?: ServiceType }): Promise<
 export async function addBooking(data: Partial<Booking> & { outletId?: string }): Promise<string> {
   const startTs = at(data.date, data.startTime);
   const endTs = at(data.date, data.endTime || data.startTime);
+
   const insertRow: Record<string, any> = {
     member_id: data.memberId || null,
     member_name: data.memberName || null,
@@ -653,14 +648,15 @@ export async function addBooking(data: Partial<Booking> & { outletId?: string })
     rate: (data as any).rate ?? null,
     discount_amount: (data as any).discountAmount ?? 0,
     discount_reason: (data as any).discountReason || null,
-    booking_status: displayStatusToDb(data.status || "Confirmed"),
+
+    // Explicitly separated columns
+    status: data.status || "pending",
+    booking_status: displayBookingStatusToDb(data.bookingStatus || "confirmed"),
+
     notes: typeof (data as any).notes === "string" ? (data as any).notes : null,
   };
-  const { data: row, error } = await supabase
-    .from("bookings")
-    .insert(insertRow)
-    .select("id")
-    .single();
+
+  const { data: row, error } = await supabase.from("bookings").insert(insertRow).select("id").single();
   if (error) throwDb(error, "bookings");
   await maybeAudit("create", "booking", row.id, null, data);
   return row.id;
@@ -668,39 +664,21 @@ export async function addBooking(data: Partial<Booking> & { outletId?: string })
 
 export async function updateBooking(id: string, data: Partial<Record<string, any>>): Promise<void> {
   const patch: Record<string, any> = { updated_at: new Date().toISOString() };
+
+  // Scalar properties omitted for brevity...
   if (data.memberId !== undefined) patch.member_id = data.memberId || null;
-  if (data.memberName !== undefined) patch.member_name = data.memberName;
-  if (data.serviceId !== undefined) patch.service_id = data.serviceId || null;
-  if (data.service !== undefined || data.serviceType !== undefined)
-    patch.service_type = data.serviceType ?? data.service ?? null;
-  if (data.className !== undefined) {
-    patch.service_name = data.className;
-    patch.class_name = data.className;
+  if (data.date !== undefined || data.startTime !== undefined) {
+    const startTs = at(data.date, data.startTime);
+    patch.start_at = startTs; patch.start_time = startTs;
   }
-  if (data.instructor !== undefined) patch.instructor = data.instructor || null;
-  if (data.employeeId !== undefined) patch.employee_id = data.employeeId || null;
-  if (data.memberPackageId !== undefined) patch.member_package_id = data.memberPackageId || null;
-  if (data.moduleId !== undefined) patch.module_id = data.moduleId || null;
-  if (data.outletId !== undefined) patch.outlet_id = data.outletId || null;
-  if (data.date !== undefined || data.startTime !== undefined || data.start_time !== undefined) {
-    const startTs = at(data.date, data.startTime ?? data.start_time);
-    patch.start_at = startTs;
-    patch.start_time = startTs;
+
+  // Handle updates independently
+  if (data.status !== undefined) {
+    patch.status = data.status; // writing directly to financial 'status' column
   }
-  if (data.date !== undefined || data.endTime !== undefined || data.end_time !== undefined) {
-    const endTs = at(data.date, data.endTime ?? data.end_time ?? data.startTime ?? data.start_time);
-    patch.end_at = endTs;
-    patch.end_time = endTs;
+  if (data.bookingStatus !== undefined) {
+    patch.booking_status = displayBookingStatusToDb(data.bookingStatus);
   }
-  if (data.status !== undefined || data.bookingStatus !== undefined)
-    patch.booking_status = displayStatusToDb(data.status ?? data.bookingStatus);
-  if (data.originalRate !== undefined) patch.original_rate = data.originalRate;
-  if (data.rate !== undefined) patch.rate = data.rate;
-  if (data.discountAmount !== undefined) patch.discount_amount = data.discountAmount;
-  if (data.discountReason !== undefined) patch.discount_reason = data.discountReason || null;
-  if (data.cancelReason !== undefined) patch.cancel_reason = data.cancelReason || null;
-  if (data.cancelledAt !== undefined) patch.cancelled_at = data.cancelledAt || null;
-  if (data.notes !== undefined && typeof data.notes === "string") patch.notes = data.notes;
 
   const { error } = await supabase.from("bookings").update(patch).eq("id", id);
   if (error) throwDb(error, "bookings");
@@ -909,92 +887,241 @@ export async function deleteService(id: string): Promise<void> {
   if (error) throwDb(error, "services");
 }
 
+// ─── Plan Durations (reusable lookup) ───────────────────────────────
+export interface PlanDuration {
+  id: string;
+  months: number;
+  name: string;
+  sortOrder: number;
+  active: boolean;
+}
+
+function mapDurationRow(r: any): PlanDuration {
+  return {
+    id: r.id,
+    months: Number(r.months || 0),
+    name: r.name || "",
+    sortOrder: Number(r.sort_order || 0),
+    active: r.active !== false,
+  };
+}
+
+export async function getPlanDurations(): Promise<PlanDuration[]> {
+  const { data, error } = await supabase
+    .from("plan_durations")
+    .select("*")
+    .order("sort_order", { ascending: true })
+    .order("months", { ascending: true });
+  if (error) {
+    console.warn("[plan_durations] read failed:", error.message);
+    return [];
+  }
+  return (data || []).map(mapDurationRow);
+}
+
+export async function addPlanDuration(data: Partial<PlanDuration>): Promise<string> {
+  const { data: row, error } = await supabase
+    .from("plan_durations")
+    .insert({
+      months: Number(data.months || 1),
+      name: data.name || `${data.months} months`,
+      sort_order: Number(data.sortOrder || 0),
+      active: data.active !== false,
+    })
+    .select("id")
+    .single();
+  if (error) throwDb(error, "plan_durations");
+  return row.id;
+}
+
+export async function updatePlanDuration(id: string, data: Partial<PlanDuration>): Promise<void> {
+  const patch: Record<string, any> = {};
+  if (data.months !== undefined) patch.months = Number(data.months);
+  if (data.name !== undefined) patch.name = data.name;
+  if (data.sortOrder !== undefined) patch.sort_order = Number(data.sortOrder);
+  if (data.active !== undefined) patch.active = data.active;
+  const { error } = await supabase.from("plan_durations").update(patch).eq("id", id);
+  if (error) throwDb(error, "plan_durations");
+}
+
+export async function deletePlanDuration(id: string): Promise<void> {
+  const { error } = await supabase.from("plan_durations").delete().eq("id", id);
+  if (error) throwDb(error, "plan_durations");
+}
+
 // ─── Membership Plans ───────────────────────────────────────────────
+export interface MembershipPlanPrice {
+  durationId: string;
+  price: number;
+  months?: number;
+  name?: string;
+}
+
 export interface FirestoreMembershipPlan {
   id: string;
   name: string;
   tier: string;
+  durationMonths: number;
+  includedServices: string[];
+  autoRenew: boolean;
+  autoDiscount: boolean;
+  prices: MembershipPlanPrice[];
+  // Legacy mirrors kept so older screens still read a value.
   price: number;
   yearlyPrice?: number;
   longTermPrice?: number;
-  durationInMonths?: number;
-  membershipTypeId?: string;
   includes?: string;
-  autoRenew?: boolean;
+  durationInMonths?: number;
 }
 
-function mapPlanRow(r: any): FirestoreMembershipPlan {
+function mapPlanRow(r: any, durations: PlanDuration[]): FirestoreMembershipPlan {
+  // Legacy JSON metadata fallback (older rows store extras in description as JSON).
   const meta = (() => {
     try {
-      return r.description?.startsWith("{") ? JSON.parse(r.description) : {};
+      return typeof r.description === "string" && r.description.startsWith("{")
+        ? JSON.parse(r.description)
+        : {};
     } catch {
       return {};
     }
   })();
+
+  const includedFromCol: string[] = Array.isArray(r.included_services) ? r.included_services : [];
+  const legacyIncludes: string = meta.includes || (typeof r.description === "string" && !r.description.startsWith("{") ? r.description : "") || r.includes || "";
+  const includedServices = includedFromCol.length > 0
+    ? includedFromCol
+    : legacyIncludes
+      ? legacyIncludes.split(/[+,]/).map((s: string) => s.trim()).filter(Boolean)
+      : [];
+
+  const priceRows: any[] = Array.isArray(r.membership_plan_prices) ? r.membership_plan_prices : [];
+  const prices: MembershipPlanPrice[] = priceRows
+    .map((pr) => {
+      const d = durations.find((x) => x.id === pr.duration_id);
+      return {
+        durationId: pr.duration_id,
+        months: d?.months || 0,
+        name: d?.name || "",
+        price: Number(pr.price || 0),
+      };
+    })
+    .sort((a, b) => a.months - b.months);
+
+  const durationMonths = Number(r.duration_months ?? Math.round(Number(r.duration_days || 30) / 30));
+  const headlinePrice = prices.length > 0 ? prices[0].price : Number(r.price || 0);
+
   return {
     id: r.id,
     name: r.name || "",
     tier: r.tier || "Basic",
-    price: Number(r.price || 0),
-    yearlyPrice: Number(meta.yearlyPrice || 0),
-    longTermPrice: Number(meta.longTermPrice || 0),
-    durationInMonths: Math.round(Number(r.duration_days || 30) / 30),
-    membershipTypeId: meta.membershipTypeId || "",
-    includes: meta.includes || r.description || "",
-    autoRenew: Boolean(meta.autoRenew || false),
+    durationMonths,
+    includedServices,
+    autoRenew: Boolean(r.auto_renew ?? meta.autoRenew ?? false),
+    autoDiscount: Boolean(r.auto_discount ?? meta.autoDiscount ?? false),
+    prices,
+    // Legacy mirrors
+    price: headlinePrice,
+    yearlyPrice: Number(r.yearly_price || meta.yearlyPrice || 0),
+    longTermPrice: Number(r.long_term_price || meta.longTermPrice || 0),
+    includes: includedServices.join(" + "),
+    durationInMonths: durationMonths,
   };
 }
 
 export async function getMembershipPlans(): Promise<FirestoreMembershipPlan[]> {
-  const { data, error } = await supabase.from("membership_plans").select("*").order("price", { ascending: true });
+  const durations = await getPlanDurations();
+  const { data, error } = await supabase
+    .from("membership_plans")
+    .select("*, membership_plan_prices(*)")
+    .order("price", { ascending: true });
   if (error) {
     console.warn("[membership_plans] read failed:", error.message);
     return [];
   }
-  return (data || []).map(mapPlanRow);
+  return (data || []).map((r) => mapPlanRow(r, durations));
+}
+
+async function syncPlanPrices(planId: string, prices: MembershipPlanPrice[] | undefined): Promise<void> {
+  if (!Array.isArray(prices)) return;
+  const { data: existing } = await supabase
+    .from("membership_plan_prices")
+    .select("id, duration_id")
+    .eq("plan_id", planId);
+  const existingByDuration = new Map<string, string>();
+  (existing || []).forEach((row: any) => existingByDuration.set(row.duration_id, row.id));
+
+  const keepDurationIds = new Set<string>();
+  for (const p of prices) {
+    if (!p.durationId) continue;
+    keepDurationIds.add(p.durationId);
+    const existingId = existingByDuration.get(p.durationId);
+    if (existingId) {
+      await supabase
+        .from("membership_plan_prices")
+        .update({ price: Number(p.price || 0) })
+        .eq("id", existingId);
+    } else {
+      await supabase
+        .from("membership_plan_prices")
+        .insert({ plan_id: planId, duration_id: p.durationId, price: Number(p.price || 0) });
+    }
+  }
+  // Delete rows that are no longer in the payload.
+  const toDelete = (existing || []).filter((row: any) => !keepDurationIds.has(row.duration_id));
+  if (toDelete.length > 0) {
+    await supabase
+      .from("membership_plan_prices")
+      .delete()
+      .in("id", toDelete.map((r: any) => r.id));
+  }
 }
 
 export async function addMembershipPlan(data: Partial<FirestoreMembershipPlan>): Promise<string> {
+  const headline = (data.prices && data.prices[0]?.price) || data.price || 0;
+  const durationMonths = data.durationMonths || data.durationInMonths || 1;
   const { data: row, error } = await supabase
     .from("membership_plans")
     .insert({
       name: data.name || data.tier || "Plan",
       tier: data.tier || "Basic",
-      price: data.price || 0,
-      duration_days: (data.durationInMonths || 1) * 30,
+      price: headline,
+      duration_days: durationMonths * 30,
+      duration_months: durationMonths,
+      included_services: data.includedServices || [],
+      auto_renew: !!data.autoRenew,
+      auto_discount: !!data.autoDiscount,
       active: true,
-      description: JSON.stringify({
-        yearlyPrice: data.yearlyPrice || 0,
-        longTermPrice: data.longTermPrice || 0,
-        includes: data.includes || "",
-        autoRenew: data.autoRenew || false,
-        membershipTypeId: data.membershipTypeId || "",
-      }),
     })
     .select("id")
     .single();
   if (error) throwDb(error, "membership_plans");
+  await syncPlanPrices(row.id, data.prices);
   return row.id;
 }
 
 export async function updateMembershipPlan(id: string, data: Partial<Record<string, any>>): Promise<void> {
-  const current = (await getMembershipPlans()).find((p) => p.id === id);
   const patch: Record<string, any> = {};
   if (data.name !== undefined) patch.name = data.name;
   if (data.tier !== undefined) patch.tier = data.tier;
-  if (data.price !== undefined) patch.price = data.price;
-  if (data.durationInMonths !== undefined) patch.duration_days = data.durationInMonths * 30;
-  const meta = {
-    yearlyPrice: current?.yearlyPrice || 0,
-    longTermPrice: current?.longTermPrice || 0,
-    includes: current?.includes || "",
-    autoRenew: current?.autoRenew || false,
-    membershipTypeId: current?.membershipTypeId || "",
-    ...data,
-  };
-  patch.description = JSON.stringify(meta);
-  const { error } = await supabase.from("membership_plans").update(patch).eq("id", id);
-  if (error) throwDb(error, "membership_plans");
+  if (data.durationMonths !== undefined) {
+    patch.duration_months = Number(data.durationMonths);
+    patch.duration_days = Number(data.durationMonths) * 30;
+  }
+  if (data.includedServices !== undefined) patch.included_services = data.includedServices;
+  if (data.autoRenew !== undefined) patch.auto_renew = !!data.autoRenew;
+  if (data.autoDiscount !== undefined) patch.auto_discount = !!data.autoDiscount;
+  if (Array.isArray(data.prices) && data.prices.length > 0) {
+    patch.price = Number(data.prices[0].price || 0);
+  } else if (data.price !== undefined) {
+    patch.price = Number(data.price);
+  }
+  if (Object.keys(patch).length > 0) {
+    const { error } = await supabase.from("membership_plans").update(patch).eq("id", id);
+    if (error) throwDb(error, "membership_plans");
+  }
+  if (data.prices !== undefined) {
+    await syncPlanPrices(id, data.prices);
+  }
 }
 
 export async function deleteMembershipPlan(id: string): Promise<void> {

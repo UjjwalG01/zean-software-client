@@ -129,14 +129,10 @@ export function BookingDetailModal({
   if (!b) return null;
 
   const status = localStatus || b.status;
-  // Amend is only allowed for not-yet-completed/cancelled bookings on or after today.
   const canEdit =
     isFutureBooking(b) && status !== "Completed" && status !== "Cancelled";
-  // Cancel is allowed at any time (including past dates) as long as not already finished/cancelled.
   const canCancel = status !== "Completed" && status !== "Cancelled";
 
-  // Future-dated bookings cannot be billed (Task 2). We compare on local
-  // calendar day — anything strictly after today is rejected with a toast.
   const isStrictlyFuture = (() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -145,25 +141,27 @@ export function BookingDetailModal({
     return d.getTime() > today.getTime();
   })();
 
-  // "Bill" — keep the booking on this page, send the user to record payment
-  // for it; the booking stays in its current status until a real payment is settled.
   const handleBillNow = async () => {
     if (isStrictlyFuture) {
       toast.error("Future-dated bookings cannot be billed yet.");
       return;
     }
-    // Look up the pending charge already posted for this booking so we can
-    // pass its id directly — the Transactions page will open the settlement
-    // dialog immediately without depending on data refetch timing.
+
     const linkedCharge = transactions.find(
       (t) =>
         t.bookingId === b.id && t.type === "Charge" && t.status === "pending",
     );
-    // Look up default price
+
     const svc = services.find(
       (s) => s.name === b.className || s.type === b.service,
     );
-    const amount = svc ? String(svc.price || 0) : "0";
+
+    // 🔄 MODIFIED: Prioritize the recorded pending charge figure over default catalog price
+    const amount = linkedCharge
+      ? String(linkedCharge.total || linkedCharge.amount || 0)
+      : svc
+        ? String(svc.price || 0)
+        : "0";
 
     onOpenChange(false);
     const params = new URLSearchParams({
@@ -196,11 +194,11 @@ export function BookingDetailModal({
         id: b.id,
         data: {
           bookingDate: editForm.date,
-          booking_date: editForm.date, // Aligns with schema column
+          booking_date: editForm.date,
           startTime: editForm.startTime,
           endTime: editForm.endTime || editForm.startTime,
-          start_time: editForm.startTime, // Prevents UTC fallback shift (:45)
-          end_time: editForm.endTime || editForm.startTime, // Prevents UTC fallback shift (:45)
+          start_time: editForm.startTime,
+          end_time: editForm.endTime || editForm.startTime,
           service: editForm.service,
           className: editForm.className,
           instructor: editForm.instructor,
@@ -213,8 +211,6 @@ export function BookingDetailModal({
       toast.error("Failed to update booking");
     }
   };
-
-  // (Delete removed — bookings may only be cancelled, never hard-deleted.)
 
   const handleCancel = async () => {
     if (!cancelReason.trim()) {
@@ -230,8 +226,6 @@ export function BookingDetailModal({
           cancelledAt: new Date().toISOString(),
         } as any,
       });
-      // Auto-void any pending charge tied to this booking so the member's
-      // due balance is rolled back (charging-first integrity).
       const linkedCharges = transactions.filter(
         (t) =>
           t.bookingId === b.id && t.type === "Charge" && t.status === "pending",
@@ -241,7 +235,6 @@ export function BookingDetailModal({
           id: c.id,
           data: { status: "voided" } as any,
         });
-        // Also void the canonical row in the dedicated `charges` table.
         const chargeRowId = (c as any).chargeRowId as string | undefined;
         if (chargeRowId) {
           try {
@@ -254,7 +247,6 @@ export function BookingDetailModal({
               })
               .eq("id", chargeRowId);
           } catch (err) {
-            // eslint-disable-next-line no-console
             console.warn("[bookings] failed to void canonical charge row", err);
           }
         }
@@ -274,11 +266,23 @@ export function BookingDetailModal({
 
   const handleGenerateBill = () => {
     const companyName = settings.companyName || ".............";
-    const rate = 500;
-    const amount = rate;
-    const taxableAmount = amount;
-    const vatAmount = Math.round(taxableAmount * 0.13);
-    const grandTotal = taxableAmount + vatAmount;
+
+    // 🔄 MODIFIED: Dynamically read ledger figures instead of hardcoding 500 NPR
+    const linkedTxn = transactions.find(
+      (t) => t.bookingId === b.id && !t.voided && t.status !== "voided",
+    );
+    const svc = services.find(
+      (s) => s.name === b.className || s.type === b.service,
+    );
+
+    const baseRate = linkedTxn
+      ? linkedTxn.amount || linkedTxn.total
+      : svc?.price || 500;
+    const grandTotal = linkedTxn
+      ? linkedTxn.total
+      : baseRate + Math.round(baseRate * 0.13);
+    const vatAmount = linkedTxn ? linkedTxn.vat : Math.round(baseRate * 0.13);
+    const taxableAmount = grandTotal - vatAmount;
 
     const html = generateA5BillHTML({
       companyName,
@@ -287,18 +291,18 @@ export function BookingDetailModal({
       companyEmail: settings.companyEmail || "",
       vatNo: settings.vatNo || "",
       guestName: b.memberName,
-      billNo: `BK-${b.id.slice(0, 8)}`,
-      billDate: format(new Date(), "dd/MM/yyyy"),
+      billNo: linkedTxn?.receiptNo || `BK-${b.id.slice(0, 8)}`,
+      billDate: linkedTxn?.date || format(new Date(), "dd/MM/yyyy"),
       billForMonth: `${b.className} — ${format(new Date(b.date), "MMMM yyyy")}`,
       items: [
         {
           description: `${b.service} — ${b.className}`,
           quantity: 1,
-          rate,
-          amount,
+          rate: baseRate,
+          amount: baseRate,
         },
       ],
-      subtotal: amount,
+      subtotal: baseRate,
       taxableAmount,
       vatAmount,
       grandTotal,
@@ -502,7 +506,6 @@ export function BookingDetailModal({
                     Cancel
                   </Button>
                 )}
-                {/* Completed bookings: print bill only, no further billing/payment redirect */}
                 {status === "Completed" ? (
                   <Button
                     size="sm"
@@ -539,9 +542,6 @@ export function BookingDetailModal({
         </DialogContent>
       </Dialog>
 
-      {/* (Delete confirmation removed — bookings are cancelled, not deleted) */}
-
-      {/* Cancel confirmation */}
       <Dialog open={confirmCancel} onOpenChange={setConfirmCancel}>
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
