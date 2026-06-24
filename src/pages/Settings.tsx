@@ -147,11 +147,24 @@ const Settings = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold font-display">Settings</h1>
-        <p className="text-muted-foreground text-sm">
-          Company & system configuration
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold font-display">Settings</h1>
+          <p className="text-muted-foreground text-sm">
+            Company & system configuration
+          </p>
+        </div>
+        <Button
+          onClick={handleBackup}
+          disabled={backupBusy}
+          className="gradient-gold text-primary-foreground"
+        >
+          {backupBusy ? (
+            <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Exporting…</>
+          ) : (
+            <><DatabaseBackup className="h-4 w-4 mr-2" />Backup All Data</>
+          )}
+        </Button>
       </div>
 
       <Tabs defaultValue="company" className="space-y-4">
