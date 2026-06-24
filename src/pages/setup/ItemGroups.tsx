@@ -52,7 +52,11 @@ export default function ItemGroupsPage() {
                 <TableCell>{g.active ? "Yes" : "No"}</TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="icon" onClick={() => { setEditing(g); setForm({ name: g.name, description: g.description || "", active: g.active }); setOpen(true); }}><Pencil className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" onClick={() => { if (confirm(`Delete ${g.name}?`)) { removeGroup.mutate(g.id); toast.success("Deleted"); } }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                  <Button variant="ghost" size="icon" onClick={async () => {
+                    if (!confirm(`Delete ${g.name}?`)) return;
+                    try { await removeGroup.mutateAsync(g.id); toast.success("Deleted"); }
+                    catch (err: any) { toast.error(err?.message || "Cannot delete"); }
+                  }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                 </TableCell>
               </TableRow>
             ))}

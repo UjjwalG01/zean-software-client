@@ -52,7 +52,11 @@ export default function StoresPage() {
                 <TableCell>{s.active ? "Yes" : "No"}</TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="icon" onClick={() => { setEditing(s); setForm({ name: s.name, location: s.location || "", active: s.active }); setOpen(true); }}><Pencil className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" onClick={() => { if (confirm(`Delete ${s.name}?`)) { removeStore.mutate(s.id); toast.success("Deleted"); } }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                  <Button variant="ghost" size="icon" onClick={async () => {
+                    if (!confirm(`Delete ${s.name}?`)) return;
+                    try { await removeStore.mutateAsync(s.id); toast.success("Deleted"); }
+                    catch (err: any) { toast.error(err?.message || "Cannot delete"); }
+                  }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                 </TableCell>
               </TableRow>
             ))}
