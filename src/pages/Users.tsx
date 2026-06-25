@@ -20,21 +20,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -46,12 +33,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  useAppUsers,
-  useCreateAppUser,
-  useUpdateAppUser,
-  useDeleteAppUser,
-} from "@/hooks/use-app-users";
+import { useAppUsers, useCreateAppUser, useUpdateAppUser, useDeleteAppUser } from "@/hooks/use-app-users";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import type { UserRole, AppUser } from "@/lib/supabase-users";
@@ -112,11 +94,9 @@ const UsersPage = () => {
   const validate = (): string | null => {
     if (!form.username.trim()) return "Username is required";
     if (!form.email.trim()) return "Email is required";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
-      return "Invalid email format";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return "Invalid email format";
     if (!form.fullName.trim()) return "Full name is required";
-    if (form.password.length < 8)
-      return "Password must be at least 8 characters";
+    if (form.password.length < 8) return "Password must be at least 8 characters";
     if (form.password !== form.confirmPassword) return "Passwords do not match";
     return null;
   };
@@ -222,11 +202,7 @@ const UsersPage = () => {
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (
-      !confirm(
-        `Remove user "${name}"? This only removes their access record. The Auth account is not deleted.`,
-      )
-    )
+    if (!confirm(`Remove user "${name}"? This only removes their access record. The Auth account is not deleted.`))
       return;
     try {
       await deleteMutation.mutateAsync(id);
@@ -256,17 +232,11 @@ const UsersPage = () => {
     }
     setResetting(true);
     try {
-      const { data, error } = await supabase.functions.invoke(
-        "admin-reset-password",
-        {
-          body: { userId: resetTarget.id, newPassword: resetPwd },
-        },
-      );
-      if (error || (data as any)?.error)
-        throw new Error(error?.message || (data as any)?.error);
-      toast.success(
-        `Password reset for ${resetTarget.fullName}. They'll be prompted to change it at next login.`,
-      );
+      const { data, error } = await supabase.functions.invoke("admin-reset-password", {
+        body: { userId: resetTarget.id, newPassword: resetPwd },
+      });
+      if (error || (data as any)?.error) throw new Error(error?.message || (data as any)?.error);
+      toast.success(`Password reset for ${resetTarget.fullName}. They'll be prompted to change it at next login.`);
       await logAudit({
         module: "users & roles",
         entityType: "user",
@@ -285,9 +255,7 @@ const UsersPage = () => {
   };
 
   const copyCreds = (creds: { email: string; password: string }) => {
-    navigator.clipboard.writeText(
-      `Email: ${creds.email}\nPassword: ${creds.password}`,
-    );
+    navigator.clipboard.writeText(`Email: ${creds.email}\nPassword: ${creds.password}`);
     toast.success("Credentials copied to clipboard");
   };
 
@@ -353,9 +321,7 @@ const UsersPage = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold font-display">User Management</h1>
-          <p className="text-muted-foreground text-sm">
-            Create users, assign roles, and manage access
-          </p>
+          <p className="text-muted-foreground text-sm">Create users, assign roles, and manage access</p>
         </div>
         <Dialog
           open={open}
@@ -372,12 +338,10 @@ const UsersPage = () => {
           </DialogTrigger>
           <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="font-display">
-                Create New User
-              </DialogTitle>
+              <DialogTitle className="font-display">Create New User</DialogTitle>
               <DialogDescription>
-                Default password is <strong>{DEFAULT_TEMP_PASSWORD}</strong>.
-                The user will be forced to change it on first login.
+                Default password is <strong>{DEFAULT_TEMP_PASSWORD}</strong>. The user will be forced to change it on
+                first login.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -386,9 +350,7 @@ const UsersPage = () => {
                   <Label>Username *</Label>
                   <Input
                     value={form.username}
-                    onChange={(e) =>
-                      setForm({ ...form, username: e.target.value })
-                    }
+                    onChange={(e) => setForm({ ...form, username: e.target.value })}
                     placeholder="rajesh.k"
                   />
                 </div>
@@ -396,9 +358,7 @@ const UsersPage = () => {
                   <Label>Full Name *</Label>
                   <Input
                     value={form.fullName}
-                    onChange={(e) =>
-                      setForm({ ...form, fullName: e.target.value })
-                    }
+                    onChange={(e) => setForm({ ...form, fullName: e.target.value })}
                     placeholder="Rajesh Karki"
                   />
                 </div>
@@ -417,20 +377,13 @@ const UsersPage = () => {
                   <Label>Phone</Label>
                   <Input
                     value={form.phone}
-                    onChange={(e) =>
-                      setForm({ ...form, phone: e.target.value })
-                    }
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
                     placeholder="+977-984XXXXXXX"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Role *</Label>
-                  <Select
-                    value={form.role}
-                    onValueChange={(v) =>
-                      setForm({ ...form, role: v as UserRole })
-                    }
-                  >
+                  <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as UserRole })}>
                     <SelectTrigger>
                       <SelectValue
                         placeholder={
@@ -462,9 +415,7 @@ const UsersPage = () => {
                 <Label>Address</Label>
                 <Input
                   value={form.address}
-                  onChange={(e) =>
-                    setForm({ ...form, address: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, address: e.target.value })}
                   placeholder="Kathmandu, Nepal"
                 />
               </div>
@@ -475,9 +426,7 @@ const UsersPage = () => {
                     <Input
                       type={showPwd ? "text" : "password"}
                       value={form.password}
-                      onChange={(e) =>
-                        setForm({ ...form, password: e.target.value })
-                      }
+                      onChange={(e) => setForm({ ...form, password: e.target.value })}
                       placeholder="Min 8 characters"
                       className="pr-10"
                     />
@@ -486,11 +435,7 @@ const UsersPage = () => {
                       className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
                       onClick={() => setShowPwd(!showPwd)}
                     >
-                      {showPwd ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
+                      {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
                 </div>
@@ -499,17 +444,14 @@ const UsersPage = () => {
                   <Input
                     type={showPwd ? "text" : "password"}
                     value={form.confirmPassword}
-                    onChange={(e) =>
-                      setForm({ ...form, confirmPassword: e.target.value })
-                    }
+                    onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
                   />
                 </div>
               </div>
               <div className="rounded-lg bg-muted/30 p-3 text-xs text-muted-foreground">
-                <strong className="text-foreground">Security:</strong> Username
-                & password are pre-filled with the email and the default temp
-                password ({DEFAULT_TEMP_PASSWORD}). The user must change their
-                password on first login.
+                <strong className="text-foreground">Security:</strong> Username & password are pre-filled with the email
+                and the default temp password ({DEFAULT_TEMP_PASSWORD}). The user must change their password on first
+                login.
               </div>
               <Button
                 onClick={handleCreate}
@@ -545,21 +487,15 @@ const UsersPage = () => {
 
       {customRoles.length === 0 && (
         <div className="glass-card rounded-xl p-4 border border-warning/30 bg-warning/5">
-          <p className="text-xs uppercase tracking-wider text-warning font-semibold mb-1">
-            No roles defined
-          </p>
+          <p className="text-xs uppercase tracking-wider text-warning font-semibold mb-1">No roles defined</p>
           <p className="text-sm text-muted-foreground">
-            Create roles with custom permissions in the{" "}
-            <strong>Roles &amp; Permissions</strong> tab below, then assign them
-            to each user.
+            Create roles with custom permissions in the <strong>Roles &amp; Permissions</strong> tab below, then assign
+            them to each user.
           </p>
         </div>
       )}
 
-      <Dialog
-        open={!!successUser}
-        onOpenChange={(o) => !o && setSuccessUser(null)}
-      >
+      <Dialog open={!!successUser} onOpenChange={(o) => !o && setSuccessUser(null)}>
         <DialogContent className="sm:max-w-[440px]">
           <DialogHeader>
             <div className="flex items-center gap-3">
@@ -567,12 +503,8 @@ const UsersPage = () => {
                 <CheckCircle2 className="h-6 w-6 text-success" />
               </div>
               <div>
-                <DialogTitle className="font-display">
-                  User Created!
-                </DialogTitle>
-                <DialogDescription>
-                  Share these credentials with the user.
-                </DialogDescription>
+                <DialogTitle className="font-display">User Created!</DialogTitle>
+                <DialogDescription>Share these credentials with the user.</DialogDescription>
               </div>
             </div>
           </DialogHeader>
@@ -584,37 +516,24 @@ const UsersPage = () => {
                   <span className="font-medium">{successUser.fullName}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    Email / username
-                  </span>
-                  <span className="font-medium font-mono text-xs">
-                    {successUser.email}
-                  </span>
+                  <span className="text-muted-foreground">Email / username</span>
+                  <span className="font-medium font-mono text-xs">{successUser.email}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Temp password</span>
-                  <span className="font-medium font-mono text-xs">
-                    {successUser.password}
-                  </span>
+                  <span className="font-medium font-mono text-xs">{successUser.password}</span>
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                On first login, the user will be required to change this
-                password.
+                On first login, the user will be required to change this password.
               </p>
             </div>
           )}
           <DialogFooter className="gap-2 sm:gap-2">
-            <Button
-              variant="outline"
-              onClick={() => successUser && copyCreds(successUser)}
-            >
+            <Button variant="outline" onClick={() => successUser && copyCreds(successUser)}>
               <Copy className="h-4 w-4 mr-1" /> Copy
             </Button>
-            <Button
-              onClick={() => setSuccessUser(null)}
-              className="gradient-gold text-primary-foreground"
-            >
+            <Button onClick={() => setSuccessUser(null)} className="gradient-gold text-primary-foreground">
               Done
             </Button>
           </DialogFooter>
@@ -636,17 +555,14 @@ const UsersPage = () => {
           <DialogHeader>
             <DialogTitle className="font-display">Reset Password</DialogTitle>
             <DialogDescription>
-              Set a new password for this user. They will be prompted to change
-              it again on their next login.
+              Set a new password for this user. They will be prompted to change it again on their next login.
             </DialogDescription>
           </DialogHeader>
           {resetTarget && (
             <div className="space-y-3">
               <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
                 <p className="font-medium">{resetTarget.fullName}</p>
-                <p className="text-xs text-muted-foreground font-mono">
-                  {resetTarget.email}
-                </p>
+                <p className="text-xs text-muted-foreground font-mono">{resetTarget.email}</p>
               </div>
               <div className="space-y-2">
                 <Label>New Password *</Label>
@@ -660,11 +576,7 @@ const UsersPage = () => {
               </div>
               <div className="space-y-2">
                 <Label>Confirm Password *</Label>
-                <Input
-                  type="password"
-                  value={resetConfirm}
-                  onChange={(e) => setResetConfirm(e.target.value)}
-                />
+                <Input type="password" value={resetConfirm} onChange={(e) => setResetConfirm(e.target.value)} />
               </div>
               <DialogFooter className="gap-2">
                 <Button variant="outline" onClick={() => setResetTarget(null)}>
@@ -700,9 +612,7 @@ const UsersPage = () => {
             ) : users.length === 0 ? (
               <div className="p-12 text-center">
                 <UserCog className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-muted-foreground text-sm">
-                  No users yet. Create your first user to grant access.
-                </p>
+                <p className="text-muted-foreground text-sm">No users yet. Create your first user to grant access.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -710,12 +620,8 @@ const UsersPage = () => {
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
                       <TableHead>User</TableHead>
-                      <TableHead className="hidden md:table-cell">
-                        Email
-                      </TableHead>
-                      <TableHead className="hidden lg:table-cell">
-                        Phone
-                      </TableHead>
+                      <TableHead className="hidden md:table-cell">Email</TableHead>
+                      <TableHead className="hidden lg:table-cell">Phone</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Active</TableHead>
@@ -725,9 +631,7 @@ const UsersPage = () => {
                   <TableBody>
                     {users.map((u) => {
                       const assignedId = u.customRoleId || u.role;
-                      const custom = customRoles.find(
-                        (r) => r.id === assignedId,
-                      );
+                      const custom = customRoles.find((r) => r.id === assignedId);
                       const colorClass = custom
                         ? "bg-accent/20 text-accent-foreground"
                         : "bg-muted text-muted-foreground";
@@ -735,12 +639,8 @@ const UsersPage = () => {
                         <TableRow key={u.id}>
                           <TableCell>
                             <div>
-                              <p className="font-medium text-sm">
-                                {u.fullName}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                @{u.username}
-                              </p>
+                              <p className="font-medium text-sm">{u.fullName}</p>
+                              <p className="text-xs text-muted-foreground">@{u.username}</p>
                             </div>
                           </TableCell>
                           <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
@@ -750,23 +650,15 @@ const UsersPage = () => {
                             {u.phone || "—"}
                           </TableCell>
                           <TableCell>
-                            <Select
-                              value={assignedId}
-                              onValueChange={(v) =>
-                                handleRoleChange(u.id, v as UserRole)
-                              }
-                            >
+                            <Select value={assignedId} onValueChange={(v) => handleRoleChange(u.id, v as UserRole)}>
                               <SelectTrigger
                                 className={`h-8 w-[160px] text-[11px] border-0 ${colorClass} text-white/60 hover:bg-opacity-100`}
                               >
                                 <SelectValue placeholder="Unassigned" />
                               </SelectTrigger>
                               <SelectContent>
-                                {customRoles.filter((r) => r.active).length ===
-                                0 ? (
-                                  <div className="px-3 py-2 text-xs text-muted-foreground">
-                                    Create a role first
-                                  </div>
+                                {customRoles.filter((r) => r.active).length === 0 ? (
+                                  <div className="px-3 py-2 text-xs text-muted-foreground">Create a role first</div>
                                 ) : (
                                   customRoles
                                     .filter((r) => r.active)
@@ -780,23 +672,14 @@ const UsersPage = () => {
                             </Select>
                           </TableCell>
                           <TableCell>
-                            {u.mustChangePassword ? (
-                              <Badge className="text-[10px] bg-warning/20 text-warning border-0">
-                                Pending password change
-                              </Badge>
+                            {u.isActive ? (
+                              <Badge className="text-[10px] bg-success/20 text-success border-0">Active</Badge>
                             ) : (
-                              <Badge className="text-[10px] bg-success/20 text-success border-0">
-                                Active
-                              </Badge>
+                              <Badge className="text-[10px] bg-warning/20 text-warning border-0">Inactive</Badge>
                             )}
                           </TableCell>
                           <TableCell>
-                            <Switch
-                              checked={u.isActive}
-                              onCheckedChange={() =>
-                                toggleActive(u.id, u.isActive)
-                              }
-                            />
+                            <Switch checked={u.isActive} onCheckedChange={() => toggleActive(u.id, u.isActive)} />
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
@@ -844,16 +727,11 @@ const UsersPage = () => {
       </Tabs>
 
       {/* EDIT USER */}
-      <Dialog
-        open={!!editTarget}
-        onOpenChange={(o) => !o && setEditTarget(null)}
-      >
+      <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
         <DialogContent className="sm:max-w-[520px]">
           <DialogHeader>
             <DialogTitle className="font-display">Edit User</DialogTitle>
-            <DialogDescription>
-              Update profile details and role. Email cannot be changed.
-            </DialogDescription>
+            <DialogDescription>Update profile details and role. Email cannot be changed.</DialogDescription>
           </DialogHeader>
           {editTarget && (
             <div className="space-y-3">
@@ -862,18 +740,14 @@ const UsersPage = () => {
                   <Label>Full name</Label>
                   <Input
                     value={editForm.fullName || ""}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, fullName: e.target.value })
-                    }
+                    onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Username</Label>
                   <Input
                     value={editForm.username || ""}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, username: e.target.value })
-                    }
+                    onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
                   />
                 </div>
               </div>
@@ -886,25 +760,19 @@ const UsersPage = () => {
                   <Label>Phone</Label>
                   <Input
                     value={editForm.phone || ""}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, phone: e.target.value })
-                    }
+                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Role</Label>
                   <Select
                     value={(editForm as any).customRoleId || ""}
-                    onValueChange={(v) =>
-                      setEditForm({ ...editForm, customRoleId: v } as any)
-                    }
+                    onValueChange={(v) => setEditForm({ ...editForm, customRoleId: v } as any)}
                   >
                     <SelectTrigger>
                       <SelectValue
                         placeholder={
-                          customRoles.filter((r) => r.active).length === 0
-                            ? "No roles available"
-                            : "Select role"
+                          customRoles.filter((r) => r.active).length === 0 ? "No roles available" : "Select role"
                         }
                       />
                     </SelectTrigger>
@@ -930,18 +798,12 @@ const UsersPage = () => {
                 <Label>Address</Label>
                 <Input
                   value={editForm.address || ""}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, address: e.target.value })
-                  }
+                  onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
                 />
               </div>
               <div className="space-y-2 rounded-md border border-border/50 p-3">
                 <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                  Outlet Access (
-                  {editOutletIds.length === 0
-                    ? "All outlets"
-                    : `${editOutletIds.length} selected`}
-                  )
+                  Outlet Access ({editOutletIds.length === 0 ? "All outlets" : `${editOutletIds.length} selected`})
                 </Label>
                 <p className="text-[11px] text-muted-foreground">
                   Leave all unchecked to grant access across every outlet.
@@ -950,17 +812,12 @@ const UsersPage = () => {
                   {outlets.map((o) => {
                     const checked = editOutletIds.includes(o.id);
                     return (
-                      <label
-                        key={o.id}
-                        className="flex items-center gap-2 text-sm cursor-pointer"
-                      >
+                      <label key={o.id} className="flex items-center gap-2 text-sm cursor-pointer">
                         <Checkbox
                           checked={checked}
                           onCheckedChange={(v) => {
                             setEditOutletIds((prev) =>
-                              v
-                                ? Array.from(new Set([...prev, o.id]))
-                                : prev.filter((x) => x !== o.id),
+                              v ? Array.from(new Set([...prev, o.id])) : prev.filter((x) => x !== o.id),
                             );
                           }}
                         />
@@ -968,11 +825,7 @@ const UsersPage = () => {
                       </label>
                     );
                   })}
-                  {outlets.length === 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      No outlets configured.
-                    </p>
-                  )}
+                  {outlets.length === 0 && <p className="text-xs text-muted-foreground">No outlets configured.</p>}
                 </div>
               </div>
               <DialogFooter className="gap-2">
