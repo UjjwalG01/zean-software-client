@@ -71,7 +71,7 @@ export function MemberProgress({
 }: Props) {
   const stats = useMemo(() => {
     const total = bookings.length;
-    const completed = bookings.filter((b) => b.status === "Completed").length;
+    const completed = bookings.filter((b) => b.bookingStatus === "Completed").length;
     const upcoming = bookings.filter((b) => {
       const d = safeDate(b.date);
       return d && isAfter(d, new Date());
