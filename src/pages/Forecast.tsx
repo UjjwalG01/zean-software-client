@@ -23,7 +23,7 @@ const Forecast = () => {
       .filter((b) => {
         try {
           const d = parseISO(b.date);
-          return (isAfter(d, from) || isSameDay(d, from)) && (isBefore(d, to) || isSameDay(d, to)) && b.status !== "Cancelled";
+          return (isAfter(d, from) || isSameDay(d, from)) && (isBefore(d, to) || isSameDay(d, to)) && b.bookingStatus !== "Cancelled";
         } catch { return false; }
       })
       .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
@@ -130,8 +130,8 @@ const Forecast = () => {
                       <TableCell><Badge variant="secondary" className="text-[10px]">{b.service}</Badge></TableCell>
                       <TableCell className="text-sm text-muted-foreground">{b.startTime} – {b.endTime}</TableCell>
                       <TableCell>
-                        <Badge variant={b.status === "Confirmed" ? "default" : b.status === "Pending" ? "secondary" : "destructive"} className="text-[10px]">
-                          {b.status}
+                        <Badge variant={b.bookingStatus === "Confirmed" ? "default" : b.bookingStatus === "Waitlisted" ? "secondary" : "destructive"} className="text-[10px]">
+                          {b.bookingStatus}
                         </Badge>
                       </TableCell>
                     </TableRow>

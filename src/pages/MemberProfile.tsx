@@ -623,11 +623,11 @@ const MemberProfile = () => {
                       <TableCell>
                         <Badge
                           variant={
-                            b.status === "Confirmed" ? "default" : "secondary"
+                            b.bookingStatus === "Confirmed" ? "default" : "secondary"
                           }
                           className="text-[10px]"
                         >
-                          {b.status}
+                          {b.bookingStatus}
                         </Badge>
                       </TableCell>
                     </TableRow>
