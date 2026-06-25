@@ -218,24 +218,24 @@ const MembersList = () => {
           </SelectContent>
         </Select>
         <Select
-          value={serviceFilter}
+          value={outletFilter}
           onValueChange={(v) => {
-            setServiceFilter(v);
+            setOutletFilter(v);
             setPage(1);
           }}
         >
-          <SelectTrigger className="w-[140px] bg-muted/50 border-0">
-            <SelectValue placeholder="Service" />
+          <SelectTrigger className="w-[160px] bg-muted/50 border-0">
+            <SelectValue placeholder="Outlet" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Services</SelectItem>
-            <SelectItem value="Gym">Gym</SelectItem>
-            <SelectItem value="Spa">Spa</SelectItem>
-            <SelectItem value="Sauna">Sauna</SelectItem>
-            <SelectItem value="Swimming">Swimming</SelectItem>
+            <SelectItem value="all">All Outlets</SelectItem>
+            {outlets.map((o) => (
+              <SelectItem key={o.id} value={o.id}>
+                {o.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
-      </div>
 
       {/* Table */}
       <div className="glass-card rounded-xl overflow-hidden">
