@@ -25,7 +25,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMembers, useCompanySettings } from "@/hooks/use-firestore";
 import { exportTableToCSV } from "@/lib/print-utils";
-import type { ServiceType } from "@/lib/mock-data";
+import { useOutlet } from "@/contexts/OutletContext";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
