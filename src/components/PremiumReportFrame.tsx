@@ -270,6 +270,7 @@ export function PremiumReportFrame({
                       : "hover:bg-muted/30",
                   )}
                 >
+                  {columns.map((c) => (
                     <td
                       key={c.key}
                       className={cn(
