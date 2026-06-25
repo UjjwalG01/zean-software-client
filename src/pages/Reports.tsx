@@ -463,6 +463,9 @@ const Reports = () => {
                   total: formatNPR(dailySalesTotals.total),
                 },
               }}
+              onRowClick={(r) =>
+                setReconSelection({ date: r.date, department: r.department })
+              }
             />
           </LoadGate>
         </TabsContent>
