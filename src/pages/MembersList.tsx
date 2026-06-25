@@ -64,12 +64,13 @@ const MembersList = () => {
           : statusFilter === "all"
             ? true
             : m.status === statusFilter;
-      const matchService =
-        serviceFilter === "all" ||
-        m.services.includes(serviceFilter as ServiceType);
-      return matchSearch && matchTier && matchStatus && matchService;
+      const matchOutlet =
+        outletFilter === "all" ||
+        !(m as any).outletId ||
+        (m as any).outletId === outletFilter;
+      return matchSearch && matchTier && matchStatus && matchOutlet;
     });
-  }, [members, search, tierFilter, statusFilter, serviceFilter]);
+  }, [members, search, tierFilter, statusFilter, outletFilter]);
 
   const paginated = filtered.slice((page - 1) * perPage, page * perPage);
   const totalPages = Math.ceil(filtered.length / perPage);
