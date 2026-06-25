@@ -35,6 +35,8 @@ interface PremiumReportFrameProps {
   exportFilename: string;
   exportMeta?: CSVExportMeta;
   collapsibleFilters?: boolean;
+  /** Optional row-click handler that turns body rows into interactive items. */
+  onRowClick?: (row: any) => void;
 }
 
 /**
