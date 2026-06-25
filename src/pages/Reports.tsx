@@ -857,6 +857,13 @@ const Reports = () => {
           </div>
         </TabsContent>
       </Tabs>
+      <ReconciliationDrawer
+        open={reconSelection !== null}
+        onOpenChange={(o) => !o && setReconSelection(null)}
+        selection={reconSelection}
+        transactions={txInRange}
+        chargeHeadById={chargeHeadById}
+      />
     </div>
   );
 };
