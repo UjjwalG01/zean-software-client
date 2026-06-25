@@ -63,6 +63,8 @@ const Reports = () => {
   const { data: charges = [] } = useCharges();
   const { data: settings = {} } = useCompanySettings();
   const [showCashierDetails, setShowCashierDetails] = useState(false);
+  const [reconSelection, setReconSelection] =
+    useState<ReconciliationSelection | null>(null);
 
   // Map of charge.id → charge_head for cross-referencing payments that came in via a settled_charge_id.
   const chargeHeadById = useMemo(() => {
