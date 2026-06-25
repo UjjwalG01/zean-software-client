@@ -60,6 +60,7 @@ export function PremiumReportFrame({
   exportFilename,
   exportMeta,
   collapsibleFilters = true,
+  onRowClick,
 }: PremiumReportFrameProps) {
   const [showFilters, setShowFilters] = useState(false);
 
