@@ -35,6 +35,8 @@ interface PremiumReportFrameProps {
   exportFilename: string;
   exportMeta?: CSVExportMeta;
   collapsibleFilters?: boolean;
+  /** Optional row-click handler that turns body rows into interactive items. */
+  onRowClick?: (row: any) => void;
 }
 
 /**
@@ -58,6 +60,7 @@ export function PremiumReportFrame({
   exportFilename,
   exportMeta,
   collapsibleFilters = true,
+  onRowClick,
 }: PremiumReportFrameProps) {
   const [showFilters, setShowFilters] = useState(false);
 
@@ -231,7 +234,13 @@ export function PremiumReportFrame({
                   {groupRows.map((r, i) => (
                     <tr
                       key={`${groupKey}-${i}`}
-                      className="border-b border-border/40 hover:bg-muted/30 even:bg-muted/10"
+                      onClick={onRowClick ? () => onRowClick(r) : undefined}
+                      className={cn(
+                        "border-b border-border/40 even:bg-muted/10 transition-colors",
+                        onRowClick
+                          ? "cursor-pointer hover:bg-muted/60"
+                          : "hover:bg-muted/30",
+                      )}
                     >
                       {columns.map((c) => (
                         <td
@@ -253,7 +262,13 @@ export function PremiumReportFrame({
               rows.map((r, i) => (
                 <tr
                   key={i}
-                  className="border-b border-border/40 hover:bg-muted/30 even:bg-muted/10"
+                  onClick={onRowClick ? () => onRowClick(r) : undefined}
+                  className={cn(
+                    "border-b border-border/40 even:bg-muted/10 transition-colors",
+                    onRowClick
+                      ? "cursor-pointer hover:bg-muted/60"
+                      : "hover:bg-muted/30",
+                  )}
                 >
                   {columns.map((c) => (
                     <td

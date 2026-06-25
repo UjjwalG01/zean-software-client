@@ -28,6 +28,10 @@ import { toast } from "sonner";
 import { useMemo, lazy, Suspense, useState } from "react";
 import { format, parseISO, startOfMonth, isValid } from "date-fns";
 import { PremiumReportFrame } from "@/components/PremiumReportFrame";
+import {
+  ReconciliationDrawer,
+  type ReconciliationSelection,
+} from "@/components/ReconciliationDrawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -59,6 +63,8 @@ const Reports = () => {
   const { data: charges = [] } = useCharges();
   const { data: settings = {} } = useCompanySettings();
   const [showCashierDetails, setShowCashierDetails] = useState(false);
+  const [reconSelection, setReconSelection] =
+    useState<ReconciliationSelection | null>(null);
 
   // Map of charge.id → charge_head for cross-referencing payments that came in via a settled_charge_id.
   const chargeHeadById = useMemo(() => {
@@ -457,6 +463,9 @@ const Reports = () => {
                   total: formatNPR(dailySalesTotals.total),
                 },
               }}
+              onRowClick={(r) =>
+                setReconSelection({ date: r.date, department: r.department })
+              }
             />
           </LoadGate>
         </TabsContent>
@@ -848,6 +857,13 @@ const Reports = () => {
           </div>
         </TabsContent>
       </Tabs>
+      <ReconciliationDrawer
+        open={reconSelection !== null}
+        onOpenChange={(o) => !o && setReconSelection(null)}
+        selection={reconSelection}
+        transactions={txInRange}
+        chargeHeadById={chargeHeadById}
+      />
     </div>
   );
 };
