@@ -38,7 +38,7 @@ const MembersList = () => {
   const [search, setSearch] = useState("");
   const [tierFilter, setTierFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("active-set");
-  const [serviceFilter, setServiceFilter] = useState<string>("all");
+  const [outletFilter, setOutletFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [photoPreview, setPhotoPreview] = useState<{
     url: string;
