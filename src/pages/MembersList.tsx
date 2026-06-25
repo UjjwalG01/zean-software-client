@@ -236,6 +236,7 @@ const MembersList = () => {
             ))}
           </SelectContent>
         </Select>
+      </div>
 
       {/* Table */}
       <div className="glass-card rounded-xl overflow-hidden">
