@@ -48,6 +48,9 @@ const MembersList = () => {
 
   const { data: members = [], isLoading } = useMembers();
   const { data: settings = {} } = useCompanySettings();
+  const { outlets } = useOutlet();
+  const outletName = (id?: string) =>
+    outlets.find((o) => o.id === id)?.name || id || "All";
 
   const filtered = useMemo(() => {
     return members.filter((m) => {
