@@ -115,7 +115,7 @@ const MembersList = () => {
           Search: search || "—",
           Tier: tierFilter === "all" ? "All" : tierFilter,
           Status: statusFilter === "all" ? "All" : statusFilter,
-          Service: serviceFilter === "all" ? "All" : serviceFilter,
+          Outlet: outletFilter === "all" ? "All" : outletName(outletFilter),
           "Total Records": String(filtered.length),
         },
       },
