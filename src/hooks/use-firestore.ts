@@ -196,7 +196,7 @@ export function useUpdateBooking() {
 
               // 1. FIX: Read target date from the incoming payload first, fallback to old date
               const targetDateStr = data.date || data.booking_date || b.date || b.booking_date;
-              const bookingDate = targetDateStr ? new Date(targetDateStr) : systemNow;
+              const bookingDate = parseUiDate(targetDateStr) || systemNow;
               const isToday = isSameDay(bookingDate, systemNow);
 
               // 2. FIX: Determine correct status based on the new target date
