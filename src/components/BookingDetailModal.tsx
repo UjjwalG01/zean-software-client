@@ -454,7 +454,7 @@ export function BookingDetailModal({
                   <Dumbbell className="h-4 w-4 text-muted-foreground" />
                   <span className="text-muted-foreground">Instructor</span>
                   <span className="ml-auto font-medium">
-                    {b.instructor || "—"}
+                    {b.instructor || "-"}
                   </span>
                 </div>
                 <Separator />

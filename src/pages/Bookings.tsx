@@ -1709,7 +1709,7 @@ const Bookings_Page = () => {
                           variant={
                             displayStatus === "Confirmed"
                               ? "default"
-                              : displayStatus === "Pending"
+                              : displayStatus === "pending"
                                 ? "secondary"
                                 : displayStatus === "Completed"
                                   ? "default"

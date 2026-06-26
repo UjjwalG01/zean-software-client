@@ -586,7 +586,7 @@ function mapBookingRow(r: any): Booking {
     memberId: r.member_id || "",
     memberName: r.member_name || "",
     serviceId: r.service_id || "",
-    service: (r.service_type || notesFallback.service || "Gym") as ServiceType,
+    service: (r.service_type || notesFallback.service || "Fitness") as ServiceType,
     serviceType: r.service_type || notesFallback.service || "",
     className: r.class_name || r.service_name || notesFallback.className || "",
     instructor: r.instructor || notesFallback.instructor || "",
