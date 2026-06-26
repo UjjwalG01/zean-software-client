@@ -78,7 +78,7 @@ import {
 } from "@/hooks/use-firestore";
 import { formatMonths } from "@/lib/duration";
 import { useOutlet } from "@/contexts/OutletContext";
-import { Building2, ChevronDown } from "lucide-react";
+import { Building2, ChevronDown, Loader2 } from "lucide-react";
 import type { Booking, ServiceType } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -181,6 +181,7 @@ const Bookings_Page = () => {
 
   const [guestMode, setGuestMode] = useState(false);
   const [guestName, setGuestName] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [membershipListOpen, setMembershipListOpen] = useState(false);
 
   const { data: bookings = [], isLoading } = useBookings();
@@ -223,10 +224,13 @@ const Bookings_Page = () => {
 
   const isSportsOutlet =
     !!selectedOutlet &&
-    ((selectedOutlet.serviceTypes || []).some(
-      (s) => (s || "").toLowerCase() === "sports",
-    ) ||
-      (selectedOutlet.outletType || "").toUpperCase() === "SPORTS");
+    ((selectedOutlet.serviceTypes || []).some((s) => {
+      const v = (s || "").toLowerCase();
+      return v === "sports" || v === "fitness";
+    }) ||
+      ["SPORTS", "FITNESS"].includes(
+        (selectedOutlet.outletType || "").toUpperCase(),
+      ));
 
   const setupInstructors = parseSetup(settings, "setup_instructors", [
     "Trainer Ravi",
@@ -417,6 +421,7 @@ const Bookings_Page = () => {
   }, [selectedService]);
 
   const handleBook = async () => {
+    if (isSubmitting) return;
     if (!selectedOutlet?.id) {
       toast.error("Please select an outlet before creating a booking");
       setPickerOpen(true);
@@ -463,6 +468,7 @@ const Bookings_Page = () => {
       ? `Guest · ${guestName.trim()}`
       : memberObj?.name || "";
 
+    setIsSubmitting(true);
     try {
       if (editingBookingId) {
         await updateBookingMutation.mutateAsync({
@@ -569,6 +575,8 @@ const Bookings_Page = () => {
       // navigate(`/transactions?${params.toString()}`);
     } catch {
       toast.error("Failed to create booking");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1344,18 +1352,22 @@ const Bookings_Page = () => {
                 <Button
                   onClick={handleBook}
                   disabled={
+                    isSubmitting ||
                     addBookingMutation.isPending ||
                     updateBookingMutation.isPending
                   }
                   className="w-full gradient-gold text-primary-foreground"
                 >
-                  {editingBookingId
-                    ? updateBookingMutation.isPending
-                      ? "Saving..."
-                      : "Save Changes"
-                    : addBookingMutation.isPending
-                      ? "Creating..."
-                      : "Create Booking"}
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Processing...
+                    </>
+                  ) : editingBookingId ? (
+                    "Save Changes"
+                  ) : (
+                    "Create Booking"
+                  )}
                 </Button>
               </>
             )}

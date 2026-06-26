@@ -10,6 +10,7 @@ import {
   Check,
   ShoppingCart,
   Pause,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -100,6 +101,7 @@ export function OutletPOSView({ outlet }: Props) {
   const [attendant, setAttendant] = useState("");
   const [cover, setCover] = useState(1);
   const [guestName, setGuestName] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [pickerServiceId, setPickerServiceId] = useState("");
   const [pickerQty, setPickerQty] = useState(1);
@@ -166,7 +168,8 @@ export function OutletPOSView({ outlet }: Props) {
    * Returns the most-recent chargeId so the caller can pass it to the settlement page.
    */
   const buildBookingsAndCharges = async () => {
-    if (!memberId) throw new Error("Select a member/guest first");
+    if (!memberId && !guestName.trim())
+      throw new Error("Select a member or enter a guest name");
     if (cart.length === 0) throw new Error("Cart is empty");
     const today = toIsoDayInTz(new Date());
     const now = formatTime(nowIso());
@@ -231,15 +234,21 @@ export function OutletPOSView({ outlet }: Props) {
   };
 
   const handlePlace = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       await buildBookingsAndCharges();
       toast.success("Order placed — items flagged as Ordered");
     } catch (e: any) {
       toast.error(e.message || "Failed to place order");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleBilling = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const { lastBookingId, lastChargeId, memberObj } =
         await buildBookingsAndCharges();
@@ -254,11 +263,14 @@ export function OutletPOSView({ outlet }: Props) {
         bookingId: lastBookingId,
         chargeId: lastChargeId,
         locked: "1",
+        ...(memberId ? {} : { guest: "1" }),
       });
       setCart([]);
       navigate(`/transactions?${params.toString()}`);
     } catch (e: any) {
       toast.error(e.message || "Failed to start billing");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -531,14 +543,22 @@ export function OutletPOSView({ outlet }: Props) {
           <div className="grid grid-cols-3 gap-2">
             <Button
               variant="outline"
-              disabled={cart.length === 0 || addBookingMutation.isPending}
+              disabled={cart.length === 0 || isSubmitting}
               onClick={handleBilling}
             >
-              <ShoppingCart className="h-4 w-4 mr-1" /> Billing
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Processing...
+                </>
+              ) : (
+                <>
+                  <ShoppingCart className="h-4 w-4 mr-1" /> Billing
+                </>
+              )}
             </Button>
             <Button
               variant="outline"
-              disabled={cart.length === 0}
+              disabled={cart.length === 0 || isSubmitting}
               onClick={() => toast.info("Order held")}
             >
               <Pause className="h-4 w-4 mr-1" /> Hold Order
@@ -546,13 +566,21 @@ export function OutletPOSView({ outlet }: Props) {
             <Button
               disabled={
                 cart.length === 0 ||
-                addBookingMutation.isPending ||
+                isSubmitting ||
                 cart.every((l) => l.placed)
               }
               onClick={handlePlace}
               className="gradient-gold text-primary-foreground"
             >
-              <Check className="h-4 w-4 mr-1" /> Place Order
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Processing...
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4 mr-1" /> Place Order
+                </>
+              )}
             </Button>
           </div>
         </div>
