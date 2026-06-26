@@ -575,6 +575,8 @@ const Bookings_Page = () => {
       // navigate(`/transactions?${params.toString()}`);
     } catch {
       toast.error("Failed to create booking");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
