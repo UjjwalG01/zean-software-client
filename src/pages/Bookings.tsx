@@ -1352,18 +1352,22 @@ const Bookings_Page = () => {
                 <Button
                   onClick={handleBook}
                   disabled={
+                    isSubmitting ||
                     addBookingMutation.isPending ||
                     updateBookingMutation.isPending
                   }
                   className="w-full gradient-gold text-primary-foreground"
                 >
-                  {editingBookingId
-                    ? updateBookingMutation.isPending
-                      ? "Saving..."
-                      : "Save Changes"
-                    : addBookingMutation.isPending
-                      ? "Creating..."
-                      : "Create Booking"}
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Processing...
+                    </>
+                  ) : editingBookingId ? (
+                    "Save Changes"
+                  ) : (
+                    "Create Booking"
+                  )}
                 </Button>
               </>
             )}
