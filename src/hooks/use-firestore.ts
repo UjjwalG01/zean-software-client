@@ -152,7 +152,7 @@ export function useAddBooking() {
           memberName: data.memberName || "",
           service: data.service || "Membership",
           className: data.className || "",
-          date: data.date || "",
+          date: data.date || getTodayUiString(),
           startTime: data.startTime || "",
           endTime: data.endTime || "",
           status: data.status || "Pending",
