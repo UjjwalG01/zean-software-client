@@ -468,6 +468,7 @@ const Bookings_Page = () => {
       ? `Guest · ${guestName.trim()}`
       : memberObj?.name || "";
 
+    setIsSubmitting(true);
     try {
       if (editingBookingId) {
         await updateBookingMutation.mutateAsync({
