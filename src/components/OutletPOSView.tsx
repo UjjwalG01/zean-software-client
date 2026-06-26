@@ -233,15 +233,21 @@ export function OutletPOSView({ outlet }: Props) {
   };
 
   const handlePlace = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       await buildBookingsAndCharges();
       toast.success("Order placed — items flagged as Ordered");
     } catch (e: any) {
       toast.error(e.message || "Failed to place order");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleBilling = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const { lastBookingId, lastChargeId, memberObj } =
         await buildBookingsAndCharges();
@@ -256,11 +262,14 @@ export function OutletPOSView({ outlet }: Props) {
         bookingId: lastBookingId,
         chargeId: lastChargeId,
         locked: "1",
+        ...(memberId ? {} : { guest: "1" }),
       });
       setCart([]);
       navigate(`/transactions?${params.toString()}`);
     } catch (e: any) {
       toast.error(e.message || "Failed to start billing");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
