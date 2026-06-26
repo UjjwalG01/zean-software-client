@@ -320,7 +320,7 @@ export function useAddTransaction() {
           total: data.total || data.amount || 0,
           method: data.method || "cash",
           type: data.type || "Charge",
-          date: data.date || toIsoDayInTz(new Date()),
+          date: data.date || getTodayUiString(),
           description: data.description || "",
           status: data.status || "pending",
           bookingId: data.bookingId,
