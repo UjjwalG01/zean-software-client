@@ -421,6 +421,7 @@ const Bookings_Page = () => {
   }, [selectedService]);
 
   const handleBook = async () => {
+    if (isSubmitting) return;
     if (!selectedOutlet?.id) {
       toast.error("Please select an outlet before creating a booking");
       setPickerOpen(true);
