@@ -622,7 +622,8 @@ export function useExpiryAlerts() {
       const now = new Date();
       return members
         .map((m) => {
-          const expiry = new Date(m.expiryDate);
+          const parsed = parseUiDate(m.expiryDate) || now;
+          const expiry = new Date(parsed);
           const daysLeft = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
           return {
             memberId: m.id,
