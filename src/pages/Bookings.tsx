@@ -78,7 +78,7 @@ import {
 } from "@/hooks/use-firestore";
 import { formatMonths } from "@/lib/duration";
 import { useOutlet } from "@/contexts/OutletContext";
-import { Building2, ChevronDown } from "lucide-react";
+import { Building2, ChevronDown, Loader2 } from "lucide-react";
 import type { Booking, ServiceType } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
