@@ -223,10 +223,13 @@ const Bookings_Page = () => {
 
   const isSportsOutlet =
     !!selectedOutlet &&
-    ((selectedOutlet.serviceTypes || []).some(
-      (s) => (s || "").toLowerCase() === "sports",
-    ) ||
-      (selectedOutlet.outletType || "").toUpperCase() === "SPORTS");
+    ((selectedOutlet.serviceTypes || []).some((s) => {
+      const v = (s || "").toLowerCase();
+      return v === "sports" || v === "fitness";
+    }) ||
+      ["SPORTS", "FITNESS"].includes(
+        (selectedOutlet.outletType || "").toUpperCase(),
+      ));
 
   const setupInstructors = parseSetup(settings, "setup_instructors", [
     "Trainer Ravi",
