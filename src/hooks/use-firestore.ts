@@ -34,6 +34,31 @@ console.log(isSupabaseEnabled)
 // const firebaseEnabled = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
 // console.log(firebaseEnabled)
 
+/** Safely converts either UI format (DD-MM-YYYY) or DB format (YYYY-MM-DD) to a standard JS Date object */
+function parseUiDate(dateStr: unknown): Date | null {
+  if (!dateStr) return null;
+  if (dateStr instanceof Date) return dateStr;
+  if (typeof dateStr === "string" && /^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
+    const [d, m, y] = dateStr.split("-");
+    return new Date(`${y}-${m}-${d}T00:00:00`);
+  }
+  if (typeof dateStr === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return new Date(`${dateStr}T00:00:00`);
+  }
+  const parsed = new Date(dateStr as string);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/** Generates current date in UI format string (DD-MM-YYYY) */
+function getTodayUiString(): string {
+  const now = new Date();
+  const d = String(now.getDate()).padStart(2, "0");
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const y = now.getFullYear();
+  return `${d}-${m}-${y}`;
+}
+
+
 // ─── Members ────────────────────────────────────────────────────────
 export function useMembers(filters?: { tier?: MemberTier; status?: MemberStatus; service?: ServiceType; outletId?: string }) {
   return useQuery({
