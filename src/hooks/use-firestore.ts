@@ -17,7 +17,7 @@ import {
 } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { INVOICE_PREFIX } from "@/lib/settings";
-import { toIsoDayInTz } from "@/lib/tz";
+
 
 import { isSameDay } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
@@ -33,6 +33,31 @@ console.log(isSupabaseEnabled)
 
 // const firebaseEnabled = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
 // console.log(firebaseEnabled)
+
+/** Safely converts either UI format (DD-MM-YYYY) or DB format (YYYY-MM-DD) to a standard JS Date object */
+function parseUiDate(dateStr: unknown): Date | null {
+  if (!dateStr) return null;
+  if (dateStr instanceof Date) return dateStr;
+  if (typeof dateStr === "string" && /^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
+    const [d, m, y] = dateStr.split("-");
+    return new Date(`${y}-${m}-${d}T00:00:00`);
+  }
+  if (typeof dateStr === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return new Date(`${dateStr}T00:00:00`);
+  }
+  const parsed = new Date(dateStr as string);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/** Generates current date in UI format string (DD-MM-YYYY) */
+function getTodayUiString(): string {
+  const now = new Date();
+  const d = String(now.getDate()).padStart(2, "0");
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const y = now.getFullYear();
+  return `${d}-${m}-${y}`;
+}
+
 
 // ─── Members ────────────────────────────────────────────────────────
 export function useMembers(filters?: { tier?: MemberTier; status?: MemberStatus; service?: ServiceType; outletId?: string }) {
@@ -127,7 +152,7 @@ export function useAddBooking() {
           memberName: data.memberName || "",
           service: data.service || "Membership",
           className: data.className || "",
-          date: data.date || "",
+          date: data.date || getTodayUiString(),
           startTime: data.startTime || "",
           endTime: data.endTime || "",
           status: data.status || "Pending",
@@ -171,7 +196,7 @@ export function useUpdateBooking() {
 
               // 1. FIX: Read target date from the incoming payload first, fallback to old date
               const targetDateStr = data.date || data.booking_date || b.date || b.booking_date;
-              const bookingDate = targetDateStr ? new Date(targetDateStr) : systemNow;
+              const bookingDate = parseUiDate(targetDateStr) || systemNow;
               const isToday = isSameDay(bookingDate, systemNow);
 
               // 2. FIX: Determine correct status based on the new target date
@@ -295,7 +320,7 @@ export function useAddTransaction() {
           total: data.total || data.amount || 0,
           method: data.method || "cash",
           type: data.type || "Charge",
-          date: data.date || toIsoDayInTz(new Date()),
+          date: data.date || getTodayUiString(),
           description: data.description || "",
           status: data.status || "pending",
           bookingId: data.bookingId,
@@ -597,7 +622,8 @@ export function useExpiryAlerts() {
       const now = new Date();
       return members
         .map((m) => {
-          const expiry = new Date(m.expiryDate);
+          const parsed = parseUiDate(m.expiryDate) || now;
+          const expiry = new Date(parsed);
           const daysLeft = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
           return {
             memberId: m.id,
