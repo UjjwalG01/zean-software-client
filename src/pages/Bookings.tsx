@@ -181,6 +181,7 @@ const Bookings_Page = () => {
 
   const [guestMode, setGuestMode] = useState(false);
   const [guestName, setGuestName] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [membershipListOpen, setMembershipListOpen] = useState(false);
 
   const { data: bookings = [], isLoading } = useBookings();
