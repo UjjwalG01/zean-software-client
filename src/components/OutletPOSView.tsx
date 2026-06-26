@@ -542,14 +542,22 @@ export function OutletPOSView({ outlet }: Props) {
           <div className="grid grid-cols-3 gap-2">
             <Button
               variant="outline"
-              disabled={cart.length === 0 || addBookingMutation.isPending}
+              disabled={cart.length === 0 || isSubmitting}
               onClick={handleBilling}
             >
-              <ShoppingCart className="h-4 w-4 mr-1" /> Billing
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Processing...
+                </>
+              ) : (
+                <>
+                  <ShoppingCart className="h-4 w-4 mr-1" /> Billing
+                </>
+              )}
             </Button>
             <Button
               variant="outline"
-              disabled={cart.length === 0}
+              disabled={cart.length === 0 || isSubmitting}
               onClick={() => toast.info("Order held")}
             >
               <Pause className="h-4 w-4 mr-1" /> Hold Order
@@ -557,13 +565,21 @@ export function OutletPOSView({ outlet }: Props) {
             <Button
               disabled={
                 cart.length === 0 ||
-                addBookingMutation.isPending ||
+                isSubmitting ||
                 cart.every((l) => l.placed)
               }
               onClick={handlePlace}
               className="gradient-gold text-primary-foreground"
             >
-              <Check className="h-4 w-4 mr-1" /> Place Order
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Processing...
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4 mr-1" /> Place Order
+                </>
+              )}
             </Button>
           </div>
         </div>
