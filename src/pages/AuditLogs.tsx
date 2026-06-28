@@ -22,10 +22,11 @@ import { getModules, type AppModule } from "@/lib/modules";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, endOfDay, parseISO } from "date-fns";
 import { toast } from "sonner";
+import { getSystemTodayStr, getSystemNowDate } from "@/lib/timeUtils";
 
-const todayISO = () => format(new Date(), "yyyy-MM-dd");
+const todayISO = () => getSystemTodayStr();
 const daysAgoISO = (n: number) => {
-  const d = new Date();
+  const d = getSystemNowDate();
   d.setDate(d.getDate() - n);
   return format(d, "yyyy-MM-dd");
 };

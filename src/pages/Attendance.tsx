@@ -49,6 +49,7 @@ import { consumeForAttendance } from "@/lib/prepaid";
 import { formatNPR } from "@/lib/mock-data";
 import { logAudit } from "@/lib/audit-log";
 import { toIsoDayInTz, formatInTz, getAppTimezone } from "@/lib/tz";
+import { getSystemTodayStr, getSystemNowDate, getSystemMonthStr } from "@/lib/timeUtils";
 import { underlineSpecificChars } from "@/lib/string-case-change";
 
 const Attendance = () => {
@@ -61,7 +62,7 @@ const Attendance = () => {
   const [filterStatus, setFilterStatus] = useState<
     "all" | "present" | "absent"
   >("all");
-  const [filterMonth, setFilterMonth] = useState(format(new Date(), "yyyy-MM"));
+  const [filterMonth, setFilterMonth] = useState(getSystemMonthStr());
   const [filterMember, setFilterMember] = useState("all");
   const [scanOpen, setScanOpen] = useState(false);
 
@@ -69,7 +70,7 @@ const Attendance = () => {
 
   // Anchor "today" to the configured app timezone so the check-in row maps to
   // the correct calendar day regardless of the operator's browser timezone.
-  const todayStr = toIsoDayInTz(new Date());
+  const todayStr = getSystemTodayStr();
 
   // Who checked in today
   const todayCheckIns = useMemo(() => {
@@ -295,7 +296,7 @@ const Attendance = () => {
               </SelectContent>
             </Select>
             <Badge variant="outline" className="text-xs py-1.5 px-3">
-              Today: {format(new Date(), "dd MMM yyyy")}
+              Today: {format(getSystemNowDate(), "dd MMM yyyy")}
             </Badge>
           </div>
 

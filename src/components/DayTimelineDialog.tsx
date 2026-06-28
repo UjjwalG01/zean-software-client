@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Booking } from "@/lib/mock-data";
+import { getSystemTodayStr, getSystemTimeStr } from "@/lib/timeUtils";
 
 interface Props {
   open: boolean;
@@ -35,9 +36,9 @@ export function DayTimelineDialog({ open, onOpenChange, date, bookings, duration
   };
 
   // Rule #6 — disable hours that have already passed on today.
-  const now = new Date();
-  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const isPastHour = (h: number) => date === todayStr && h <= now.getHours();
+  const todayStr = getSystemTodayStr();
+  const currentHour = Number(getSystemTimeStr().split(":")[0]);
+  const isPastHour = (h: number) => date === todayStr && h <= currentHour;
 
   const pick = (h: number) => {
     const start = `${String(h).padStart(2, "0")}:00`;

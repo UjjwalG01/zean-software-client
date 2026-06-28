@@ -21,9 +21,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type { Booking } from "@/lib/mock-data";
 
-import { toZonedTime } from "date-fns-tz";
-
-const SYSTEM_TZ = "Asia/Katmandu";
+import { getSystemNowDate } from "@/lib/timeUtils";
 
 interface Props {
   open: boolean;
@@ -85,7 +83,7 @@ export function DayScheduleDialog({
   const totalCount = bookings.length;
 
   // Disable past hours when the day being viewed is today (rule #6).
-  const now = toZonedTime(new Date(), SYSTEM_TZ);
+  const now = getSystemNowDate();
   const isToday = !!date && isSameDay(date, now);
   const currentHour = now.getHours();
   const isPastHour = (h: number) => isToday && h < currentHour;

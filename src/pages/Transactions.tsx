@@ -94,6 +94,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { formatInTimeZone } from "date-fns-tz";
+import { getSystemTodayStr, getSystemTimestamp, getSystemNowDate } from "@/lib/timeUtils";
 
 const SYSTEM_TZ = "Asia/Katmandu";
 
@@ -143,7 +144,7 @@ const Transactions = () => {
   const [settleDiscount, setSettleDiscount] = useState<string>("");
   const [isSettlement, setIsSettlement] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
-  const todayStr = toIsoDayInTz(new Date());
+  const todayStr = getSystemTodayStr();
   const [dateFrom, setDateFrom] = useState(todayStr);
   const [dateTo, setDateTo] = useState(todayStr);
   const [page, setPage] = useState(1);
@@ -397,8 +398,8 @@ const Transactions = () => {
           companyEmail: settings.companyEmail || "",
           guestName: memberObj?.name || "",
           billNo: `ADV-${Date.now().toString().slice(-8)}`,
-          billDate: format(new Date(), "dd/MM/yyyy"),
-          billForMonth: format(new Date(), "MMMM yyyy"),
+          billDate: format(getSystemNowDate(), "dd/MM/yyyy"),
+          billForMonth: format(getSystemNowDate(), "MMMM yyyy"),
           items: [],
           subtotal: amount,
           taxableAmount: amount,
@@ -486,7 +487,7 @@ const Transactions = () => {
           total: Number(amountStr),
           method: "cash",
           type: "Charge",
-          date: toIsoDayInTz(new Date()),
+          date: getSystemTodayStr(),
           description: `${serviceStr} — ${classNameStr}`,
           receiptNo: `${INVOICE_PREFIX}-${Date.now()}`,
           status: "pending",
@@ -542,7 +543,7 @@ const Transactions = () => {
           discount,
           method: settleMethod,
           type: settleTxn.serviceType || "Charge",
-          date: toIsoDayInTz(new Date()),
+          date: getSystemTodayStr(),
           description: settleTxn.description,
           receiptNo: settleTxn.receiptNo,
           status: "paid",
@@ -560,7 +561,7 @@ const Transactions = () => {
         if (chargeRowId) {
           try {
             const { supabase } = await import("@/lib/supabase");
-            const nowTs = formatInTimeZone(new Date(), SYSTEM_TZ, "yyyy-MM-dd");
+            const nowTs = getSystemTodayStr();
             await supabase
               .from("charges")
               .update({
@@ -585,7 +586,7 @@ const Transactions = () => {
           data: {
             status: "paid",
             method: settleMethod,
-            date: toIsoDayInTz(new Date()),
+            date: getSystemTodayStr(),
             discount,
           } as any,
         });
@@ -598,7 +599,7 @@ const Transactions = () => {
             id: settleTxn.bookingId,
             data: {
               status: "Completed",
-              settledAt: new Date().toISOString(),
+              settledAt: getSystemTimestamp(),
               paymentMethod: settleMethod,
             } as any,
           });
@@ -644,7 +645,7 @@ const Transactions = () => {
         settleTxn.receiptNo,
         settleTxn.description,
         netDue,
-        new Date(),
+        getSystemNowDate(),
         {
           memberId: settleTxn.memberId,
           discount,
@@ -701,11 +702,11 @@ const Transactions = () => {
               exportTableToCSV(
                 headers,
                 rows,
-                `transactions-${format(new Date(), "yyyyMMdd")}.csv`,
+                `transactions-${format(getSystemNowDate(), "yyyyMMdd")}.csv`,
                 {
                   propertyName: settings.companyName || ".............",
                   reportTitle: "Transactions Report",
-                  dateRange: format(new Date(), "PPP"),
+                  dateRange: format(getSystemNowDate(), "PPP"),
                   filters: {
                     Search: search || "—",
                     Method: methodFilter === "all" ? "All" : methodFilter,
@@ -1072,7 +1073,7 @@ const Transactions = () => {
                             {(() => {
                               const isSameDay =
                                 toIsoDayInTz(t.date) ===
-                                toIsoDayInTz(new Date());
+                                getSystemTodayStr();
                               return (
                                 <Button
                                   variant="ghost"

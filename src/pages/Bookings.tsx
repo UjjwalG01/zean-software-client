@@ -13,6 +13,7 @@ import {
   isToday,
 } from "date-fns";
 import { toZonedTime, formatInTimeZone } from "date-fns-tz";
+import { getSystemNowDate, getSystemTodayStr, getSystemTimeStr, getSystemMonthStr } from "@/lib/timeUtils";
 import {
   ChevronLeft,
   ChevronRight,
@@ -129,7 +130,7 @@ const Bookings_Page = () => {
   const [pickerShown, setPickerShown] = useState(false);
 
   // Timezone-aware local variables
-  const systemNow = useMemo(() => toZonedTime(new Date(), SYSTEM_TZ), []);
+  const systemNow = useMemo(() => getSystemNowDate(), []);
 
   useEffect(() => {
     if (!outletsLoading && !selectedOutlet && !pickerShown) {
@@ -143,9 +144,7 @@ const Bookings_Page = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBookingId, setEditingBookingId] = useState<string | null>(null);
   const [serviceFilter, setServiceFilter] = useState<string>("all");
-  const [listMonth, setListMonth] = useState<string>(
-    formatInTimeZone(new Date(), SYSTEM_TZ, "yyyy-MM"),
-  );
+  const [listMonth, setListMonth] = useState<string>(getSystemMonthStr());
   const [listPage, setListPage] = useState(1);
   const PAGE_SIZE = 25;
   const [colorSettingsOpen, setColorSettingsOpen] = useState(false);
@@ -311,7 +310,7 @@ const Bookings_Page = () => {
     if (!dateStr) return false;
 
     // 1. Get the current date in Kathmandu as a pure string
-    const todayStr = formatInTimeZone(new Date(), SYSTEM_TZ, "yyyy-MM-dd");
+    const todayStr = getSystemTodayStr();
 
     // 2. Clear-cut date checks
     if (dateStr < todayStr) return true; // Definitely in the past
@@ -323,8 +322,9 @@ const Bookings_Page = () => {
     if (Number.isNaN(slotH)) return false;
 
     // 4. Extract Kathmandu's exact current hours & minutes as standalone numbers
-    const currentHour = Number(formatInTimeZone(new Date(), SYSTEM_TZ, "H"));
-    const currentMin = Number(formatInTimeZone(new Date(), SYSTEM_TZ, "m"));
+    const [curHStr, curMStr] = getSystemTimeStr().split(":");
+    const currentHour = Number(curHStr);
+    const currentMin = Number(curMStr);
 
     // 5. Convert both times to total minutes elapsed since midnight for a pure numeric comparison
     const slotTotalMinutes = slotH * 60 + (slotM || 0);
@@ -338,8 +338,8 @@ const Bookings_Page = () => {
       setPickerOpen(true);
       return;
     }
-    const d = day || toZonedTime(new Date(), SYSTEM_TZ);
-    const today = toZonedTime(new Date(), SYSTEM_TZ);
+    const d = day || getSystemNowDate();
+    const today = getSystemNowDate();
     today.setHours(0, 0, 0, 0);
 
     // 🔄 MODIFIED: Allow past dates ONLY for membership outlets
@@ -442,7 +442,7 @@ const Bookings_Page = () => {
       toast.error("Please pick a start time (use the 24h timeline)");
       return;
     }
-    const today = toZonedTime(new Date(), SYSTEM_TZ);
+    const today = getSystemNowDate();
     today.setHours(0, 0, 0, 0);
     if (new Date(bookDate) < today && !isMembershipOutlet) {
       toast.error("Cannot create bookings for past dates");
@@ -640,10 +640,7 @@ const Bookings_Page = () => {
     }
 
     const memberObj = members.find((m) => m.id === bookMember);
-    const today = toZonedTime(new Date(), SYSTEM_TZ);
-
-    const enrollmentDate =
-      bookDate || formatInTimeZone(today, SYSTEM_TZ, "yyyy-MM-dd");
+    const enrollmentDate = bookDate || getSystemTodayStr();
 
     // 🛑 NEW: Check if the member already has an active enrollment on this specific date
     const isDuplicate = bookings.some(
@@ -662,7 +659,7 @@ const Bookings_Page = () => {
       return;
     }
 
-    const baseDate = bookDate ? new Date(bookDate) : new Date(today);
+    const baseDate = bookDate ? new Date(bookDate) : getSystemNowDate();
     const expiry = new Date(baseDate);
     expiry.setMonth(expiry.getMonth() + (selectedDuration.months || 1));
 
@@ -1517,7 +1514,7 @@ const Bookings_Page = () => {
           // 3. Set the status state matching context rules
           const targetIsToday = isSameDay(
             toZonedTime(new Date(b.date || dStr), SYSTEM_TZ),
-            toZonedTime(new Date(), SYSTEM_TZ),
+            getSystemNowDate(),
           );
           const targetStatus = targetIsToday
             ? "Pending"
@@ -1602,7 +1599,7 @@ const Bookings_Page = () => {
               const isCurrentMonth = day.getMonth() === currentMonth.getMonth();
               const dayIsToday = isSameDay(
                 day,
-                toZonedTime(new Date(), SYSTEM_TZ),
+                getSystemNowDate(),
               );
               return (
                 <Tooltip key={day.toISOString()}>
