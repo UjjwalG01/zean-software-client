@@ -656,3 +656,5 @@ function PrintSettingsPanel() {
   );
 }
 
+
+export default GeneralSetup;
