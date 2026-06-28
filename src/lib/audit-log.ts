@@ -106,7 +106,8 @@ export async function logAudit(entry: AuditEntry): Promise<void> {
       : await resolveActiveOutlet();
 
     const actorEmail = user?.email ?? null;
-    const currentTs = new Date().toISOString();
+    const { getSystemTimestamp } = await import("@/lib/timeUtils");
+    const currentTs = getSystemTimestamp();
     const outletLabel = outlet.name || "app";
     const userFullName = app_user_data?.display_name ?? null;
     const username = app_user_data?.extras?.username ?? null;
