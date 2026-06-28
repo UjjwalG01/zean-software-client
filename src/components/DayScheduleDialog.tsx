@@ -83,7 +83,7 @@ export function DayScheduleDialog({
   const totalCount = bookings.length;
 
   // Disable past hours when the day being viewed is today (rule #6).
-  const now = toZonedTime(new Date(), SYSTEM_TZ);
+  const now = getSystemNowDate();
   const isToday = !!date && isSameDay(date, now);
   const currentHour = now.getHours();
   const isPastHour = (h: number) => isToday && h < currentHour;
