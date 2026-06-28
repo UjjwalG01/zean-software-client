@@ -178,6 +178,7 @@ const GeneralSetup = () => {
             </TabsTrigger>
           ))}
           <TabsTrigger value="grcSettings">GRC Template</TabsTrigger>
+          <TabsTrigger value="printSettings">Print Settings</TabsTrigger>
         </TabsList>
 
         {sections.map((section) => (
@@ -193,6 +194,9 @@ const GeneralSetup = () => {
         ))}
         <TabsContent value="grcSettings">
           <GRCSettingsPanel />
+        </TabsContent>
+        <TabsContent value="printSettings">
+          <PrintSettingsPanel />
         </TabsContent>
       </Tabs>
     </div>
@@ -582,5 +586,75 @@ function GRCSettingsPanel() {
     </div>
   );
 }
+
+
+// ─── Print Settings Panel ────────────────────────────────────────────
+function PrintSettingsPanel() {
+  const { data: settings = {} } = useCompanySettings();
+  const saveMutation = useSaveCompanySettings();
+  const [paperSize, setPaperSize] = useState<string>("A5");
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (loaded) return;
+    if (settings.bill_paperSize) setPaperSize(settings.bill_paperSize);
+    setLoaded(true);
+  }, [settings, loaded]);
+
+  const save = async () => {
+    try {
+      await saveMutation.mutateAsync({ bill_paperSize: paperSize });
+      toast.success("Print settings saved");
+    } catch {
+      toast.error("Failed to save");
+    }
+  };
+
+  return (
+    <div className="glass-card rounded-xl p-6 space-y-5">
+      <div>
+        <h3 className="font-semibold font-display">Bill / Receipt Printing</h3>
+        <p className="text-xs text-muted-foreground">
+          Controls the paper size used when printing Payment and Advance receipts.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Paper Size</Label>
+          <Select value={paperSize} onValueChange={setPaperSize}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="A4">A4 — 210 × 297 mm</SelectItem>
+              <SelectItem value="A5">A5 — 148 × 210 mm</SelectItem>
+              <SelectItem value="80mm">80 mm — Thermal Roll</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <Button
+        onClick={save}
+        disabled={saveMutation.isPending}
+        className="gradient-gold text-primary-foreground"
+      >
+        {saveMutation.isPending ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            Saving...
+          </>
+        ) : (
+          <>
+            <Save className="h-4 w-4 mr-1" />
+            Save Print Settings
+          </>
+        )}
+      </Button>
+    </div>
+  );
+}
+
 
 export default GeneralSetup;

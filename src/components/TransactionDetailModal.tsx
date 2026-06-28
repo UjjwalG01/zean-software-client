@@ -62,13 +62,16 @@ export function TransactionDetailModal({
   const balanceAmount = 0;
   const isVoided = t.voided || t.status === "voided";
 
+  const paperSize = (settings.bill_paperSize as "A4" | "A5" | "80mm") || "A5";
+  const receiptKind: "payment" | "advance" = t.type === "Advance" ? "advance" : "payment";
+
   const handlePrint = () => {
-    const html = generateReceiptHTML(t, companyName);
+    const html = generateReceiptHTML(t, companyName, { paperSize, kind: receiptKind });
     printHTML(html);
   };
 
   const handleDownload = () => {
-    const html = generateReceiptHTML(t, companyName);
+    const html = generateReceiptHTML(t, companyName, { paperSize, kind: receiptKind });
     downloadHTML(html, `receipt-${t.receiptNo}.html`);
   };
 
