@@ -73,7 +73,7 @@ export function DayBookingsDialog({
             </div>
             <h3 className="font-semibold text-base mb-1">No Bookings Scheduled</h3>
             <p className="text-sm text-muted-foreground text-center mb-6 max-w-sm">
-              There are no service or class bookings scheduled for {dateLabel} yet.
+              There are no service or class bookings scheduled for {dateLabel || "this date"} yet.
             </p>
             <Button onClick={onAddBooking} variant="outline" className="flex items-center gap-1.5">
               <Plus className="h-4 w-4" /> Create First Booking
@@ -85,6 +85,14 @@ export function DayBookingsDialog({
               <div
                 key={b.id}
                 onClick={() => onViewBookingDetail(b)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onViewBookingDetail(b);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
                 className="group relative rounded-xl border border-border/80 bg-card p-4 hover:border-primary/50 transition-all duration-300 hover:shadow-md cursor-pointer flex flex-col justify-between"
               >
                 <div className="space-y-2">
@@ -92,7 +100,7 @@ export function DayBookingsDialog({
                     <p className="font-semibold text-sm line-clamp-1 group-hover:text-primary transition-colors">
                       {b.className || b.service}
                     </p>
-                    <Badge variant="secondary" className={statusColors[b.status] || ""}>
+                    <Badge variant="secondary" className={statusColors[(b.status || "").toLowerCase()] || ""}>
                       {b.status}
                     </Badge>
                   </div>
