@@ -296,7 +296,7 @@ const Attendance = () => {
               </SelectContent>
             </Select>
             <Badge variant="outline" className="text-xs py-1.5 px-3">
-              Today: {format(new Date(), "dd MMM yyyy")}
+              Today: {format(getSystemNowDate(), "dd MMM yyyy")}
             </Badge>
           </div>
 
