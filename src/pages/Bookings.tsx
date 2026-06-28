@@ -338,8 +338,8 @@ const Bookings_Page = () => {
       setPickerOpen(true);
       return;
     }
-    const d = day || toZonedTime(new Date(), SYSTEM_TZ);
-    const today = toZonedTime(new Date(), SYSTEM_TZ);
+    const d = day || getSystemNowDate();
+    const today = getSystemNowDate();
     today.setHours(0, 0, 0, 0);
 
     // 🔄 MODIFIED: Allow past dates ONLY for membership outlets
@@ -442,7 +442,7 @@ const Bookings_Page = () => {
       toast.error("Please pick a start time (use the 24h timeline)");
       return;
     }
-    const today = toZonedTime(new Date(), SYSTEM_TZ);
+    const today = getSystemNowDate();
     today.setHours(0, 0, 0, 0);
     if (new Date(bookDate) < today && !isMembershipOutlet) {
       toast.error("Cannot create bookings for past dates");
@@ -640,7 +640,7 @@ const Bookings_Page = () => {
     }
 
     const memberObj = members.find((m) => m.id === bookMember);
-    const today = toZonedTime(new Date(), SYSTEM_TZ);
+    const today = getSystemNowDate();
 
     const enrollmentDate =
       bookDate || formatInTimeZone(today, SYSTEM_TZ, "yyyy-MM-dd");
@@ -1517,7 +1517,7 @@ const Bookings_Page = () => {
           // 3. Set the status state matching context rules
           const targetIsToday = isSameDay(
             toZonedTime(new Date(b.date || dStr), SYSTEM_TZ),
-            toZonedTime(new Date(), SYSTEM_TZ),
+            getSystemNowDate(),
           );
           const targetStatus = targetIsToday
             ? "Pending"
@@ -1602,7 +1602,7 @@ const Bookings_Page = () => {
               const isCurrentMonth = day.getMonth() === currentMonth.getMonth();
               const dayIsToday = isSameDay(
                 day,
-                toZonedTime(new Date(), SYSTEM_TZ),
+                getSystemNowDate(),
               );
               return (
                 <Tooltip key={day.toISOString()}>
