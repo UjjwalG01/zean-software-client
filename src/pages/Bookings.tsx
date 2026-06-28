@@ -640,10 +640,7 @@ const Bookings_Page = () => {
     }
 
     const memberObj = members.find((m) => m.id === bookMember);
-    const today = getSystemNowDate();
-
-    const enrollmentDate =
-      bookDate || formatInTimeZone(today, SYSTEM_TZ, "yyyy-MM-dd");
+    const enrollmentDate = bookDate || getSystemTodayStr();
 
     // 🛑 NEW: Check if the member already has an active enrollment on this specific date
     const isDuplicate = bookings.some(
