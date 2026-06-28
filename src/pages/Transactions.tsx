@@ -387,6 +387,32 @@ const Transactions = () => {
           ? `Advance recorded — ${formatNPR(amount - leftover)} applied, ${formatNPR(leftover)} credit remaining`
           : `Advance of ${formatNPR(amount)} applied to pending charges`,
       );
+      // Print Advance Receipt
+      try {
+        const companyName = settings.companyName || ".............";
+        const advHtml = generateA5BillHTML({
+          companyName,
+          companyAddress: settings.companyAddress || "",
+          companyPhone: settings.companyPhone || "",
+          companyEmail: settings.companyEmail || "",
+          guestName: memberObj?.name || "",
+          billNo: `ADV-${Date.now().toString().slice(-8)}`,
+          billDate: format(new Date(), "dd/MM/yyyy"),
+          billForMonth: format(new Date(), "MMMM yyyy"),
+          items: [],
+          subtotal: amount,
+          taxableAmount: amount,
+          vatAmount: 0,
+          grandTotal: amount,
+          paidAmount: amount,
+          paymentMethod: advMethod,
+          paperSize: (settings.bill_paperSize as "A4" | "A5" | "80mm") || "A5",
+          kind: "advance",
+        });
+        printHTML(advHtml);
+      } catch {
+        /* non-blocking */
+      }
       setAdvanceOpen(false);
       setAdvDiscount("");
       setAdvMember("");
