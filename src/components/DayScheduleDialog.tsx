@@ -21,9 +21,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type { Booking } from "@/lib/mock-data";
 
-import { toZonedTime } from "date-fns-tz";
-
-const SYSTEM_TZ = "Asia/Katmandu";
+import { getSystemNowDate } from "@/lib/timeUtils";
 
 interface Props {
   open: boolean;
