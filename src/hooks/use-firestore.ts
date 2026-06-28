@@ -25,6 +25,9 @@ const SYSTEM_TZ = "Asia/Katmandu";
 
 const isSupabaseEnabled = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
 
+// Local in-memory store for tracking check-ins while in mock mode
+const localMockCheckIns: CheckInRecord[] = [];
+
 /** Safely converts either UI format (DD-MM-YYYY) or DB format (YYYY-MM-DD) to a standard JS Date object */
 function parseUiDate(dateStr: unknown): Date | null {
   if (!dateStr) return null;
@@ -350,7 +353,7 @@ export function useCheckIns() {
   return useQuery({
     queryKey: ["checkIns"],
     queryFn: async () => {
-      if (!isSupabaseEnabled) return [];
+      if (!isSupabaseEnabled) return localMockCheckIns; // Return local store instead of []
       return fbServices.getCheckIns();
     },
   });
@@ -361,12 +364,20 @@ export function useAddCheckIn() {
   return useMutation({
     mutationFn: async (data: { memberId: string; memberName: string; date: string }) => {
       if (!isSupabaseEnabled) {
+        const now = new Date();
+        const newRecord: CheckInRecord = {
+          id: `mock-ci-${now.getTime()}`,
+          memberId: data.memberId,
+          memberName: data.memberName,
+          date: data.date,
+          checkInTime: `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
+        };
+        localMockCheckIns.unshift(newRecord); // Persist to local array
         toast.success("Check-in recorded (mock mode)");
-        return "mock-id";
+        return newRecord.id;
       }
       return fbServices.addCheckInRecord(data);
     },
-    // Optimistic update so the row flips to "Present" the moment the user clicks.
     onMutate: async (data) => {
       await qc.cancelQueries({ queryKey: ["checkIns"] });
       const previous = qc.getQueryData<CheckInRecord[]>(["checkIns"]) || [];
@@ -436,12 +447,13 @@ export function useUpdateService() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Record<string, any>> }) => {
-      if (!isSupabaseEnabled) return;
+      if (!isSupabaseEnabled) {
+        toast.success("Service changes saved (mock mode)");
+        return;
+      }
       return fbServices.updateService(id, data);
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["services"] });
-    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["services"] }),
   });
 }
 
@@ -449,12 +461,13 @@ export function useDeleteService() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isSupabaseEnabled) return;
+      if (!isSupabaseEnabled) {
+        toast.success("Service deleted (mock mode)");
+        return;
+      }
       return fbServices.deleteService(id);
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["services"] });
-    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["services"] }),
   });
 }
 
