@@ -368,6 +368,8 @@ export function generateReceiptHTML(
     memberClass?: string;
     paymentMethod?: string;
     remarks?: string;
+    paperSize?: BillPaperSize;
+    kind?: BillKind;
   },
 ): string {
   return generateA5BillHTML({
