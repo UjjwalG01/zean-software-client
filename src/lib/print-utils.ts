@@ -73,6 +73,9 @@ export interface A5BillItem {
   head?: string;
 }
 
+export type BillPaperSize = "A4" | "A5" | "80mm";
+export type BillKind = "payment" | "advance";
+
 export function generateA5BillHTML(options: {
   companyName: string;
   companyTagline?: string;
@@ -105,8 +108,15 @@ export function generateA5BillHTML(options: {
   status?: string;
   remarks?: string;
   attendant?: string;
+  /** Paper size for the receipt. Defaults to A5. */
+  paperSize?: BillPaperSize;
+  /** Receipt kind. 'advance' renders the simpler Advance Receipt layout. */
+  kind?: BillKind;
 }): string {
   const o = options;
+  const paperSize: BillPaperSize = o.paperSize || "A5";
+  const kind: BillKind = o.kind || "payment";
+
   const currentTotal = o.grandTotal;
   const previousBalance = Math.max(0, o.previousBalance || 0);
   const grossDue = currentTotal + previousBalance;
@@ -116,80 +126,131 @@ export function generateA5BillHTML(options: {
   const paid = o.paidAmount ?? Math.max(0, netPayable);
   const isRefund = netPayable < 0;
   const isFullyPaid = !isRefund && paid >= netPayable - 0.01;
-  const statusLabel = isRefund
-    ? "REFUND / OVERPAID"
+  const isOverpaid = !isRefund && paid > netPayable + 0.01;
+  const statusLabel = isRefund || isOverpaid
+    ? "OVERPAID"
     : isFullyPaid
       ? "CLEARED"
       : paid > 0
         ? "PARTIAL"
         : (o.status || "PENDING").toUpperCase();
-  const statusColor = isRefund ? "#b45309" : isFullyPaid ? "#16a34a" : "#dc2626";
+  const statusColor = isRefund || isOverpaid ? "#b45309" : isFullyPaid ? "#16a34a" : "#dc2626";
 
-  // Group items by head for the breakdown table.
-  const groups = new Map<string, { items: A5BillItem[]; subtotal: number }>();
-  for (const it of o.items) {
-    const key = it.head || "Services";
-    const g = groups.get(key) || { items: [], subtotal: 0 };
-    g.items.push(it);
-    g.subtotal += Number(it.amount || 0);
-    groups.set(key, g);
-  }
+  // Paper-size-driven CSS variables
+  const sizeCss = (() => {
+    switch (paperSize) {
+      case "A4":
+        return {
+          page: "@page { size: A4 portrait; margin: 0; }",
+          bodyWidth: "210mm",
+          bodyMinHeight: "297mm",
+          padX: "16mm",
+          headerPad: "16mm 16mm 10mm",
+          fontSize: "12px",
+        };
+      case "80mm":
+        return {
+          page: "@page { size: 80mm auto; margin: 0; }",
+          bodyWidth: "80mm",
+          bodyMinHeight: "auto",
+          padX: "4mm",
+          headerPad: "6mm 4mm 5mm",
+          fontSize: "10.5px",
+        };
+      case "A5":
+      default:
+        return {
+          page: "@page { size: A5 portrait; margin: 0; }",
+          bodyWidth: "148mm",
+          bodyMinHeight: "210mm",
+          padX: "12mm",
+          headerPad: "14mm 12mm 9mm",
+          fontSize: "11px",
+        };
+    }
+  })();
 
-  const groupRows = Array.from(groups.entries())
+  const isThermal = paperSize === "80mm";
+  const titleText = kind === "advance" ? "ADVANCE RECEIPT" : "PAYMENT RECEIPT";
+
+  // Item rows
+  const itemRows = o.items
     .map(
-      ([head, g]) => `
-        <tr class="head-row"><td colspan="2">${escHtml(head)}</td></tr>
-        ${g.items
-          .map(
-            (it) =>
-              `<tr><td>${escHtml(it.description)}</td><td class="right">NPR ${Number(it.amount).toFixed(2)}</td></tr>`,
-          )
-          .join("")}
-        <tr class="sub-row"><td class="right">Subtotal</td><td class="right">NPR ${g.subtotal.toFixed(2)}</td></tr>`,
+      (it) =>
+        `<tr><td>${escHtml(it.description)}</td><td class="right">NPR ${Number(it.amount).toFixed(2)}</td></tr>`,
     )
     .join("");
+
+  // Summary rows differ for payment vs advance
+  const summaryRowsPayment = `
+    <tr class="sep"><td colspan="2"></td></tr>
+    <tr><td>Subtotal</td><td class="right">NPR ${currentTotal.toFixed(2)}</td></tr>
+    ${previousBalance > 0 ? `<tr><td>Previous Balance (due)</td><td class="right">NPR ${previousBalance.toFixed(2)}</td></tr>` : ""}
+    <tr class="sep"><td colspan="2"></td></tr>
+    <tr class="bold"><td>Grand Total</td><td class="right">NPR ${grossDue.toFixed(2)}</td></tr>
+    ${advance > 0 ? `<tr class="neg"><td>Advance Amount</td><td class="right">- NPR ${advance.toFixed(2)}</td></tr>` : ""}
+    ${discount > 0 ? `<tr class="neg"><td>Discount</td><td class="right">- NPR ${discount.toFixed(2)}</td></tr>` : ""}
+    <tr class="sep"><td colspan="2"></td></tr>
+    <tr class="bold net"><td>Net Payable</td><td class="right">NPR ${Math.abs(netPayable).toFixed(2)}</td></tr>
+    <tr class="bold"><td>Amount Paid</td><td class="right">NPR ${paid.toFixed(2)}</td></tr>
+    <tr class="sep"><td colspan="2"></td></tr>
+  `;
+
+  const summaryRowsAdvance = `
+    <tr class="sep"><td colspan="2"></td></tr>
+    <tr class="bold"><td>Amount Paid</td><td class="right">NPR ${paid.toFixed(2)}</td></tr>
+    <tr class="sep"><td colspan="2"></td></tr>
+  `;
+
+  const summaryRows = kind === "advance" ? summaryRowsAdvance : summaryRowsPayment;
+
+  const itemsTable = kind === "advance"
+    ? ""
+    : `
+    <table class="items">
+      <thead><tr><th>Fee Description</th><th class="right">Amount</th></tr></thead>
+      <tbody>${itemRows}</tbody>
+    </table>`;
 
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Receipt ${escHtml(o.billNo)}</title>
 <style>
-@page { size: A5 portrait; margin: 0; }
+${sizeCss.page}
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 11px; color: #1f2937; background: #ffffff; width: 148mm; min-height: 210mm; position: relative; }
-.page { position: relative; padding: 0 0 16mm; min-height: 210mm; overflow: hidden; }
-.watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 75mm; opacity: 0.07; pointer-events: none; z-index: 0; }
-.header { background: #1e3a8a; color: #fff; padding: 14mm 12mm 9mm; text-align: center; position: relative; z-index: 1; }
-.header h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.3px; margin-bottom: 4px; }
-.header .tagline { font-size: 10px; font-style: italic; opacity: 0.9; margin-bottom: 6px; }
-.header .contact { font-size: 9.5px; opacity: 0.95; letter-spacing: 0.2px; }
-.header .contact span { margin: 0 6px; }
-.title-bar { background: #eef2ff; color: #1e3a8a; text-align: center; font-weight: 700; letter-spacing: 1.5px; font-size: 12px; padding: 6px 0; border-bottom: 1px solid #c7d2fe; position: relative; z-index: 1; }
-.body-pad { padding: 8mm 12mm 0; position: relative; z-index: 1; }
-.row { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 4px; }
-.row .label { color: #6b7280; font-weight: 600; min-width: 80px; display: inline-block; }
+body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: ${sizeCss.fontSize}; color: #1f2937; background: #ffffff; width: ${sizeCss.bodyWidth}; min-height: ${sizeCss.bodyMinHeight}; position: relative; }
+.page { position: relative; padding: 0 0 ${isThermal ? "6mm" : "16mm"}; min-height: ${sizeCss.bodyMinHeight}; overflow: hidden; }
+.watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: ${isThermal ? "50mm" : "75mm"}; opacity: 0.07; pointer-events: none; z-index: 0; }
+.header { background: ${isThermal ? "#ffffff" : "#1e3a8a"}; color: ${isThermal ? "#1e3a8a" : "#fff"}; padding: ${sizeCss.headerPad}; text-align: center; position: relative; z-index: 1; ${isThermal ? "border-bottom: 1px dashed #94a3b8;" : ""} }
+.header h1 { font-size: ${isThermal ? "14px" : paperSize === "A4" ? "22px" : "20px"}; font-weight: 700; letter-spacing: 0.3px; margin-bottom: 4px; }
+.header .tagline { font-size: ${isThermal ? "9px" : "10px"}; font-style: italic; opacity: 0.9; margin-bottom: 4px; }
+.header .contact { font-size: ${isThermal ? "8.5px" : "9.5px"}; opacity: 0.95; letter-spacing: 0.2px; line-height: 1.4; }
+.header .contact span { margin: 0 4px; }
+.title-bar { background: ${isThermal ? "#ffffff" : "#eef2ff"}; color: #1e3a8a; text-align: center; font-weight: 700; letter-spacing: 1.5px; font-size: ${isThermal ? "11px" : "12px"}; padding: 6px 0; border-bottom: 1px ${isThermal ? "dashed #94a3b8" : "solid #c7d2fe"}; position: relative; z-index: 1; }
+.body-pad { padding: ${isThermal ? "4mm" : "8mm"} ${sizeCss.padX} 0; position: relative; z-index: 1; }
+.row { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+.row .label { color: #6b7280; font-weight: 600; min-width: ${isThermal ? "60px" : "80px"}; display: inline-block; }
 .row .val { color: #111827; font-weight: 600; }
-.divider { border: none; border-top: 1px solid #e5e7eb; margin: 7px 0 9px; }
+.divider { border: none; border-top: 1px ${isThermal ? "dashed #94a3b8" : "solid #e5e7eb"}; margin: 7px 0 9px; }
 .member-block { margin: 6px 0 10px; }
 .member-block .row { margin-bottom: 5px; }
-table.items { width: 100%; border-collapse: collapse; margin: 8px 0 0; }
-table.items thead th { background: #1e3a8a; color: #fff; padding: 8px 10px; font-size: 10.5px; text-align: left; font-weight: 700; letter-spacing: 0.4px; }
+table.items { width: 100%; border-collapse: collapse; margin: 6px 0 0; }
+table.items thead th { background: ${isThermal ? "#ffffff" : "#1e3a8a"}; color: ${isThermal ? "#1e3a8a" : "#fff"}; padding: 6px 4px; font-size: ${isThermal ? "10px" : "10.5px"}; text-align: left; font-weight: 700; letter-spacing: 0.4px; border-bottom: 2px ${isThermal ? "dashed #94a3b8" : "solid #1e3a8a"}; }
 table.items thead th.right { text-align: right; }
-table.items tbody td { padding: 6px 10px; font-size: 11px; border-bottom: 1px solid #e5e7eb; }
+table.items tbody td { padding: 5px 4px; font-size: ${sizeCss.fontSize}; }
 table.items tbody td.right { text-align: right; }
-table.items tbody tr.head-row td { background: #eef2ff; color: #1e3a8a; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; font-size: 10.5px; padding: 6px 10px; }
-table.items tbody tr.sub-row td { background: #f8fafc; color: #1e3a8a; font-weight: 700; font-size: 10.5px; }
-.summary-card { margin-top: 10px; border: 1px solid #c7d2fe; border-radius: 6px; overflow: hidden; }
-.summary-card .sr { display: flex; justify-content: space-between; padding: 6px 12px; font-size: 11px; border-bottom: 1px solid #e5e7eb; }
-.summary-card .sr:last-child { border-bottom: none; }
-.summary-card .sr.neg { color: #b45309; }
-.summary-card .sr.net { background: #1e3a8a; color: #fff; font-weight: 700; font-size: 12px; letter-spacing: .3px; }
-.summary-card .sr.paid { background: #f0fdf4; color: #16a34a; font-weight: 700; }
-.summary-card .sr.refund { background: #fffbeb; color: #b45309; font-weight: 700; }
-.meta-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 10px 4px; font-size: 11px; }
+table.summary { width: 100%; border-collapse: collapse; margin-top: 4px; }
+table.summary td { padding: 4px; font-size: ${sizeCss.fontSize}; }
+table.summary td.right { text-align: right; }
+table.summary tr.bold td { font-weight: 700; color: #0f172a; }
+table.summary tr.net td { background: ${isThermal ? "transparent" : "#eef2ff"}; color: #1e3a8a; }
+table.summary tr.neg td { color: #b45309; }
+table.summary tr.sep td { border-top: 1px ${isThermal ? "dashed #94a3b8" : "solid #cbd5e1"}; padding: 0; height: 4px; }
+.meta-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 4px 4px; font-size: ${sizeCss.fontSize}; }
 .meta-row .method { color: #1e3a8a; font-weight: 600; }
-.status-pill { font-weight: 700; letter-spacing: 0.6px; font-size: 11px; }
-.remarks { font-style: italic; color: #6b7280; font-size: 10px; padding: 0 10px 8px; }
-.thanks { text-align: center; color: #b45309; font-style: italic; font-size: 10.5px; margin-top: 16px; }
-.signature { text-align: right; padding: 16px 12mm 0; font-size: 10px; color: #4b5563; }
+.status-pill { font-weight: 700; letter-spacing: 0.6px; font-size: ${sizeCss.fontSize}; }
+.remarks { font-style: italic; color: #6b7280; font-size: ${isThermal ? "9.5px" : "10px"}; padding: 0 4px 8px; }
+.thanks { text-align: center; color: #b45309; font-style: italic; font-size: ${isThermal ? "10px" : "10.5px"}; margin-top: ${isThermal ? "8px" : "16px"}; }
+.signature { text-align: right; padding: ${isThermal ? "10px" : "16px"} ${sizeCss.padX} 0; font-size: ${isThermal ? "9px" : "10px"}; color: #4b5563; ${isThermal ? "display:none;" : ""} }
 .signature .line { display: inline-block; width: 50mm; border-bottom: 1px solid #6b7280; margin-left: 6px; height: 14px; vertical-align: bottom; }
 </style></head><body>
 <div class="page">
@@ -203,7 +264,7 @@ ${o.companyLogoUrl ? `<img class="watermark" src="${escHtml(o.companyLogoUrl)}" 
     ${o.companyEmail ? `<span>|</span><span>${escHtml(o.companyEmail)}</span>` : ""}
   </div>
 </div>
-<div class="title-bar">FEE PAYMENT RECEIPT</div>
+<div class="title-bar">${titleText}</div>
 <div class="body-pad">
   <div class="row">
     <div><span class="label">Receipt No:</span> <span class="val">${escHtml(o.billNo)}</span></div>
@@ -215,21 +276,8 @@ ${o.companyLogoUrl ? `<img class="watermark" src="${escHtml(o.companyLogoUrl)}" 
     ${o.memberCode ? `<div class="row"><div><span class="label">Member ID:</span> <span class="val">${escHtml(o.memberCode)}</span></div></div>` : ""}
     ${o.memberClass ? `<div class="row"><div><span class="label">Tier / Plan:</span> <span class="val">${escHtml(o.memberClass)}</span></div></div>` : ""}
   </div>
-  <table class="items">
-    <thead><tr><th>Fee Description</th><th class="right">Amount</th></tr></thead>
-    <tbody>
-      ${groupRows}
-    </tbody>
-  </table>
-  <div class="summary-card">
-    ${previousBalance > 0 ? `<div class="sr"><span>Previous Balance</span><span>NPR ${previousBalance.toFixed(2)}</span></div>` : ""}
-    <div class="sr"><span>Current Total</span><span>NPR ${currentTotal.toFixed(2)}</span></div>
-    <div class="sr"><span>Grand Total</span><span>NPR ${grossDue.toFixed(2)}</span></div>
-    ${discount > 0 ? `<div class="sr neg"><span>- Discount</span><span>- NPR ${discount.toFixed(2)}</span></div>` : ""}
-    ${advance > 0 ? `<div class="sr neg"><span>- Advance Applied</span><span>- NPR ${advance.toFixed(2)}</span></div>` : ""}
-    <div class="sr net"><span>${isRefund ? "Refund / Overpaid" : "Net Payable"}</span><span>NPR ${Math.abs(netPayable).toFixed(2)}</span></div>
-    <div class="sr ${isRefund ? "refund" : "paid"}"><span>Amount Paid</span><span>NPR ${paid.toFixed(2)}</span></div>
-  </div>
+  ${itemsTable}
+  <table class="summary">${summaryRows}</table>
   <div class="meta-row">
     <span class="method">Payment Method: ${escHtml(o.paymentMethod || "Cash")}</span>
     <span class="status-pill" style="color:${statusColor}">${statusLabel}</span>
