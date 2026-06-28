@@ -144,9 +144,7 @@ const Bookings_Page = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBookingId, setEditingBookingId] = useState<string | null>(null);
   const [serviceFilter, setServiceFilter] = useState<string>("all");
-  const [listMonth, setListMonth] = useState<string>(
-    formatInTimeZone(new Date(), SYSTEM_TZ, "yyyy-MM"),
-  );
+  const [listMonth, setListMonth] = useState<string>(getSystemMonthStr());
   const [listPage, setListPage] = useState(1);
   const PAGE_SIZE = 25;
   const [colorSettingsOpen, setColorSettingsOpen] = useState(false);
