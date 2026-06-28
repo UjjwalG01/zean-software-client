@@ -49,6 +49,7 @@ import { consumeForAttendance } from "@/lib/prepaid";
 import { formatNPR } from "@/lib/mock-data";
 import { logAudit } from "@/lib/audit-log";
 import { toIsoDayInTz, formatInTz, getAppTimezone } from "@/lib/tz";
+import { getSystemTodayStr, getSystemNowDate, getSystemMonthStr } from "@/lib/timeUtils";
 import { underlineSpecificChars } from "@/lib/string-case-change";
 
 const Attendance = () => {
