@@ -178,6 +178,7 @@ const GeneralSetup = () => {
             </TabsTrigger>
           ))}
           <TabsTrigger value="grcSettings">GRC Template</TabsTrigger>
+          <TabsTrigger value="printSettings">Print Settings</TabsTrigger>
         </TabsList>
 
         {sections.map((section) => (
@@ -193,6 +194,9 @@ const GeneralSetup = () => {
         ))}
         <TabsContent value="grcSettings">
           <GRCSettingsPanel />
+        </TabsContent>
+        <TabsContent value="printSettings">
+          <PrintSettingsPanel />
         </TabsContent>
       </Tabs>
     </div>
