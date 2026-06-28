@@ -130,7 +130,7 @@ const Bookings_Page = () => {
   const [pickerShown, setPickerShown] = useState(false);
 
   // Timezone-aware local variables
-  const systemNow = useMemo(() => toZonedTime(new Date(), SYSTEM_TZ), []);
+  const systemNow = useMemo(() => getSystemNowDate(), []);
 
   useEffect(() => {
     if (!outletsLoading && !selectedOutlet && !pickerShown) {
