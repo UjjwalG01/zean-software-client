@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Booking } from "@/lib/mock-data";
+import { getSystemTodayStr, getSystemTimeStr } from "@/lib/timeUtils";
 
 interface Props {
   open: boolean;
