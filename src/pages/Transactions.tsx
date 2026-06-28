@@ -645,7 +645,7 @@ const Transactions = () => {
         settleTxn.receiptNo,
         settleTxn.description,
         netDue,
-        new Date(),
+        getSystemNowDate(),
         {
           memberId: settleTxn.memberId,
           discount,
