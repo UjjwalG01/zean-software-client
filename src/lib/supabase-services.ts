@@ -13,8 +13,8 @@ import type {
   BookingStatus,
 } from "./mock-data";
 import { toIsoDayInTz, dayToTimestampInTz, nowIso, getAppTimezone } from "./tz";
-
-
+import { logAudit as _logAudit } from "./audit-log";
+import { INVOICE_PREFIX } from "./settings";
 
 const avatarUrl = (seed: string) =>
   `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed || "member")}`;
@@ -23,7 +23,6 @@ function dateOnly(value: any): string {
   if (!value) return "";
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
   if (typeof value === "string" && value.includes("T")) {
-    // Render in the active TZ so DB timestamps don't shift the calendar day.
     return toIsoDayInTz(value);
   }
   try {
@@ -37,16 +36,18 @@ function timeOnly(value: any): string {
   if (!value) return "";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return String(value).slice(0, 5);
-  // Render the time in the app timezone so the displayed hour matches the
-  // configured locale rather than the operator's browser timezone.
   try {
     const parts = new Intl.DateTimeFormat("en-GB", {
       timeZone: getAppTimezone(),
-      hour: "2-digit", minute: "2-digit", hour12: false,
-    }).formatToParts(d).reduce<Record<string, string>>((acc, p) => {
-      if (p.type !== "literal") acc[p.type] = p.value;
-      return acc;
-    }, {});
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })
+      .formatToParts(d)
+      .reduce<Record<string, string>>((acc, p) => {
+        if (p.type !== "literal") acc[p.type] = p.value;
+        return acc;
+      }, {});
     return `${parts.hour || "00"}:${parts.minute || "00"}`;
   } catch {
     return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
@@ -55,17 +56,20 @@ function timeOnly(value: any): string {
 
 function at(date?: string, time?: string): string {
   const d = date || toIsoDayInTz(new Date());
-  // Default to the *current* wall-clock time in the configured timezone so
-  // freshly recorded events (check-ins, settlements) stamp the correct hour.
   let t = time;
   if (!t) {
     try {
       const parts = new Intl.DateTimeFormat("en-GB", {
-        timeZone: getAppTimezone(), hour: "2-digit", minute: "2-digit", hour12: false,
-      }).formatToParts(new Date()).reduce<Record<string, string>>((acc, p) => {
-        if (p.type !== "literal") acc[p.type] = p.value;
-        return acc;
-      }, {});
+        timeZone: getAppTimezone(),
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      })
+        .formatToParts(new Date())
+        .reduce<Record<string, string>>((acc, p) => {
+          if (p.type !== "literal") acc[p.type] = p.value;
+          return acc;
+        }, {});
       t = `${parts.hour || "00"}:${parts.minute || "00"}`;
     } catch {
       t = "00:00";
@@ -98,11 +102,6 @@ function throwDb(error: any, table: string): never {
 }
 
 // ─── Members ────────────────────────────────────────────────────────
-// Free-form GRC fields that don't have dedicated DB columns or structured
-// JSONB slots — these continue to live inside the catch-all `extras` JSONB.
-// Anything covered by a column or by address/emergency_contact/physical/medical
-// is intentionally NOT in this list so we never duplicate the same value in
-// two places.
 const EXTRA_KEYS = [
   "residenceStatus",
   "nationalId",
@@ -121,7 +120,6 @@ const EXTRA_KEYS = [
   "packages",
 ] as const;
 
-/** Coerce a free-form value (boolean | "true" | "yes" | "1") into a strict boolean. */
 function toBool(value: unknown): boolean {
   if (typeof value === "boolean") return value;
   if (value == null) return false;
@@ -129,9 +127,11 @@ function toBool(value: unknown): boolean {
   return s === "true" || s === "yes" || s === "1" || s === "y";
 }
 
-/** Split a stored `full_name` back into first/middle/last for forms that need them. */
 function splitFullName(full?: string): { firstName: string; middleName: string; lastName: string } {
-  const parts = String(full || "").trim().split(/\s+/).filter(Boolean);
+  const parts = String(full || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
   if (parts.length === 0) return { firstName: "", middleName: "", lastName: "" };
   if (parts.length === 1) return { firstName: parts[0], middleName: "", lastName: "" };
   if (parts.length === 2) return { firstName: parts[0], middleName: "", lastName: parts[1] };
@@ -153,8 +153,6 @@ function mapMemberRow(r: any): Member {
 
   const fullName = r.full_name || prefs.name || "";
   const nameParts = splitFullName(fullName);
-
-  // For legacy rows the address column may still be a plain string (older schema).
   const legacyAddress = typeof r.address === "string" ? r.address : "";
 
   const base: any = {
@@ -172,7 +170,6 @@ function mapMemberRow(r: any): Member {
     plan: r.plan || prefs.plan || "Monthly",
     planId: r.plan_id || "",
     maritalStatus: r.marital_status || extras.maritalStatus || "",
-    // Flat legacy fields preserved so old call sites keep working.
     address:
       address.permanent ||
       address.temporary ||
@@ -180,9 +177,12 @@ function mapMemberRow(r: any): Member {
       (typeof prefs.address === "string" ? prefs.address : "") ||
       "",
     emergencyContact: emergency.phone || prefs.emergencyContact || "",
-    preferences: Array.isArray(r.member_preferences) && r.member_preferences.length
-      ? r.member_preferences
-      : Array.isArray(prefs.preferences) ? prefs.preferences : [],
+    preferences:
+      Array.isArray(r.member_preferences) && r.member_preferences.length
+        ? r.member_preferences
+        : Array.isArray(prefs.preferences)
+          ? prefs.preferences
+          : [],
     openingBalance: Number(r.opening_balance ?? prefs.openingBalance ?? 0),
     totalPaid: Number(r.total_paid ?? prefs.totalPaid ?? 0),
     dueAmount: Number(r.due_amount ?? prefs.dueAmount ?? 0),
@@ -192,7 +192,6 @@ function mapMemberRow(r: any): Member {
     outletId: r.outlet_id || extras.outletId || "",
     grcNo: r.grc_no || "",
 
-    // Dedicated scalar columns (with extras fallback for legacy rows).
     firstName: extras.firstName ?? nameParts.firstName,
     middleName: extras.middleName ?? nameParts.middleName,
     lastName: extras.lastName ?? nameParts.lastName,
@@ -205,10 +204,8 @@ function mapMemberRow(r: any): Member {
     officeAddress: r.office_address || extras.officeAddress || "",
     contactAlt: r.contact_alt || extras.contactAlt || "",
 
-    // Structured JSONB → flat UI fields (with extras fallback for legacy rows).
     permanentAddress: address.permanent ?? extras.permanentAddress ?? "",
     temporaryAddress: address.temporary ?? extras.temporaryAddress ?? "",
-
     emergencyName: emergency.name ?? extras.emergencyName ?? "",
     emergencyContactNum: emergency.phone ?? extras.emergencyContactNum ?? "",
     emergencyAddress: emergency.address ?? extras.emergencyAddress ?? "",
@@ -218,26 +215,20 @@ function mapMemberRow(r: any): Member {
     weight: physical.weight ?? extras.weight ?? "",
     bloodGroup: physical.blood_group ?? extras.bloodGroup ?? "",
 
-    heartStroke:
-      typeof medical.heart_stroke === "boolean" ? medical.heart_stroke : toBool(extras.heartStroke),
-    skinDisease:
-      typeof medical.skin_disease === "boolean" ? medical.skin_disease : toBool(extras.skinDisease),
+    heartStroke: typeof medical.heart_stroke === "boolean" ? medical.heart_stroke : toBool(extras.heartStroke),
+    skinDisease: typeof medical.skin_disease === "boolean" ? medical.skin_disease : toBool(extras.skinDisease),
     breathingDifficulty:
       typeof medical.breathing_difficulty === "boolean"
         ? medical.breathing_difficulty
         : toBool(extras.breathingDifficulty),
   };
 
-  // Remaining free-form fields still live in extras.
   for (const k of EXTRA_KEYS) if (base[k] === undefined) base[k] = extras[k];
   return base as Member;
 }
 
-
 function memberPayload(data: Partial<Member>): Record<string, any> {
-  const fullName =
-    data.name || [data.firstName, data.middleName, data.lastName].filter(Boolean).join(" ").trim();
-
+  const fullName = data.name || [data.firstName, data.middleName, data.lastName].filter(Boolean).join(" ").trim();
   const prefs = {
     preferences: data.preferences || [],
     plan: data.plan || "Monthly",
@@ -250,8 +241,6 @@ function memberPayload(data: Partial<Member>): Record<string, any> {
     autoRenew: data.autoRenew || false,
   };
 
-  // Only keep genuinely-extra keys in `extras`; fields that now live in
-  // dedicated columns or structured JSONB are deliberately excluded.
   const extras: Record<string, any> = {};
   for (const k of EXTRA_KEYS) if ((data as any)[k] !== undefined) extras[k] = (data as any)[k];
 
@@ -268,8 +257,6 @@ function memberPayload(data: Partial<Member>): Record<string, any> {
     grc_no: data.grcNo || null,
     plan_id: (data as any).planId || null,
     marital_status: (data as any).maritalStatus || null,
-
-    // Dedicated scalar columns
     dob: data.dob || null,
     gender: data.gender || null,
     nationality: data.nationality || null,
@@ -278,11 +265,7 @@ function memberPayload(data: Partial<Member>): Record<string, any> {
     office_name: data.officeName || null,
     office_address: data.officeAddress || null,
     contact_alt: data.contactAlt || null,
-
-    // text[] column
     member_preferences: Array.isArray(data.preferences) ? data.preferences : [],
-
-    // Structured JSONB blobs (match db defaults exactly)
     address: {
       permanent: data.permanentAddress || "",
       temporary: data.temporaryAddress || "",
@@ -303,7 +286,6 @@ function memberPayload(data: Partial<Member>): Record<string, any> {
       skin_disease: toBool((data as any).skinDisease),
       breathing_difficulty: toBool((data as any).breathingDifficulty),
     },
-
     preferences: prefs,
     extras,
   };
@@ -338,9 +320,6 @@ export async function getMember(id: string): Promise<Member | null> {
   return data ? mapMemberRow(data) : null;
 }
 
-/**
- * Generate a unique member code: `M` + YY + 5-digit sequence (e.g. M2600001).
- */
 export async function generateMemberCode(): Promise<string> {
   const yy = String(new Date().getFullYear() % 100).padStart(2, "0");
   const prefix = `M${yy}`;
@@ -357,16 +336,14 @@ export async function generateMemberCode(): Promise<string> {
       if (!Number.isNaN(n)) return `${prefix}${String(n + 1).padStart(5, "0")}`;
     }
   } catch {
-    /* column may not exist on legacy DBs — fall through */
+    /* fall through */
   }
   const { count } = await supabase.from("members").select("id", { count: "exact", head: true });
   return `${prefix}${String((count || 0) + 1).padStart(5, "0")}`;
 }
 
-/** Back-compat shim — older code still imports generateGRCNumber. */
 export const generateGRCNumber = async (_outletId?: string, _outletCode?: string) => generateMemberCode();
 
-/** Upload member profile photo to storage bucket `members` and return its public URL. */
 export async function uploadMemberAvatar(key: string, file: File): Promise<string> {
   const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
   const path = `${key}/photo-${Date.now()}.${ext}`;
@@ -390,7 +367,6 @@ export async function updateMember(id: string, data: Partial<Record<string, any>
   const current = await getMember(id);
   const payload: Record<string, any> = { updated_at: new Date().toISOString() };
 
-  // Direct scalar column mappings (camel UI → snake DB).
   const scalarCols: Record<string, string> = {
     name: "full_name",
     email: "email",
@@ -421,7 +397,6 @@ export async function updateMember(id: string, data: Partial<Record<string, any>
     payload.member_preferences = data.preferences;
   }
 
-  // Recompute full_name if the split parts changed but `name` itself wasn't sent.
   if (
     data.name === undefined &&
     (data.firstName !== undefined || data.middleName !== undefined || data.lastName !== undefined)
@@ -432,7 +407,6 @@ export async function updateMember(id: string, data: Partial<Record<string, any>
     payload.full_name = [fn, mn, ln].filter(Boolean).join(" ").trim();
   }
 
-  // address JSONB
   if (data.permanentAddress !== undefined || data.temporaryAddress !== undefined) {
     payload.address = {
       permanent: data.permanentAddress ?? current?.permanentAddress ?? "",
@@ -440,7 +414,6 @@ export async function updateMember(id: string, data: Partial<Record<string, any>
     };
   }
 
-  // emergency_contact JSONB
   if (
     data.emergencyName !== undefined ||
     data.emergencyContactNum !== undefined ||
@@ -461,7 +434,6 @@ export async function updateMember(id: string, data: Partial<Record<string, any>
     };
   }
 
-  // physical JSONB
   if (
     data.chest !== undefined ||
     data.height !== undefined ||
@@ -476,12 +448,7 @@ export async function updateMember(id: string, data: Partial<Record<string, any>
     };
   }
 
-  // medical JSONB
-  if (
-    data.heartStroke !== undefined ||
-    data.skinDisease !== undefined ||
-    data.breathingDifficulty !== undefined
-  ) {
+  if (data.heartStroke !== undefined || data.skinDisease !== undefined || data.breathingDifficulty !== undefined) {
     payload.medical = {
       heart_stroke: toBool(data.heartStroke ?? current?.heartStroke),
       skin_disease: toBool(data.skinDisease ?? current?.skinDisease),
@@ -489,7 +456,6 @@ export async function updateMember(id: string, data: Partial<Record<string, any>
     };
   }
 
-  // preferences JSONB (membership/billing flat fields)
   const prefsKeys = [
     "preferences",
     "plan",
@@ -518,7 +484,6 @@ export async function updateMember(id: string, data: Partial<Record<string, any>
     };
   }
 
-  // extras: only the genuinely-extra free-form GRC keys
   const extras: Record<string, any> = {};
   let extrasTouched = false;
   for (const k of EXTRA_KEYS) {
@@ -528,7 +493,6 @@ export async function updateMember(id: string, data: Partial<Record<string, any>
     }
   }
   if (extrasTouched) {
-    // Preserve any extras we didn't touch in this call.
     for (const k of EXTRA_KEYS) {
       if (extras[k] === undefined && (current as any)?.[k] !== undefined) {
         extras[k] = (current as any)[k];
@@ -549,29 +513,30 @@ export async function deleteMember(id: string): Promise<void> {
 }
 
 // ─── Bookings ───────────────────────────────────────────────────────
-/** Standardizes Scheduling/Booking Statuses */
 function dbBookingStatusToDisplay(raw: unknown): BookingStatus {
-  const s = String(raw || "").toLowerCase().replace(/[\s_]+/g, "-");
+  const s = String(raw || "")
+    .toLowerCase()
+    .replace(/[\s_]+/g, "-");
   if (s === "wait-listed" || s === "waitlisted") return "Wait-listed" as BookingStatus;
   if (s === "not-fixed" || s === "notfixed") return "not-fixed" as BookingStatus;
   return "confirmed" as BookingStatus;
 }
 
 function displayBookingStatusToDb(value: unknown): string {
-  const s = String(value || "").toLowerCase().replace(/[\s_]+/g, "-");
+  const s = String(value || "")
+    .toLowerCase()
+    .replace(/[\s_]+/g, "-");
   if (s === "waitlisted" || s === "wait-listed") return "wait-listed";
   if (s === "notfixed" || s === "not-fixed") return "not-fixed";
   return "confirmed";
 }
 
-/** Standardizes Financial/Payment Statuses */
 function dbPaymentStatusToDisplay(raw: unknown): string {
   const s = String(raw || "").toLowerCase();
   const validFinancialStatuses = ["pending", "unpaid", "paid", "voided", "settled", "overpaid"];
   return validFinancialStatuses.includes(s) ? s : "pending";
 }
 
-// ─── Updated Booking Row Mapper ───────────────────────────────────
 function mapBookingRow(r: any): Booking {
   const notesFallback = (() => {
     try {
@@ -597,11 +562,8 @@ function mapBookingRow(r: any): Booking {
     date: dateOnly(r.start_at ?? r.start_time),
     startTime: timeOnly(r.start_time ?? r.start_at),
     endTime: timeOnly(r.end_time ?? r.end_at),
-
-    // Decoupled Assignments
-    status: dbPaymentStatusToDisplay(r.status),               // Financial (pending, paid, etc.)
-    bookingStatus: dbBookingStatusToDisplay(r.booking_status), // Scheduling (confirmed, wait-listed, etc.)
-
+    status: dbPaymentStatusToDisplay(r.status),
+    bookingStatus: dbBookingStatusToDisplay(r.booking_status),
     originalRate: Number(r.original_rate ?? 0),
     rate: Number(r.rate ?? 0),
     discountAmount: Number(r.discount_amount ?? 0),
@@ -648,11 +610,8 @@ export async function addBooking(data: Partial<Booking> & { outletId?: string })
     rate: (data as any).rate ?? null,
     discount_amount: (data as any).discountAmount ?? 0,
     discount_reason: (data as any).discountReason || null,
-
-    // Explicitly separated columns
     status: data.status || "pending",
     booking_status: displayBookingStatusToDb(data.bookingStatus || "confirmed"),
-
     notes: typeof (data as any).notes === "string" ? (data as any).notes : null,
   };
 
@@ -665,20 +624,50 @@ export async function addBooking(data: Partial<Booking> & { outletId?: string })
 export async function updateBooking(id: string, data: Partial<Record<string, any>>): Promise<void> {
   const patch: Record<string, any> = { updated_at: new Date().toISOString() };
 
-  // Scalar properties omitted for brevity...
+  // 1. Scalar Direct Mappings
   if (data.memberId !== undefined) patch.member_id = data.memberId || null;
-  if (data.date !== undefined || data.startTime !== undefined) {
-    const startTs = at(data.date, data.startTime);
-    patch.start_at = startTs; patch.start_time = startTs;
+  if (data.memberName !== undefined) patch.member_name = data.memberName || null;
+  if (data.serviceId !== undefined) patch.service_id = data.serviceId || null;
+  if (data.employeeId !== undefined) patch.employee_id = data.employeeId || null;
+  if (data.memberPackageId !== undefined) patch.member_package_id = data.memberPackageId || null;
+  if (data.moduleId !== undefined) patch.module_id = data.moduleId || null;
+  if (data.outletId !== undefined) patch.outlet_id = data.outletId || null;
+  if (data.className !== undefined) {
+    patch.class_name = data.className || null;
+    patch.service_name = data.className || null;
+  }
+  if (data.instructor !== undefined) patch.instructor = data.instructor || null;
+  if (data.notes !== undefined) patch.notes = data.notes || null;
+  if (data.service !== undefined) patch.service_type = data.service || null;
+  if (data.originalRate !== undefined) patch.original_rate = Number(data.originalRate || 0);
+  if (data.rate !== undefined) patch.rate = Number(data.rate || 0);
+  if (data.discountAmount !== undefined) patch.discount_amount = Number(data.discountAmount || 0);
+  if (data.discountReason !== undefined) patch.discount_reason = data.discountReason || null;
+  if (data.cancelReason !== undefined) patch.cancel_reason = data.cancelReason || null;
+  if (data.cancelledAt !== undefined) patch.cancelled_at = data.cancelledAt || null;
+
+  // 2. Safe Timestamp Computations (Avoids shifting existing values)
+  if (data.date !== undefined || data.startTime !== undefined || data.endTime !== undefined) {
+    const { data: current } = await supabase.from("bookings").select("start_at, end_at").eq("id", id).maybeSingle();
+    const fallbackDate = current ? dateOnly(current.start_at) : toIsoDayInTz(new Date());
+    const fallbackStart = current ? timeOnly(current.start_at) : "00:00";
+    const fallbackEnd = current ? timeOnly(current.end_at) : fallbackStart;
+
+    const targetDate = data.date !== undefined ? data.date : fallbackDate;
+    const targetStart = data.startTime !== undefined ? data.startTime : fallbackStart;
+    const targetEnd = data.endTime !== undefined ? data.endTime : fallbackEnd;
+
+    const startTs = at(targetDate, targetStart);
+    const endTs = at(targetDate, targetEnd);
+
+    patch.start_at = startTs;
+    patch.start_time = startTs;
+    patch.end_at = endTs;
+    patch.end_time = endTs;
   }
 
-  // Handle updates independently
-  if (data.status !== undefined) {
-    patch.status = data.status; // writing directly to financial 'status' column
-  }
-  if (data.bookingStatus !== undefined) {
-    patch.booking_status = displayBookingStatusToDb(data.bookingStatus);
-  }
+  if (data.status !== undefined) patch.status = data.status;
+  if (data.bookingStatus !== undefined) patch.booking_status = displayBookingStatusToDb(data.bookingStatus);
 
   const { error } = await supabase.from("bookings").update(patch).eq("id", id);
   if (error) throwDb(error, "bookings");
@@ -730,7 +719,6 @@ export async function getTransactions(): Promise<Transaction[]> {
 }
 
 export async function addTransaction(data: Partial<Transaction>): Promise<string> {
-  // Prices are VAT-INCLUSIVE. `amount` is the gross total; derive the embedded VAT.
   const gross = Number(data.amount || 0);
   const net = Math.round((gross / 1.13) * 100) / 100;
   const vat = Math.round((gross - net) * 100) / 100;
@@ -758,11 +746,7 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
       isSettlement: (data as any).isSettlement || false,
     },
   };
-  const { data: row, error } = await supabase
-    .from("payments")
-    .insert(insertRow)
-    .select("id")
-    .single();
+  const { data: row, error } = await supabase.from("payments").insert(insertRow).select("id").single();
   if (error) throwDb(error, "payments");
   await maybeAudit("create", "payment", row.id, null, data);
   return row.id;
@@ -883,7 +867,7 @@ export async function deleteService(id: string): Promise<void> {
   if (error) throwDb(error, "services");
 }
 
-// ─── Plan Durations (reusable lookup) ───────────────────────────────
+// ─── Plan Durations ───────────────────────────────
 export interface PlanDuration {
   id: string;
   months: number;
@@ -962,7 +946,6 @@ export interface FirestoreMembershipPlan {
   autoRenew: boolean;
   autoDiscount: boolean;
   prices: MembershipPlanPrice[];
-  // Legacy mirrors kept so older screens still read a value.
   price: number;
   yearlyPrice?: number;
   longTermPrice?: number;
@@ -971,24 +954,29 @@ export interface FirestoreMembershipPlan {
 }
 
 function mapPlanRow(r: any, durations: PlanDuration[]): FirestoreMembershipPlan {
-  // Legacy JSON metadata fallback (older rows store extras in description as JSON).
   const meta = (() => {
     try {
-      return typeof r.description === "string" && r.description.startsWith("{")
-        ? JSON.parse(r.description)
-        : {};
+      return typeof r.description === "string" && r.description.startsWith("{") ? JSON.parse(r.description) : {};
     } catch {
       return {};
     }
   })();
 
   const includedFromCol: string[] = Array.isArray(r.included_services) ? r.included_services : [];
-  const legacyIncludes: string = meta.includes || (typeof r.description === "string" && !r.description.startsWith("{") ? r.description : "") || r.includes || "";
-  const includedServices = includedFromCol.length > 0
-    ? includedFromCol
-    : legacyIncludes
-      ? legacyIncludes.split(/[+,]/).map((s: string) => s.trim()).filter(Boolean)
-      : [];
+  const legacyIncludes: string =
+    meta.includes ||
+    (typeof r.description === "string" && !r.description.startsWith("{") ? r.description : "") ||
+    r.includes ||
+    "";
+  const includedServices =
+    includedFromCol.length > 0
+      ? includedFromCol
+      : legacyIncludes
+        ? legacyIncludes
+            .split(/[+,]/)
+            .map((s: string) => s.trim())
+            .filter(Boolean)
+        : [];
 
   const priceRows: any[] = Array.isArray(r.membership_plan_prices) ? r.membership_plan_prices : [];
   const prices: MembershipPlanPrice[] = priceRows
@@ -1015,7 +1003,6 @@ function mapPlanRow(r: any, durations: PlanDuration[]): FirestoreMembershipPlan 
     autoRenew: Boolean(r.auto_renew ?? meta.autoRenew ?? false),
     autoDiscount: Boolean(r.auto_discount ?? meta.autoDiscount ?? false),
     prices,
-    // Legacy mirrors
     price: headlinePrice,
     yearlyPrice: Number(r.yearly_price || meta.yearlyPrice || 0),
     longTermPrice: Number(r.long_term_price || meta.longTermPrice || 0),
@@ -1062,13 +1049,15 @@ async function syncPlanPrices(planId: string, prices: MembershipPlanPrice[] | un
         .insert({ plan_id: planId, duration_id: p.durationId, price: Number(p.price || 0) });
     }
   }
-  // Delete rows that are no longer in the payload.
   const toDelete = (existing || []).filter((row: any) => !keepDurationIds.has(row.duration_id));
   if (toDelete.length > 0) {
     await supabase
       .from("membership_plan_prices")
       .delete()
-      .in("id", toDelete.map((r: any) => r.id));
+      .in(
+        "id",
+        toDelete.map((r: any) => r.id),
+      );
   }
 }
 
@@ -1133,10 +1122,9 @@ export async function getDashboardStats() {
     getTransactions(),
     getCheckIns(),
   ]);
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const todayKey = now.toISOString().split("T")[0];
-  const inMonth = (d: string) => d && new Date(d) >= startOfMonth;
+  const todayKey = toIsoDayInTz(new Date());
+  const startOfMonthKey = `${todayKey.slice(0, 8)}01`;
+  const inMonth = (d: string) => d && d >= startOfMonthKey;
   const currRevenue = transactions.filter((t) => inMonth(t.date)).reduce((s, t) => s + t.total, 0);
   return {
     totalMembers: members.length,
@@ -1144,7 +1132,7 @@ export async function getDashboardStats() {
     membersChange: members.filter((m) => inMonth(m.joinDate)).length,
     monthlyRevenue: currRevenue,
     revenueChange: 0,
-    activeBookings: bookings.filter((b) => ["Confirmed", "Pending"].includes(b.status)).length,
+    activeBookings: bookings.filter((b) => ["confirmed", "Wait-listed"].includes(b.bookingStatus)).length,
     bookingsChange: 0,
     todayCheckins: checkIns.filter((c) => c.date === todayKey).length,
     checkinsChange: 0,
@@ -1246,9 +1234,6 @@ export async function addCheckInRecord(data: { memberId: string; memberName: str
     .insert({
       member_id: data.memberId || null,
       member_name: data.memberName || null,
-      // Use `at()` with no time so the wall-clock hour is derived in the
-      // configured app timezone — keeps stored timestamps consistent regardless
-      // of where the operator's browser is located.
       check_in_at: at(data.date),
     })
     .select("id")
@@ -1288,10 +1273,6 @@ export async function saveDiscountRules(rules: DiscountRule[]): Promise<void> {
   if (error) throwDb(error, "company_settings");
 }
 
-// ─── Audit Log ──────────────────────────────────────────────────────
-import { logAudit as _logAudit } from "./audit-log";
-import { INVOICE_PREFIX } from "./settings";
-
 export async function addAuditLog(
   _userId: string | null,
   action: string,
@@ -1301,7 +1282,7 @@ export async function addAuditLog(
   newValue?: any,
 ): Promise<void> {
   await _logAudit({
-    module: entityType, // resolved via ENTITY_TO_SLUG inside logAudit
+    module: entityType,
     entityType,
     action,
     entityId,
