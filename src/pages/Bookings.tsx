@@ -659,7 +659,7 @@ const Bookings_Page = () => {
       return;
     }
 
-    const baseDate = bookDate ? new Date(bookDate) : new Date(today);
+    const baseDate = bookDate ? new Date(bookDate) : getSystemNowDate();
     const expiry = new Date(baseDate);
     expiry.setMonth(expiry.getMonth() + (selectedDuration.months || 1));
 
