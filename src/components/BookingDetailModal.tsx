@@ -307,6 +307,8 @@ export function BookingDetailModal({
       vatAmount,
       grandTotal,
       attendant: "admin",
+      paperSize: (settings.bill_paperSize as "A4" | "A5" | "80mm") || "A5",
+      kind: "payment",
     });
     printHTML(html);
   };
