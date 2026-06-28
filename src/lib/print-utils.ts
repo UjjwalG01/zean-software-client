@@ -393,6 +393,8 @@ export function generateReceiptHTML(
     vatAmount: t.vat,
     grandTotal: t.total,
     paidAmount: t.total,
+    paperSize: extras?.paperSize,
+    kind: extras?.kind,
   });
 }
 
