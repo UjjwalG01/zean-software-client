@@ -18,21 +18,12 @@ import {
 import { toast } from "sonner";
 import { INVOICE_PREFIX } from "@/lib/settings";
 
-
 import { isSameDay } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 
 const SYSTEM_TZ = "Asia/Katmandu";
 
-const isSupabaseEnabled = Boolean(
-  import.meta.env.VITE_SUPABASE_URL &&
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-);
-
-console.log(isSupabaseEnabled)
-
-// const firebaseEnabled = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
-// console.log(firebaseEnabled)
+const isSupabaseEnabled = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
 
 /** Safely converts either UI format (DD-MM-YYYY) or DB format (YYYY-MM-DD) to a standard JS Date object */
 function parseUiDate(dateStr: unknown): Date | null {
@@ -58,9 +49,13 @@ function getTodayUiString(): string {
   return `${d}-${m}-${y}`;
 }
 
-
 // ─── Members ────────────────────────────────────────────────────────
-export function useMembers(filters?: { tier?: MemberTier; status?: MemberStatus; service?: ServiceType; outletId?: string }) {
+export function useMembers(filters?: {
+  tier?: MemberTier;
+  status?: MemberStatus;
+  service?: ServiceType;
+  outletId?: string;
+}) {
   return useQuery({
     queryKey: ["members", filters],
     queryFn: async () => {
@@ -85,13 +80,45 @@ export function useMember(id: string | undefined) {
   });
 }
 
+// ─── Shared Mock Helper for Booking Normalization ───────────────────
+function normalizeBookingFields(existing: any, incoming: any) {
+  const systemNow = toZonedTime(new Date(), SYSTEM_TZ);
+  const targetDateStr = incoming.date || incoming.booking_date || existing.date || existing.booking_date;
+  const bookingDate = parseUiDate(targetDateStr) || systemNow;
+  const isToday = isSameDay(bookingDate, systemNow);
+  const targetStatus = isToday ? "Pending" : incoming.status || existing.status || "Confirmed";
+
+  return {
+    ...existing,
+    ...incoming,
+    date: targetDateStr,
+    bookingDate: targetDateStr,
+    booking_date: targetDateStr,
+    startTime: incoming.startTime || incoming.start_time || existing.startTime,
+    start_time: incoming.start_time || incoming.startTime || existing.start_time,
+    endTime: incoming.endTime || incoming.end_time || existing.endTime,
+    end_time: incoming.end_time || incoming.endTime || existing.end_time,
+    status: targetStatus,
+    bookingStatus: targetStatus,
+  };
+}
+
+// ─── Fixed Member Mutations ─────────────────────────────────────────
 export function useAddMember() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: Partial<Member>) => {
       if (!isSupabaseEnabled) {
-        toast.success(`Member "${data.name}" registered (mock mode)`);
-        return "mock-id";
+        const newMember = {
+          id: `M-$${Date.now()}`,
+          name: data.name || "Unnamed Member",
+          status: data.status || "Active",
+          tier: data.tier || "Standard",
+          ...data,
+        } as Member;
+        mockMembers.push(newMember);
+        toast.success(`Member "${newMember.name}" registered (mock mode)`);
+        return newMember.id;
       }
       return fbServices.addMember(data);
     },
@@ -105,7 +132,14 @@ export function useUpdateMember() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Record<string, any>> }) => {
-      if (!isSupabaseEnabled) return;
+      if (!isSupabaseEnabled) {
+        const m = mockMembers.find((x) => x.id === id);
+        if (m) {
+          Object.assign(m, data);
+          toast.success("Member details updated (mock mode)");
+        }
+        return;
+      }
       return fbServices.updateMember(id, data);
     },
     onSuccess: () => {
@@ -118,7 +152,14 @@ export function useDeleteMember() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isSupabaseEnabled) return;
+      if (!isSupabaseEnabled) {
+        const idx = mockMembers.findIndex((x) => x.id === id);
+        if (idx !== -1) {
+          mockMembers.splice(idx, 1);
+          toast.success("Member removed (mock mode)");
+        }
+        return;
+      }
       return fbServices.deleteMember(id);
     },
     onSuccess: () => {
@@ -157,7 +198,7 @@ export function useAddBooking() {
           endTime: data.endTime || "",
           status: data.status || "Pending",
           instructor: data.instructor || "",
-          bookingStatus: data.bookingStatus || "Confirmed"
+          bookingStatus: data.bookingStatus || "Confirmed",
         } as Booking;
         mockBookings.push(newBooking);
         toast.success("Booking created (mock mode)");
@@ -170,15 +211,19 @@ export function useAddBooking() {
     },
   });
 }
-// Updated code for update booking
+
+// ─── Fixed Booking Mutation (Maintains Field Parity) ──────────────────
 export function useUpdateBooking() {
   const qc = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Record<string, any>> }) => {
       if (!isSupabaseEnabled) {
-        const b = mockBookings.find((x) => x.id === id);
-        if (b) Object.assign(b, data);
+        const idx = mockBookings.findIndex((x) => x.id === id);
+        if (idx !== -1) {
+          // Normalize and commit updates directly onto mock array
+          mockBookings[idx] = normalizeBookingFields(mockBookings[idx], data);
+        }
         return;
       }
       return fbServices.updateBooking(id, data);
@@ -190,38 +235,7 @@ export function useUpdateBooking() {
       if (previous) {
         qc.setQueryData<any[]>(
           ["bookings"],
-          previous.map((b) => {
-            if (b.id === id) {
-              const systemNow = toZonedTime(new Date(), SYSTEM_TZ);
-
-              // 1. FIX: Read target date from the incoming payload first, fallback to old date
-              const targetDateStr = data.date || data.booking_date || b.date || b.booking_date;
-              const bookingDate = parseUiDate(targetDateStr) || systemNow;
-              const isToday = isSameDay(bookingDate, systemNow);
-
-              // 2. FIX: Determine correct status based on the new target date
-              const targetStatus = isToday ? "Pending" : (data.status || b.status || "Confirmed");
-
-              return {
-                ...b,
-                ...data,
-                // 3. FIX: Keep all database snake_case and camelCase field mappings in parity
-                date: targetDateStr,
-                bookingDate: targetDateStr,
-                booking_date: targetDateStr,
-
-                startTime: data.startTime || data.start_time || b.startTime,
-                start_time: data.start_time || data.startTime || b.start_time,
-
-                endTime: data.endTime || data.end_time || b.endTime,
-                end_time: data.end_time || data.endTime || b.end_time,
-
-                status: targetStatus,
-                bookingStatus: targetStatus,
-              };
-            }
-            return b;
-          }),
+          previous.map((b) => (b.id === id ? normalizeBookingFields(b, data) : b)),
         );
       }
       return { previous };
@@ -236,43 +250,6 @@ export function useUpdateBooking() {
     },
   });
 }
-
-// export function useUpdateBooking() {
-//   const qc = useQueryClient();
-//   return useMutation({
-//     mutationFn: async ({ id, data }: { id: string; data: Partial<Record<string, any>> }) => {
-//       if (!isSupabaseEnabled) {
-//         const b = mockBookings.find((x) => x.id === id);
-//         if (b) {
-//           Object.assign(b, data);
-//         }
-//         return;
-//       }
-//       return fbServices.updateBooking(id, data);
-//     },
-//     // Optimistic update so the calendar/day-schedule reflects the new time
-//     // immediately — prevents the booking from "vanishing" while the server
-//     // round-trip is in flight.
-//     onMutate: async ({ id, data }) => {
-//       await qc.cancelQueries({ queryKey: ["bookings"] });
-//       const previous = qc.getQueryData<any[]>(["bookings"]);
-//       if (previous) {
-//         qc.setQueryData<any[]>(
-//           ["bookings"],
-//           previous.map((b) => (b.id === id ? { ...b, ...data } : b)),
-//         );
-//       }
-//       return { previous };
-//     },
-//     onError: (_e, _v, ctx) => {
-//       if (ctx?.previous) qc.setQueryData(["bookings"], ctx.previous);
-//     },
-//     onSettled: () => {
-//       qc.invalidateQueries({ queryKey: ["bookings"] });
-//     },
-//   });
-// }
-
 
 export function useDeleteBooking() {
   const qc = useQueryClient();
@@ -414,11 +391,14 @@ export function useAddCheckIn() {
   });
 }
 
-// ─── Service Types ──────────────────────────────────────────────────
+// ─── Fixed Service Types Hook ───────────────────────────────────────
 export function useServiceTypes() {
   return useQuery({
     queryKey: ["serviceTypes"],
     queryFn: async () => {
+      // Prevent dynamic bundle-loading or network failure crashes in mock mode
+      if (!isSupabaseEnabled) return [];
+
       const { getServiceTypes } = await import("@/lib/supabase-outlets");
       return getServiceTypes();
     },
