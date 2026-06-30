@@ -795,7 +795,7 @@ function mapServiceRow(r: any): FirestoreService {
   return {
     id: r.id,
     name: r.name || "",
-    type: r.service_type || "Gym",
+    type: r.service_type || "Fitness",
     duration: Number(r.duration_min || 0),
     price: Number(r.price || 0),
     isActive: r.active !== false,
@@ -973,9 +973,9 @@ function mapPlanRow(r: any, durations: PlanDuration[]): FirestoreMembershipPlan 
       ? includedFromCol
       : legacyIncludes
         ? legacyIncludes
-            .split(/[+,]/)
-            .map((s: string) => s.trim())
-            .filter(Boolean)
+          .split(/[+,]/)
+          .map((s: string) => s.trim())
+          .filter(Boolean)
         : [];
 
   const priceRows: any[] = Array.isArray(r.membership_plan_prices) ? r.membership_plan_prices : [];

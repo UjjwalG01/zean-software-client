@@ -1,12 +1,10 @@
 export type MemberTier = "Basic" | "Silver" | "Gold" | "Platinum";
 export type ServiceType = "Events" | "Fitness" | "Health" | "Membership" | "Sports" | "Wellness";
-export type PaymentStatus = "pending" | "unpaid" | "paid" | "voided" | "settled" | "overpaid";
+export type PaymentStatus = "pending" | "unpaid" | "paid" | "voided" | "settled" | "overpaid" | "cancelled" | "completed";
 export type MemberStatus = "Active" | "Expired" | "Expiring" | "Inactive";
 export type PaymentMethod = "cash" | "card" | "esewa" | "bank_transfer" | "mobile_wallet" | "cheque" | "other";
 export type BookingStatus =
   | "Confirmed"
-  | "Cancelled"
-  | "Completed"
   | "Waitlisted"
   | "NotFixed";
 

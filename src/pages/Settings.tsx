@@ -1,5 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
-import { Mail, Building, Shield, Loader2, Globe, DatabaseBackup } from "lucide-react";
+import {
+  Mail,
+  Building,
+  Shield,
+  Loader2,
+  Globe,
+  DatabaseBackup,
+} from "lucide-react";
 import { exportPropertyBackup, downloadBackup } from "@/lib/backup";
 import { useOutlet } from "@/contexts/OutletContext";
 import { Button } from "@/components/ui/button";
@@ -21,9 +28,14 @@ import {
 } from "@/hooks/use-firestore";
 import { getBrowserTimezone, listTimezones, formatInTz } from "@/lib/tz";
 import { toast } from "sonner";
+import { SYSTEM_TZ } from "@/lib/tz";
+
+import { useQueryClient } from "@tanstack/react-query";
 
 const Settings = () => {
-  const { data: settings = {}, isLoading } = useCompanySettings();
+  const queryClient = useQueryClient();
+  const { data: settingsData, isLoading } = useCompanySettings();
+  const settings = (settingsData || {}) as Record<string, any>;
   const saveMutation = useSaveCompanySettings();
   const { selected } = useOutlet();
   const [backupBusy, setBackupBusy] = useState(false);
@@ -34,7 +46,10 @@ const Settings = () => {
     try {
       const outletId = selected?.id || null;
       const bundle = await exportPropertyBackup(outletId);
-      downloadBackup(bundle, selected?.name || (settings as any)?.companyName || "property");
+      downloadBackup(
+        bundle,
+        selected?.name || (settings as any)?.companyName || "property",
+      );
       toast.success("Backup downloaded", { id: tid });
     } catch (e: any) {
       toast.error(e?.message || "Backup failed", { id: tid });
@@ -42,8 +57,6 @@ const Settings = () => {
       setBackupBusy(false);
     }
   };
-
-  console.log(settings);
 
   const [company, setCompany] = useState({
     companyName: ".............",
@@ -60,12 +73,12 @@ const Settings = () => {
     currency: "NPR",
   });
 
-  const browserTz = useMemo(() => getBrowserTimezone(), []);
+  const browserTz = SYSTEM_TZ;
   const allTimezones = useMemo(() => listTimezones(), []);
 
   const [general, setGeneral] = useState({
     language: "en",
-    timezone: browserTz,
+    timezone: SYSTEM_TZ,
     dateFormat: "yyyy-mm-dd",
     defaultMemberView: "table",
   });
@@ -78,20 +91,28 @@ const Settings = () => {
     smsNotifications: false,
   });
 
-  // Populate from Firestore settings when loaded
+  // Populate from settings when loaded
   useEffect(() => {
+    console.log(settings);
     if (Object.keys(settings).length > 0) {
       setCompany((prev) => ({
-        companyName: settings.companyName || prev.companyName,
+        companyName:
+          settings.company_name || settings.companyName || prev.companyName,
         registrationNumber:
           settings.registrationNumber || prev.registrationNumber,
-        companyEmail: settings.companyEmail || prev.companyEmail,
-        companyPhone: settings.companyPhone || prev.companyPhone,
-        companyAddress: settings.companyAddress || prev.companyAddress,
+        companyEmail:
+          settings.email || settings.companyEmail || prev.companyEmail,
+        companyPhone:
+          settings.phone || settings.companyPhone || prev.companyPhone,
+        companyAddress:
+          settings.address || settings.companyAddress || prev.companyAddress,
       }));
       setTax((prev) => ({
-        vatRate: settings.vatRate || prev.vatRate,
-        panNumber: settings.panNumber || prev.panNumber,
+        vatRate:
+          settings.vat_rate !== undefined
+            ? String(settings.vat_rate)
+            : prev.vatRate,
+        panNumber: settings.vat_no || settings.panNumber || prev.panNumber,
         taxYearStart: settings.taxYearStart || prev.taxYearStart,
         currency: settings.currency || prev.currency,
       }));
@@ -106,7 +127,14 @@ const Settings = () => {
 
   const handleSaveCompany = async () => {
     try {
-      await saveMutation.mutateAsync(company);
+      await saveMutation.mutateAsync({
+        ...settings,
+        company_name: company.companyName,
+        email: company.companyEmail,
+        phone: company.companyPhone,
+        address: company.companyAddress,
+      });
+      await queryClient.invalidateQueries({ queryKey: ["companySettings"] });
       toast.success("Company settings saved!");
     } catch {
       toast.error("Failed to save settings");
@@ -114,8 +142,26 @@ const Settings = () => {
   };
 
   const handleSaveTax = async () => {
+    const taxRate = Number(tax.vatRate);
+
+    // Block save actions on strings, negative constraints, or numbers above 100
+    if (isNaN(taxRate) || taxRate < 0 || taxRate > 100) {
+      toast.error("Tax rate must be a valid number between 0 and 100");
+      return;
+    }
+
     try {
-      await saveMutation.mutateAsync(tax);
+      await saveMutation.mutateAsync({
+        ...settings, // Retain existing payload structure
+        vat_rate: taxRate.toString(), // Correctly overwrite root vat_rate payload property as a number
+        vat_no: tax.panNumber,
+        currency: tax.currency,
+        extras: {
+          ...(settings.extras || {}),
+          taxYearStart: tax.taxYearStart,
+        },
+      });
+      await queryClient.invalidateQueries({ queryKey: ["companySettings"] });
       toast.success("Tax settings saved!");
     } catch {
       toast.error("Failed to save settings");
@@ -124,7 +170,17 @@ const Settings = () => {
 
   const handleSaveGeneral = async () => {
     try {
-      await saveMutation.mutateAsync(general);
+      await saveMutation.mutateAsync({
+        ...settings,
+        extras: {
+          ...(settings.extras || {}),
+          language: general.language,
+          timezone: general.timezone,
+          dateFormat: general.dateFormat,
+          defaultMemberView: general.defaultMemberView,
+        },
+      });
+      await queryClient.invalidateQueries({ queryKey: ["companySettings"] });
       toast.success("General settings saved!");
     } catch {
       toast.error("Failed to save settings");
@@ -160,9 +216,15 @@ const Settings = () => {
           className="gradient-gold text-primary-foreground"
         >
           {backupBusy ? (
-            <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Exporting…</>
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Exporting…
+            </>
           ) : (
-            <><DatabaseBackup className="h-4 w-4 mr-2" />Backup All Data</>
+            <>
+              <DatabaseBackup className="h-4 w-4 mr-2" />
+              Backup All Data
+            </>
           )}
         </Button>
       </div>
@@ -188,6 +250,7 @@ const Settings = () => {
                 <Label>Company Name</Label>
                 <Input
                   value={company.companyName}
+                  maxLength={50}
                   onChange={(e) =>
                     setCompany((p) => ({ ...p, companyName: e.target.value }))
                   }
@@ -197,6 +260,7 @@ const Settings = () => {
                 <Label>Registration Number</Label>
                 <Input
                   value={company.registrationNumber}
+                  maxLength={30}
                   onChange={(e) =>
                     setCompany((p) => ({
                       ...p,
@@ -219,6 +283,7 @@ const Settings = () => {
                 <Label>Phone</Label>
                 <Input
                   value={company.companyPhone}
+                  type="tel"
                   onChange={(e) =>
                     setCompany((p) => ({ ...p, companyPhone: e.target.value }))
                   }
@@ -246,7 +311,7 @@ const Settings = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => toast.info("Upload logo via Firebase Storage")}
+                  onClick={() => toast.info("Upload logo via backend storage.")}
                 >
                   Upload Logo
                 </Button>
@@ -283,6 +348,8 @@ const Settings = () => {
                 <Input
                   type="number"
                   value={tax.vatRate}
+                  min={0}
+                  max={100}
                   onChange={(e) =>
                     setTax((p) => ({ ...p, vatRate: e.target.value }))
                   }
@@ -439,6 +506,8 @@ const Settings = () => {
                 <Input
                   list="tz-options"
                   value={general.timezone}
+                  readOnly
+                  disabled
                   placeholder="Start typing… e.g. Asia/Kathmandu"
                   onChange={(e) =>
                     setGeneral((p) => ({ ...p, timezone: e.target.value }))

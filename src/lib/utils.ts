@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { PaymentMethod } from "./mock-data";
+import { PaymentMethod, ServiceType } from "./mock-data";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -25,4 +25,21 @@ export const tooltipStyle = {
   padding: "8px 12px",
 };
 
+export const serviceColors: Record<ServiceType, string> = {
+  Events: "bg-events/20 text-events",
+  Fitness: "bg-fitness/20 text-fitness",
+  Health: "bg-health/20 text-health",
+  Membership: "bg-membership/20 text-membership",
+  Sports: "bg-sports/20 text-sports",
+  Wellness: "bg-wellness/20 text-wellness",
+};
 
+
+export const colorOptions = [
+  { label: "Gold", value: "#FFD700", tw: "bg-events" }, // Events → celebratory gold
+  { label: "Blue", value: "#1E90FF", tw: "bg-fitness" }, // Fitness → energetic blue
+  { label: "Green", value: "#2ECC71", tw: "bg-health" }, // Health → fresh green
+  { label: "Silver", value: "#C0C0C0", tw: "bg-membership" }, // Membership → neutral silver
+  { label: "Orange", value: "#FF7F50", tw: "bg-sports" }, // Sports → dynamic orange
+  { label: "Purple", value: "#9B59B6", tw: "bg-wellness" }, // Wellness → calming purple
+];

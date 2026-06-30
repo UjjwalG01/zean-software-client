@@ -198,10 +198,11 @@ export function OutletPOSView({ outlet }: Props) {
           date: today,
           startTime: now,
           endTime: now,
-          status: "Pending",
+          status: "pending",
+          original_rate: line.price,
+          service_id: line.serviceId,
           outletId: outlet.id,
           instructor: attendant || "",
-          
         } as any);
         lineBooking = String(bookingId || "");
         if (line.price > 0) {
@@ -548,7 +549,8 @@ export function OutletPOSView({ outlet }: Props) {
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Processing...
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />{" "}
+                  Processing...
                 </>
               ) : (
                 <>
@@ -565,16 +567,15 @@ export function OutletPOSView({ outlet }: Props) {
             </Button>
             <Button
               disabled={
-                cart.length === 0 ||
-                isSubmitting ||
-                cart.every((l) => l.placed)
+                cart.length === 0 || isSubmitting || cart.every((l) => l.placed)
               }
               onClick={handlePlace}
               className="gradient-gold text-primary-foreground"
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Processing...
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />{" "}
+                  Processing...
                 </>
               ) : (
                 <>

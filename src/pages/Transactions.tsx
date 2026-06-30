@@ -94,7 +94,11 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { formatInTimeZone } from "date-fns-tz";
-import { getSystemTodayStr, getSystemTimestamp, getSystemNowDate } from "@/lib/timeUtils";
+import {
+  getSystemTodayStr,
+  getSystemTimestamp,
+  getSystemNowDate,
+} from "@/lib/timeUtils";
 
 const SYSTEM_TZ = "Asia/Katmandu";
 
@@ -527,10 +531,6 @@ const Transactions = () => {
     if (!settleTxn) return;
     const discount = Math.max(0, Number(settleDiscount) || 0);
     const netDue = Math.max(0, (settleTxn.total || 0) - discount);
-
-    // const { outlets } = useOutlet();
-
-    // console.log(outlets);
 
     try {
       if (settleTxn.id.startsWith("TEMP-")) {
@@ -979,6 +979,7 @@ const Transactions = () => {
             </TableHeader>
             <TableBody>
               {pagedFiltered.map((t) => {
+                console.log(t);
                 const sl = statusLabel(t);
                 return (
                   <TableRow
@@ -1072,8 +1073,7 @@ const Transactions = () => {
                             </Button>
                             {(() => {
                               const isSameDay =
-                                toIsoDayInTz(t.date) ===
-                                getSystemTodayStr();
+                                toIsoDayInTz(t.date) === getSystemTodayStr();
                               return (
                                 <Button
                                   variant="ghost"

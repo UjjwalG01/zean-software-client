@@ -1,10 +1,25 @@
 import { useMemo } from "react";
 import { format } from "date-fns";
-import { Plus, Calendar, Clock, User, Dumbbell, ArrowRight } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Plus,
+  Calendar,
+  Clock,
+  User,
+  Dumbbell,
+  ArrowRight,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { Booking } from "@/lib/mock-data";
+
+import { serviceColors } from "@/lib/utils";
 
 interface DayBookingsDialogProps {
   open: boolean;
@@ -14,13 +29,6 @@ interface DayBookingsDialogProps {
   onAddBooking: () => void;
   onViewBookingDetail: (booking: Booking) => void;
 }
-
-const serviceColors: Record<string, string> = {
-  Gym: "bg-primary/20 text-primary border-primary/20",
-  Spa: "bg-spa/20 text-spa border-spa/20",
-  Sauna: "bg-sauna/20 text-sauna border-sauna/20",
-  Swimming: "bg-swimming/20 text-swimming border-swimming/20",
-};
 
 const statusColors: Record<string, string> = {
   Confirmed: "bg-success/20 text-success border-0",
@@ -53,7 +61,8 @@ export function DayBookingsDialog({
                 Schedule
               </DialogTitle>
               <DialogDescription className="text-xs">
-                {dateLabel} • {bookings.length} {bookings.length === 1 ? "booking" : "bookings"}
+                {dateLabel} • {bookings.length}{" "}
+                {bookings.length === 1 ? "booking" : "bookings"}
               </DialogDescription>
             </div>
             <Button
@@ -71,11 +80,18 @@ export function DayBookingsDialog({
             <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4">
               <Calendar className="h-6 w-6" />
             </div>
-            <h3 className="font-semibold text-base mb-1">No Bookings Scheduled</h3>
+            <h3 className="font-semibold text-base mb-1">
+              No Bookings Scheduled
+            </h3>
             <p className="text-sm text-muted-foreground text-center mb-6 max-w-sm">
-              There are no service or class bookings scheduled for {dateLabel || "this date"} yet.
+              There are no service or class bookings scheduled for{" "}
+              {dateLabel || "this date"} yet.
             </p>
-            <Button onClick={onAddBooking} variant="outline" className="flex items-center gap-1.5">
+            <Button
+              onClick={onAddBooking}
+              variant="outline"
+              className="flex items-center gap-1.5"
+            >
               <Plus className="h-4 w-4" /> Create First Booking
             </Button>
           </div>
@@ -100,12 +116,20 @@ export function DayBookingsDialog({
                     <p className="font-semibold text-sm line-clamp-1 group-hover:text-primary transition-colors">
                       {b.className || b.service}
                     </p>
-                    <Badge variant="secondary" className={statusColors[(b.status || "").toLowerCase()] || ""}>
+                    <Badge
+                      variant="secondary"
+                      className={
+                        statusColors[(b.status || "").toLowerCase()] || ""
+                      }
+                    >
                       {b.status}
                     </Badge>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    <Badge variant="outline" className={serviceColors[b.service] || "text-xs"}>
+                    <Badge
+                      variant="outline"
+                      className={serviceColors[b.service] || "text-xs"}
+                    >
                       {b.service}
                     </Badge>
                   </div>
@@ -114,7 +138,9 @@ export function DayBookingsDialog({
                 <div className="mt-4 pt-3 border-t border-border/50 space-y-2 text-xs">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <User className="h-3.5 w-3.5 text-primary/70" />
-                    <span className="font-medium text-foreground">{b.memberName}</span>
+                    <span className="font-medium text-foreground">
+                      {b.memberName}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Clock className="h-3.5 w-3.5" />

@@ -93,7 +93,7 @@ export function DayScheduleDialog({
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
   const isReschedulable = (b: Booking) =>
-    !!onReschedule && b.bookingStatus !== "Completed" && b.bookingStatus !== "Cancelled";
+    !!onReschedule && b.status !== "completed" && b.status !== "cancelled";
 
   const handleDragStart = (e: React.DragEvent, b: Booking) => {
     if (!isReschedulable(b)) {

@@ -1,5 +1,11 @@
 import { useMemo } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Booking } from "@/lib/mock-data";
@@ -8,9 +14,9 @@ import { getSystemTodayStr, getSystemTimeStr } from "@/lib/timeUtils";
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  date: string;                          // YYYY-MM-DD
-  bookings: Booking[];                   // bookings filtered to outlet+date
-  durationMinutes: number;               // selected service duration
+  date: string; // YYYY-MM-DD
+  bookings: Booking[]; // bookings filtered to outlet+date
+  durationMinutes: number; // selected service duration
   onPick: (startTime: string, endTime: string) => void;
 }
 
@@ -19,15 +25,34 @@ interface Props {
  * - Cannot be closed by clicking outside or pressing Escape (only the X button or a slot pick closes it).
  * - Already-booked hours are disabled.
  */
-export function DayTimelineDialog({ open, onOpenChange, date, bookings, durationMinutes, onPick }: Props) {
+export function DayTimelineDialog({
+  open,
+  onOpenChange,
+  date,
+  bookings,
+  durationMinutes,
+  onPick,
+}: Props) {
   const hours = useMemo(() => Array.from({ length: 24 }, (_, i) => i), []);
 
   // Cancelled bookings free up their slot — exclude from the busy list.
-  const takenRanges = useMemo(() => bookings.filter((b) => b.bookingStatus !== "Cancelled").map((b) => {
-    const [sh, sm] = (b.startTime || "00:00").split(":").map(Number);
-    const [eh, em] = (b.endTime || b.startTime || "00:00").split(":").map(Number);
-    return { start: sh * 60 + sm, end: eh * 60 + em, label: `${b.memberName} · ${b.className}` };
-  }), [bookings]);
+  const takenRanges = useMemo(
+    () =>
+      bookings
+        .filter((b) => b.status !== "cancelled")
+        .map((b) => {
+          const [sh, sm] = (b.startTime || "00:00").split(":").map(Number);
+          const [eh, em] = (b.endTime || b.startTime || "00:00")
+            .split(":")
+            .map(Number);
+          return {
+            start: sh * 60 + sm,
+            end: eh * 60 + em,
+            label: `${b.memberName} · ${b.className}`,
+          };
+        }),
+    [bookings],
+  );
 
   const isHourTaken = (h: number) => {
     const slotStart = h * 60;
@@ -45,12 +70,20 @@ export function DayTimelineDialog({ open, onOpenChange, date, bookings, duration
     const end = h * 60 + durationMinutes;
     const eh = Math.floor(end / 60) % 24;
     const em = end % 60;
-    onPick(start, `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`);
+    onPick(
+      start,
+      `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`,
+    );
     onOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={() => { /* non-dismissible */ }}>
+    <Dialog
+      open={open}
+      onOpenChange={() => {
+        /* non-dismissible */
+      }}
+    >
       <DialogContent
         className="max-w-xl max-h-[85vh] overflow-y-auto"
         onPointerDownOutside={(e) => e.preventDefault()}
@@ -60,7 +93,8 @@ export function DayTimelineDialog({ open, onOpenChange, date, bookings, duration
         <DialogHeader>
           <DialogTitle>Pick a Time Slot — {date}</DialogTitle>
           <DialogDescription>
-            Tap any free hour to start. Slot duration: {durationMinutes} min. Booked and past slots are disabled.
+            Tap any free hour to start. Slot duration: {durationMinutes} min.
+            Booked and past slots are disabled.
           </DialogDescription>
         </DialogHeader>
 
@@ -82,8 +116,12 @@ export function DayTimelineDialog({ open, onOpenChange, date, bookings, duration
                   taken && "line-through",
                 )}
               >
-                <span className="text-sm font-semibold">{String(h).padStart(2, "0")}:00</span>
-                <span className="text-[10px] text-muted-foreground">{past ? "Past" : taken ? "Booked" : "Free"}</span>
+                <span className="text-sm font-semibold">
+                  {String(h).padStart(2, "0")}:00
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  {past ? "Past" : taken ? "Booked" : "Free"}
+                </span>
               </Button>
             );
           })}
@@ -93,12 +131,17 @@ export function DayTimelineDialog({ open, onOpenChange, date, bookings, duration
           <div className="border-t pt-3 text-xs space-y-1">
             <p className="font-medium">Existing bookings</p>
             {takenRanges.map((r, i) => (
-              <div key={i} className="flex justify-between text-muted-foreground">
+              <div
+                key={i}
+                className="flex justify-between text-muted-foreground"
+              >
                 <span>{r.label}</span>
                 <span>
-                  {String(Math.floor(r.start / 60)).padStart(2, "0")}:{String(r.start % 60).padStart(2, "0")}
+                  {String(Math.floor(r.start / 60)).padStart(2, "0")}:
+                  {String(r.start % 60).padStart(2, "0")}
                   {" – "}
-                  {String(Math.floor(r.end / 60)).padStart(2, "0")}:{String(r.end % 60).padStart(2, "0")}
+                  {String(Math.floor(r.end / 60)).padStart(2, "0")}:
+                  {String(r.end % 60).padStart(2, "0")}
                 </span>
               </div>
             ))}

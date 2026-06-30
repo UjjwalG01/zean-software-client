@@ -13,18 +13,58 @@ import {
   isToday,
 } from "date-fns";
 import { toZonedTime, formatInTimeZone } from "date-fns-tz";
-import { getSystemNowDate, getSystemTodayStr, getSystemTimeStr, getSystemMonthStr } from "@/lib/timeUtils";
-import { ChevronLeft, ChevronRight, Plus, List, CalendarDays as CalIcon, Settings, Search, Check } from "lucide-react";
+import {
+  getSystemNowDate,
+  getSystemTodayStr,
+  getSystemTimeStr,
+  getSystemMonthStr,
+} from "@/lib/timeUtils";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  List,
+  CalendarDays as CalIcon,
+  Settings,
+  Search,
+  Check,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { BookingDetailModal } from "@/components/BookingDetailModal";
 import { DayTimelineDialog } from "@/components/DayTimelineDialog";
 import { DayScheduleDialog } from "@/components/DayScheduleDialog";
@@ -58,19 +98,15 @@ import {
 } from "@/components/ui/pagination";
 import { useUpdateBooking } from "@/hooks/use-firestore";
 import { underlineFirstChar } from "@/lib/string-case-change";
+import { colorOptions } from "@/lib/utils";
 
 const SYSTEM_TZ = "Asia/Katmandu";
 
-const colorOptions = [
-  { label: "Gold", value: "hsl(38,92%,50%)", tw: "bg-primary" },
-  { label: "Purple", value: "hsl(280,60%,55%)", tw: "bg-spa" },
-  { label: "Orange", value: "hsl(15,80%,55%)", tw: "bg-sauna" },
-  { label: "Blue", value: "hsl(200,80%,50%)", tw: "bg-swimming" },
-  { label: "Green", value: "hsl(142,71%,45%)", tw: "bg-success" },
-  { label: "Red", value: "hsl(0,84%,60%)", tw: "bg-destructive" },
-];
-
-function parseSetup(settings: Record<string, string>, key: string, fallback: string[]): string[] {
+function parseSetup(
+  settings: Record<string, string>,
+  key: string,
+  fallback: string[],
+): string[] {
   try {
     return settings[key] ? JSON.parse(settings[key]) : fallback;
   } catch {
@@ -110,10 +146,12 @@ const Bookings_Page = () => {
   const PAGE_SIZE = 25;
   const [colorSettingsOpen, setColorSettingsOpen] = useState(false);
   const [serviceColors, setServiceColors] = useState<Record<string, string>>({
-    Gym: colorOptions[0].value,
-    Spa: colorOptions[1].value,
-    Sauna: colorOptions[2].value,
-    Swimming: colorOptions[3].value,
+    Events: colorOptions[0].value,
+    Fitness: colorOptions[1].value,
+    Health: colorOptions[2].value,
+    Membership: colorOptions[3].value,
+    Sports: colorOptions[4].value,
+    Wellness: colorOptions[5].value,
   });
 
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -135,7 +173,9 @@ const Bookings_Page = () => {
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [bookStartTime, setBookStartTime] = useState<string>("");
   const [bookEndTime, setBookEndTime] = useState<string>("");
-  const [bookStatus, setBookStatus] = useState<"confirmed" | "wait-listed" | "not-fixed">("confirmed");
+  const [bookStatus, setBookStatus] = useState<
+    "confirmed" | "wait-listed" | "not-fixed"
+  >("confirmed");
 
   const [guestMode, setGuestMode] = useState(false);
   const [guestName, setGuestName] = useState("");
@@ -156,7 +196,9 @@ const Bookings_Page = () => {
   const isMembershipOutlet =
     !!selectedOutlet &&
     (selectedOutlet.enableMembership === true ||
-      (selectedOutlet.serviceTypes || []).some((s) => s.toLowerCase() === "membership"));
+      (selectedOutlet.serviceTypes || []).some(
+        (s) => s.toLowerCase() === "membership",
+      ));
 
   const isPOSOutlet =
     !!selectedOutlet &&
@@ -164,7 +206,9 @@ const Bookings_Page = () => {
       const x = (s || "").toLowerCase();
       return x === "fitness" || x === "wellness" || x === "health";
     }) ||
-      ["FITNESS", "WELLNESS", "HEALTH"].includes((selectedOutlet.outletType || "").toUpperCase()));
+      ["FITNESS", "WELLNESS", "HEALTH"].includes(
+        (selectedOutlet.outletType || "").toUpperCase(),
+      ));
 
   const isFitnessOrHealth =
     !!selectedOutlet &&
@@ -172,7 +216,9 @@ const Bookings_Page = () => {
       const x = (s || "").toLowerCase();
       return x === "fitness" || x === "health";
     }) ||
-      ["FITNESS", "HEALTH"].includes((selectedOutlet.outletType || "").toUpperCase()));
+      ["FITNESS", "HEALTH"].includes(
+        (selectedOutlet.outletType || "").toUpperCase(),
+      ));
 
   const isSportsOutlet =
     !!selectedOutlet &&
@@ -180,7 +226,9 @@ const Bookings_Page = () => {
       const v = (s || "").toLowerCase();
       return v === "sports" || v === "fitness";
     }) ||
-      ["SPORTS", "FITNESS"].includes((selectedOutlet.outletType || "").toUpperCase()));
+      ["SPORTS", "FITNESS"].includes(
+        (selectedOutlet.outletType || "").toUpperCase(),
+      ));
 
   const setupInstructors = parseSetup(settings, "setup_instructors", [
     "Trainer Ravi",
@@ -190,11 +238,17 @@ const Bookings_Page = () => {
   ]);
 
   const outletServices = useMemo(
-    () => services.filter((s) => s.outletId === selectedOutlet?.id && s.isActive !== false),
+    () =>
+      services.filter(
+        (s) => s.outletId === selectedOutlet?.id && s.isActive !== false,
+      ),
     [services, selectedOutlet?.id],
   );
 
-  const outletServiceTypes = useMemo(() => Array.from(new Set(outletServices.map((s) => s.type))), [outletServices]);
+  const outletServiceTypes = useMemo(
+    () => Array.from(new Set(outletServices.map((s) => s.type))),
+    [outletServices],
+  );
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -205,9 +259,12 @@ const Bookings_Page = () => {
   const filtered = useMemo(() => {
     let list = bookings;
     if (selectedOutlet) {
-      list = list.filter((b: any) => !b.outletId || b.outletId === selectedOutlet.id);
+      list = list.filter(
+        (b: any) => !b.outletId || b.outletId === selectedOutlet.id,
+      );
     }
-    if (serviceFilter !== "all") list = list.filter((b) => b.service === serviceFilter);
+    if (serviceFilter !== "all")
+      list = list.filter((b) => b.service === serviceFilter);
     if (view === "list" && !isFitnessOrHealth && listMonth) {
       list = list.filter((b) => (b.date || "").startsWith(listMonth));
     }
@@ -216,7 +273,14 @@ const Bookings_Page = () => {
       const bd = `${b.date || ""} ${b.startTime || ""}`;
       return bd.localeCompare(ad);
     });
-  }, [bookings, serviceFilter, selectedOutlet, view, isFitnessOrHealth, listMonth]);
+  }, [
+    bookings,
+    serviceFilter,
+    selectedOutlet,
+    view,
+    isFitnessOrHealth,
+    listMonth,
+  ]);
 
   useEffect(() => {
     setListPage(1);
@@ -233,7 +297,9 @@ const Bookings_Page = () => {
     const dayStr = formatInTimeZone(day, SYSTEM_TZ, "yyyy-MM-dd");
 
     // 2. Perform a bulletproof string-to-string comparison
-    return filtered.filter((b) => b.date === dayStr && b.status !== "cancelled");
+    return filtered.filter(
+      (b) => b.date === dayStr && b.status !== "cancelled",
+    );
   };
 
   const isPastDateTime = (dateStr: string, startTime?: string): boolean => {
@@ -294,7 +360,9 @@ const Bookings_Page = () => {
       const eh = Math.floor(endMin / 60) % 24;
       const em = endMin % 60;
       setBookStartTime(startTime);
-      setBookEndTime(`${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`);
+      setBookEndTime(
+        `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`,
+      );
     }
     setDialogOpen(true);
   };
@@ -310,13 +378,19 @@ const Bookings_Page = () => {
     setBookEndTime(b.endTime || "");
     setBookMember(b.memberId);
     setBookInstructor(b.instructor || "");
-    const svc = outletServices.find((s) => s.name === b.className) || outletServices.find((s) => s.type === b.service);
+    const svc =
+      outletServices.find((s) => s.name === b.className) ||
+      outletServices.find((s) => s.type === b.service);
     setBookServiceId(svc?.id || "");
     setUseDiscountedRate(false);
     setDiscountedRate("");
 
     // Safely map incoming database status to local lowercase form select state
-    let currentStatus = (b.bookStatus || b.status || "confirmed").toLowerCase();
+    let currentStatus = (
+      b.bookingStatus ||
+      b.status ||
+      "confirmed"
+    ).toLowerCase();
     if (!["confirmed", "wait-listed", "not-fixed"].includes(currentStatus)) {
       currentStatus = "confirmed";
     }
@@ -350,7 +424,8 @@ const Bookings_Page = () => {
   );
 
   useEffect(() => {
-    if (selectedService?.instructor && !bookInstructor) setBookInstructor(selectedService.instructor);
+    if (selectedService?.instructor && !bookInstructor)
+      setBookInstructor(selectedService.instructor);
   }, [selectedService]);
 
   const handleBook = async () => {
@@ -397,12 +472,25 @@ const Bookings_Page = () => {
 
     const memberObj = members.find((m) => m.id === bookMember);
     const effectiveMemberId = isGuestBooking ? "" : bookMember;
-    const effectiveMemberName = isGuestBooking ? `Guest · ${guestName.trim()}` : memberObj?.name || "";
+    const effectiveMemberName = isGuestBooking
+      ? `Guest · ${guestName.trim()}`
+      : memberObj?.name || "";
 
     setIsSubmitting(true);
     try {
-      // Fixed: Defined cleanBookStatus at top of try block to avoid ReferenceError
       const cleanBookStatus = bookStatus.toLowerCase();
+
+      // 🌟 1. Price, Rate, and Discount Calculations Upfront
+      const basePrice = Number(selectedService.price || 0);
+      const finalPrice =
+        useDiscountedRate && discountedRate
+          ? Number(discountedRate)
+          : basePrice;
+      const discountAmt = Math.max(0, basePrice - finalPrice);
+
+      // 🌟 2. Bulletproof Date Range Synchronization (ISO and Fallbacks)
+      const startIso = `${bookDate}T${start}:00.000Z`;
+      const endIso = `${bookDate}T${end}:00.000Z`;
 
       if (editingBookingId) {
         await updateBookingMutation.mutateAsync({
@@ -411,12 +499,30 @@ const Bookings_Page = () => {
             memberId: bookMember,
             memberName: memberObj?.name || "",
             service: selectedService.type as ServiceType,
+            service_id: selectedService.id, // 🌟 Added
+            module_id: selectedOutlet.outletType || "", // 🌟 Added
+            rate: finalPrice, // 🌟 Added
+            original_rate: basePrice, // 🌟 Added
+            discount_amount: discountAmt, // 🌟 Added
             className: selectedService.name,
+
+            // Core Date Formatting Parameters
             date: bookDate,
+            bookingDate: bookDate,
+            booking_date: bookDate,
+
+            // Core 24h Daily Time Strings
             startTime: start,
             start_time: start,
             endTime: end,
             end_time: end,
+
+            // ISO Calendar Timestamps
+            start_at: startIso,
+            end_at: endIso,
+            startAt: startIso,
+            endAt: endIso,
+
             outletId: selectedOutlet.id,
             status: "pending",
             bookStatus: cleanBookStatus,
@@ -435,44 +541,69 @@ const Bookings_Page = () => {
         return;
       }
 
+      // 🌟 3. Create Payload Configuration
       const bookingId = await addBookingMutation.mutateAsync({
         memberId: effectiveMemberId,
         memberName: effectiveMemberName,
         service: selectedService.type as ServiceType,
+        service_id: selectedService.id, // 🌟 Added
+        module_id: selectedOutlet.outletType || "", // 🌟 Added
+        rate: finalPrice, // 🌟 Added
+        original_rate: basePrice, // 🌟 Added
+        discount_amount: discountAmt, // 🌟 Added
         className: selectedService.name,
+
+        // Core Date Formatting Parameters
         date: bookDate,
+        bookingDate: bookDate,
+        booking_date: bookDate,
+
+        // Core 24h Daily Time Strings
         startTime: start,
         start_time: start,
         endTime: end,
         end_time: end,
+
+        // ISO Calendar Timestamps
+        start_at: startIso,
+        end_at: endIso,
+        startAt: startIso,
+        endAt: endIso,
+
         status: "pending",
         bookStatus: cleanBookStatus,
         outletId: selectedOutlet.id,
         instructor: bookInstructor || selectedService.instructor || "",
       } as any);
 
-      const basePrice = Number(selectedService.price || 0);
-      const finalPrice = useDiscountedRate && discountedRate ? Number(discountedRate) : basePrice;
+      // 🌟 4. Ledger Entries & Payments
       let chargeId = "";
       if (finalPrice > 0 && !isGuestBooking) {
         try {
           const { createChargeForBooking } = await import("@/lib/charges");
-          chargeId = await createChargeForBooking((d) => addTransactionMutation.mutateAsync(d) as Promise<string>, {
-            memberId: effectiveMemberId,
-            memberName: effectiveMemberName,
-            bookingId: String(bookingId || ""),
-            service: selectedService.type,
-            className: selectedService.name,
-            amount: finalPrice,
-            chargeHead: selectedService.type,
-            outletId: selectedOutlet?.id,
-          });
+          chargeId = await createChargeForBooking(
+            (d) => addTransactionMutation.mutateAsync(d) as Promise<string>,
+            {
+              memberId: effectiveMemberId,
+              memberName: effectiveMemberName,
+              bookingId: String(bookingId || ""),
+              service: selectedService.type,
+              className: selectedService.name,
+              amount: finalPrice,
+              chargeHead: selectedService.type,
+              outletId: selectedOutlet?.id,
+            },
+          );
         } catch (e) {
           console.warn("[bookings] failed to post charge", e);
         }
       }
 
-      toast.success(isGuestBooking ? "Guest booking created!" : "Booking created! Charge added to account balance.");
+      toast.success(
+        isGuestBooking
+          ? "Guest booking created!"
+          : "Booking created! Charge added to account balance.",
+      );
       setDialogOpen(false);
       setBookMember("");
       setMemberSearch("");
@@ -485,16 +616,20 @@ const Bookings_Page = () => {
       setGuestMode(false);
       setGuestName("");
     } catch {
-      toast.error("Failed to create booking");
+      toast.error("Failed to process booking");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const selectedPlan = useMemo(() => plans.find((p) => p.id === bookPlanId) || null, [plans, bookPlanId]);
+  const selectedPlan = useMemo(
+    () => plans.find((p) => p.id === bookPlanId) || null,
+    [plans, bookPlanId],
+  );
 
   const planPriceOptions = useMemo(() => {
-    if (!selectedPlan || !Array.isArray((selectedPlan as any).prices)) return [];
+    if (!selectedPlan || !Array.isArray((selectedPlan as any).prices))
+      return [];
     return (selectedPlan as any).prices
       .map((pr: any) => {
         const d = planDurations.find((x) => x.id === pr.durationId);
@@ -510,7 +645,9 @@ const Bookings_Page = () => {
   }, [selectedPlan, planDurations]);
 
   const selectedDuration = useMemo(
-    () => planPriceOptions.find((p: any) => p.durationId === bookDurationId) || null,
+    () =>
+      planPriceOptions.find((p: any) => p.durationId === bookDurationId) ||
+      null,
     [planPriceOptions, bookDurationId],
   );
 
@@ -522,7 +659,10 @@ const Bookings_Page = () => {
       setBookDurationId("");
       return;
     }
-    if (!bookDurationId || !planPriceOptions.find((p: any) => p.durationId === bookDurationId)) {
+    if (
+      !bookDurationId ||
+      !planPriceOptions.find((p: any) => p.durationId === bookDurationId)
+    ) {
       setBookDurationId(planPriceOptions[0]?.durationId || "");
     }
   }, [selectedPlan, planPriceOptions, bookDurationId]);
@@ -551,11 +691,13 @@ const Bookings_Page = () => {
         b.date === enrollmentDate &&
         b.service === "Membership" &&
         (b.status || "").toLowerCase() !== "cancelled" &&
-        (b.bookStatus || "").toLowerCase() !== "cancelled",
+        (b.bookingStatus || "").toLowerCase() !== "cancelled",
     );
 
     if (isDuplicate) {
-      toast.error(`${memberObj?.name || "Member"} is already enrolled on ${enrollmentDate}`);
+      toast.error(
+        `${memberObj?.name || "Member"} is already enrolled on ${enrollmentDate}`,
+      );
       return;
     }
 
@@ -563,8 +705,12 @@ const Bookings_Page = () => {
     const expiry = new Date(baseDate);
     expiry.setMonth(expiry.getMonth() + (selectedDuration.months || 1));
 
-    const durationLabel = selectedDuration.name || formatMonths(selectedDuration.months || 1);
-    const finalAmount = useDiscountedRate && discountedRate ? Number(discountedRate) : membershipAmount;
+    const durationLabel =
+      selectedDuration.name || formatMonths(selectedDuration.months || 1);
+    const finalAmount =
+      useDiscountedRate && discountedRate
+        ? Number(discountedRate)
+        : membershipAmount;
 
     try {
       // 1. Write calendar entry
@@ -595,24 +741,27 @@ const Bookings_Page = () => {
 
       // 2. Synchronize with GRC Packages Context/Data Pipeline
       // (Invoke your synchronization hook or dispatch to update MemberGRC records)
-      if (typeof syncWithGRCPackages === "function") {
-        await syncWithGRCPackages(bookMember, selectedPlan.tier);
-      }
+      // if (typeof syncWithGRCPackages === "function") {
+      //   await syncWithGRCPackages(bookMember, selectedPlan.tier);
+      // }
 
       // 3. Post Ledger Charge Entry
       if (finalAmount > 0) {
         try {
           const { createChargeForBooking } = await import("@/lib/charges");
-          await createChargeForBooking((d) => addTransactionMutation.mutateAsync(d) as Promise<string>, {
-            memberId: bookMember,
-            memberName: memberObj?.name || "",
-            bookingId: "",
-            service: "Membership",
-            className: `${selectedPlan.tier} · ${durationLabel}`,
-            amount: finalAmount,
-            chargeHead: "Membership",
-            outletId: selectedOutlet?.id,
-          });
+          await createChargeForBooking(
+            (d) => addTransactionMutation.mutateAsync(d) as Promise<string>,
+            {
+              memberId: bookMember,
+              memberName: memberObj?.name || "",
+              bookingId: "",
+              service: "Membership",
+              className: `${selectedPlan.tier} · ${durationLabel}`,
+              amount: finalAmount,
+              chargeHead: "Membership",
+              outletId: selectedOutlet?.id,
+            },
+          );
         } catch (e) {
           console.warn("[membership] failed to post debit charge", e);
         }
@@ -661,14 +810,21 @@ const Bookings_Page = () => {
         <div className="space-y-1">
           <h1 className="text-2xl font-bold font-display">Bookings</h1>
           <div className="flex items-center gap-3 flex-wrap">
-            <p className="text-muted-foreground text-sm">{filtered.length} bookings</p>
+            <p className="text-muted-foreground text-sm">
+              {filtered.length} bookings
+            </p>
             {outlets.length > 0 && (
               <button
                 onClick={() => setPickerOpen(true)}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border border-border/60 bg-muted/40 hover:bg-muted/70 transition-colors"
               >
-                <Building2 className="h-3 w-3" style={{ color: selectedOutlet?.color }} />
-                <span className="font-medium">{selectedOutlet ? selectedOutlet.name : "Choose outlet"}</span>
+                <Building2
+                  className="h-3 w-3"
+                  style={{ color: selectedOutlet?.color }}
+                />
+                <span className="font-medium">
+                  {selectedOutlet ? selectedOutlet.name : "Choose outlet"}
+                </span>
                 <ChevronDown className="h-3 w-3 opacity-60" />
               </button>
             )}
@@ -719,7 +875,10 @@ const Bookings_Page = () => {
           )}
 
           {!isFitnessOrHealth && (
-            <Popover open={colorSettingsOpen} onOpenChange={setColorSettingsOpen}>
+            <Popover
+              open={colorSettingsOpen}
+              onOpenChange={setColorSettingsOpen}
+            >
               <PopoverTrigger asChild>
                 <Button variant="outline" size="icon">
                   <Settings className="h-4 w-4" />
@@ -728,7 +887,10 @@ const Bookings_Page = () => {
               <PopoverContent className="w-64" align="end">
                 <p className="font-semibold text-sm mb-3">Calendar Colors</p>
                 {outletServiceTypes.map((svc) => (
-                  <div key={svc} className="flex items-center justify-between mb-2">
+                  <div
+                    key={svc}
+                    className="flex items-center justify-between mb-2"
+                  >
                     <span className="text-sm">{svc}</span>
                     <div className="flex gap-1">
                       {colorOptions.map((c) => (
@@ -736,7 +898,9 @@ const Bookings_Page = () => {
                           key={c.value}
                           className={cn(
                             "h-5 w-5 rounded-full border-2 transition-all",
-                            serviceColors[svc] === c.value ? "border-foreground scale-110" : "border-transparent",
+                            serviceColors[svc] === c.value
+                              ? "border-foreground scale-110"
+                              : "border-transparent",
                           )}
                           style={{ backgroundColor: c.value }}
                           onClick={() =>
@@ -754,7 +918,11 @@ const Bookings_Page = () => {
             </Popover>
           )}
 
-          <Button size="sm" accessKey="a" onClick={() => openNewBookingDialog()}>
+          <Button
+            size="sm"
+            accessKey="a"
+            onClick={() => openNewBookingDialog()}
+          >
             <Plus className="h-4 w-4 mr-1" />
             {underlineFirstChar("Add Booking")}
           </Button>
@@ -764,11 +932,16 @@ const Bookings_Page = () => {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-display">{editingBookingId ? "Amend Booking" : "New Booking"}</DialogTitle>
+            <DialogTitle className="font-display">
+              {editingBookingId ? "Amend Booking" : "New Booking"}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 flex items-center gap-2 text-sm">
-              <Building2 className="h-4 w-4" style={{ color: selectedOutlet?.color }} />
+              <Building2
+                className="h-4 w-4"
+                style={{ color: selectedOutlet?.color }}
+              />
               <span className="text-muted-foreground">Outlet</span>
               <span className="font-medium">{selectedOutlet?.name || "—"}</span>
               {selectedService?.type && (
@@ -812,23 +985,39 @@ const Bookings_Page = () => {
             {!(isSportsOutlet && guestMode) ? (
               <div className="space-y-2">
                 <Label>Member *</Label>
-                <Popover open={memberPopoverOpen} onOpenChange={setMemberPopoverOpen}>
+                <Popover
+                  open={memberPopoverOpen}
+                  onOpenChange={setMemberPopoverOpen}
+                >
                   <PopoverTrigger asChild>
-                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between font-normal"
+                    >
                       {selectedMember ? (
                         <span className="flex items-center gap-2 truncate">
-                          <span className="truncate">{selectedMember.name}</span>
+                          <span className="truncate">
+                            {selectedMember.name}
+                          </span>
                           {selectedMember.phone && (
-                            <span className="text-xs text-muted-foreground">{selectedMember.phone}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {selectedMember.phone}
+                            </span>
                           )}
                         </span>
                       ) : (
-                        <span className="text-muted-foreground">Search and select member…</span>
+                        <span className="text-muted-foreground">
+                          Search and select member…
+                        </span>
                       )}
                       <ChevronDown className="h-4 w-4 opacity-60" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <PopoverContent
+                    className="w-[--radix-popover-trigger-width] p-0"
+                    align="start"
+                  >
                     <div className="p-2 border-b border-border">
                       <div className="relative">
                         <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -843,7 +1032,9 @@ const Bookings_Page = () => {
                     </div>
                     <div className="max-h-64 overflow-y-auto">
                       {filteredMembers.length === 0 ? (
-                        <p className="px-3 py-6 text-center text-xs text-muted-foreground">No members found</p>
+                        <p className="px-3 py-6 text-center text-xs text-muted-foreground">
+                          No members found
+                        </p>
                       ) : (
                         filteredMembers.map((m) => (
                           <button
@@ -860,7 +1051,9 @@ const Bookings_Page = () => {
                                 {m.phone || m.email || "—"}
                               </span>
                             </div>
-                            {bookMember === m.id && <Check className="h-3.5 w-3.5 text-primary" />}
+                            {bookMember === m.id && (
+                              <Check className="h-3.5 w-3.5 text-primary" />
+                            )}
                           </button>
                         ))
                       )}
@@ -878,7 +1071,8 @@ const Bookings_Page = () => {
                   autoFocus
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  Guest bookings skip member profile lookup — payment is collected on the spot at the next step.
+                  Guest bookings skip member profile lookup — payment is
+                  collected on the spot at the next step.
                 </p>
               </div>
             )}
@@ -889,7 +1083,13 @@ const Bookings_Page = () => {
                   <Label>Membership Plan *</Label>
                   <Select value={bookPlanId} onValueChange={setBookPlanId}>
                     <SelectTrigger>
-                      <SelectValue placeholder={plans.length === 0 ? "No plans configured" : "Select plan"} />
+                      <SelectValue
+                        placeholder={
+                          plans.length === 0
+                            ? "No plans configured"
+                            : "Select plan"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {plans.map((p: any) => (
@@ -904,20 +1104,34 @@ const Bookings_Page = () => {
                 {selectedPlan && (
                   <div className="space-y-2">
                     <Label>Select Booking Duration *</Label>
-                    <Select value={bookDurationId} onValueChange={setBookDurationId}>
+                    <Select
+                      value={bookDurationId}
+                      onValueChange={setBookDurationId}
+                    >
                       <SelectTrigger className="w-full">
                         <SelectValue
-                          placeholder={planPriceOptions.length === 0 ? "No price tiers configured" : "Choose duration"}
+                          placeholder={
+                            planPriceOptions.length === 0
+                              ? "No price tiers configured"
+                              : "Choose duration"
+                          }
                         />
                       </SelectTrigger>
                       <SelectContent>
                         {planPriceOptions.map((d: any) => {
                           const baseline =
-                            planPriceOptions[0] && planPriceOptions[0].months > 0
-                              ? (planPriceOptions[0].price / planPriceOptions[0].months) * d.months
+                            planPriceOptions[0] &&
+                            planPriceOptions[0].months > 0
+                              ? (planPriceOptions[0].price /
+                                  planPriceOptions[0].months) *
+                                d.months
                               : 0;
-                          const save = baseline > d.price ? baseline - d.price : 0;
-                          const pct = baseline > 0 && save > 0 ? Math.round((save / baseline) * 100) : 0;
+                          const save =
+                            baseline > d.price ? baseline - d.price : 0;
+                          const pct =
+                            baseline > 0 && save > 0
+                              ? Math.round((save / baseline) * 100)
+                              : 0;
                           return (
                             <SelectItem key={d.durationId} value={d.durationId}>
                               <div className="flex items-center justify-between w-full gap-4">
@@ -942,7 +1156,9 @@ const Bookings_Page = () => {
                     {/* Selected plan details */}
                     <div className="mt-2 rounded-lg border border-border bg-muted/30 p-3 space-y-2 text-sm">
                       <div className="flex items-center justify-between">
-                        <span className="font-medium">{selectedPlan.name || selectedPlan.tier}</span>
+                        <span className="font-medium">
+                          {selectedPlan.name || selectedPlan.tier}
+                        </span>
                         <Badge variant="secondary" className="text-[10px]">
                           {selectedPlan.tier}
                         </Badge>
@@ -950,7 +1166,8 @@ const Bookings_Page = () => {
                       {selectedDuration && (
                         <div className="flex items-center justify-between text-muted-foreground">
                           <span>
-                            {selectedDuration.name} · {formatMonths(selectedDuration.months)}
+                            {selectedDuration.name} ·{" "}
+                            {formatMonths(selectedDuration.months)}
                           </span>
                           <span className="font-semibold text-foreground">
                             NPR {selectedDuration.price.toLocaleString()}
@@ -960,11 +1177,17 @@ const Bookings_Page = () => {
                       {Array.isArray((selectedPlan as any).includedServices) &&
                         (selectedPlan as any).includedServices.length > 0 && (
                           <div className="flex flex-wrap gap-1 pt-1">
-                            {(selectedPlan as any).includedServices.map((s: string) => (
-                              <Badge key={s} variant="outline" className="text-[10px]">
-                                {s}
-                              </Badge>
-                            ))}
+                            {(selectedPlan as any).includedServices.map(
+                              (s: string) => (
+                                <Badge
+                                  key={s}
+                                  variant="outline"
+                                  className="text-[10px]"
+                                >
+                                  {s}
+                                </Badge>
+                              ),
+                            )}
                           </div>
                         )}
                       <div className="flex items-center gap-3 pt-1 text-[11px] text-muted-foreground">
@@ -986,7 +1209,11 @@ const Bookings_Page = () => {
                 )}
                 <div className="space-y-2 mb-4">
                   <Label>Enrollment Date *</Label>
-                  <Input type="date" value={bookDate} onChange={(e) => setBookDate(e.target.value)} />
+                  <Input
+                    type="date"
+                    value={bookDate}
+                    onChange={(e) => setBookDate(e.target.value)}
+                  />
                 </div>
                 <Button
                   onClick={handleEnrollMembership}
@@ -1011,7 +1238,11 @@ const Bookings_Page = () => {
                   >
                     <SelectTrigger>
                       <SelectValue
-                        placeholder={outletServices.length === 0 ? "No services for this outlet" : "Select service"}
+                        placeholder={
+                          outletServices.length === 0
+                            ? "No services for this outlet"
+                            : "Select service"
+                        }
                       />
                     </SelectTrigger>
                     <SelectContent>
@@ -1029,18 +1260,30 @@ const Bookings_Page = () => {
                   <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2 text-sm">
                     <div className="grid grid-cols-3 gap-2">
                       <div>
-                        <span className="text-muted-foreground text-xs block">Duration</span>
-                        <span className="font-medium">{selectedService.duration || 0} min</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground text-xs block">Instructor</span>
+                        <span className="text-muted-foreground text-xs block">
+                          Duration
+                        </span>
                         <span className="font-medium">
-                          {selectedService.requiresInstructor ? selectedService.instructor || "—" : "Not required"}
+                          {selectedService.duration || 0} min
                         </span>
                       </div>
                       <div>
-                        <span className="text-muted-foreground text-xs block">Standard Rate</span>
-                        <span className="font-medium">NPR {selectedService.price || 0}</span>
+                        <span className="text-muted-foreground text-xs block">
+                          Instructor
+                        </span>
+                        <span className="font-medium">
+                          {selectedService.requiresInstructor
+                            ? selectedService.instructor || "—"
+                            : "Not required"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground text-xs block">
+                          Standard Rate
+                        </span>
+                        <span className="font-medium">
+                          NPR {selectedService.price || 0}
+                        </span>
                       </div>
                     </div>
                     <div className="flex items-center justify-between rounded-md border border-border/60 bg-background/50 px-3 py-2">
@@ -1055,7 +1298,9 @@ const Bookings_Page = () => {
                     </div>
                     {useDiscountedRate && (
                       <div className="space-y-1.5">
-                        <Label className="text-xs">Discounted Rate (NPR, VAT incl.)</Label>
+                        <Label className="text-xs">
+                          Discounted Rate (NPR, VAT incl.)
+                        </Label>
                         <Input
                           type="number"
                           min={0}
@@ -1072,19 +1317,29 @@ const Bookings_Page = () => {
                 <div
                   className={cn(
                     "grid gap-3",
-                    selectedService?.requiresInstructor ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2",
+                    selectedService?.requiresInstructor
+                      ? "grid-cols-1 sm:grid-cols-3"
+                      : "grid-cols-1 sm:grid-cols-2",
                   )}
                 >
                   <div className="space-y-2">
                     <Label>Date *</Label>
-                    <Input type="date" value={bookDate} onChange={(e) => setBookDate(e.target.value)} />
+                    <Input
+                      type="date"
+                      value={bookDate}
+                      onChange={(e) => setBookDate(e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Time Slot *</Label>
                     <div className="flex gap-2">
                       <Input
                         readOnly
-                        value={bookStartTime && bookEndTime ? `${bookStartTime} - ${bookEndTime}` : bookStartTime || ""}
+                        value={
+                          bookStartTime && bookEndTime
+                            ? `${bookStartTime} - ${bookEndTime}`
+                            : bookStartTime || ""
+                        }
                         placeholder="Use 24h to pick a slot"
                         className="bg-muted/30 cursor-default"
                       />
@@ -1103,7 +1358,10 @@ const Bookings_Page = () => {
                   {selectedService?.requiresInstructor && (
                     <div className="space-y-2">
                       <Label>Instructor *</Label>
-                      <Select value={bookInstructor} onValueChange={setBookInstructor}>
+                      <Select
+                        value={bookInstructor}
+                        onValueChange={setBookInstructor}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="Select instructor" />
                         </SelectTrigger>
@@ -1121,7 +1379,10 @@ const Bookings_Page = () => {
 
                 <div className="space-y-2">
                   <Label>Booking Status *</Label>
-                  <Select value={bookStatus} onValueChange={(v) => setBookStatus(v as typeof bookStatus)}>
+                  <Select
+                    value={bookStatus}
+                    onValueChange={(v) => setBookStatus(v as typeof bookStatus)}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
@@ -1135,7 +1396,11 @@ const Bookings_Page = () => {
 
                 <Button
                   onClick={handleBook}
-                  disabled={isSubmitting || addBookingMutation.isPending || updateBookingMutation.isPending}
+                  disabled={
+                    isSubmitting ||
+                    addBookingMutation.isPending ||
+                    updateBookingMutation.isPending
+                  }
                   className="w-full gradient-gold text-primary-foreground"
                 >
                   {isSubmitting ? (
@@ -1159,9 +1424,13 @@ const Bookings_Page = () => {
         <DialogContent className="max-w-md">
           <DialogHeader className="flex flex-row items-center justify-between border-b border-border pb-3">
             <div className="space-y-0.5">
-              <DialogTitle className="font-display text-base">Enrolled Members</DialogTitle>
+              <DialogTitle className="font-display text-base">
+                Enrolled Members
+              </DialogTitle>
               <p className="text-xs text-muted-foreground">
-                {scheduleDay ? formatInTimeZone(scheduleDay, SYSTEM_TZ, "MMMM d, yyyy") : ""}
+                {scheduleDay
+                  ? formatInTimeZone(scheduleDay, SYSTEM_TZ, "MMMM d, yyyy")
+                  : ""}
               </p>
             </div>
 
@@ -1182,7 +1451,9 @@ const Bookings_Page = () => {
             {scheduleDay && getBookingsForDay(scheduleDay).length === 0 ? (
               // ✨ Cleaned Empty State: Text message only, no extra button here
               <div className="text-center py-10 border border-dashed border-border rounded-lg bg-muted/10">
-                <p className="text-sm text-muted-foreground">No member enrollments for this day.</p>
+                <p className="text-sm text-muted-foreground">
+                  No member enrollments for this day.
+                </p>
               </div>
             ) : (
               scheduleDay &&
@@ -1192,24 +1463,34 @@ const Bookings_Page = () => {
                   className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30"
                 >
                   <div className="flex flex-col min-w-0 pr-2">
-                    <span className="font-medium text-sm truncate">{b.memberName}</span>
-                    <span className="text-xs text-muted-foreground truncate">{b.className}</span>
+                    <span className="font-medium text-sm truncate">
+                      {b.memberName}
+                    </span>
+                    <span className="text-xs text-muted-foreground truncate">
+                      {b.className}
+                    </span>
                   </div>
                   <Button
                     variant="destructive"
                     size="sm"
                     className="h-8 text-xs shrink-0"
                     onClick={async () => {
-                      if (confirm(`Are you sure you want to cancel ${b.memberName}'s enrollment?`)) {
+                      if (
+                        confirm(
+                          `Are you sure you want to cancel ${b.memberName}'s enrollment?`,
+                        )
+                      ) {
                         try {
                           await updateBookingMutation.mutateAsync({
                             id: b.id,
                             data: {
                               status: "cancelled",
-                              bookStatus: b.bookStatus,
+                              bookStatus: b.bookingStatus,
                             } as any,
                           });
-                          toast.success("Enrollment successfully cancelled and slot freed.");
+                          toast.success(
+                            "Enrollment successfully cancelled and slot freed.",
+                          );
                         } catch {
                           toast.error("Failed to terminate enrollment entry");
                         }
@@ -1260,7 +1541,10 @@ const Bookings_Page = () => {
         }}
         onReschedule={async (b, newHour) => {
           if (!scheduleDay) return;
-          if (b.status?.toLowerCase() === "completed" || b.bookStatus?.toLowerCase() === "completed") {
+          if (
+            b.status?.toLowerCase() === "completed" ||
+            b.bookingStatus?.toLowerCase() === "completed"
+          ) {
             toast.error("Completed bookings cannot be rescheduled");
             return;
           }
@@ -1277,7 +1561,9 @@ const Bookings_Page = () => {
           // Flawless string-to-string date match bypassing new Date() bugs
           const targetIsToday = dStr === getSystemTodayStr();
 
-          const targetStatus = targetIsToday ? "pending" : (b.status || b.bookStatus || "confirmed").toLowerCase();
+          const targetStatus = targetIsToday
+            ? "pending"
+            : (b.status || b.bookingStatus || "confirmed").toLowerCase();
 
           try {
             await updateBookingMutation.mutateAsync({
@@ -1317,19 +1603,30 @@ const Bookings_Page = () => {
       ) : view === "calendar" ? (
         <div className="glass-card rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
-            <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+            >
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <h2 className="text-lg font-semibold font-display">
               {formatInTimeZone(currentMonth, SYSTEM_TZ, "MMMM yyyy")}
             </h2>
-            <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+            >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
           <div className="grid grid-cols-7 gap-px mb-1">
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-              <div key={d} className="text-center text-xs font-medium text-muted-foreground py-2">
+              <div
+                key={d}
+                className="text-center text-xs font-medium text-muted-foreground py-2"
+              >
                 {d}
               </div>
             ))}
@@ -1377,11 +1674,16 @@ const Bookings_Page = () => {
                             key={b.id}
                             className="text-[10px] px-1.5 py-0.5 rounded text-white truncate font-medium tracking-wide shadow-sm flex items-center gap-1"
                             style={{
-                              backgroundColor: serviceColors[b.service] || "hsl(38,92%,50%)",
+                              backgroundColor:
+                                serviceColors[b.service] || "hsl(38,92%,50%)",
                             }}
                           >
-                            <span className="text-[9px] font-mono opacity-80 shrink-0">{b.startTime}</span>
-                            <span className="truncate">{b.className || b.service}</span>
+                            <span className="text-[9px] font-mono opacity-80 shrink-0">
+                              {b.startTime}
+                            </span>
+                            <span className="truncate">
+                              {b.className || b.service}
+                            </span>
                           </div>
                         ))}
                         {dayBookings.length > 3 && (
@@ -1395,10 +1697,13 @@ const Bookings_Page = () => {
                   {dayBookings.length > 0 && (
                     <TooltipContent side="right" className="max-w-[220px]">
                       <p className="font-semibold text-xs mb-1">
-                        {formatInTimeZone(day, SYSTEM_TZ, "MMM d, yyyy")} · {dayBookings.length} booking
+                        {formatInTimeZone(day, SYSTEM_TZ, "MMM d, yyyy")} ·{" "}
+                        {dayBookings.length} booking
                         {dayBookings.length === 1 ? "" : "s"}
                       </p>
-                      <p className="text-[11px] text-muted-foreground">Click the day to view the full schedule.</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Click the day to view the full schedule.
+                      </p>
                     </TooltipContent>
                   )}
                 </Tooltip>
@@ -1422,11 +1727,21 @@ const Bookings_Page = () => {
               </TableHeader>
               <TableBody>
                 {pagedList.map((b) => {
-                  const displayStatus = (b.status || b.bookStatus || "confirmed").toLowerCase();
+                  const displayStatus = (
+                    b.status ||
+                    b.bookingStatus ||
+                    "confirmed"
+                  ).toLowerCase();
                   return (
-                    <TableRow key={b.id} className="cursor-pointer" onClick={() => handleBookingClick(b)}>
+                    <TableRow
+                      key={b.id}
+                      className="cursor-pointer"
+                      onClick={() => handleBookingClick(b)}
+                    >
                       <TableCell className="text-sm">{b.date}</TableCell>
-                      <TableCell className="text-sm font-medium">{b.memberName}</TableCell>
+                      <TableCell className="text-sm font-medium">
+                        {b.memberName}
+                      </TableCell>
                       <TableCell className="text-sm">{b.className}</TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="text-[10px]">
@@ -1468,14 +1783,19 @@ const Bookings_Page = () => {
                   </PaginationItem>
                   {Array.from({ length: totalPages }).map((_, i) => (
                     <PaginationItem key={i}>
-                      <PaginationLink isActive={listPage === i + 1} onClick={() => setListPage(i + 1)}>
+                      <PaginationLink
+                        isActive={listPage === i + 1}
+                        onClick={() => setListPage(i + 1)}
+                      >
                         {i + 1}
                       </PaginationLink>
                     </PaginationItem>
                   ))}
                   <PaginationItem>
                     <PaginationNext
-                      onClick={() => setListPage((p) => Math.min(totalPages, p + 1))}
+                      onClick={() =>
+                        setListPage((p) => Math.min(totalPages, p + 1))
+                      }
                       aria-disabled={listPage === totalPages}
                     />
                   </PaginationItem>

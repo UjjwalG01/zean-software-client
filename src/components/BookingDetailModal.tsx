@@ -45,6 +45,8 @@ import { generateA5BillHTML, printHTML } from "@/lib/print-utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
+import { serviceColors } from "@/lib/utils";
+
 interface BookingDetailModalProps {
   booking: Booking | null;
   open: boolean;
@@ -52,13 +54,6 @@ interface BookingDetailModalProps {
   /** When provided, the Amend button calls this with the booking so the parent can open the unified Create modal pre-filled. */
   onAmend?: (booking: Booking) => void;
 }
-
-const serviceColors: Record<string, string> = {
-  Gym: "bg-primary/20 text-primary",
-  Spa: "bg-spa/20 text-spa",
-  Sauna: "bg-sauna/20 text-sauna",
-  Swimming: "bg-swimming/20 text-swimming",
-};
 
 function parseSetup(
   settings: Record<string, string>,
@@ -98,7 +93,7 @@ export function BookingDetailModal({
     date: "",
     startTime: "",
     endTime: "",
-    service: "Gym" as ServiceType,
+    service: "Fitness" as ServiceType,
     className: "",
     instructor: "",
   });

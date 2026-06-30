@@ -27,12 +27,21 @@ const templateMeta: Record<
   membership_expiring: {
     label: "Membership Expiring",
     description: "Sent 15 days before a member's plan expires.",
-    sample: { memberName: "Aarav Sharma", tier: "Gold", expiryDate: "2026-05-10", daysLeft: "15" },
+    sample: {
+      memberName: "Aarav Sharma",
+      tier: "Gold",
+      expiryDate: "2026-05-10",
+      daysLeft: "15",
+    },
   },
   membership_expired: {
     label: "Membership Expired",
     description: "Sent the day after expiry to encourage renewal.",
-    sample: { memberName: "Priya Thapa", tier: "Silver", expiryDate: "2026-04-20" },
+    sample: {
+      memberName: "Priya Thapa",
+      tier: "Silver",
+      expiryDate: "2026-04-20",
+    },
   },
   booking_reminder: {
     label: "Booking Reminder",
@@ -93,8 +102,10 @@ export default function EmailTemplatesPage() {
           Email Templates
         </h1>
         <p className="text-muted-foreground text-sm">
-          Compose subject and body using <code className="text-primary">{"{{variableName}}"}</code> placeholders. Switch
-          to <strong>Preview</strong> to see the merged output.
+          Compose subject and body using{" "}
+          <code className="text-primary">{"{{variableName}}"}</code>{" "}
+          placeholders. Switch to <strong>Preview</strong> to see the merged
+          output.
         </p>
       </div>
 
@@ -167,7 +178,12 @@ function TemplateEditor({
     setMode("edit");
   }, [template]);
 
-  const sampleData = { ...meta.sample, companyName, companyPhone, companyEmail };
+  const sampleData = {
+    ...meta.sample,
+    companyName,
+    companyPhone,
+    companyEmail,
+  };
   const previewSubject = renderTemplate(subject, sampleData);
   const previewBody = renderTemplate(body, sampleData);
 
@@ -216,7 +232,11 @@ function TemplateEditor({
           <>
             <div className="space-y-2">
               <Label>Subject</Label>
-              <Input value={subject} onChange={(e) => setSubject(e.target.value)} className="bg-muted/50 border-0" />
+              <Input
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                className="bg-muted/50 border-0"
+              />
             </div>
             <div className="space-y-2">
               <Label>Body</Label>
@@ -251,11 +271,15 @@ function TemplateEditor({
               Preview · sample data
             </Badge>
             <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Subject</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                Subject
+              </p>
               <p className="text-sm font-medium">{previewSubject}</p>
             </div>
             <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Body</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                Body
+              </p>
               <pre className="text-xs whitespace-pre-wrap font-sans leading-relaxed text-foreground/90">
                 {previewBody}
               </pre>
@@ -271,9 +295,13 @@ function TemplateEditor({
             variant="outline"
             size="sm"
             onClick={async () => {
-              const to = window.prompt("Send a test email to:", companyEmail || "");
+              const to = window.prompt(
+                "Send a test email to:",
+                companyEmail || "",
+              );
               if (!to) return;
-              const { sendEmailViaResend } = await import("@/lib/email-templates");
+              const { sendEmailViaResend } =
+                await import("@/lib/email-templates");
               const r = await sendEmailViaResend({
                 to,
                 subject: previewSubject,
