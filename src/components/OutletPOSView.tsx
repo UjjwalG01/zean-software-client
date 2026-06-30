@@ -38,10 +38,15 @@ import {
   useAddBooking,
   useAddTransaction,
   useCompanySettings,
+  useBookings,
+  useUpdateBooking,
+  useTransactions,
+  useUpdateTransaction,
 } from "@/hooks/use-firestore";
 import type { Outlet } from "@/lib/supabase-outlets";
-import { formatNPR, type ServiceType } from "@/lib/mock-data";
+import { formatNPR, type ServiceType, type Booking } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { BookingDetailModal } from "@/components/BookingDetailModal";
 
 interface Props {
   outlet: Outlet;
