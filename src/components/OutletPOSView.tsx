@@ -602,6 +602,186 @@ export function OutletPOSView({ outlet }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Current Bookings panel */}
+      <CurrentBookingsPanel
+        outlet={outlet}
+        bookings={outletBookings}
+        transactions={transactions}
+        onView={(b) => {
+          setDetailBooking(b);
+          setDetailOpen(true);
+        }}
+        onBilling={(b) => {
+          const linkedCharge = transactions.find(
+            (t: any) =>
+              t.bookingId === b.id &&
+              t.type === "Charge" &&
+              t.status === "pending",
+          );
+          const amount = Number(
+            (linkedCharge as any)?.total ??
+              (linkedCharge as any)?.amount ??
+              (b as any).original_rate ??
+              (b as any).rate ??
+              0,
+          );
+          const params = new URLSearchParams({
+            newPayment: "true",
+            bookingId: b.id,
+            memberId: b.memberId || "",
+            memberName: b.memberName || "",
+            service: b.service || "",
+            className: b.className || "",
+            amount: String(amount),
+            outletId: outlet.id,
+            ...(b.memberId ? {} : { guest: "1" }),
+            ...(linkedCharge ? { chargeId: linkedCharge.id } : {}),
+          });
+          navigate(`/transactions?${params.toString()}`);
+        }}
+        onCancel={async (b) => {
+          try {
+            await updateBookingMutation.mutateAsync({
+              id: b.id,
+              data: {
+                status: "Cancelled",
+                cancelledAt: new Date().toISOString(),
+              } as any,
+            });
+            const linkedCharges = transactions.filter(
+              (t: any) =>
+                t.bookingId === b.id &&
+                t.type === "Charge" &&
+                t.status === "pending",
+            );
+            for (const c of linkedCharges) {
+              await updateTransactionMutation.mutateAsync({
+                id: c.id,
+                data: { status: "voided" } as any,
+              });
+            }
+            toast.success("Order cancelled");
+          } catch {
+            toast.error("Failed to cancel order");
+          }
+        }}
+      />
+
+      <BookingDetailModal
+        booking={detailBooking}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+      />
     </div>
+  );
+}
+
+interface CurrentBookingsPanelProps {
+  outlet: Outlet;
+  bookings: Booking[];
+  transactions: any[];
+  onView: (b: Booking) => void;
+  onBilling: (b: Booking) => void;
+  onCancel: (b: Booking) => void;
+}
+
+function CurrentBookingsPanel({
+  outlet,
+  bookings,
+  transactions,
+  onView,
+  onBilling,
+  onCancel,
+}: CurrentBookingsPanelProps) {
+  const active = useMemo(() => {
+    return bookings
+      .filter(
+        (b) =>
+          (b.outletId === outlet.id || !b.outletId) &&
+          (b as any).status !== "Cancelled" &&
+          (b as any).status !== "Completed" &&
+          (b as any).bookingStatus !== "Cancelled",
+      )
+      .filter((b) => {
+        // hide bookings whose linked charge is settled/paid
+        const linked = transactions.find(
+          (t: any) => t.bookingId === b.id && t.type === "Charge",
+        );
+        if (!linked) return true;
+        return linked.status === "pending";
+      })
+      .slice(0, 30);
+  }, [bookings, transactions, outlet.id]);
+
+  return (
+    <div className="border-t border-border px-5 py-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-semibold font-display text-sm uppercase tracking-wider flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-primary" /> Current Bookings
+        </h3>
+        <Badge variant="outline" className="text-[10px]">
+          {active.length} active
+        </Badge>
+      </div>
+      {active.length === 0 ? (
+        <div className="text-xs text-muted-foreground text-center py-6 border border-dashed border-border rounded-lg">
+          No active bookings for this outlet
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {active.map((b) => (
+            <div
+              key={b.id}
+              className="rounded-lg border border-border bg-muted/20 p-3 flex flex-col gap-2"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-medium text-sm truncate">
+                    {b.memberName || "Guest"}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {b.className || b.service}
+                  </p>
+                </div>
+                <Badge
+                  variant="outline"
+                  className="text-[10px] font-mono shrink-0"
+                >
+                  {b.startTime || "--:--"}
+                </Badge>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-[11px]"
+                  onClick={() => onView(b)}
+                >
+                  <Eye className="h-3 w-3 mr-1" /> View
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-7 text-[11px] gradient-gold text-primary-foreground"
+                  onClick={() => onBilling(b)}
+                >
+                  <CreditCard className="h-3 w-3 mr-1" /> Billing
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-[11px] text-destructive hover:text-destructive"
+                  onClick={() => onCancel(b)}
+                >
+                  <X className="h-3 w-3 mr-1" /> Cancel
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
   );
 }
