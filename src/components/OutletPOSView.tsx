@@ -90,6 +90,14 @@ export function OutletPOSView({ outlet }: Props) {
   const { data: settings = {} } = useCompanySettings();
   const addBookingMutation = useAddBooking();
   const addTransactionMutation = useAddTransaction();
+  const { data: outletBookings = [] } = useBookings({ outletId: outlet.id });
+  const { data: transactions = [] } = useTransactions();
+  const updateBookingMutation = useUpdateBooking();
+  const updateTransactionMutation = useUpdateTransaction();
+
+  const [detailBooking, setDetailBooking] = useState<Booking | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+
 
   const attendants = parseSetup(settings, "setup_instructors", [
     "Reception",
