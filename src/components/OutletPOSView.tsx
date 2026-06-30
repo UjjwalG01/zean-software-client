@@ -11,6 +11,9 @@ import {
   ShoppingCart,
   Pause,
   Loader2,
+  Eye,
+  X,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
