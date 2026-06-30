@@ -6,7 +6,9 @@ export type PaymentMethod = "cash" | "card" | "esewa" | "bank_transfer" | "mobil
 export type BookingStatus =
   | "Confirmed"
   | "Waitlisted"
-  | "NotFixed";
+  | "NotFixed"
+  | "Completed"
+  | "Cancelled";
 
 export interface Member {
   id: string;
