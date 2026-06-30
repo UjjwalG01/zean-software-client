@@ -783,5 +783,4 @@ function CurrentBookingsPanel({
     </div>
   );
 }
-  );
-}
+
