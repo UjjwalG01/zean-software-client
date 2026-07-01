@@ -1,4 +1,5 @@
 import { formatNPR, type Transaction, type Booking } from "./mock-data";
+import { capitalizeFirstLetter } from "./string-case-change";
 import { formatDateTime, formatInTz, nowIso } from "./tz";
 
 // HTML escape helper to prevent XSS when interpolating user-supplied data
@@ -15,26 +16,8 @@ function escHtml(s: unknown): string {
 // Number to words for NPR
 function numberToWords(n: number): string {
   const ones = [
-    "",
-    "One",
-    "Two",
-    "Three",
-    "Four",
-    "Five",
-    "Six",
-    "Seven",
-    "Eight",
-    "Nine",
-    "Ten",
-    "Eleven",
-    "Twelve",
-    "Thirteen",
-    "Fourteen",
-    "Fifteen",
-    "Sixteen",
-    "Seventeen",
-    "Eighteen",
-    "Nineteen",
+    "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
+    "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"
   ];
   const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
 
@@ -69,7 +52,6 @@ export interface A5BillItem {
   quantity: number;
   rate: number;
   amount: number;
-  /** Optional head used to group the row in the bill (Services, Spa, FIT, Record Charges, etc.). */
   head?: string;
 }
 
@@ -95,22 +77,17 @@ export function generateA5BillHTML(options: {
   luxuryTax?: number;
   taxableAmount: number;
   vatAmount: number;
+  vatRate?: number; // 🌟 Added: Dynamic Tax Rate pass-through
   grandTotal: number;
-  /** Existing outstanding balance carried forward from prior unsettled charges. */
   previousBalance?: number;
-  /** Manual discount applied at settlement time. */
   discount?: number;
-  /** Available advance/credit being applied toward this bill. */
   advancePaid?: number;
-  /** Cash/POS amount paid right now. */
   paidAmount?: number;
   paymentMethod?: string;
   status?: string;
   remarks?: string;
   attendant?: string;
-  /** Paper size for the receipt. Defaults to A5. */
   paperSize?: BillPaperSize;
-  /** Receipt kind. 'advance' renders the simpler Advance Receipt layout. */
   kind?: BillKind;
 }): string {
   const o = options;
@@ -127,6 +104,8 @@ export function generateA5BillHTML(options: {
   const isRefund = netPayable < 0;
   const isFullyPaid = !isRefund && paid >= netPayable - 0.01;
   const isOverpaid = !isRefund && paid > netPayable + 0.01;
+  const activeVatRate = o.vatRate !== undefined ? o.vatRate : 13;
+
   const statusLabel = isRefund || isOverpaid
     ? "OVERPAID"
     : isFullyPaid
@@ -136,7 +115,6 @@ export function generateA5BillHTML(options: {
         : (o.status || "PENDING").toUpperCase();
   const statusColor = isRefund || isOverpaid ? "#b45309" : isFullyPaid ? "#16a34a" : "#dc2626";
 
-  // Paper-size-driven CSS variables
   const sizeCss = (() => {
     switch (paperSize) {
       case "A4":
@@ -173,7 +151,6 @@ export function generateA5BillHTML(options: {
   const isThermal = paperSize === "80mm";
   const titleText = kind === "advance" ? "ADVANCE RECEIPT" : "PAYMENT RECEIPT";
 
-  // Item rows
   const itemRows = o.items
     .map(
       (it) =>
@@ -181,15 +158,16 @@ export function generateA5BillHTML(options: {
     )
     .join("");
 
-  // Summary rows differ for payment vs advance
+  // 🌟 FIX: Rectified calculation breakdowns to cleanly display Subtotal, VAT, and Discounts sequentially
   const summaryRowsPayment = `
     <tr class="sep"><td colspan="2"></td></tr>
-    <tr><td>Subtotal</td><td class="right">NPR ${currentTotal.toFixed(2)}</td></tr>
+    <tr><td>Subtotal (before VAT)</td><td class="right">NPR ${o.subtotal.toFixed(2)}</td></tr>
+    <tr><td>VAT (${activeVatRate}%)</td><td class="right">NPR ${o.vatAmount.toFixed(2)}</td></tr>
     ${previousBalance > 0 ? `<tr><td>Previous Balance (due)</td><td class="right">NPR ${previousBalance.toFixed(2)}</td></tr>` : ""}
     <tr class="sep"><td colspan="2"></td></tr>
     <tr class="bold"><td>Grand Total</td><td class="right">NPR ${grossDue.toFixed(2)}</td></tr>
     ${advance > 0 ? `<tr class="neg"><td>Advance Amount</td><td class="right">- NPR ${advance.toFixed(2)}</td></tr>` : ""}
-    ${discount > 0 ? `<tr class="neg"><td>Discount</td><td class="right">- NPR ${discount.toFixed(2)}</td></tr>` : ""}
+    ${discount > 0 ? `<tr class="neg"><td>Discount Applied</td><td class="right">- NPR ${discount.toFixed(2)}</td></tr>` : ""}
     <tr class="sep"><td colspan="2"></td></tr>
     <tr class="bold net"><td>Net Payable</td><td class="right">NPR ${Math.abs(netPayable).toFixed(2)}</td></tr>
     <tr class="bold"><td>Amount Paid</td><td class="right">NPR ${paid.toFixed(2)}</td></tr>
@@ -213,82 +191,82 @@ export function generateA5BillHTML(options: {
     </table>`;
 
   return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Receipt ${escHtml(o.billNo)}</title>
-<style>
-${sizeCss.page}
-* { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: ${sizeCss.fontSize}; color: #1f2937; background: #ffffff; width: ${sizeCss.bodyWidth}; min-height: ${sizeCss.bodyMinHeight}; position: relative; }
-.page { position: relative; padding: 0 0 ${isThermal ? "6mm" : "16mm"}; min-height: ${sizeCss.bodyMinHeight}; overflow: hidden; }
-.watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: ${isThermal ? "50mm" : "75mm"}; opacity: 0.07; pointer-events: none; z-index: 0; }
-.header { background: ${isThermal ? "#ffffff" : "#1e3a8a"}; color: ${isThermal ? "#1e3a8a" : "#fff"}; padding: ${sizeCss.headerPad}; text-align: center; position: relative; z-index: 1; ${isThermal ? "border-bottom: 1px dashed #94a3b8;" : ""} }
-.header h1 { font-size: ${isThermal ? "14px" : paperSize === "A4" ? "22px" : "20px"}; font-weight: 700; letter-spacing: 0.3px; margin-bottom: 4px; }
-.header .tagline { font-size: ${isThermal ? "9px" : "10px"}; font-style: italic; opacity: 0.9; margin-bottom: 4px; }
-.header .contact { font-size: ${isThermal ? "8.5px" : "9.5px"}; opacity: 0.95; letter-spacing: 0.2px; line-height: 1.4; }
-.header .contact span { margin: 0 4px; }
-.title-bar { background: ${isThermal ? "#ffffff" : "#eef2ff"}; color: #1e3a8a; text-align: center; font-weight: 700; letter-spacing: 1.5px; font-size: ${isThermal ? "11px" : "12px"}; padding: 6px 0; border-bottom: 1px ${isThermal ? "dashed #94a3b8" : "solid #c7d2fe"}; position: relative; z-index: 1; }
-.body-pad { padding: ${isThermal ? "4mm" : "8mm"} ${sizeCss.padX} 0; position: relative; z-index: 1; }
-.row { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
-.row .label { color: #6b7280; font-weight: 600; min-width: ${isThermal ? "60px" : "80px"}; display: inline-block; }
-.row .val { color: #111827; font-weight: 600; }
-.divider { border: none; border-top: 1px ${isThermal ? "dashed #94a3b8" : "solid #e5e7eb"}; margin: 7px 0 9px; }
-.member-block { margin: 6px 0 10px; }
-.member-block .row { margin-bottom: 5px; }
-table.items { width: 100%; border-collapse: collapse; margin: 6px 0 0; }
-table.items thead th { background: ${isThermal ? "#ffffff" : "#1e3a8a"}; color: ${isThermal ? "#1e3a8a" : "#fff"}; padding: 6px 4px; font-size: ${isThermal ? "10px" : "10.5px"}; text-align: left; font-weight: 700; letter-spacing: 0.4px; border-bottom: 2px ${isThermal ? "dashed #94a3b8" : "solid #1e3a8a"}; }
-table.items thead th.right { text-align: right; }
-table.items tbody td { padding: 5px 4px; font-size: ${sizeCss.fontSize}; }
-table.items tbody td.right { text-align: right; }
-table.summary { width: 100%; border-collapse: collapse; margin-top: 4px; }
-table.summary td { padding: 4px; font-size: ${sizeCss.fontSize}; }
-table.summary td.right { text-align: right; }
-table.summary tr.bold td { font-weight: 700; color: #0f172a; }
-table.summary tr.net td { background: ${isThermal ? "transparent" : "#eef2ff"}; color: #1e3a8a; }
-table.summary tr.neg td { color: #b45309; }
-table.summary tr.sep td { border-top: 1px ${isThermal ? "dashed #94a3b8" : "solid #cbd5e1"}; padding: 0; height: 4px; }
-.meta-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 4px 4px; font-size: ${sizeCss.fontSize}; }
-.meta-row .method { color: #1e3a8a; font-weight: 600; }
-.status-pill { font-weight: 700; letter-spacing: 0.6px; font-size: ${sizeCss.fontSize}; }
-.remarks { font-style: italic; color: #6b7280; font-size: ${isThermal ? "9.5px" : "10px"}; padding: 0 4px 8px; }
-.thanks { text-align: center; color: #b45309; font-style: italic; font-size: ${isThermal ? "10px" : "10.5px"}; margin-top: ${isThermal ? "8px" : "16px"}; }
-.signature { text-align: right; padding: ${isThermal ? "10px" : "16px"} ${sizeCss.padX} 0; font-size: ${isThermal ? "9px" : "10px"}; color: #4b5563; ${isThermal ? "display:none;" : ""} }
-.signature .line { display: inline-block; width: 50mm; border-bottom: 1px solid #6b7280; margin-left: 6px; height: 14px; vertical-align: bottom; }
-</style></head><body>
-<div class="page">
-${o.companyLogoUrl ? `<img class="watermark" src="${escHtml(o.companyLogoUrl)}" alt="" />` : ""}
-<div class="header">
-  <h1>${escHtml(o.companyName)}</h1>
-  ${o.companyTagline ? `<div class="tagline">${escHtml(o.companyTagline)}</div>` : ""}
-  <div class="contact">
-    ${o.companyAddress ? `<span>${escHtml(o.companyAddress)}</span>` : ""}
-    ${o.companyPhone ? `<span>|</span><span>${escHtml(o.companyPhone)}</span>` : ""}
-    ${o.companyEmail ? `<span>|</span><span>${escHtml(o.companyEmail)}</span>` : ""}
+    <html><head><meta charset="utf-8"><title>Receipt ${escHtml(o.billNo)}</title>
+    <style>
+    ${sizeCss.page}
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: ${sizeCss.fontSize}; color: #1f2937; background: #ffffff; width: ${sizeCss.bodyWidth}; min-height: ${sizeCss.bodyMinHeight}; position: relative; }
+    .page { position: relative; padding: 0 0 ${isThermal ? "6mm" : "16mm"}; min-height: ${sizeCss.bodyMinHeight}; overflow: hidden; }
+    .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: ${isThermal ? "50mm" : "75mm"}; opacity: 0.07; pointer-events: none; z-index: 0; }
+    .header { background: ${isThermal ? "#ffffff" : "#1e3a8a"}; color: ${isThermal ? "#1e3a8a" : "#fff"}; padding: ${sizeCss.headerPad}; text-align: center; position: relative; z-index: 1; ${isThermal ? "border-bottom: 1px dashed #94a3b8;" : ""} }
+    .header h1 { font-size: ${isThermal ? "14px" : paperSize === "A4" ? "22px" : "20px"}; font-weight: 700; letter-spacing: 0.3px; margin-bottom: 4px; }
+    .header .tagline { font-size: ${isThermal ? "9px" : "10px"}; font-style: italic; opacity: 0.9; margin-bottom: 4px; }
+    .header .contact { font-size: ${isThermal ? "8.5px" : "9.5px"}; opacity: 0.95; letter-spacing: 0.2px; line-height: 1.4; }
+    .header .contact span { margin: 0 4px; }
+    .title-bar { background: ${isThermal ? "#ffffff" : "#eef2ff"}; color: #1e3a8a; text-align: center; font-weight: 700; letter-spacing: 1.5px; font-size: ${isThermal ? "11px" : "12px"}; padding: 6px 0; border-bottom: 1px ${isThermal ? "dashed #94a3b8" : "solid #c7d2fe"}; position: relative; z-index: 1; }
+    .body-pad { padding: ${isThermal ? "4mm" : "8mm"} ${sizeCss.padX} 0; position: relative; z-index: 1; }
+    .row { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+    .row .label { color: #6b7280; font-weight: 600; min-width: ${isThermal ? "60px" : "80px"}; display: inline-block; }
+    .row .val { color: #111827; font-weight: 600; }
+    .divider { border: none; border-top: 1px ${isThermal ? "dashed #94a3b8" : "solid #e5e7eb"}; margin: 7px 0 9px; }
+    .member-block { margin: 6px 0 10px; }
+    .member-block .row { margin-bottom: 5px; }
+    table.items { width: 100%; border-collapse: collapse; margin: 6px 0 0; }
+    table.items thead th { background: ${isThermal ? "#ffffff" : "#1e3a8a"}; color: ${isThermal ? "#1e3a8a" : "#fff"}; padding: 6px 4px; font-size: ${isThermal ? "10px" : "10.5px"}; text-align: left; font-weight: 700; letter-spacing: 0.4px; border-bottom: 2px ${isThermal ? "dashed #94a3b8" : "solid #1e3a8a"}; }
+    table.items thead th.right { text-align: right; }
+    table.items tbody td { padding: 5px 4px; font-size: ${sizeCss.fontSize}; }
+    table.items tbody td.right { text-align: right; }
+    table.summary { width: 100%; border-collapse: collapse; margin-top: 4px; }
+    table.summary td { padding: 4px; font-size: ${sizeCss.fontSize}; }
+    table.summary td.right { text-align: right; }
+    table.summary tr.bold td { font-weight: 700; color: #0f172a; }
+    table.summary tr.net td { background: ${isThermal ? "transparent" : "#eef2ff"}; color: #1e3a8a; }
+    table.summary tr.neg td { color: #dc2626; }
+    table.summary tr.sep td { border-top: 1px ${isThermal ? "dashed #94a3b8" : "solid #cbd5e1"}; padding: 0; height: 4px; }
+    .meta-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 4px 4px; font-size: ${sizeCss.fontSize}; }
+    .meta-row .method { color: #1e3a8a; font-weight: 600; }
+    .status-pill { font-weight: 700; letter-spacing: 0.6px; font-size: ${sizeCss.fontSize}; }
+    .remarks { font-style: italic; color: #6b7280; font-size: ${isThermal ? "9.5px" : "10px"}; padding: 0 4px 8px; }
+    .thanks { text-align: center; color: #b45309; font-style: italic; font-size: ${isThermal ? "10px" : "10.5px"}; margin-top: ${isThermal ? "8px" : "16px"}; }
+    .signature { text-align: right; padding: ${isThermal ? "10px" : "16px"} ${sizeCss.padX} 0; font-size: ${isThermal ? "9px" : "10px"}; color: #4b5563; ${isThermal ? "display:none;" : ""} }
+    .signature .line { display: inline-block; width: 50mm; border-bottom: 1px solid #6b7280; margin-left: 6px; height: 14px; vertical-align: bottom; }
+    </style></head><body>
+    <div class="page">
+    ${o.companyLogoUrl ? `<img class="watermark" src="${escHtml(o.companyLogoUrl)}" alt="" />` : ""}
+    <div class="header">
+    <h1>${escHtml(o.companyName)}</h1>
+    ${o.companyTagline ? `<div class="tagline">${escHtml(o.companyTagline)}</div>` : ""}
+    <div class="contact">
+      ${o.companyAddress ? `<span>${escHtml(o.companyAddress)}</span>` : ""}
+      ${o.companyPhone ? `<span>|</span><span>${escHtml(o.companyPhone)}</span>` : ""}
+      ${o.companyEmail ? `<span>|</span><span>${escHtml(o.companyEmail)}</span>` : ""}
+    </div>
   </div>
-</div>
-<div class="title-bar">${titleText}</div>
-<div class="body-pad">
-  <div class="row">
-    <div><span class="label">Receipt No:</span> <span class="val">${escHtml(o.billNo)}</span></div>
-    <div><span class="label">Date:</span> <span class="val">${escHtml(o.billDate)}</span></div>
+  <div class="title-bar">${titleText}</div>
+  <div class="body-pad">
+    <div class="row">
+      <div><span class="label">Receipt No:</span> <span class="val">${escHtml(o.billNo)}</span></div>
+      <div><span class="label">Date:</span> <span class="val">${escHtml(o.billDate)}</span></div>
+    </div>
+    <hr class="divider" />
+    <div class="member-block">
+      <div class="row"><div><span class="label">Member Name:</span> <span class="val">${escHtml(o.guestName.toUpperCase())}</span></div></div>
+      ${o.memberCode ? `<div class="row"><div><span class="label">Member ID:</span> <span class="val">${escHtml(o.memberCode)}</span></div></div>` : ""}
+      ${o.memberClass ? `<div class="row"><div><span class="label">Tier / Plan:</span> <span class="val">${escHtml(o.memberClass)}</span></div></div>` : ""}
+    </div>
+    ${itemsTable}
+    <table class="summary">${summaryRows}</table>
+    <div class="meta-row">
+      <span class="method">Payment Method: ${escHtml(capitalizeFirstLetter(o.paymentMethod) || "Cash")}</span>
+      <span class="status-pill" style="color:${statusColor}">${statusLabel}</span>
+    </div>
+    ${o.remarks ? `<div class="remarks">Remarks: ${escHtml(o.remarks)}</div>` : ""}
+    <hr class="divider" />
+    <div class="thanks">Thank you for the payment!!!</div>
   </div>
-  <hr class="divider" />
-  <div class="member-block">
-    <div class="row"><div><span class="label">Member Name:</span> <span class="val">${escHtml(o.guestName.toUpperCase())}</span></div></div>
-    ${o.memberCode ? `<div class="row"><div><span class="label">Member ID:</span> <span class="val">${escHtml(o.memberCode)}</span></div></div>` : ""}
-    ${o.memberClass ? `<div class="row"><div><span class="label">Tier / Plan:</span> <span class="val">${escHtml(o.memberClass)}</span></div></div>` : ""}
+  <div class="signature">Authorized Signature: <span class="line"></span></div>
   </div>
-  ${itemsTable}
-  <table class="summary">${summaryRows}</table>
-  <div class="meta-row">
-    <span class="method">Payment Method: ${escHtml(o.paymentMethod || "Cash")}</span>
-    <span class="status-pill" style="color:${statusColor}">${statusLabel}</span>
-  </div>
-  ${o.remarks ? `<div class="remarks">Remarks: ${escHtml(o.remarks)}</div>` : ""}
-  <hr class="divider" />
-  <div class="thanks">Thank you for the payment!!!</div>
-</div>
-<div class="signature">Authorized Signature: <span class="line"></span></div>
-</div>
-</body></html>`;
+  </body></html>`;
 }
 
 export function printHTML(html: string) {
@@ -316,15 +294,10 @@ function csvEscape(v: unknown): string {
 }
 
 export interface CSVExportMeta {
-  /** Property/Company name (e.g. ".............") */
   propertyName?: string;
-  /** Title of the report */
   reportTitle?: string;
-  /** Date or date range string */
   dateRange?: string;
-  /** Generated-on timestamp (defaults to now) */
   generatedAt?: string;
-  /** Filters as { Label: Value } */
   filters?: Record<string, string>;
 }
 
@@ -341,7 +314,7 @@ export function exportTableToCSV(headers: string[], rows: string[][], filename: 
         lines.push(`${csvEscape(k)},${csvEscape(v)}`);
       });
     }
-    lines.push(""); // blank separator row
+    lines.push("");
   }
   lines.push(headers.map(csvEscape).join(","));
   rows.forEach((r) => lines.push(r.map(csvEscape).join(",")));
@@ -370,8 +343,15 @@ export function generateReceiptHTML(
     remarks?: string;
     paperSize?: BillPaperSize;
     kind?: BillKind;
+    vatRate?: number; // 🌟 Added: Receive configurable VAT context
   },
 ): string {
+  // 🌟 FIX: Pull discount context dynamically so the printable matches the view modal layout perfectly
+  const discountAmount = Number((t as any).discount) || 0;
+  const calculatedPaidAmount = t.status === "pending" || t.status === "voided"
+    ? 0
+    : Math.max(0, t.total - discountAmount);
+
   return generateA5BillHTML({
     companyName,
     companyTagline: extras?.companyTagline,
@@ -381,23 +361,25 @@ export function generateReceiptHTML(
     companyLogoUrl: extras?.companyLogoUrl,
     memberCode: extras?.memberCode,
     memberClass: extras?.memberClass,
-    paymentMethod: extras?.paymentMethod,
-    remarks: extras?.remarks,
+    paymentMethod: extras?.paymentMethod || t.method,
+    remarks: extras?.remarks || t.description,
     guestName: t.memberName,
     billNo: t.receiptNo,
     billDate: t.date,
     billForMonth: formatInTz(t.date, { month: "long", year: "numeric" }),
-    items: [{ description: t.description, quantity: 1, rate: t.amount, amount: t.amount }],
+    items: [{ description: t.description || "Subscription / Club Services", quantity: 1, rate: t.amount, amount: t.amount }],
     subtotal: t.amount,
     taxableAmount: t.amount,
     vatAmount: t.vat,
+    vatRate: extras?.vatRate, // Pass down to the layout summary renderer
     grandTotal: t.total,
-    paidAmount: t.total,
+    discount: discountAmount,
+    paidAmount: calculatedPaidAmount,
+    status: t.status,
     paperSize: extras?.paperSize,
     kind: extras?.kind,
   });
 }
-
 
 export const handlePrintReport = (columns, rows, title, propertyName) => {
   const headerRow = `<tr>${columns.map((c) => `<th style="text-align:${c.align || "left"}">${c.label}</th>`).join("")}</tr>`;

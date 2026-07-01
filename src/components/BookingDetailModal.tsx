@@ -123,10 +123,18 @@ export function BookingDetailModal({
 
   if (!b) return null;
 
-  const status = localStatus || b.status;
+  // 🌟 FIX: Normalize status checks to lowercase to safeguard against database/local casing mismatches
+  const rawStatus = localStatus || b.status || "";
+  const displayStatus =
+    rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1).toLowerCase();
+  const currentStatusClean = rawStatus.toLowerCase();
+
   const canEdit =
-    isFutureBooking(b) && status !== "Completed" && status !== "Cancelled";
-  const canCancel = status !== "Completed" && status !== "Cancelled";
+    isFutureBooking(b) &&
+    currentStatusClean !== "completed" &&
+    currentStatusClean !== "cancelled";
+  const canCancel =
+    currentStatusClean !== "completed" && currentStatusClean !== "cancelled";
 
   const isStrictlyFuture = (() => {
     const today = new Date();
@@ -216,7 +224,7 @@ export function BookingDetailModal({
       await updateBooking.mutateAsync({
         id: b.id,
         data: {
-          status: "Cancelled",
+          status: "cancelled",
           cancelReason,
           cancelledAt: new Date().toISOString(),
         } as any,
@@ -258,6 +266,7 @@ export function BookingDetailModal({
       toast.error("Failed to cancel booking");
     }
   };
+  // console.log(settings.company_name);
 
   const handleGenerateBill = () => {
     const companyName = settings.companyName || ".............";
@@ -273,10 +282,21 @@ export function BookingDetailModal({
     const baseRate = linkedTxn
       ? linkedTxn.amount || linkedTxn.total
       : svc?.price || 500;
+
+    // 🌟 FIX: Read tax percent dynamically from company settings (supports 0 and positive numbers)
+    const activeVatRate =
+      settings.vatRate !== undefined && settings.vatRate !== null
+        ? Number(settings.vatRate)
+        : 13;
+
+    const vatMultiplier = activeVatRate / 100;
+
     const grandTotal = linkedTxn
       ? linkedTxn.total
-      : baseRate + Math.round(baseRate * 0.13);
-    const vatAmount = linkedTxn ? linkedTxn.vat : Math.round(baseRate * 0.13);
+      : baseRate + Math.round(baseRate * vatMultiplier);
+    const vatAmount = linkedTxn
+      ? linkedTxn.vat
+      : Math.round(baseRate * vatMultiplier);
     const taxableAmount = grandTotal - vatAmount;
 
     const html = generateA5BillHTML({
@@ -284,7 +304,7 @@ export function BookingDetailModal({
       companyAddress: settings.companyAddress || "",
       companyPhone: settings.companyPhone || "",
       companyEmail: settings.companyEmail || "",
-      vatNo: settings.vatNo || "",
+      vatNo: settings.panNumber || settings.vatNo || "",
       guestName: b.memberName,
       billNo: linkedTxn?.receiptNo || `BK-${b.id.slice(0, 8)}`,
       billDate: linkedTxn?.date || format(new Date(), "dd/MM/yyyy"),

@@ -43,3 +43,4 @@ export const colorOptions = [
   { label: "Orange", value: "#FF7F50", tw: "bg-sports" }, // Sports → dynamic orange
   { label: "Purple", value: "#9B59B6", tw: "bg-wellness" }, // Wellness → calming purple
 ];
+

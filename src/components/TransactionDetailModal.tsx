@@ -55,7 +55,13 @@ export function TransactionDetailModal({
 
   const companyName = settings.companyName || ".............";
 
-  // 🔄 MODIFIED: Calculate actual paid volume net of any applied discounts
+  // 🌟 FIX: Determine active VAT percentage dynamically from settings (supports 0 or any positive entry)
+  const activeVatRate =
+    settings.vatRate !== undefined && settings.vat_rate !== null
+      ? Number(settings.vat_rate)
+      : 13;
+
+  // Calculate actual paid volume net of any applied discounts
   const discountAmount = Number((t as any).discount) || 0;
   const paidAmount = Math.max(0, t.total - discountAmount);
 
@@ -63,15 +69,22 @@ export function TransactionDetailModal({
   const isVoided = t.voided || t.status === "voided";
 
   const paperSize = (settings.bill_paperSize as "A4" | "A5" | "80mm") || "A5";
-  const receiptKind: "payment" | "advance" = t.type === "Advance" ? "advance" : "payment";
+  const receiptKind: "payment" | "advance" =
+    t.type === "Advance" ? "advance" : "payment";
 
   const handlePrint = () => {
-    const html = generateReceiptHTML(t, companyName, { paperSize, kind: receiptKind });
+    const html = generateReceiptHTML(t, companyName, {
+      paperSize,
+      kind: receiptKind,
+    });
     printHTML(html);
   };
 
   const handleDownload = () => {
-    const html = generateReceiptHTML(t, companyName, { paperSize, kind: receiptKind });
+    const html = generateReceiptHTML(t, companyName, {
+      paperSize,
+      kind: receiptKind,
+    });
     downloadHTML(html, `receipt-${t.receiptNo}.html`);
   };
 
@@ -171,19 +184,12 @@ export function TransactionDetailModal({
                 <span>{formatNPR(t.amount)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">VAT (13%)</span>
+                {/* 🌟 FIX: Made the VAT label percentage reflect current configurations dynamically */}
+                <span className="text-muted-foreground">
+                  VAT ({activeVatRate}%)
+                </span>
                 <span>{formatNPR(t.vat)}</span>
               </div>
-
-              {/* 🏷️ NEW: Discount Line-Item breakdown indicator */}
-              {discountAmount > 0 && (
-                <div className="flex justify-between text-sm text-destructive">
-                  <span>Discount Applied</span>
-                  <span className="font-medium">
-                    -{formatNPR(discountAmount)}
-                  </span>
-                </div>
-              )}
 
               <Separator />
               <div className="flex justify-between text-sm font-bold">
@@ -200,6 +206,23 @@ export function TransactionDetailModal({
               Payment Details
             </p>
             <div className="space-y-2">
+              {/* Discount Line-Item breakdown indicator */}
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-sm text-destructive">
+                  <span>Discount Applied</span>
+                  <span className="font-medium">
+                    -{formatNPR(discountAmount)}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Paid Amount</span>
+                <span className="text-success font-medium font-mono">
+                  {t.status === "pending" || t.status === "voided"
+                    ? 0
+                    : formatNPR(paidAmount)}
+                </span>
+              </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Payment Method</span>
                 <Badge
@@ -210,13 +233,21 @@ export function TransactionDetailModal({
                     : t.method}
                 </Badge>
               </div>
+
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Paid Amount</span>
-                <span className="text-success font-medium font-mono">
-                  {t.status === "pending" || t.status === "voided"
-                    ? 0
-                    : formatNPR(paidAmount)}
-                </span>
+                <span className="text-muted-foreground">Status</span>
+                {t.status === "pending" || t.status === "voided" ? (
+                  <Badge className="text-[10px] bg-amber-500/20 text-amber-400 border-0 capitalize">
+                    {t.status}
+                  </Badge>
+                ) : (
+                  <Badge
+                    variant="default"
+                    className="text-[10px] bg-success/20 text-success border-0"
+                  >
+                    Paid
+                  </Badge>
+                )}
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Balance Due</span>
@@ -232,21 +263,6 @@ export function TransactionDetailModal({
                   >
                     {formatNPR(balanceAmount)}
                   </span>
-                )}
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Status</span>
-                {t.status === "pending" || t.status === "voided" ? (
-                  <Badge className="text-[10px] bg-amber-500/20 text-amber-400 border-0">
-                    {t.status}
-                  </Badge>
-                ) : (
-                  <Badge
-                    variant="default"
-                    className="text-[10px] bg-success/20 text-success border-0"
-                  >
-                    Paid
-                  </Badge>
                 )}
               </div>
             </div>
@@ -265,7 +281,7 @@ export function TransactionDetailModal({
           )}
 
           {isVoided && (
-            <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive text-center">
+            <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive text-center font-medium">
               VOIDED{t.voidReason ? ` — ${t.voidReason}` : ""}
             </div>
           )}

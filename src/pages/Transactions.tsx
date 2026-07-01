@@ -93,14 +93,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-import { formatInTimeZone } from "date-fns-tz";
 import {
   getSystemTodayStr,
   getSystemTimestamp,
   getSystemNowDate,
 } from "@/lib/timeUtils";
-
-const SYSTEM_TZ = "Asia/Katmandu";
 
 function parseSetup(
   settings: Record<string, string>,
@@ -114,7 +111,6 @@ function parseSetup(
   }
 }
 
-/** Charges that have been paid count as "settled"; pending charges remain due. */
 function statusLabel(t: Transaction): "Voided" | "Settled" | "Pending" {
   if ((t as any).voided || t.status === "voided") return "Voided";
   if (t.type === "Charge")
@@ -125,7 +121,10 @@ function statusLabel(t: Transaction): "Voided" | "Settled" | "Pending" {
 }
 
 const Transactions = () => {
+  // 🌟 Optimization 1: Separate immediate text state from filtered state
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+
   const [methodFilter, setMethodFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -136,16 +135,7 @@ const Transactions = () => {
     useState<Transaction | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
-  const [advMember, setAdvMember] = useState("");
-  const [advAmount, setAdvAmount] = useState("");
-  const [advMethod, setAdvMethod] = useState<PaymentMethod>("cash");
-  const [advNote, setAdvNote] = useState("");
-  const [advDiscount, setAdvDiscount] = useState("");
-
   const [settleTxn, setSettleTxn] = useState<Transaction | null>(null);
-  const [settleMethod, setSettleMethod] = useState<PaymentMethod>("cash");
-  const [settleNote, setSettleNote] = useState("");
-  const [settleDiscount, setSettleDiscount] = useState<string>("");
   const [isSettlement, setIsSettlement] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const todayStr = getSystemTodayStr();
@@ -165,8 +155,11 @@ const Transactions = () => {
   const updateBookingMutation = useUpdateBooking();
   const qc = useQueryClient();
 
-  // Confirmation state
-  const [pendingSettle, setPendingSettle] = useState(false);
+  // Debounce global search input to prevent filtering lists on every keypress
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(searchInput), 250);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   const paymentModes = parseSetup(settings, "setup_paymentModes", [
     "cash",
@@ -176,14 +169,6 @@ const Transactions = () => {
     "mobile_wallet",
     "cheque",
     "other",
-  ]);
-  const paymentTypes = parseSetup(settings, "setup_paymentTypes", [
-    "Payment",
-    "Charge",
-    "Advance",
-    "Renewal",
-    "Registration",
-    "Refund",
   ]);
 
   const filtered = useMemo(() => {
@@ -224,54 +209,16 @@ const Transactions = () => {
   ]);
 
   const activeForTotals = filtered.filter((t) => statusLabel(t) !== "Voided");
-  // Net amount actually received from guest = total − discount applied.
   const totalAmount = activeForTotals.reduce(
     (sum, t) =>
       sum + Math.max(0, (t.total || 0) - (Number((t as any).discount) || 0)),
     0,
   );
-  const totalVat = activeForTotals.reduce((sum, t) => sum + t.vat, 0);
 
-  const memberFinancials = useMemo(() => {
-    if (!advMember)
-      return { grossCharges: 0, availableAdvance: 0, netPayable: 0 };
-
-    // 1. Sum up all unpaid charges
-    const grossCharges = transactions
-      .filter(
-        (t) =>
-          t.memberId === advMember &&
-          t.type === "Charge" &&
-          statusLabel(t) === "Pending",
-      )
-      .reduce((sum, t) => sum + (t.total || 0), 0);
-
-    // 2. Sum up any unutilized advance deposits or credits
-    const availableAdvance = transactions
-      .filter(
-        (t) =>
-          t.memberId === advMember &&
-          t.type === "Advance" &&
-          (t.status === "pending" || t.status === "unpaid" || !t.status),
-      )
-      .reduce((sum, t) => sum + (t.total || t.amount || 0), 0);
-
-    // 3. Compute net amount the member actually owes right now
-    const netPayable = Math.max(0, grossCharges - availableAdvance);
-
-    return { grossCharges, availableAdvance, netPayable };
-  }, [advMember, transactions]);
-
-  // Calculate the final checkout figure after entering an optional discount
-  const finalBatchNetPayable = Math.max(
-    0,
-    memberFinancials.netPayable - (Number(advDiscount) || 0),
-  );
-
-  // Local pagination
   useEffect(() => {
     setPage(1);
   }, [search, methodFilter, typeFilter, statusFilter, dateFrom, dateTo]);
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pagedFiltered = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
@@ -289,12 +236,12 @@ const Transactions = () => {
       discount?: number;
       head?: string;
       excludeTxnId?: string;
+      paymentMethod?: string; // 🌟 Pass method down dynamically
     },
   ) => {
     const companyName = settings.companyName || ".............";
     const net = Math.round((gross / 1.13) * 100) / 100;
     const vat = Math.round((gross - net) * 100) / 100;
-    // Sum of prior pending charges for the member (excluding the one being settled).
     const previousBalance = extras?.memberId
       ? transactions
           .filter(
@@ -306,6 +253,7 @@ const Transactions = () => {
           )
           .reduce((s, t) => s + (t.total || 0), 0)
       : 0;
+
     const html = generateA5BillHTML({
       companyName,
       companyAddress: settings.companyAddress || "",
@@ -333,126 +281,29 @@ const Transactions = () => {
       discount: extras?.discount || 0,
       paidAmount: gross,
       attendant: "user",
-      paymentMethod: settleMethod,
+      paymentMethod: extras?.paymentMethod || "cash",
       paperSize: (settings.bill_paperSize as "A4" | "A5" | "80mm") || "A5",
       kind: "payment",
     });
     printHTML(html);
   };
 
-  // ─── Add Advance ──────────────────────────────────────────────────
-  const handleAddAdvance = async () => {
-    if (!advMember || !advAmount) {
-      toast.error("Please select member and enter amount");
-      return;
-    }
-    const memberObj = members.find((m) => m.id === advMember);
-    const amount = Number(advAmount);
-    if (amount <= 0) {
-      toast.error("Amount must be greater than zero");
-      return;
-    }
-    try {
-      await applyAdvance(
-        (d) => addTransactionMutation.mutateAsync(d) as Promise<string>,
-        {
-          memberId: advMember,
-          memberName: memberObj?.name || "",
-          amount,
-          method: advMethod,
-          note: advNote,
-          outletId: activeOutlet?.id,
-        },
-      );
-      // Auto-settle oldest pending charges from the (just-paid) advance.
-      const leftover = await settleOldestCharges(
-        (a) => updateTransactionMutation.mutateAsync(a),
-        transactions,
-        advMember,
-        amount,
-      );
-      // ⚡ AUDIT LOG INSERTION
-      await logAudit({
-        module: "transactions",
-        entityType: "transaction",
-        action: "advance_create",
-        entityId: advMember, // Groups under the target member's profile
-        outletId: activeOutlet?.id || null, // Captures active branch context
-        newValue: {
-          memberId: advMember,
-          memberName: memberObj?.name || "",
-          advanceAmount: amount,
-          paymentMethod: advMethod,
-          note: advNote || null,
-          remainingCredit: leftover,
-        },
-      });
-      toast.success(
-        leftover > 0
-          ? `Advance recorded — ${formatNPR(amount - leftover)} applied, ${formatNPR(leftover)} credit remaining`
-          : `Advance of ${formatNPR(amount)} applied to pending charges`,
-      );
-      // Print Advance Receipt
-      try {
-        const companyName = settings.companyName || ".............";
-        const advHtml = generateA5BillHTML({
-          companyName,
-          companyAddress: settings.companyAddress || "",
-          companyPhone: settings.companyPhone || "",
-          companyEmail: settings.companyEmail || "",
-          guestName: memberObj?.name || "",
-          billNo: `ADV-${Date.now().toString().slice(-8)}`,
-          billDate: format(getSystemNowDate(), "dd/MM/yyyy"),
-          billForMonth: format(getSystemNowDate(), "MMMM yyyy"),
-          items: [],
-          subtotal: amount,
-          taxableAmount: amount,
-          vatAmount: 0,
-          grandTotal: amount,
-          paidAmount: amount,
-          paymentMethod: advMethod,
-          paperSize: (settings.bill_paperSize as "A4" | "A5" | "80mm") || "A5",
-          kind: "advance",
-        });
-        printHTML(advHtml);
-      } catch {
-        /* non-blocking */
-      }
-      setAdvanceOpen(false);
-      setAdvDiscount("");
-      setAdvMember("");
-      setAdvAmount("");
-      setAdvNote("");
-      setAdvMethod("cash");
-    } catch {
-      toast.error("Failed to record advance");
-    }
-  };
-
-  // ─── Settle / Resettle ────────────────────────────────────────────
   const openSettle = (t: Transaction, settlement = false) => {
-    setSettleMethod("cash");
-    setSettleNote("");
-    setSettleDiscount("");
     setIsSettlement(settlement);
     setSettleTxn(t);
   };
 
-  // Auto-open the settlement dialog when redirected from a booking.
+  // Auto-open logic on redirection
   useEffect(() => {
-    if (searchParams.get("newPayment") !== "true") return;
-    // Wait until transactions have loaded before deciding.
-    if (isLoading) return;
+    if (searchParams.get("newPayment") !== "true" || isLoading) return;
 
-    // const { outlets } = useOutlet();
-    // console.log(outlets);
     const chargeId = searchParams.get("chargeId");
     const bookingId = searchParams.get("bookingId");
     const memberId = searchParams.get("memberId");
-    let charge: Transaction | undefined;
-    if (chargeId) {
-      charge = transactions.find((t) => t.id === chargeId);
-    }
+    let charge = chargeId
+      ? transactions.find((t) => t.id === chargeId)
+      : undefined;
+
     if (!charge && bookingId) {
       charge = transactions.find(
         (t) =>
@@ -462,7 +313,6 @@ const Transactions = () => {
       );
     }
     if (!charge && memberId) {
-      // Fallback: settle the oldest pending charge for the member.
       charge = transactions.find(
         (t) =>
           t.memberId === memberId &&
@@ -470,11 +320,9 @@ const Transactions = () => {
           t.status === "pending",
       );
     }
+
     const isGuestFlow = searchParams.get("guest") === "1";
     if (!charge && (memberId || isGuestFlow)) {
-      // Dynamic fallback: construct a temporary charge transaction so the modal can open.
-      // Guest bookings (FIT walk-ins) have no memberId — we still want the settlement
-      // modal to open with the guest name + amount + default Cash/0 discount prefilled.
       const amountStr = searchParams.get("amount");
       const serviceStr = searchParams.get("service") || "Service";
       const classNameStr = searchParams.get("className") || "";
@@ -504,12 +352,13 @@ const Transactions = () => {
         } as any;
       }
     }
+
     if (charge) {
       openSettle(charge, true);
     } else {
       toast.error("No pending charge found to settle");
     }
-    // Clear params so it doesn't re-trigger on refresh / state change.
+
     const next = new URLSearchParams(searchParams);
     [
       "newPayment",
@@ -526,143 +375,6 @@ const Transactions = () => {
     ].forEach((k) => next.delete(k));
     setSearchParams(next, { replace: true });
   }, [transactions, isLoading, searchParams, setSearchParams]);
-
-  const handleSettle = async () => {
-    if (!settleTxn) return;
-    const discount = Math.max(0, Number(settleDiscount) || 0);
-    const netDue = Math.max(0, (settleTxn.total || 0) - discount);
-
-    try {
-      if (settleTxn.id.startsWith("TEMP-")) {
-        await addTransactionMutation.mutateAsync({
-          memberId: settleTxn.memberId,
-          memberName: settleTxn.memberName,
-          amount: netDue,
-          vat: settleTxn.vat,
-          total: netDue,
-          discount,
-          method: settleMethod,
-          type: settleTxn.serviceType || "Charge",
-          date: getSystemTodayStr(),
-          description: settleTxn.description,
-          receiptNo: settleTxn.receiptNo,
-          status: "paid",
-          bookingId: settleTxn.bookingId,
-          outletId: (settleTxn as any).outletId,
-          isSettlement: true,
-          isGuest: (settleTxn as any).isGuest || undefined,
-          guestName: (settleTxn as any).guestName || undefined,
-        } as any);
-      } else {
-        // 1) Flip canonical charges row to paid (source of truth for ledger)
-        const chargeRowId = (settleTxn as any).chargeRowId as
-          | string
-          | undefined;
-        if (chargeRowId) {
-          try {
-            const { supabase } = await import("@/lib/supabase");
-            const nowTs = getSystemTodayStr();
-            await supabase
-              .from("charges")
-              .update({
-                status: "paid",
-                paid_at: nowTs,
-                updated_at: nowTs,
-                discount,
-                method: settleMethod,
-                outlet_id: settleTxn.outletId || null,
-              })
-              .eq("id", chargeRowId);
-          } catch (err) {
-            console.warn(
-              "[transactions] failed to mark canonical charge paid",
-              err,
-            );
-          }
-        }
-        // 2) Mirror onto the legacy transaction row
-        await updateTransactionMutation.mutateAsync({
-          id: settleTxn.id,
-          data: {
-            status: "paid",
-            method: settleMethod,
-            date: getSystemTodayStr(),
-            discount,
-          } as any,
-        });
-      }
-
-      // 3) If linked to a booking, mark it Completed
-      if (settleTxn.bookingId) {
-        try {
-          await updateBookingMutation.mutateAsync({
-            id: settleTxn.bookingId,
-            data: {
-              status: "Completed",
-              settledAt: getSystemTimestamp(),
-              paymentMethod: settleMethod,
-            } as any,
-          });
-        } catch (err) {
-          console.warn("[transactions] failed to update booking status", err);
-        }
-      }
-
-      qc.invalidateQueries({ queryKey: ["bookings"] });
-      qc.invalidateQueries({ queryKey: ["transactions"] });
-      qc.invalidateQueries({ queryKey: ["charges"] });
-      qc.invalidateQueries({ queryKey: ["member-ledger"] });
-
-      // ⚡ AUDIT LOG INSERTION
-      await logAudit({
-        module: "transactions",
-        entityType: "transaction",
-        action: settleTxn.id.startsWith("TEMP-")
-          ? "settlement_create"
-          : "settle",
-        entityId: settleTxn.id,
-        outletId: activeOutlet?.id || settleTxn.outletId || null,
-        newValue: {
-          memberId: settleTxn.memberId,
-          memberName: settleTxn.memberName,
-          amountPaid: netDue,
-          discountApplied: discount,
-          paymentMethod: settleMethod,
-          note: settleNote || null,
-          bookingId: settleTxn.bookingId || null,
-        },
-      });
-
-      toast.success(
-        discount > 0
-          ? `Settled with ${formatNPR(discount)} discount`
-          : settleTxn.bookingId
-            ? "Payment settled — booking marked completed"
-            : "Payment settled",
-      );
-      printBill(
-        settleTxn.memberName,
-        settleTxn.receiptNo,
-        settleTxn.description,
-        netDue,
-        getSystemNowDate(),
-        {
-          memberId: settleTxn.memberId,
-          discount,
-          head: (settleTxn as any).serviceType || settleTxn.type || "Services",
-          excludeTxnId: settleTxn.id,
-        },
-      );
-
-      setSettleTxn(null);
-      setSettleMethod("cash");
-      setSettleNote("");
-      setSettleDiscount("");
-      setIsSettlement(false);
-    } catch (e) {
-      toast.error("Failed to settle payment");
-    }
-  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -709,21 +421,17 @@ const Transactions = () => {
                   dateRange: format(getSystemNowDate(), "PPP"),
                   filters: {
                     Search: search || "—",
-                    Method: methodFilter === "all" ? "All" : methodFilter,
-                    Type: typeFilter === "all" ? "All" : typeFilter,
-                    Status: statusFilter === "all" ? "All" : statusFilter,
                     "Total Records": String(filtered.length),
                     "Total Amount (NPR)": String(totalAmount),
-                    "Total VAT (NPR)": String(totalVat),
                   },
                 },
               );
-              toast.success(`Exported ${filtered.length} transactions to CSV`);
             }}
           >
             <Download className="h-4 w-4 mr-1" />
             {underlineSpecificChars("Export", [1])}
           </Button>
+
           <Button
             variant="outline"
             size="sm"
@@ -734,15 +442,7 @@ const Transactions = () => {
             {underlineFirstChar("Record Charge")}
           </Button>
 
-          <Dialog
-            open={advanceOpen}
-            onOpenChange={(o) => {
-              setAdvanceOpen(o);
-              if (!o) {
-                setAdvDiscount(""); // Reset discount when closed
-              }
-            }}
-          >
+          <Dialog open={advanceOpen} onOpenChange={setAdvanceOpen}>
             <DialogTrigger asChild>
               <Button accessKey="a" size="sm">
                 <Plus className="h-4 w-4 mr-1" />
@@ -755,149 +455,17 @@ const Transactions = () => {
                   Account Settlement & Advance
                 </DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
-                <p className="text-xs text-muted-foreground">
-                  Apply a payment to clear a member's accumulated balance. Any
-                  leftover amount is safely saved as a profile credit indicator.
-                </p>
-
-                <div className="space-y-2">
-                  <Label>Member *</Label>
-                  <Select value={advMember} onValueChange={setAdvMember}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select member" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {members.map((m) => (
-                        <SelectItem key={m.id} value={m.id}>
-                          {m.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* 📊 ACCUMULATED LEDGER BREAKDOWN CARD */}
-                {advMember && (
-                  <div className="p-3 rounded-lg border border-border bg-muted/40 space-y-2 text-sm animate-fade-in">
-                    <div className="flex justify-between items-center text-xs text-muted-foreground">
-                      <span>Gross Outstanding Tab:</span>
-                      <span className="font-mono font-medium">
-                        {formatNPR(memberFinancials.grossCharges)}
-                      </span>
-                    </div>
-                    {memberFinancials.availableAdvance > 0 && (
-                      <div className="flex justify-between items-center text-xs text-success">
-                        <span>Available Profile Credit:</span>
-                        <span className="font-mono font-medium">
-                          -{formatNPR(memberFinancials.availableAdvance)}
-                        </span>
-                      </div>
-                    )}
-                    <div className="pt-2 border-t border-border/60 flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <span className="text-xs font-medium text-muted-foreground block">
-                          Net Outstanding Balance:
-                        </span>
-                        <span className="font-mono font-bold text-base text-primary">
-                          {formatNPR(memberFinancials.netPayable)}
-                        </span>
-                      </div>
-                      {memberFinancials.netPayable > 0 && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-8 text-xs bg-background hover:bg-primary hover:text-primary-foreground transition-all"
-                          onClick={() =>
-                            setAdvAmount(String(finalBatchNetPayable))
-                          }
-                        >
-                          Use Net Total
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* 🏷️ BATCH DISCOUNT INPUT FIELD */}
-                {advMember && memberFinancials.netPayable > 0 && (
-                  <div className="grid grid-cols-2 gap-3 animate-fade-in">
-                    <div className="space-y-2">
-                      <Label>Apply Discount (NPR)</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={memberFinancials.netPayable}
-                        placeholder="0"
-                        value={advDiscount}
-                        onChange={(e) => setAdvDiscount(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Final Net Payable</Label>
-                      <Input
-                        value={formatNPR(finalBatchNetPayable)}
-                        readOnly
-                        className="bg-muted/40 font-semibold text-success font-mono"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <Label>Payment Amount (NPR) *</Label>
-                  <Input
-                    type="number"
-                    placeholder="0"
-                    value={advAmount}
-                    onChange={(e) => setAdvAmount(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Payment Method</Label>
-                  <Select
-                    value={advMethod}
-                    onValueChange={(v) => setAdvMethod(v as PaymentMethod)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {paymentModes.map((m) => (
-                        <SelectItem key={m} value={m}>
-                          {capitalizeFirstLetter(m.replace(/_/g, " "))}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Note</Label>
-                  <Textarea
-                    rows={2}
-                    value={advNote}
-                    onChange={(e) => setAdvNote(e.target.value)}
-                    placeholder="Optional checkout context"
-                  />
-                </div>
-
-                <Button
-                  onClick={handleAddAdvance}
-                  disabled={addTransactionMutation.isPending}
-                  className="w-full gradient-gold text-primary-foreground"
-                >
-                  <Receipt className="h-4 w-4 mr-1" />
-                  {addTransactionMutation.isPending
-                    ? "Processing Settlement..."
-                    : Number(advAmount) === finalBatchNetPayable &&
-                        finalBatchNetPayable > 0
-                      ? "Clear Total Account & Checkout"
-                      : "Record Payment"}
-                </Button>
-              </div>
+              {/* 🌟 Optimization 2: Isolated contents prevent parent lag */}
+              <AdvanceModalBody
+                members={members}
+                transactions={transactions}
+                paymentModes={paymentModes}
+                addTransactionMutation={addTransactionMutation}
+                updateTransactionMutation={updateTransactionMutation}
+                activeOutlet={activeOutlet}
+                settings={settings}
+                onClose={() => setAdvanceOpen(false)}
+              />
             </DialogContent>
           </Dialog>
         </div>
@@ -917,11 +485,12 @@ const Transactions = () => {
             accessKey="/"
             placeholder="Click Alt + / to search..."
             className="pl-9 justify-center bg-muted/50 border-0"
-            value={search}
+            value={searchInput}
             autoFocus
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => setSearchInput(e.target.value)}
           />
         </div>
+        {/* Basic Filters */}
         <Select value={methodFilter} onValueChange={setMethodFilter}>
           <SelectTrigger className="w-[140px] bg-muted/50 border-0">
             <SelectValue placeholder="Method" />
@@ -956,6 +525,7 @@ const Transactions = () => {
         />
       </div>
 
+      {/* Main Table View Container */}
       <div className="glass-card rounded-xl overflow-hidden">
         {isLoading ? (
           <div className="p-4 space-y-3">
@@ -979,7 +549,6 @@ const Transactions = () => {
             </TableHeader>
             <TableBody>
               {pagedFiltered.map((t) => {
-                console.log(t);
                 const sl = statusLabel(t);
                 return (
                   <TableRow
@@ -1065,6 +634,7 @@ const Transactions = () => {
                                       t.type ||
                                       "Services",
                                     excludeTxnId: t.id,
+                                    paymentMethod: t.method,
                                   },
                                 )
                               }
@@ -1082,7 +652,7 @@ const Transactions = () => {
                                   title={
                                     isSameDay
                                       ? "Resettle"
-                                      : "Resettlement only allowed on the same day"
+                                      : "Resettlement only allowed on same day"
                                   }
                                   disabled={!isSameDay}
                                   onClick={() => openSettle(t)}
@@ -1167,141 +737,531 @@ const Transactions = () => {
             </DialogTitle>
           </DialogHeader>
           {settleTxn && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-xs">Member</Label>
-                <Input
-                  value={settleTxn.memberName}
-                  readOnly
-                  className="bg-muted/40"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label className="text-xs">Type</Label>
-                  <Input
-                    value={isSettlement ? "Settlement" : "Payment"}
-                    readOnly
-                    className="bg-muted/40"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs">Amount (NPR)</Label>
-                  <Input
-                    value={settleTxn.total}
-                    readOnly
-                    className="bg-muted/40 font-semibold text-primary"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs">Description</Label>
-                <Input
-                  value={settleTxn.description}
-                  readOnly
-                  className="bg-muted/40"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Payment Method *</Label>
-                <Select
-                  value={settleMethod}
-                  onValueChange={(v) => setSettleMethod(v as PaymentMethod)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {paymentModes.map((m) => (
-                      <SelectItem key={m} value={m}>
-                        {capitalizeFirstLetter(m.replace(/_/g, " "))}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>Discount (NPR)</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={settleTxn.total}
-                    value={settleDiscount}
-                    onChange={(e) => setSettleDiscount(e.target.value)}
-                    placeholder="0"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Net Payable</Label>
-                  <Input
-                    value={formatNPR(
-                      Math.max(
-                        0,
-                        (settleTxn.total || 0) - (Number(settleDiscount) || 0),
-                      ),
-                    )}
-                    readOnly
-                    className="bg-muted/40 font-semibold text-success"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <Textarea
-                  rows={2}
-                  value={settleNote}
-                  onChange={(e) => setSettleNote(e.target.value)}
-                  placeholder="Optional"
-                />
-              </div>
-              <Button
-                onClick={() => setPendingSettle(true)}
-                disabled={updateTransactionMutation.isPending}
-                className="w-full gradient-gold text-primary-foreground"
-              >
-                <Receipt className="h-4 w-4 mr-1" />
-                {updateTransactionMutation.isPending
-                  ? "Saving..."
-                  : "Settle & Print Bill"}
-              </Button>
-              <AlertDialog open={pendingSettle} onOpenChange={setPendingSettle}>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Confirm settlement</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Settle{" "}
-                      {formatNPR(
-                        Math.max(
-                          0,
-                          (settleTxn.total || 0) -
-                            (Number(settleDiscount) || 0),
-                        ),
-                      )}{" "}
-                      for <b>{settleTxn.memberName}</b> via{" "}
-                      <b>{settleMethod}</b>? This action will mark the charge as
-                      paid and print a bill.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={async () => {
-                        setPendingSettle(false);
-                        await handleSettle();
-                      }}
-                    >
-                      Confirm
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
+            /* 🌟 Optimization 3: Moving inner state hooks to dedicated component scopes stops keystroke frame freeze */
+            <SettleModalBody
+              settleTxn={settleTxn}
+              isSettlement={isSettlement}
+              paymentModes={paymentModes}
+              updateTransactionMutation={updateTransactionMutation}
+              addTransactionMutation={addTransactionMutation}
+              updateBookingMutation={updateBookingMutation}
+              qc={qc}
+              activeOutlet={activeOutlet}
+              settings={settings}
+              printBill={printBill}
+              onClose={() => {
+                setSettleTxn(null);
+                setIsSettlement(false);
+              }}
+            />
           )}
         </DialogContent>
       </Dialog>
     </div>
   );
 };
+
+/* ─── ISOLATED HIGH-FREQUENCY COMPONENT 1: ADVANCE PANEL ──────────────── */
+function AdvanceModalBody({
+  members,
+  transactions,
+  paymentModes,
+  addTransactionMutation,
+  updateTransactionMutation,
+  activeOutlet,
+  settings,
+  onClose,
+}: {
+  members: any[];
+  transactions: any[];
+  paymentModes: string[];
+  addTransactionMutation: any;
+  updateTransactionMutation: any;
+  activeOutlet: any;
+  settings: any;
+  onClose: () => void;
+}) {
+  const [advMember, setAdvMember] = useState("");
+  const [advAmount, setAdvAmount] = useState("");
+  const [advMethod, setAdvMethod] = useState<PaymentMethod>("cash");
+  const [advNote, setAdvNote] = useState("");
+  const [advDiscount, setAdvDiscount] = useState("");
+
+  const memberFinancials = useMemo(() => {
+    if (!advMember)
+      return { grossCharges: 0, availableAdvance: 0, netPayable: 0 };
+    const grossCharges = transactions
+      .filter(
+        (t) =>
+          t.memberId === advMember &&
+          t.type === "Charge" &&
+          statusLabel(t) === "Pending",
+      )
+      .reduce((sum, t) => sum + (t.total || 0), 0);
+    const availableAdvance = transactions
+      .filter(
+        (t) =>
+          t.memberId === advMember &&
+          t.type === "Advance" &&
+          (t.status === "pending" || t.status === "unpaid" || !t.status),
+      )
+      .reduce((sum, t) => sum + (t.total || t.amount || 0), 0);
+    return {
+      grossCharges,
+      availableAdvance,
+      netPayable: Math.max(0, grossCharges - availableAdvance),
+    };
+  }, [advMember, transactions]);
+
+  const finalBatchNetPayable = Math.max(
+    0,
+    memberFinancials.netPayable - (Number(advDiscount) || 0),
+  );
+
+  const handleAddAdvance = async () => {
+    if (!advMember || !advAmount) {
+      toast.error("Please select member and enter amount");
+      return;
+    }
+    const memberObj = members.find((m) => m.id === advMember);
+    const amount = Number(advAmount);
+    if (amount <= 0) {
+      toast.error("Amount must be greater than zero");
+      return;
+    }
+    try {
+      await applyAdvance(
+        (d) => addTransactionMutation.mutateAsync(d) as Promise<string>,
+        {
+          memberId: advMember,
+          memberName: memberObj?.name || "",
+          amount,
+          method: advMethod,
+          note: advNote,
+          outletId: activeOutlet?.id,
+        },
+      );
+      const leftover = await settleOldestCharges(
+        (a) => updateTransactionMutation.mutateAsync(a),
+        transactions,
+        advMember,
+        amount,
+      );
+
+      await logAudit({
+        module: "transactions",
+        entityType: "transaction",
+        action: "advance_create",
+        entityId: advMember,
+        outletId: activeOutlet?.id || null,
+        newValue: {
+          memberId: advMember,
+          memberName: memberObj?.name || "",
+          advanceAmount: amount,
+          paymentMethod: advMethod,
+          note: advNote || null,
+          remainingCredit: leftover,
+        },
+      });
+
+      toast.success(
+        leftover > 0
+          ? `Advance recorded — credit remaining`
+          : `Advance applied successfully`,
+      );
+      onClose();
+    } catch {
+      toast.error("Failed to record advance");
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-muted-foreground">
+        Apply a payment to clear profile dues indicators safely.
+      </p>
+      <div className="space-y-2">
+        <Label>Member *</Label>
+        <Select value={advMember} onValueChange={setAdvMember}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select member" />
+          </SelectTrigger>
+          <SelectContent>
+            {members.map((m) => (
+              <SelectItem key={m.id} value={m.id}>
+                {m.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {advMember && (
+        <div className="p-3 rounded-lg border bg-muted/40 space-y-2 text-sm animate-fade-in">
+          <div className="flex justify-between items-center text-xs text-muted-foreground">
+            <span>Gross Outstanding Tab:</span>
+            <span className="font-mono">
+              {formatNPR(memberFinancials.grossCharges)}
+            </span>
+          </div>
+          <div className="pt-2 border-t flex items-center justify-between">
+            <span className="text-xs font-medium block text-muted-foreground">
+              Net Outstanding Balance:
+            </span>
+            <span className="font-mono font-bold text-primary">
+              {formatNPR(memberFinancials.netPayable)}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {advMember && memberFinancials.netPayable > 0 && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <Label>Apply Discount (NPR)</Label>
+            <Input
+              type="number"
+              value={advDiscount}
+              onChange={(e) => setAdvDiscount(e.target.value)}
+              placeholder="0"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Final Net Payable</Label>
+            <Input
+              value={formatNPR(finalBatchNetPayable)}
+              readOnly
+              className="bg-muted/40 font-semibold font-mono text-success"
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <Label>Payment Amount (NPR) *</Label>
+        <Input
+          type="number"
+          placeholder="0"
+          value={advAmount}
+          onChange={(e) => setAdvAmount(e.target.value)}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Payment Method</Label>
+        <Select
+          value={advMethod}
+          onValueChange={(v) => setAdvMethod(v as PaymentMethod)}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {paymentModes.map((m) => (
+              <SelectItem key={m} value={m}>
+                {capitalizeFirstLetter(m.replace(/_/g, " "))}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Note</Label>
+        <Textarea
+          rows={2}
+          value={advNote}
+          onChange={(e) => setAdvNote(e.target.value)}
+          placeholder="Optional"
+        />
+      </div>
+
+      <Button
+        onClick={handleAddAdvance}
+        disabled={addTransactionMutation.isPending}
+        className="w-full gradient-gold text-primary-foreground"
+      >
+        <Receipt className="h-4 w-4 mr-1" />
+        {addTransactionMutation.isPending ? "Processing..." : "Record Payment"}
+      </Button>
+    </div>
+  );
+}
+
+/* ─── ISOLATED HIGH-FREQUENCY COMPONENT 2: SETTLEMENT PANEL ────────────── */
+function SettleModalBody({
+  settleTxn,
+  isSettlement,
+  paymentModes,
+  updateTransactionMutation,
+  addTransactionMutation,
+  updateBookingMutation,
+  qc,
+  activeOutlet,
+  settings,
+  printBill,
+  onClose,
+}: {
+  settleTxn: Transaction;
+  isSettlement: boolean;
+  paymentModes: string[];
+  updateTransactionMutation: any;
+  addTransactionMutation: any;
+  updateBookingMutation: any;
+  qc: any;
+  activeOutlet: any;
+  settings: any;
+  printBill: any;
+  onClose: () => void;
+}) {
+  const [settleMethod, setSettleMethod] = useState<PaymentMethod>("cash");
+  const [settleNote, setSettleNote] = useState("");
+  const [settleDiscount, setSettleDiscount] = useState<string>("");
+  const [pendingSettle, setPendingSettle] = useState(false);
+
+  useEffect(() => {
+    if (settleTxn) {
+      if (settleTxn?.method) {
+        setSettleMethod(settleTxn.method as PaymentMethod);
+      }
+
+      // 🌟 Pull previous discount if available, otherwise default to empty string
+      const previousDiscount = (settleTxn as any).discount;
+      setSettleDiscount(
+        previousDiscount !== undefined && previousDiscount !== null
+          ? String(previousDiscount)
+          : "",
+      );
+    }
+  }, [settleTxn]);
+
+  const isResettlement = settleTxn && statusLabel(settleTxn) === "Settled";
+  const activeDiscount = isResettlement
+    ? Number((settleTxn as any).discount) || 0
+    : Number(settleDiscount) || 0;
+  const netPayableValue = Math.max(0, (settleTxn.total || 0) - activeDiscount);
+
+  const handleSettle = async () => {
+    const discount = Math.max(0, Number(settleDiscount) || 0);
+    const netDue = Math.max(0, (settleTxn.total || 0) - discount);
+
+    try {
+      if (settleTxn.id.startsWith("TEMP-")) {
+        await addTransactionMutation.mutateAsync({
+          memberId: settleTxn.memberId,
+          memberName: settleTxn.memberName,
+          amount: netDue,
+          vat: settleTxn.vat,
+          total: netDue,
+          discount,
+          method: settleMethod,
+          type: settleTxn.serviceType || "Charge",
+          date: getSystemTodayStr(),
+          description: settleTxn.description,
+          receiptNo: settleTxn.receiptNo,
+          status: "paid",
+          bookingId: settleTxn.bookingId,
+          outletId: (settleTxn as any).outletId,
+          isSettlement: true,
+        } as any);
+      } else {
+        const chargeRowId = (settleTxn as any).chargeRowId;
+        if (chargeRowId) {
+          const { supabase } = await import("@/lib/supabase");
+          const nowTs = getSystemTodayStr();
+          await supabase
+            .from("charges")
+            .update({
+              status: "paid",
+              paid_at: nowTs,
+              discount,
+              method: settleMethod,
+            })
+            .eq("id", chargeRowId);
+        }
+        await updateTransactionMutation.mutateAsync({
+          id: settleTxn.id,
+          data: {
+            status: "paid",
+            method: settleMethod,
+            date: getSystemTodayStr(),
+            discount,
+          } as any,
+        });
+      }
+
+      if (settleTxn.bookingId) {
+        await updateBookingMutation.mutateAsync({
+          id: settleTxn.bookingId,
+          data: {
+            status: "completed",
+            settledAt: getSystemTimestamp(),
+            paymentMethod: settleMethod,
+          } as any,
+        });
+      }
+
+      qc.invalidateQueries({ queryKey: ["bookings"] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+
+      await logAudit({
+        module: "transactions",
+        entityType: "transaction",
+        action: "settle",
+        entityId: settleTxn.id,
+        outletId: activeOutlet?.id || null,
+        newValue: {
+          memberId: settleTxn.memberId,
+          amountPaid: netDue,
+          discountApplied: discount,
+          paymentMethod: settleMethod,
+        },
+      });
+
+      toast.success("Payment settled securely");
+
+      // 🌟 FIX 2: Prevent automatic printing when resetting an already settled bill
+      if (!isResettlement) {
+        printBill(
+          settleTxn.memberName,
+          settleTxn.receiptNo,
+          settleTxn.description,
+          netDue,
+          getSystemNowDate(),
+          {
+            memberId: settleTxn.memberId,
+            discount,
+            head: settleTxn.type,
+            excludeTxnId: settleTxn.id,
+            paymentMethod: settleMethod,
+          },
+        );
+      }
+      onClose();
+    } catch {
+      toast.error("Failed to process payment updates");
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label className="text-xs">Member</Label>
+        <Input
+          value={settleTxn.memberName}
+          readOnly
+          disabled
+          className="bg-muted/40"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <Label className="text-xs">Type</Label>
+          <Input
+            value={isSettlement ? "Settlement" : "Payment"}
+            readOnly
+            disabled
+            className="bg-muted/40"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs">Amount (NPR)</Label>
+          <Input
+            value={settleTxn.total}
+            readOnly
+            disabled
+            className="bg-muted/40 font-semibold text-primary"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Payment Method *</Label>
+        <Select
+          value={settleMethod}
+          onValueChange={(v) => setSettleMethod(v as PaymentMethod)}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {paymentModes.map((m) => (
+              <SelectItem key={m} value={m}>
+                {capitalizeFirstLetter(m.replace(/_/g, " "))}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <Label>Discount (NPR)</Label>
+          <Input
+            type="number"
+            min={0}
+            max={settleTxn.total}
+            maxLength={5}
+            value={settleDiscount}
+            onChange={(e) => setSettleDiscount(e.target.value)}
+            className={
+              isResettlement ? "bg-muted/50 cursor-auto text-primary" : ""
+            }
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Net Payable</Label>
+          <Input
+            value={formatNPR(netPayableValue)}
+            readOnly
+            disabled={isResettlement}
+            className="bg-muted/40 font-semibold font-mono text-success"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Description</Label>
+        <Textarea
+          rows={2}
+          value={settleNote}
+          onChange={(e) => setSettleNote(e.target.value)}
+          placeholder="Optional"
+        />
+      </div>
+
+      <Button
+        onClick={() => setPendingSettle(true)}
+        disabled={updateTransactionMutation.isPending}
+        className="w-full gradient-gold text-primary-foreground"
+      >
+        <Receipt className="h-4 w-4 mr-1" />
+        {updateTransactionMutation.isPending
+          ? "Saving..."
+          : isResettlement
+            ? "Confirm Resettlement"
+            : "Settle & Print Bill"}
+      </Button>
+
+      <AlertDialog open={pendingSettle} onOpenChange={setPendingSettle}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm settlement</AlertDialogTitle>
+            <AlertDialogDescription>
+              Confirm settlement of <b>{formatNPR(netPayableValue)}</b> via{" "}
+              <b>{settleMethod}</b>?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSettle}>
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
 
 export default Transactions;
