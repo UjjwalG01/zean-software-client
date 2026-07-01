@@ -596,7 +596,7 @@ const Transactions = () => {
                       )}
                     </TableCell>
                     <TableCell className="text-right font-medium text-sm">
-                      {formatNPR(t.total)}
+                      {t.status === "voided" ? 0 : formatNPR(t.total)}
                     </TableCell>
                     <TableCell>
                       <div
@@ -662,7 +662,21 @@ const Transactions = () => {
                               );
                             })()}
                           </>
-                        ) : null}
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs "
+                            // disabled
+                            onClick={() => {
+                              toast.error(
+                                "Can't revoke this transaction right now.",
+                              );
+                            }}
+                          >
+                            Revoke
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

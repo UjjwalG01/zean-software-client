@@ -311,7 +311,9 @@ const MemberProfile = () => {
             onClick={() => setQuickBalanceOpen(true)}
           >
             <Wallet className="h-4 w-4 mr-1" />{" "}
-            {underlineFirstChar("Quick Balance")}
+            <span className="hidden sm:inline">
+              {underlineFirstChar("Quick Balance")}
+            </span>
           </Button>
           <Button
             variant="outline"
@@ -320,7 +322,9 @@ const MemberProfile = () => {
             onClick={() => navigate(`/members/${id}/grc`)}
           >
             <FileText className="h-4 w-4 mr-1" />{" "}
-            {underlineSpecificChars("Generate GRC", [4])}
+            <span className="hidden sm:inline">
+              {underlineSpecificChars("Generate GRC", [4])}
+            </span>
           </Button>
           <Button
             variant="outline"
@@ -336,7 +340,9 @@ const MemberProfile = () => {
             onClick={() => setDeactivateOpen(true)}
           >
             <Power className="h-4 w-4 mr-1" />
-            {member.status === "Inactive" ? "Reactivate" : "Deactivate"}
+            <span className="hidden sm:inline">
+              {member.status === "Inactive" ? "Reactivate" : "Deactivate"}
+            </span>
           </Button>
         </div>
       </div>
@@ -623,7 +629,9 @@ const MemberProfile = () => {
                       <TableCell>
                         <Badge
                           variant={
-                            b.bookingStatus === "Confirmed" ? "default" : "secondary"
+                            b.bookingStatus === "Confirmed"
+                              ? "default"
+                              : "secondary"
                           }
                           className="text-[10px]"
                         >

@@ -251,7 +251,7 @@ export function TransactionDetailModal({
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Balance Due</span>
-                {t.status === "pending" || t.status === "voided" ? (
+                {t.status === "pending" || t.status === "unpaid" ? (
                   formatNPR(t.total)
                 ) : (
                   <span

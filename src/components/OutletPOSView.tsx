@@ -47,6 +47,11 @@ import type { Outlet } from "@/lib/supabase-outlets";
 import { formatNPR, type ServiceType, type Booking } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { BookingDetailModal } from "@/components/BookingDetailModal";
+import {
+  getSystemTimestamp,
+  getSystemTimeStr,
+  getSystemTodayStr,
+} from "@/lib/timeUtils";
 
 interface Props {
   outlet: Outlet;
@@ -85,19 +90,23 @@ function parseSetup(
  */
 export function OutletPOSView({ outlet }: Props) {
   const navigate = useNavigate();
+  const todayStr = getSystemTodayStr(); // Get standardized today string ("YYYY-MM-DD")
   const { data: members = [] } = useMembers();
   const { data: services = [] } = useServices();
   const { data: settings = {} } = useCompanySettings();
   const addBookingMutation = useAddBooking();
   const addTransactionMutation = useAddTransaction();
-  const { data: outletBookings = [] } = useBookings({ outletId: outlet.id });
+  // Pass todayStr to synchronize records with the top counter
+  const { data: outletBookings = [] } = useBookings({
+    outletId: outlet.id,
+    date: todayStr,
+  });
   const { data: transactions = [] } = useTransactions();
   const updateBookingMutation = useUpdateBooking();
   const updateTransactionMutation = useUpdateTransaction();
 
   const [detailBooking, setDetailBooking] = useState<Booking | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-
 
   const attendants = parseSetup(settings, "setup_instructors", [
     "Reception",
@@ -187,24 +196,22 @@ export function OutletPOSView({ outlet }: Props) {
     if (!memberId && !guestName.trim())
       throw new Error("Select a member or enter a guest name");
     if (cart.length === 0) throw new Error("Cart is empty");
-    const today = toIsoDayInTz(new Date());
-    const now = formatTime(nowIso());
+
+    const today = getSystemTodayStr();
+    const now = getSystemTimeStr();
     const memberObj = members.find((m) => m.id === memberId);
-    let lastChargeId = "";
-    let lastBookingId = "";
 
-    const { createChargeForBooking } = await import("@/lib/charges");
     const updated: CartLine[] = [...cart];
+    const allBookingIds: string[] = [];
+    const itemDescriptions: string[] = [];
 
+    // Step 1: Create all bookings first
     for (let idx = 0; idx < updated.length; idx++) {
       const line = updated[idx];
-      if (line.placed) {
-        if (line.chargeId) lastChargeId = line.chargeId;
-        if (line.bookingId) lastBookingId = line.bookingId;
-        continue;
-      }
-      let lineCharge = "";
-      let lineBooking = "";
+      if (line.placed) continue;
+
+      itemDescriptions.push(`${line.name} × ${line.qty}`);
+
       for (let i = 0; i < line.qty; i++) {
         const bookingId = await addBookingMutation.mutateAsync({
           memberId,
@@ -220,34 +227,52 @@ export function OutletPOSView({ outlet }: Props) {
           outletId: outlet.id,
           instructor: attendant || "",
         } as any);
-        lineBooking = String(bookingId || "");
-        if (line.price > 0) {
-          lineCharge = await createChargeForBooking(
-            (d) => addTransactionMutation.mutateAsync(d) as Promise<string>,
-            {
-              memberId,
-              memberName: memberObj?.name || guestName || "",
-              bookingId: lineBooking,
-              service: line.type,
-              className: line.name,
-              amount: line.price,
-              chargeHead: line.type,
-              outletId: outlet.id,
-            },
-          );
-        }
+
+        if (bookingId) allBookingIds.push(String(bookingId));
       }
-      updated[idx] = {
-        ...line,
-        placed: true,
-        bookingId: lineBooking,
-        chargeId: lineCharge,
-      };
-      if (lineCharge) lastChargeId = lineCharge;
-      if (lineBooking) lastBookingId = lineBooking;
     }
-    setCart(updated);
-    return { lastBookingId, lastChargeId, memberObj };
+
+    if (allBookingIds.length === 0) {
+      throw new Error("No new items to place.");
+    }
+
+    // Step 2: Create ONE unified Charge Transaction record for the entire group
+    let consolidatedChargeId = "";
+    if (grandTotal > 0) {
+      consolidatedChargeId = (await addTransactionMutation.mutateAsync({
+        memberId,
+        memberName: memberObj?.name || guestName || "",
+        type: "Charge",
+        status: "pending",
+        amount: grandTotal,
+        total: grandTotal,
+        chargeHead: outlet.serviceTypes[0] || "POS Order",
+        outletId: outlet.id,
+        className: itemDescriptions.join(", "),
+        createdAt: getSystemTimestamp(),
+        // Custom arrays/meta fields to keep them grouped in queries:
+        bookingId: allBookingIds[0], // Primary reference fallback
+        bookingIds: allBookingIds, // Array of all sub-bookings
+        isBundledOrder: true,
+      } as any)) as any;
+    }
+
+    // Step 3: Flag all items in the cart UI state as placed under this unified charge
+    const finalizedCart = updated.map((line) => ({
+      ...line,
+      placed: true,
+      bookingId: allBookingIds[0],
+      chargeId: consolidatedChargeId,
+    }));
+
+    setCart(finalizedCart);
+
+    return {
+      lastBookingId: allBookingIds[0],
+      lastChargeId: consolidatedChargeId,
+      memberObj,
+      itemDescriptions: itemDescriptions.join(", "),
+    };
   };
 
   const handlePlace = async () => {
@@ -267,15 +292,16 @@ export function OutletPOSView({ outlet }: Props) {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      const { lastBookingId, lastChargeId, memberObj } =
+      const { lastBookingId, lastChargeId, memberObj, itemDescriptions } =
         await buildBookingsAndCharges();
       toast.success("Order ready — opening billing");
+
       const params = new URLSearchParams({
         newPayment: "true",
         memberId,
         memberName: memberObj?.name || guestName || "",
-        service: cart[0]?.type || outlet.serviceTypes[0] || "",
-        className: cart.map((l) => `${l.name}×${l.qty}`).join(", "),
+        service: outlet.serviceTypes[0] || "",
+        className: itemDescriptions,
         amount: String(grandTotal),
         bookingId: lastBookingId,
         chargeId: lastChargeId,
@@ -488,14 +514,14 @@ export function OutletPOSView({ outlet }: Props) {
                   )}
                 >
                   <div className="col-span-6">
-                    <p className="font-medium truncate flex items-center gap-2">
+                    <div className="font-medium truncate flex items-center gap-2">
                       {l.name}
                       {l.placed && (
                         <Badge className="bg-success/20 text-success border-0 text-[9px] uppercase">
                           Ordered
                         </Badge>
                       )}
-                    </p>
+                    </div>
                     <p className="text-[10px] text-muted-foreground uppercase">
                       {l.type}
                     </p>
@@ -615,7 +641,7 @@ export function OutletPOSView({ outlet }: Props) {
         onBilling={(b) => {
           const linkedCharge = transactions.find(
             (t: any) =>
-              t.bookingId === b.id &&
+              String(t.bookingId) === String(b.id) &&
               t.type === "Charge" &&
               t.status === "pending",
           );
@@ -645,8 +671,8 @@ export function OutletPOSView({ outlet }: Props) {
             await updateBookingMutation.mutateAsync({
               id: b.id,
               data: {
-                status: "Cancelled",
-                cancelledAt: new Date().toISOString(),
+                status: "cancelled",
+                cancelledAt: getSystemTimestamp(),
               } as any,
             });
             const linkedCharges = transactions.filter(
@@ -696,20 +722,40 @@ function CurrentBookingsPanel({
 }: CurrentBookingsPanelProps) {
   const active = useMemo(() => {
     return bookings
-      .filter(
-        (b) =>
-          (b.outletId === outlet.id || !b.outletId) &&
-          (b as any).status !== "Cancelled" &&
-          (b as any).status !== "Completed" &&
-          (b as any).bookingStatus !== "Cancelled",
-      )
       .filter((b) => {
-        // hide bookings whose linked charge is settled/paid
+        // 1. Validate Outlet Assignment
+        const matchesOutlet = b.outletId === outlet.id || !b.outletId;
+        if (!matchesOutlet) return false;
+
+        // 2. Extract and Normalize Booking Status (Handles case variations and alternative keys)
+        const rawStatus = (b as any).status || (b as any).bookingStatus || "";
+        const normalizedStatus = String(rawStatus).toLowerCase().trim();
+
+        // Filter out inactive states
+        if (
+          normalizedStatus === "cancelled" ||
+          normalizedStatus === "completed" ||
+          normalizedStatus === "billed"
+        ) {
+          return false;
+        }
+
+        return true;
+      })
+      .filter((b) => {
+        // 3. Normalize Linked Transaction Lookups
         const linked = transactions.find(
-          (t: any) => t.bookingId === b.id && t.type === "Charge",
+          (t: any) =>
+            String(t.bookingId) === String(b.id) &&
+            String(t.type).toLowerCase() === "charge",
         );
+
+        // If no charge is found, keep the booking visible
         if (!linked) return true;
-        return linked.status === "pending";
+
+        // Hide bookings where the linked charge is no longer pending (e.g., paid, settled, voided)
+        const chargeStatus = String(linked.status).toLowerCase().trim();
+        return chargeStatus === "pending";
       })
       .slice(0, 30);
   }, [bookings, transactions, outlet.id]);
@@ -783,4 +829,3 @@ function CurrentBookingsPanel({
     </div>
   );
 }
-

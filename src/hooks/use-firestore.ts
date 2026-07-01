@@ -172,15 +172,29 @@ export function useDeleteMember() {
 }
 
 // ─── Bookings ───────────────────────────────────────────────────────
-export function useBookings(filters?: { service?: ServiceType; outletId?: string }) {
+export function useBookings(filters?: { service?: ServiceType; outletId?: string; date?: string }) {
   return useQuery({
     queryKey: ["bookings", filters],
     queryFn: async () => {
+      // Fetch the initial listing from mock data or database services
       const list = !isSupabaseEnabled ? mockBookings : await fbServices.getBookings(filters);
+      let filteredList = list;
+
+      // 1. Filter by outletId if provided
       if (filters?.outletId) {
-        return list.filter((b: any) => !b.outletId || b.outletId === filters.outletId);
+        filteredList = filteredList.filter(
+          (b: any) => !b.outletId || b.outletId === filters.outletId
+        );
       }
-      return list;
+
+      // 2. Filter by date if provided to guarantee identical day evaluation
+      if (filters?.date) {
+        filteredList = filteredList.filter(
+          (b: any) => String(b.date).trim() === String(filters.date).trim()
+        );
+      }
+
+      return filteredList;
     },
   });
 }
