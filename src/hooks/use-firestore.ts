@@ -20,8 +20,9 @@ import { INVOICE_PREFIX } from "@/lib/settings";
 
 import { isSameDay } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
+import { getSystemNowDate } from "@/lib/timeUtils";
 
-const SYSTEM_TZ = "Asia/Katmandu";
+const SYSTEM_TZ = "Asia/Kathmandu";
 
 const isSupabaseEnabled = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
 
@@ -85,7 +86,7 @@ export function useMember(id: string | undefined) {
 
 // ─── Shared Mock Helper for Booking Normalization ───────────────────
 function normalizeBookingFields(existing: any, incoming: any) {
-  const systemNow = toZonedTime(new Date(), SYSTEM_TZ);
+  const systemNow = getSystemNowDate();
   const targetDateStr = incoming.date || incoming.booking_date || existing.date || existing.booking_date;
   const bookingDate = parseUiDate(targetDateStr) || systemNow;
   const isToday = isSameDay(bookingDate, systemNow);

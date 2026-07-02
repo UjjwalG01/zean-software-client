@@ -4,6 +4,8 @@
  * write and render — the browser's local clock never influences storage.
  */
 
+import { getSystemTodayStr, getSystemTimestamp } from './timeUtils';
+
 /** Locked canonical timezone for the whole app. */
 export const SYSTEM_TZ = "Asia/Kathmandu";
 
@@ -86,14 +88,14 @@ export function endOfDayIsoInTz(day: string, tz: string = getAppTimezone()): str
  *   - Otherwise, anchor at 12:00:00 wall-clock in the active TZ (safe for any TZ).
  */
 export function dayToTimestampInTz(day: string, tz: string = getAppTimezone()): string {
-  if (!day) return new Date().toISOString();
-  if (day === toIsoDayInTz(new Date(), tz)) return new Date().toISOString();
+  if (!day) return getSystemTimestamp();
+  if (day === getSystemTodayStr()) return getSystemTimestamp();
   return zonedStringToUtcIso(`${day}T12:00:00`, tz);
 }
 
-/** Current timestamp ISO — always returns `new Date().toISOString()` but routed through here for grep-ability. */
+/** Current timestamp ISO — uses system timezone-aware helper for consistency. */
 export function nowIso(): string {
-  return new Date().toISOString();
+  return getSystemTimestamp();
 }
 
 /** "dd MMM yyyy, HH:mm" in the active TZ. */
