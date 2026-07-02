@@ -1,6 +1,7 @@
 // Custom roles + permissions — Supabase-backed.
 // Tables: custom_roles, role_permissions, user_role_assignments (see migration).
 import { supabase } from "./supabase";
+import { nowIso } from "./tz";
 
 export type RoleRights = { view: boolean; add: boolean; change: boolean; trash: boolean };
 export type RolePermissions = Record<string, RoleRights>;
@@ -87,9 +88,10 @@ export async function deleteCustomRole(id: string): Promise<void> {
 export async function assignRoleToUser(userId: string, roleId: string, outletIds: string[] = []): Promise<void> {
   const { error: delErr } = await supabase.from("user_role_assignments").delete().eq("user_id", userId);
   if (delErr && !/row-level security/i.test(delErr.message)) throw delErr;
+  const timestamp = nowIso();
   const rows = outletIds.length
-    ? outletIds.map((oid) => ({ user_id: userId, role_id: roleId, outlet_id: oid, assigned_at: new Date().toISOString() }))
-    : [{ user_id: userId, role_id: roleId, outlet_id: null, assigned_at: new Date().toISOString() }];
+    ? outletIds.map((oid) => ({ user_id: userId, role_id: roleId, outlet_id: oid, assigned_at: timestamp }))
+    : [{ user_id: userId, role_id: roleId, outlet_id: null, assigned_at: timestamp }];
   const { error } = await supabase.from("user_role_assignments").insert(rows);
   if (error) {
     if (/row-level security/i.test(error.message)) {

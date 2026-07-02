@@ -12,7 +12,7 @@ import type {
   PaymentMethod,
   BookingStatus,
 } from "./mock-data";
-import { toIsoDayInTz, dayToTimestampInTz, nowIso, getAppTimezone } from "./tz";
+import { toIsoDayInTz, dayToTimestampInTz, nowIso, getAppTimezone, wallTimeToUtcIso, getSystemTodayStr, getSystemNowDate } from "./tz";
 import { logAudit as _logAudit } from "./audit-log";
 import { INVOICE_PREFIX } from "./settings";
 
@@ -55,7 +55,7 @@ function timeOnly(value: any): string {
 }
 
 function at(date?: string, time?: string): string {
-  const d = date || toIsoDayInTz(new Date());
+  const d = date || toIsoDayInTz(getSystemNowDate());
   let t = time;
   if (!t) {
     try {
@@ -65,7 +65,7 @@ function at(date?: string, time?: string): string {
         minute: "2-digit",
         hour12: false,
       })
-        .formatToParts(new Date())
+        .formatToParts(getSystemNowDate())
         .reduce<Record<string, string>>((acc, p) => {
           if (p.type !== "literal") acc[p.type] = p.value;
           return acc;
@@ -75,7 +75,8 @@ function at(date?: string, time?: string): string {
       t = "00:00";
     }
   }
-  return dayToTimestampInTz(d).replace(/T\d{2}:\d{2}:\d{2}/, `T${t}:00`);
+  // Use wallTimeToUtcIso for proper timezone conversion instead of string replacement
+  return wallTimeToUtcIso(d, t, getAppTimezone());
 }
 
 async function maybeAudit(action: string, entityType: string, entityId: string, oldValue?: any, newValue?: any) {
@@ -251,7 +252,7 @@ function memberPayload(data: Partial<Member>): Record<string, any> {
     avatar_url: (data as any).avatar || null,
     tier: data.tier || "Basic",
     status: (data.status || "Active").toLowerCase(),
-    join_date: data.joinDate || new Date().toISOString(),
+    join_date: data.joinDate || nowIso(),
     expiry_date: data.expiryDate || null,
     outlet_id: data.outletId || null,
     grc_no: data.grcNo || null,
@@ -321,7 +322,7 @@ export async function getMember(id: string): Promise<Member | null> {
 }
 
 export async function generateMemberCode(): Promise<string> {
-  const yy = String(new Date().getFullYear() % 100).padStart(2, "0");
+  const yy = String(getSystemNowDate().getFullYear() % 100).padStart(2, "0");
   const prefix = `M${yy}`;
   try {
     const { data, error } = await supabase
@@ -365,7 +366,7 @@ export async function addMember(data: Partial<Member>): Promise<string> {
 
 export async function updateMember(id: string, data: Partial<Record<string, any>>): Promise<void> {
   const current = await getMember(id);
-  const payload: Record<string, any> = { updated_at: new Date().toISOString() };
+  const payload: Record<string, any> = { updated_at: nowIso() };
 
   const scalarCols: Record<string, string> = {
     name: "full_name",
@@ -622,7 +623,7 @@ export async function addBooking(data: Partial<Booking> & { outletId?: string })
 }
 
 export async function updateBooking(id: string, data: Partial<Record<string, any>>): Promise<void> {
-  const patch: Record<string, any> = { updated_at: new Date().toISOString() };
+  const patch: Record<string, any> = { updated_at: nowIso() };
 
   // 1. Scalar Direct Mappings
   if (data.memberId !== undefined) patch.member_id = data.memberId || null;
@@ -649,7 +650,7 @@ export async function updateBooking(id: string, data: Partial<Record<string, any
   // 2. Safe Timestamp Computations (Avoids shifting existing values)
   if (data.date !== undefined || data.startTime !== undefined || data.endTime !== undefined) {
     const { data: current } = await supabase.from("bookings").select("start_at, end_at").eq("id", id).maybeSingle();
-    const fallbackDate = current ? dateOnly(current.start_at) : toIsoDayInTz(new Date());
+    const fallbackDate = current ? dateOnly(current.start_at) : toIsoDayInTz(getSystemNowDate());
     const fallbackStart = current ? timeOnly(current.start_at) : "00:00";
     const fallbackEnd = current ? timeOnly(current.end_at) : fallbackStart;
 
@@ -1122,7 +1123,7 @@ export async function getDashboardStats() {
     getTransactions(),
     getCheckIns(),
   ]);
-  const todayKey = toIsoDayInTz(new Date());
+  const todayKey = toIsoDayInTz(getSystemNowDate());
   const startOfMonthKey = `${todayKey.slice(0, 8)}01`;
   const inMonth = (d: string) => d && d >= startOfMonthKey;
   const currRevenue = transactions.filter((t) => inMonth(t.date)).reduce((s, t) => s + t.total, 0);
@@ -1177,7 +1178,7 @@ export async function saveCompanySettings(settings: Record<string, string>): Pro
     string,
     string
   >;
-  const payload: Record<string, any> = { id: "main", updated_at: new Date().toISOString() };
+  const payload: Record<string, any> = { id: "main", updated_at: nowIso() };
   for (const [key, value] of Object.entries(settings)) {
     if (key === "companyName") payload.company_name = value;
     else if (key === "companyAddress") payload.address = value;
@@ -1200,7 +1201,7 @@ export async function saveCompanySettings(settings: Record<string, string>): Pro
 
 // ─── Check-ins ──────────────────────────────────────────────────────
 export async function addCheckIn(memberId: string): Promise<string> {
-  return addCheckInRecord({ memberId, memberName: "", date: new Date().toISOString().split("T")[0] });
+  return addCheckInRecord({ memberId, memberName: "", date: getSystemTodayStr() });
 }
 
 export interface CheckInRecord {
@@ -1269,7 +1270,7 @@ export async function getDiscountRules(): Promise<DiscountRule[]> {
 export async function saveDiscountRules(rules: DiscountRule[]): Promise<void> {
   const { error } = await supabase
     .from("company_settings")
-    .upsert({ id: "main", discount_rules: rules, updated_at: new Date().toISOString() }, { onConflict: "id" });
+    .upsert({ id: "main", discount_rules: rules, updated_at: nowIso() }, { onConflict: "id" });
   if (error) throwDb(error, "company_settings");
 }
 

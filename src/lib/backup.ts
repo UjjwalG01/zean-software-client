@@ -2,6 +2,8 @@
 // global lookup tables) as a single downloadable JSON file.
 
 import { supabase } from "./supabase";
+import { nowIso, toIsoDayInTz } from "./tz";
+import { getSystemNowDate } from "./timeUtils";
 
 const OUTLET_SCOPED = [
   "members",
@@ -68,7 +70,7 @@ export async function exportPropertyBackup(outletId: string | null): Promise<Bac
   for (const [name, rows] of [...scoped, ...global]) tables[name] = rows;
 
   return {
-    exportedAt: new Date().toISOString(),
+    exportedAt: nowIso(),
     outletId,
     schemaVersion: 1,
     tables,
@@ -80,7 +82,7 @@ export function downloadBackup(bundle: BackupBundle, label: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  const date = new Date().toISOString().slice(0, 10);
+  const date = toIsoDayInTz(new Date());
   const slug = (label || "property").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
   a.download = `vitafit-backup-${slug || "property"}-${date}.json`;
   document.body.appendChild(a);

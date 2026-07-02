@@ -46,7 +46,7 @@ function parseUiDate(dateStr: unknown): Date | null {
 
 /** Generates current date in UI format string (DD-MM-YYYY) */
 function getTodayUiString(): string {
-  const now = new Date();
+  const now = getSystemNowDate();
   const d = String(now.getDate()).padStart(2, "0");
   const m = String(now.getMonth() + 1).padStart(2, "0");
   const y = now.getFullYear();
@@ -379,7 +379,7 @@ export function useAddCheckIn() {
   return useMutation({
     mutationFn: async (data: { memberId: string; memberName: string; date: string }) => {
       if (!isSupabaseEnabled) {
-        const now = new Date();
+        const now = getSystemNowDate();
         const newRecord: CheckInRecord = {
           id: `mock-ci-${now.getTime()}`,
           memberId: data.memberId,
@@ -396,7 +396,7 @@ export function useAddCheckIn() {
     onMutate: async (data) => {
       await qc.cancelQueries({ queryKey: ["checkIns"] });
       const previous = qc.getQueryData<CheckInRecord[]>(["checkIns"]) || [];
-      const now = new Date();
+      const now = getSystemNowDate();
       const optimistic: CheckInRecord = {
         id: `optimistic-${now.getTime()}`,
         memberId: data.memberId,
@@ -627,7 +627,7 @@ export function useExpiryAlerts() {
     queryFn: async () => {
       if (!isSupabaseEnabled) return mockExpiryAlerts;
       const members = await fbServices.getMembers({ status: "Expiring" as MemberStatus });
-      const now = new Date();
+      const now = getSystemNowDate();
       return members
         .map((m) => {
           const parsed = parseUiDate(m.expiryDate) || now;

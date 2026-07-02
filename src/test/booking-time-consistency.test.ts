@@ -137,11 +137,12 @@ describe('Timezone Helper Functions (tz.ts)', () => {
       expect(result).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
     });
 
-    it('should anchor at 12:00 for non-today dates to avoid day-flip', () => {
+    it('should anchor at 12:00 wall time for non-today dates (converts to correct UTC)', () => {
       // Use a date that is definitely not today
+      // 12:00 in Kathmandu (UTC+5:45) should be 06:15 UTC
       const result = dayToTimestampInTz('2024-06-15', 'Asia/Kathmandu');
-      // Should contain T12:00:00 as per implementation
-      expect(result).toContain('T12:00:00');
+      // Should contain T06:15:00 (12:00 Kathmandu = 06:15 UTC)
+      expect(result).toContain('T06:15:00');
     });
   });
 

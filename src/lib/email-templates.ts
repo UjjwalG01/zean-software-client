@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { nowIso } from "./tz";
 
 export type ReminderTemplateKey =
   | "membership_expiring"
@@ -123,7 +124,7 @@ export async function saveEmailTemplate(template: EmailTemplate): Promise<void> 
       html: template.html ?? null,
       design: template.design ?? null,
       enabled: template.enabled,
-      updated_at: new Date().toISOString(),
+      updated_at: nowIso(),
     },
     { onConflict: "key" },
   );

@@ -1568,6 +1568,11 @@ const Bookings_Page = () => {
             : (b.status || b.bookingStatus || "confirmed").toLowerCase();
 
           try {
+            // Use wallTimeToUtcIso to properly convert local time to UTC
+            const tz = getAppTimezone();
+            const startIsoStr = wallTimeToUtcIso(dStr, newStart, tz);
+            const endIsoStr = wallTimeToUtcIso(dStr, newEnd, tz);
+            
             await updateBookingMutation.mutateAsync({
               id: b.id,
               data: {
@@ -1578,10 +1583,10 @@ const Bookings_Page = () => {
                 start_time: newStart,
                 endTime: newEnd,
                 end_time: newEnd,
-                start_at: `${dStr}T${newStart}:00.000Z`,
-                end_at: `${dStr}T${newEnd}:00.000Z`,
-                startAt: `${dStr}T${newStart}:00.000Z`,
-                endAt: `${dStr}T${newEnd}:00.000Z`,
+                start_at: startIsoStr,
+                end_at: endIsoStr,
+                startAt: startIsoStr,
+                endAt: endIsoStr,
                 status: targetStatus,
                 bookStatus: targetStatus,
               },

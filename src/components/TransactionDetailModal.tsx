@@ -23,6 +23,7 @@ import {
 } from "@/hooks/use-firestore";
 import { toast } from "sonner";
 import { methodColors } from "@/lib/utils";
+import { nowIso } from "@/lib/tz";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -104,7 +105,7 @@ export function TransactionDetailModal({
         data: {
           voided: true,
           voidReason,
-          voidedAt: new Date().toISOString(),
+          voidedAt: nowIso(),
           status: "voided" as any,
           amount: 0,
           vat: 0,

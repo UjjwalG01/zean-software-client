@@ -8,6 +8,7 @@ import { useBookings, useMembers } from "@/hooks/use-firestore";
 import { useMemo } from "react";
 import { isToday, parseISO, differenceInDays } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { getSystemNowDate } from "@/lib/timeUtils";
 
 interface Notification {
   id: string;
@@ -26,7 +27,7 @@ export function NotificationPanel() {
 
   const notifications = useMemo<Notification[]>(() => {
     const items: Notification[] = [];
-    const today = new Date();
+    const today = getSystemNowDate();
     const todayStr = today.toISOString().split("T")[0];
 
     // Today's bookings

@@ -4,6 +4,7 @@
 // offline / unauthenticated demo sessions.
 
 import { supabase } from "./supabase";
+import { nowIso } from "./tz";
 
 export type InventoryStore = { id: string; name: string; location?: string; active: boolean };
 export type ItemGroup     = { id: string; name: string; description?: string; active: boolean };
@@ -64,7 +65,7 @@ const mapItem  = (r: any): InventoryItem => ({
   groupId: r.group_id || "", storeId: r.store_id || "",
   unit: r.unit || "pcs", quantity: Number(r.quantity || 0), rate: Number(r.rate || 0),
   reorderLevel: Number(r.reorder_level || 0), active: r.active !== false,
-  createdAt: r.created_at || new Date().toISOString(),
+  createdAt: r.created_at || nowIso(),
 });
 const mapMov = (r: any): StockMovement => ({
   id: r.id, itemId: r.item_id, type: r.type as MovementType,
@@ -161,7 +162,7 @@ function persistLocal() {
 }
 
 const rid = () => Math.random().toString(36).slice(2, 10);
-const now = () => new Date().toISOString();
+const now = () => nowIso();
 
 /** Back-compat shim — older code triggers seeding via this name. */
 export function seedInventoryIfEmpty() {

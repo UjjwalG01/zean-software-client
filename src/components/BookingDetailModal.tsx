@@ -44,6 +44,7 @@ import {
 import { generateA5BillHTML, printHTML } from "@/lib/print-utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { nowIso, getSystemNowDate } from "@/lib/tz";
 
 import { serviceColors } from "@/lib/utils";
 
@@ -68,7 +69,7 @@ function parseSetup(
 }
 
 function isFutureBooking(b: Booking): boolean {
-  const today = new Date();
+  const today = getSystemNowDate();
   today.setHours(0, 0, 0, 0);
   return new Date(b.date) >= today;
 }
@@ -137,7 +138,7 @@ export function BookingDetailModal({
     currentStatusClean !== "completed" && currentStatusClean !== "cancelled";
 
   const isStrictlyFuture = (() => {
-    const today = new Date();
+    const today = getSystemNowDate();
     today.setHours(0, 0, 0, 0);
     const d = new Date(b.date);
     d.setHours(0, 0, 0, 0);
@@ -186,7 +187,7 @@ export function BookingDetailModal({
       toast.error("Date, time and class are required");
       return;
     }
-    const today = new Date();
+    const today = getSystemNowDate();
     today.setHours(0, 0, 0, 0);
     if (new Date(editForm.date) < today) {
       toast.error("Cannot move booking to a past date");
@@ -226,7 +227,7 @@ export function BookingDetailModal({
         data: {
           status: "cancelled",
           cancelReason,
-          cancelledAt: new Date().toISOString(),
+          cancelledAt: nowIso(),
         } as any,
       });
       const linkedCharges = transactions.filter(
@@ -307,7 +308,7 @@ export function BookingDetailModal({
       vatNo: settings.panNumber || settings.vatNo || "",
       guestName: b.memberName,
       billNo: linkedTxn?.receiptNo || `BK-${b.id.slice(0, 8)}`,
-      billDate: linkedTxn?.date || format(new Date(), "dd/MM/yyyy"),
+      billDate: linkedTxn?.date || format(getSystemNowDate(), "dd/MM/yyyy"),
       billForMonth: `${b.className} — ${format(new Date(b.date), "MMMM yyyy")}`,
       items: [
         {
