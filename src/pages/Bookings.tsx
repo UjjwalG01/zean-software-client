@@ -12,7 +12,7 @@ import {
   endOfWeek,
   isToday,
 } from "date-fns";
-import { toZonedTime, formatInTimeZone } from "date-fns-tz";
+import { formatInTimeZone } from "date-fns-tz";
 import {
   getSystemNowDate,
   getSystemTodayStr,
@@ -99,8 +99,7 @@ import {
 import { useUpdateBooking } from "@/hooks/use-firestore";
 import { underlineFirstChar } from "@/lib/string-case-change";
 import { colorOptions } from "@/lib/utils";
-
-const SYSTEM_TZ = "Asia/Katmandu";
+import { wallTimeToUtcIso, getAppTimezone } from "@/lib/tz";
 
 function parseSetup(
   settings: Record<string, string>,
@@ -294,7 +293,7 @@ const Bookings_Page = () => {
 
   const getBookingsForDay = (day: Date) => {
     // 1. Convert the calendar grid day into a clean string relative to Kathmandu
-    const dayStr = formatInTimeZone(day, SYSTEM_TZ, "yyyy-MM-dd");
+    const dayStr = formatInTimeZone(day, getAppTimezone(), "yyyy-MM-dd");
 
     // 2. Perform a bulletproof string-to-string comparison
     return filtered.filter(
@@ -344,7 +343,7 @@ const Bookings_Page = () => {
       return;
     }
 
-    const dStr = formatInTimeZone(d, SYSTEM_TZ, "yyyy-MM-dd");
+    const dStr = formatInTimeZone(d, getAppTimezone(), "yyyy-MM-dd");
 
     // 🔄 MODIFIED: Allow past times slots ONLY for membership outlets
     if (startTime && isPastDateTime(dStr, startTime) && !isMembershipOutlet) {
@@ -489,8 +488,11 @@ const Bookings_Page = () => {
       const discountAmt = Math.max(0, basePrice - finalPrice);
 
       // 🌟 2. Bulletproof Date Range Synchronization (ISO and Fallbacks)
-      const startIso = `${bookDate}T${start}:00.000Z`;
-      const endIso = `${bookDate}T${end}:00.000Z`;
+      // Use wallTimeToUtcIso to convert local wall-clock time to UTC ISO string
+      // This prevents timezone-related day-flip bugs when storing timestamps
+      const tz = getAppTimezone();
+      const startIso = wallTimeToUtcIso(bookDate, start, tz);
+      const endIso = wallTimeToUtcIso(bookDate, end, tz);
 
       if (editingBookingId) {
         await updateBookingMutation.mutateAsync({
@@ -1429,7 +1431,7 @@ const Bookings_Page = () => {
               </DialogTitle>
               <p className="text-xs text-muted-foreground">
                 {scheduleDay
-                  ? formatInTimeZone(scheduleDay, SYSTEM_TZ, "MMMM d, yyyy")
+                  ? formatInTimeZone(scheduleDay, getAppTimezone(), "MMMM d, yyyy")
                   : ""}
               </p>
             </div>
@@ -1549,7 +1551,7 @@ const Bookings_Page = () => {
             return;
           }
 
-          const dStr = formatInTimeZone(scheduleDay, SYSTEM_TZ, "yyyy-MM-dd");
+          const dStr = formatInTimeZone(scheduleDay, getAppTimezone(), "yyyy-MM-dd");
           const newStart = `${String(newHour).padStart(2, "0")}:00`;
           const newEnd = `${String(newHour + 1).padStart(2, "0")}:00`;
 
@@ -1611,7 +1613,7 @@ const Bookings_Page = () => {
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <h2 className="text-lg font-semibold font-display">
-              {formatInTimeZone(currentMonth, SYSTEM_TZ, "MMMM yyyy")}
+              {formatInTimeZone(currentMonth, getAppTimezone(), "MMMM yyyy")}
             </h2>
             <Button
               variant="ghost"
@@ -1658,7 +1660,7 @@ const Bookings_Page = () => {
                             dayIsToday && "font-bold text-primary",
                           )}
                         >
-                          {formatInTimeZone(day, SYSTEM_TZ, "d")}
+                          {formatInTimeZone(day, getAppTimezone(), "d")}
                         </span>
                         {dayBookings.length > 0 && (
                           <span className="inline-flex items-center justify-center h-4 min-w-[18px] px-1 rounded bg-primary/15 text-primary text-[10px] font-bold">
@@ -1697,7 +1699,7 @@ const Bookings_Page = () => {
                   {dayBookings.length > 0 && (
                     <TooltipContent side="right" className="max-w-[220px]">
                       <p className="font-semibold text-xs mb-1">
-                        {formatInTimeZone(day, SYSTEM_TZ, "MMM d, yyyy")} ·{" "}
+                        {formatInTimeZone(day, getAppTimezone(), "MMM d, yyyy")} ·{" "}
                         {dayBookings.length} booking
                         {dayBookings.length === 1 ? "" : "s"}
                       </p>
