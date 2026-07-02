@@ -9,6 +9,7 @@
  *   3. getActivePoolForMember() — looks up an open pool valid for `day`.
  */
 import { supabase } from "./supabase";
+import { nowIso } from "./tz";
 
 export interface PrepaidPool {
   id: string;
@@ -101,7 +102,7 @@ export async function consumeForAttendance(input: {
     total: consumed,
     used_amount: consumed,
     status: "paid",
-    paid_at: new Date().toISOString(),
+    paid_at: nowIso(),
     meta: { type: "consumption", attendanceDate: input.day },
     pool_id: pool.id,
     attendance_id: input.attendanceId,

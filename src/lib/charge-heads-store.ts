@@ -1,6 +1,8 @@
 // Local-storage backed Charge Heads store (admin-managed list of misc charges).
 // Mirrors the inventory-store pattern: a sync CRUD over an in-memory cache.
 
+import { nowIso } from './tz';
+
 const KEY = "vfc_charge_heads_v1";
 
 export interface ChargeHead {
@@ -26,7 +28,7 @@ function read(): ChargeHead[] {
       const seeded = DEFAULTS.map((d, i) => ({
         ...d,
         id: `ch-${Date.now()}-${i}`,
-        createdAt: new Date().toISOString(),
+        createdAt: nowIso(),
       }));
       localStorage.setItem(KEY, JSON.stringify(seeded));
       return seeded;
@@ -53,7 +55,7 @@ export const chargeHeadsStore = {
     const row: ChargeHead = {
       ...input,
       id: `ch-${Date.now()}`,
-      createdAt: new Date().toISOString(),
+      createdAt: nowIso(),
     };
     write([row, ...read()]);
     return row;

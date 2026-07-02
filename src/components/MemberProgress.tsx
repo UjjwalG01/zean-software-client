@@ -31,6 +31,7 @@ import {
   Legend,
 } from "recharts";
 import { format, parseISO, startOfMonth, subMonths, isAfter } from "date-fns";
+import { getSystemNowDate } from "@/lib/timeUtils";
 import { printHTML } from "@/lib/print-utils";
 import { toast } from "sonner";
 import { tooltipStyle } from "@/lib/utils";
@@ -74,7 +75,7 @@ export function MemberProgress({
     const completed = bookings.filter((b) => b.bookingStatus === "Completed").length;
     const upcoming = bookings.filter((b) => {
       const d = safeDate(b.date);
-      return d && isAfter(d, new Date());
+      return d && isAfter(d, getSystemNowDate());
     }).length;
     const totalSpent = transactions.reduce((s, t) => s + (t.total || 0), 0);
     const txCount = transactions.length;
@@ -97,7 +98,7 @@ export function MemberProgress({
       { month: string; visits: number; spend: number }
     > = {};
     for (let i = 5; i >= 0; i--) {
-      const d = startOfMonth(subMonths(new Date(), i));
+      const d = startOfMonth(subMonths(getSystemNowDate(), i));
       const key = format(d, "MMM");
       map[key] = { month: key, visits: 0, spend: 0 };
     }
@@ -153,7 +154,7 @@ td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
   <div class="header">
     <h1>${member.name} — Member Progress Report</h1>
     <p>${propertyName} · Tier: ${member.tier} · Status: ${member.status}</p>
-    <p>Plan: ${member.plan || "—"} · Joined: ${member.joinDate} · Report date: ${format(new Date(), "PPP")}</p>
+    <p>Plan: ${member.plan || "—"} · Joined: ${member.joinDate} · Report date: ${format(getSystemNowDate(), "PPP")}</p>
   </div>
 
   <div class="section">

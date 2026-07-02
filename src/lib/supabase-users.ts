@@ -1,6 +1,7 @@
 // Supabase-backed app user helpers.
 
 import { supabase } from "./supabase";
+import { nowIso } from "./tz";
 
 export type UserRole = "admin" | "manager" | "staff" | "viewer";
 
@@ -117,7 +118,7 @@ export async function updateAppUser(id: string, data: Partial<AppUser> & { custo
     mustChangePassword: current?.mustChangePassword ?? true,
     customRoleId: current?.customRoleId || "",
   } as any;
-  const payload: Record<string, any> = { updated_at: new Date().toISOString() };
+  const payload: Record<string, any> = { updated_at: nowIso() };
   if (data.email !== undefined) payload.email = data.email;
   if (data.fullName !== undefined) payload.display_name = data.fullName;
   if (data.phone !== undefined) payload.phone = data.phone;
