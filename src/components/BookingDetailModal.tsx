@@ -44,7 +44,8 @@ import {
 import { generateA5BillHTML, printHTML } from "@/lib/print-utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { nowIso, getSystemNowDate } from "@/lib/tz";
+import { nowIso } from "@/lib/tz";
+import { getSystemNowDate } from "@/lib/timeUtils";
 
 import { serviceColors } from "@/lib/utils";
 
