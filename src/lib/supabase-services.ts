@@ -12,7 +12,8 @@ import type {
   PaymentMethod,
   BookingStatus,
 } from "./mock-data";
-import { toIsoDayInTz, dayToTimestampInTz, nowIso, getAppTimezone, wallTimeToUtcIso, getSystemTodayStr, getSystemNowDate } from "./tz";
+import { toIsoDayInTz, dayToTimestampInTz, nowIso, getAppTimezone, wallTimeToUtcIso } from "./tz";
+import { getSystemTodayStr, getSystemNowDate } from "./timeUtils";
 import { logAudit as _logAudit } from "./audit-log";
 import { INVOICE_PREFIX } from "./settings";
 
