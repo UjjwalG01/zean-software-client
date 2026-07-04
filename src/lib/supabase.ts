@@ -5,16 +5,18 @@ import { createClient } from "@supabase/supabase-js";
 // same codebase can be deployed against any client/tenant by swapping the
 // `.env` file. NEVER hardcode a project URL or key here.
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() || "";
-const SUPABASE_PUBLISHABLE_KEY =
-  (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined)?.trim() || "";
+const SUPABASE_PUBLISHABLE_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined)?.trim() || "";
 
 if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
   // eslint-disable-next-line no-console
   console.error(
     "[supabase] Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY. " +
-      "Set them in your .env (or hosting provider env) before building/deploying."
+      "Set them in your .env (or hosting provider env) before building/deploying.",
   );
 }
+
+// The dedicated read-replica endpoint provided by Supabase Pro/Enterprise
+const supabaseReadReplicaUrl = import.meta.env.VITE_SUPABASE_READ_REPLICA_URL || SUPABASE_URL;
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
@@ -23,6 +25,9 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     storage: typeof window !== "undefined" ? window.localStorage : undefined,
   },
 });
+
+// Read Replica Client: Handles high-volume read pipelines
+export const supabaseRead = createClient(supabaseReadReplicaUrl, SUPABASE_PUBLISHABLE_KEY);
 
 /** One-shot connectivity probe — call from a useEffect to verify the project is reachable. */
 export async function pingSupabase(): Promise<{ ok: boolean; error?: string }> {
