@@ -23,6 +23,7 @@ import {
 import { TierBadge } from "@/components/TierBadge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getSystemNowDate } from "@/lib/timeUtils";
 import { useMembers, useCompanySettings } from "@/hooks/use-firestore";
 import { exportTableToCSV } from "@/lib/print-utils";
 import { useOutlet } from "@/contexts/OutletContext";
@@ -106,11 +107,11 @@ const MembersList = () => {
     exportTableToCSV(
       headers,
       rows,
-      `members-${format(new Date(), "yyyyMMdd")}.csv`,
+      `members-${format(getSystemNowDate(), "yyyyMMdd")}.csv`,
       {
         propertyName: settings.companyName || ".............",
         reportTitle: "Members Report",
-        dateRange: format(new Date(), "PPP"),
+        dateRange: format(getSystemNowDate(), "PPP"),
         filters: {
           Search: search || "—",
           Tier: tierFilter === "all" ? "All" : tierFilter,

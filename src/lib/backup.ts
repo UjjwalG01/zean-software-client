@@ -82,7 +82,7 @@ export function downloadBackup(bundle: BackupBundle, label: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  const date = toIsoDayInTz(new Date());
+  const date = toIsoDayInTz(getSystemNowDate());
   const slug = (label || "property").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
   a.download = `vitafit-backup-${slug || "property"}-${date}.json`;
   document.body.appendChild(a);

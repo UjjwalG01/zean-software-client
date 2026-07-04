@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { getSystemNowDate } from "@/lib/timeUtils";
 import { Filter, Download, Loader2, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -184,11 +185,11 @@ export default function LedgerReport() {
     exportTableToCSV(
       headers,
       rows,
-      `member-ledger-${format(new Date(), "yyyyMMdd")}.csv`,
+      `member-ledger-${format(getSystemNowDate(), "yyyyMMdd")}.csv`,
       {
         propertyName,
         reportTitle: "Member Ledger Report",
-        dateRange: format(new Date(), "PPP"),
+        dateRange: format(getSystemNowDate(), "PPP"),
         filters: {
           Tier: tierFilter === "all" ? "All" : tierFilter,
           Status: statusFilter === "all" ? "All" : statusFilter,
