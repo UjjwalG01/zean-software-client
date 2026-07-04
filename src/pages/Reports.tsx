@@ -49,6 +49,7 @@ import {
 } from "@/lib/string-case-change";
 import { useOutlet } from "@/contexts/OutletContext";
 import { formatInTz, formatMonthShort, toIsoDayInTz } from "@/lib/tz";
+import { getSystemNowDate } from "@/lib/timeUtils";
 import { tooltipStyle } from "@/lib/utils";
 
 const LedgerReport = lazy(() => import("@/components/LedgerReport"));
@@ -108,8 +109,8 @@ const Reports = () => {
     );
 
   // ── Daily Sales / Collection / Contribution shared filters ──
-  const today = format(new Date(), "yyyy-MM-dd");
-  const monthStart = format(startOfMonth(new Date()), "yyyy-MM-dd");
+  const today = format(getSystemNowDate(), "yyyy-MM-dd");
+  const monthStart = format(startOfMonth(getSystemNowDate()), "yyyy-MM-dd");
   const [from, setFrom] = useState(monthStart);
   const [to, setTo] = useState(today);
   const [includeVoided, setIncludeVoided] = useState<"exclude" | "include">(

@@ -533,7 +533,7 @@ const Settings = () => {
                   Now:{" "}
                   <span className="font-mono">
                     {formatInTz(
-                      new Date(),
+                      getSystemNowDate(),
                       { dateStyle: "medium", timeStyle: "long" },
                       general.timezone || browserTz,
                     )}

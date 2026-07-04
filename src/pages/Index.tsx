@@ -39,6 +39,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useMemo } from "react";
 import { format, isSameDay } from "date-fns";
 import { formatMonthShort } from "@/lib/tz";
+import { getSystemNowDate } from "@/lib/timeUtils";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { SOFTWARE_NAME } from "@/lib/settings";
 import { tooltipStyle } from "@/lib/utils";
@@ -67,7 +68,7 @@ const Dashboard = () => {
     todayCheckins: 0,
     checkinsChange: 0,
   };
-  const today = useMemo(() => new Date(), []);
+  const today = useMemo(() => getSystemNowDate(), []);
 
   const todaysBookings = useMemo(
     () =>
@@ -148,7 +149,7 @@ const Dashboard = () => {
   }, [members, bookings, serviceTypes]);
 
   const greeting = useMemo(() => {
-    const h = new Date().getHours();
+    const h = getSystemNowDate().getHours();
     if (h < 12) return "Good morning";
     if (h < 18) return "Good afternoon";
     return "Good evening";
