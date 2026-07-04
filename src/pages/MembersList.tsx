@@ -107,11 +107,11 @@ const MembersList = () => {
     exportTableToCSV(
       headers,
       rows,
-      `members-${format(new Date(), "yyyyMMdd")}.csv`,
+      `members-${format(getSystemNowDate(), "yyyyMMdd")}.csv`,
       {
         propertyName: settings.companyName || ".............",
         reportTitle: "Members Report",
-        dateRange: format(new Date(), "PPP"),
+        dateRange: format(getSystemNowDate(), "PPP"),
         filters: {
           Search: search || "—",
           Tier: tierFilter === "all" ? "All" : tierFilter,

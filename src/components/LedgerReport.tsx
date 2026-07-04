@@ -185,11 +185,11 @@ export default function LedgerReport() {
     exportTableToCSV(
       headers,
       rows,
-      `member-ledger-${format(new Date(), "yyyyMMdd")}.csv`,
+      `member-ledger-${format(getSystemNowDate(), "yyyyMMdd")}.csv`,
       {
         propertyName,
         reportTitle: "Member Ledger Report",
-        dateRange: format(new Date(), "PPP"),
+        dateRange: format(getSystemNowDate(), "PPP"),
         filters: {
           Tier: tierFilter === "all" ? "All" : tierFilter,
           Status: statusFilter === "all" ? "All" : statusFilter,
