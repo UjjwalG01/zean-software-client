@@ -12,7 +12,8 @@ interface Props {
 }
 
 /**
- * QR check-in scanner. Encodes member id (e.g. "VFC-MBR-0001") in the QR.
+ * QR check-in scanner. Encodes member id (e.g. "VFC-MBR-0001") or unrolls
+ * complex mobile digital app JSON passport tokens.
  * Uses html5-qrcode (camera). Closes on first successful decode.
  */
 // Only stop the scanner when it's actually running/paused — otherwise html5-qrcode throws.
@@ -22,9 +23,12 @@ function safeStop(s: Html5Qrcode | null): Promise<void> {
     const state = s.getState?.();
     // 2 = SCANNING, 3 = PAUSED in Html5QrcodeScannerState
     if (state === 2 || state === 3) return s.stop().catch(() => {});
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return Promise.resolve();
 }
+
 export function QRCheckInScanner({ open, onOpenChange, onDetected }: Props) {
   const containerId = "qr-checkin-region";
   const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -59,10 +63,24 @@ export function QRCheckInScanner({ open, onOpenChange, onDetected }: Props) {
           { fps: 10, qrbox: { width: 240, height: 240 } },
           (decoded) => {
             if (cancelled) return;
-            onDetected(decoded.trim());
+
+            let finalTargetString = decoded.trim();
+
+            // Intercept and unpack complex mobile digital layout configurations safely
+            try {
+              const parsedPayload = JSON.parse(finalTargetString);
+              if (parsedPayload && parsedPayload.vaf === "vitafit-pass" && parsedPayload.uid) {
+                // Safely isolate and pass just the unique member ID string upward
+                finalTargetString = parsedPayload.uid;
+              }
+            } catch (e) {
+              // Non-JSON standard fallbacks (printed keytags, raw code badges) bypass cleanly
+            }
+
+            onDetected(finalTargetString);
             safeStop(scanner).finally(() => onOpenChange(false));
           },
-          () => {}
+          () => {},
         );
       })
       .then(() => !cancelled && setStarting(false))
@@ -76,7 +94,11 @@ export function QRCheckInScanner({ open, onOpenChange, onDetected }: Props) {
       cancelled = true;
       const s = scannerRef.current;
       scannerRef.current = null;
-      safeStop(s).then(() => { try { s?.clear(); } catch {} });
+      safeStop(s).then(() => {
+        try {
+          s?.clear();
+        } catch {}
+      });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
