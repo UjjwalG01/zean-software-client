@@ -1,48 +1,15 @@
 import { useState, useMemo } from "react";
-import {
-  UserCheck,
-  UserX,
-  Search,
-  Filter,
-  Download,
-  Calendar,
-  QrCode,
-} from "lucide-react";
+import { UserCheck, UserX, Search, Filter, Download, Calendar, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  useMembers,
-  useCheckIns,
-  useAddCheckIn,
-  useCompanySettings,
-} from "@/hooks/use-firestore";
+import { useMembers, useCheckIns, useAddCheckIn, useCompanySettings } from "@/hooks/use-firestore";
 import { toast } from "sonner";
-import {
-  format,
-  parseISO,
-  startOfMonth,
-  endOfMonth,
-  eachDayOfInterval,
-  isSameDay,
-} from "date-fns";
+import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns";
 import { exportTableToCSV } from "@/lib/print-utils";
 import { QRCheckInScanner } from "@/components/QRCheckInScanner";
 import { consumeForAttendance } from "@/lib/prepaid";
@@ -59,9 +26,7 @@ const Attendance = () => {
   const addCheckInMutation = useAddCheckIn();
 
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState<
-    "all" | "present" | "absent"
-  >("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "present" | "absent">("all");
   const [filterMonth, setFilterMonth] = useState(getSystemMonthStr());
   const [filterMember, setFilterMember] = useState("all");
   const [scanOpen, setScanOpen] = useState(false);
@@ -77,29 +42,20 @@ const Attendance = () => {
     return checkIns.filter((c) => c.date === todayStr);
   }, [checkIns, todayStr]);
 
-  const todayCheckedInIds = useMemo(
-    () => new Set(todayCheckIns.map((c) => c.memberId)),
-    [todayCheckIns],
-  );
+  const todayCheckedInIds = useMemo(() => new Set(todayCheckIns.map((c) => c.memberId)), [todayCheckIns]);
 
   // Active members only
   const activeMembers = useMemo(
-    () =>
-      members.filter((m) => m.status === "Active" || m.status === "Expiring"),
+    () => members.filter((m) => m.status === "Active" || m.status === "Expiring"),
     [members],
   );
 
   // Filtered for mark attendance view
   const filteredMembers = useMemo(() => {
     let list = activeMembers;
-    if (search)
-      list = list.filter((m) =>
-        m.name.toLowerCase().includes(search.toLowerCase()),
-      );
-    if (filterStatus === "present")
-      list = list.filter((m) => todayCheckedInIds.has(m.id));
-    if (filterStatus === "absent")
-      list = list.filter((m) => !todayCheckedInIds.has(m.id));
+    if (search) list = list.filter((m) => m.name.toLowerCase().includes(search.toLowerCase()));
+    if (filterStatus === "present") list = list.filter((m) => todayCheckedInIds.has(m.id));
+    if (filterStatus === "absent") list = list.filter((m) => !todayCheckedInIds.has(m.id));
     return list;
   }, [activeMembers, search, filterStatus, todayCheckedInIds]);
 
@@ -151,17 +107,37 @@ const Attendance = () => {
 
   // Resolve a scanned QR payload to a member. Accepts a member id or admission code.
   const handleScanned = (code: string) => {
+    let lookupTarget = code.trim();
+
+    try {
+      // 1. Try parsing the incoming code payload as a structured JSON string
+      const parsedPayload = JSON.parse(code);
+
+      // 2. If it matches our custom pass token blueprint, extract the identity token
+      if (parsedPayload && parsedPayload.vaf === "vitafit-pass") {
+        lookupTarget = parsedPayload.uid;
+      }
+    } catch (e) {
+      // 3. Fallback: If it's not valid JSON, treat it as a raw string value for backwards compatibility
+    }
+
+    // Find the match using the isolated unique identifier string
     const member = members.find(
       (m) =>
-        m.id === code ||
-        (m as any).admissionNo === code ||
-        (m as any).code === code,
+        m.id === lookupTarget ||
+        (m as any).admissionNo === lookupTarget ||
+        (m as any).code === lookupTarget ||
+        (m as any).member_code === lookupTarget, // Added to align with custom member schema
     );
+
     if (!member) {
-      toast.error(`No member matched QR: ${code}`);
+      toast.error(`No member matched QR identifier: ${lookupTarget}`);
       return;
     }
-    handleCheckIn(member.id, member.name);
+
+    // Execute check-in pipeline using the true model fields
+    const memberName = member.name || (member as any).full_name || "Valued Member";
+    handleCheckIn(member.id, memberName);
   };
 
   // Report data
@@ -173,10 +149,7 @@ const Attendance = () => {
   }, [filterMonth]);
 
   const reportData = useMemo(() => {
-    const membersToShow =
-      filterMember === "all"
-        ? activeMembers
-        : activeMembers.filter((m) => m.id === filterMember);
+    const membersToShow = filterMember === "all" ? activeMembers : activeMembers.filter((m) => m.id === filterMember);
     return membersToShow.map((m) => {
       const memberCheckIns = checkIns.filter(
         (c) =>
@@ -187,8 +160,7 @@ const Attendance = () => {
       const presentDays = memberCheckIns.length;
       const totalDays = reportMonth.days.length;
       const absentDays = totalDays - presentDays;
-      const rate =
-        totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0;
+      const rate = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0;
       return {
         member: m,
         presentDays,
@@ -201,13 +173,7 @@ const Attendance = () => {
   }, [activeMembers, checkIns, filterMember, reportMonth]);
 
   const handleExportReport = () => {
-    const headers = [
-      "Member",
-      "Present Days",
-      "Absent Days",
-      "Total Days",
-      "Attendance %",
-    ];
+    const headers = ["Member", "Present Days", "Absent Days", "Total Days", "Attendance %"];
     const rows = reportData.map((r) => [
       r.member.name,
       String(r.presentDays),
@@ -216,10 +182,7 @@ const Attendance = () => {
       `${r.rate}%`,
     ]);
     const memberFilterLabel =
-      filterMember === "all"
-        ? "All Members"
-        : activeMembers.find((m) => m.id === filterMember)?.name ||
-          filterMember;
+      filterMember === "all" ? "All Members" : activeMembers.find((m) => m.id === filterMember)?.name || filterMember;
     exportTableToCSV(headers, rows, `attendance-${filterMonth}.csv`, {
       propertyName: settings.companyName || ".............",
       reportTitle: "Attendance Report",
@@ -239,23 +202,15 @@ const Attendance = () => {
         <div>
           <h1 className="text-2xl font-bold font-display">Attendance</h1>
           <p className="text-muted-foreground text-sm">
-            {todayCheckIns.length} present today •{" "}
-            {activeMembers.length - todayCheckIns.length} absent
+            {todayCheckIns.length} present today • {activeMembers.length - todayCheckIns.length} absent
           </p>
         </div>
-        <Button
-          onClick={() => setScanOpen(true)}
-          className="gradient-gold text-primary-foreground"
-        >
+        <Button onClick={() => setScanOpen(true)} className="gradient-gold text-primary-foreground">
           <QrCode className="h-4 w-4 mr-2" /> Scan QR Check-in
         </Button>
       </div>
 
-      <QRCheckInScanner
-        open={scanOpen}
-        onOpenChange={setScanOpen}
-        onDetected={handleScanned}
-      />
+      <QRCheckInScanner open={scanOpen} onOpenChange={setScanOpen} onDetected={handleScanned} />
 
       <Tabs defaultValue="checkin" className="space-y-4">
         <TabsList className="bg-muted/50">
@@ -282,10 +237,7 @@ const Attendance = () => {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <Select
-              value={filterStatus}
-              onValueChange={(v) => setFilterStatus(v as any)}
-            >
+            <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as any)}>
               <SelectTrigger className="w-[140px] bg-muted/50 border-0">
                 <SelectValue />
               </SelectTrigger>
@@ -313,49 +265,33 @@ const Attendance = () => {
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead>Member</TableHead>
-                    <TableHead className="hidden md:table-cell">
-                      Phone
-                    </TableHead>
+                    <TableHead className="hidden md:table-cell">Phone</TableHead>
                     <TableHead>Tier</TableHead>
-                    <TableHead className="hidden lg:table-cell">
-                      Time Slot
-                    </TableHead>
-                    <TableHead className="hidden md:table-cell">
-                      Last Check-in
-                    </TableHead>
+                    <TableHead className="hidden lg:table-cell">Time Slot</TableHead>
+                    <TableHead className="hidden md:table-cell">Last Check-in</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredMembers.map((m) => {
-                    const todayCi = todayCheckIns.find(
-                      (c) => c.memberId === m.id,
-                    );
+                    const todayCi = todayCheckIns.find((c) => c.memberId === m.id);
                     const isPresent = !!todayCi;
                     const lastCi = [...checkIns]
                       .filter((c) => c.memberId === m.id)
                       .sort((a, b) => (a.date < b.date ? 1 : -1))[0];
                     return (
                       <TableRow key={m.id}>
-                        <TableCell className="font-medium text-sm">
-                          {m.name}
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
-                          {m.phone}
-                        </TableCell>
+                        <TableCell className="font-medium text-sm">{m.name}</TableCell>
+                        <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{m.phone}</TableCell>
                         <TableCell>
                           <Badge variant="secondary" className="text-[10px]">
                             {m.tier}
                           </Badge>
                         </TableCell>
-                        <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
-                          —
-                        </TableCell>
+                        <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">—</TableCell>
                         <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
-                          {lastCi?.date
-                            ? `${lastCi.date}${lastCi.checkInTime ? " · " + lastCi.checkInTime : ""}`
-                            : "—"}
+                          {lastCi?.date ? `${lastCi.date}${lastCi.checkInTime ? " · " + lastCi.checkInTime : ""}` : "—"}
                         </TableCell>
                         <TableCell>
                           <Badge
@@ -374,11 +310,7 @@ const Attendance = () => {
                             variant={isPresent ? "secondary" : "default"}
                             disabled={isPresent || addCheckInMutation.isPending}
                             onClick={() => handleCheckIn(m.id, m.name)}
-                            className={
-                              isPresent
-                                ? ""
-                                : "gradient-gold text-primary-foreground"
-                            }
+                            className={isPresent ? "" : "gradient-gold text-primary-foreground"}
                           >
                             {isPresent ? "Checked In ✓" : "Check In"}
                           </Button>
@@ -396,9 +328,7 @@ const Attendance = () => {
           {/* Report filter bar */}
           <div className="glass-card rounded-xl p-4 flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-muted-foreground">
-                Month:
-              </label>
+              <label className="text-sm font-medium text-muted-foreground">Month:</label>
               <Input
                 type="month"
                 value={filterMonth}
@@ -407,9 +337,7 @@ const Attendance = () => {
               />
             </div>
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-muted-foreground">
-                Member:
-              </label>
+              <label className="text-sm font-medium text-muted-foreground">Member:</label>
               <Select value={filterMember} onValueChange={setFilterMember}>
                 <SelectTrigger className="w-[200px] bg-muted/50 border-0">
                   <SelectValue />
@@ -424,13 +352,7 @@ const Attendance = () => {
                 </SelectContent>
               </Select>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              accessKey="x"
-              className="ml-auto"
-              onClick={handleExportReport}
-            >
+            <Button variant="outline" size="sm" accessKey="x" className="ml-auto" onClick={handleExportReport}>
               <Download className="h-4 w-4 mr-1" />
               {underlineSpecificChars("Export Report", [1])}
             </Button>
@@ -451,32 +373,21 @@ const Attendance = () => {
               <TableBody>
                 {reportData.length === 0 ? (
                   <TableRow>
-                    <TableCell
-                      colSpan={5}
-                      className="text-center text-muted-foreground py-8"
-                    >
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                       No data
                     </TableCell>
                   </TableRow>
                 ) : (
                   reportData.map((r) => (
                     <TableRow key={r.member.id}>
-                      <TableCell className="font-medium text-sm">
-                        {r.member.name}
+                      <TableCell className="font-medium text-sm">{r.member.name}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge className="bg-success/20 text-white border-0 text-[10px]">{r.presentDays}</Badge>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge className="bg-success/20 text-white border-0 text-[10px]">
-                          {r.presentDays}
-                        </Badge>
+                        <Badge className="bg-destructive/20 text-white border-0 text-[10px]">{r.absentDays}</Badge>
                       </TableCell>
-                      <TableCell className="text-center">
-                        <Badge className="bg-destructive/20 text-white border-0 text-[10px]">
-                          {r.absentDays}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center text-sm">
-                        {r.totalDays}
-                      </TableCell>
+                      <TableCell className="text-center text-sm">{r.totalDays}</TableCell>
                       <TableCell className="text-center">
                         <Badge
                           variant="outline"
