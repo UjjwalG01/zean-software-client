@@ -37,6 +37,7 @@ import NotFound from "./pages/NotFound";
 import { useEffect } from "react";
 import { pingSupabase } from "@/lib/supabase";
 import { setAppTimezone } from "@/lib/tz";
+import { setActiveVatRate } from "@/lib/vat";
 import { useCompanySettings } from "@/hooks/use-firestore";
 import { TitleSync } from "./components/TitleSync";
 
@@ -55,14 +56,17 @@ function SupabaseProbe() {
   return null;
 }
 
-/** Pushes the configured timezone into the global tz helper. */
+/** Pushes the configured timezone + VAT rate into the global helpers. */
 function TimezoneSync() {
   const { data: settings } = useCompanySettings();
   useEffect(() => {
     setAppTimezone((settings as any)?.timezone || null);
+    const raw = (settings as any)?.vatRate ?? (settings as any)?.vat_rate;
+    if (raw !== undefined && raw !== null && raw !== "") setActiveVatRate(raw);
   }, [settings]);
   return null;
 }
+
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, loading, appUser } = useAuthContext();

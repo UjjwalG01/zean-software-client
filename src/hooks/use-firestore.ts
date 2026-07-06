@@ -21,6 +21,8 @@ import { INVOICE_PREFIX } from "@/lib/settings";
 import { isSameDay } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { getSystemNowDate } from "@/lib/timeUtils";
+import { splitVatFromGross, shouldBreakdownVat } from "@/lib/vat";
+
 
 const SYSTEM_TZ = "Asia/Kathmandu";
 
@@ -311,7 +313,7 @@ export function useAddTransaction() {
           memberId: data.memberId || "",
           memberName: data.memberName || "",
           amount: data.amount || 0,
-          vat: data.vat || Math.round((Number(data.amount || 0) - Number(data.amount || 0) / 1.13) * 100) / 100,
+          vat: data.vat ?? (shouldBreakdownVat(data.type as any) ? splitVatFromGross(Number(data.amount || 0)).vat : 0),
           total: data.total || data.amount || 0,
           method: data.method || "cash",
           type: data.type || "Charge",

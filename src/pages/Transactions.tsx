@@ -78,6 +78,8 @@ import {
 import { methodColors } from "@/lib/utils";
 
 import { INVOICE_PREFIX } from "@/lib/settings";
+import { splitVatFromGross } from "@/lib/vat";
+
 import { logAudit } from "@/lib/audit-log";
 
 import { useOutlet } from "@/contexts/OutletContext";
@@ -240,8 +242,8 @@ const Transactions = () => {
     },
   ) => {
     const companyName = settings.companyName || ".............";
-    const net = Math.round((gross / 1.13) * 100) / 100;
-    const vat = Math.round((gross - net) * 100) / 100;
+    const { net, vat } = splitVatFromGross(gross);
+
     const previousBalance = extras?.memberId
       ? transactions
           .filter(
@@ -333,10 +335,9 @@ const Transactions = () => {
           memberId: memberId || "",
           memberName: memberNameStr,
           amount: Number(amountStr),
-          vat:
-            Math.round((Number(amountStr) - Number(amountStr) / 1.13) * 100) /
-            100,
+          vat: splitVatFromGross(Number(amountStr)).vat,
           total: Number(amountStr),
+
           method: "cash",
           type: "Charge",
           date: getSystemTodayStr(),

@@ -12,6 +12,8 @@ import { formatNPR } from "@/lib/mock-data";
 import { supabase } from "@/lib/supabase";
 import { useQueryClient } from "@tanstack/react-query";
 import { useOutlet } from "@/contexts/OutletContext";
+import { splitVatFromGross } from "@/lib/vat";
+
 
 interface Props {
   open: boolean;
@@ -54,8 +56,9 @@ export function RecordChargeModal({ open, onOpenChange }: Props) {
   }, [selectedHead]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const gross = Number(amount || 0);
-  const net = gross ? Math.round((gross / 1.13) * 100) / 100 : 0;
-  const vat = gross ? Math.round((gross - net) * 100) / 100 : 0;
+  const { net, vat } = gross ? splitVatFromGross(gross) : { net: 0, vat: 0 };
+
+
 
   const submit = async () => {
     if (!outletId) {

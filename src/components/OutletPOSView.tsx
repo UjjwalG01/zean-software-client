@@ -213,6 +213,9 @@ export function OutletPOSView({ outlet }: Props) {
       itemDescriptions.push(`${line.name} × ${line.qty}`);
 
       for (let i = 0; i < line.qty; i++) {
+        // POS orders (fitness/wellness) always land as pending + confirmed —
+        // the operator does not pick these on this screen. Sports outlets use
+        // the calendar view (Bookings.tsx) which still exposes booking_status.
         const bookingId = await addBookingMutation.mutateAsync({
           memberId,
           memberName: memberObj?.name || guestName || "",
@@ -222,7 +225,10 @@ export function OutletPOSView({ outlet }: Props) {
           startTime: now,
           endTime: now,
           status: "pending",
+          bookingStatus: "confirmed",
+          booking_status: "confirmed",
           original_rate: line.price,
+          rate: line.price,
           service_id: line.serviceId,
           outletId: outlet.id,
           instructor: attendant || "",
@@ -230,6 +236,7 @@ export function OutletPOSView({ outlet }: Props) {
 
         if (bookingId) allBookingIds.push(String(bookingId));
       }
+
     }
 
     if (allBookingIds.length === 0) {
