@@ -14,6 +14,8 @@ import type { Transaction, PaymentMethod, ServiceType } from "./mock-data";
 import { supabase } from "./supabase";
 import { toIsoDayInTz, getAppTimezone } from "./tz";
 import { getSystemTodayStr } from "./timeUtils";
+import { splitVatFromGross } from "./vat";
+
 
 type AddFn = (data: Partial<Transaction>) => Promise<string>;
 type UpdateFn = (args: { id: string; data: Partial<Transaction> }) => Promise<unknown>;
