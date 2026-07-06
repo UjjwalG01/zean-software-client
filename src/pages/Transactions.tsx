@@ -242,8 +242,8 @@ const Transactions = () => {
     },
   ) => {
     const companyName = settings.companyName || ".............";
-    const net = Math.round((gross / 1.13) * 100) / 100;
-    const vat = Math.round((gross - net) * 100) / 100;
+    const { net, vat } = splitVatFromGross(gross);
+
     const previousBalance = extras?.memberId
       ? transactions
           .filter(
