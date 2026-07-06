@@ -47,6 +47,8 @@ import type { Outlet } from "@/lib/supabase-outlets";
 import { formatNPR, type ServiceType, type Booking } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { BookingDetailModal } from "@/components/BookingDetailModal";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+
 import {
   getSystemTimestamp,
   getSystemTimeStr,
