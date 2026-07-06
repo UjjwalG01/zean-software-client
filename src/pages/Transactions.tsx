@@ -335,10 +335,9 @@ const Transactions = () => {
           memberId: memberId || "",
           memberName: memberNameStr,
           amount: Number(amountStr),
-          vat:
-            Math.round((Number(amountStr) - Number(amountStr) / 1.13) * 100) /
-            100,
+          vat: splitVatFromGross(Number(amountStr)).vat,
           total: Number(amountStr),
+
           method: "cash",
           type: "Charge",
           date: getSystemTodayStr(),
