@@ -282,8 +282,9 @@ export function BookingDetailModal({
             </DialogTitle>
           </DialogHeader>
 
-          {(
-            <div className="space-y-4">
+          <div className="space-y-4">
+
+
 
               <div className="rounded-lg border border-border/50 bg-muted/30 p-4 text-center">
                 <p className="font-semibold text-lg">{b.className}</p>
