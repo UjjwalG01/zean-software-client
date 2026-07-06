@@ -47,7 +47,14 @@ interface BookingDetailModalProps {
   onOpenChange: (open: boolean) => void;
   /** When provided, the Amend button calls this with the booking so the parent can open the unified Create modal pre-filled. */
   onAmend?: (booking: Booking) => void;
+  /**
+   * When true, the modal renders as strictly read-only: Amend, Cancel and
+   * Billing/Print actions are hidden. Used for Fitness/Wellness bookings
+   * where mutations must flow through the POS pipeline instead.
+   */
+  readOnly?: boolean;
 }
+
 
 function parseSetup(
   settings: Record<string, string>,
