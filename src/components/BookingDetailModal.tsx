@@ -343,59 +343,61 @@ export function BookingDetailModal({
                   <span className="text-muted-foreground ml-7">Status</span>
                   <Badge
                     variant={
-                      status === "Confirmed"
+                      displayStatus === "Confirmed"
                         ? "default"
-                        : status === "Completed"
+                        : displayStatus === "Completed"
                           ? "default"
-                          : status === "Pending"
+                          : displayStatus === "Pending"
                             ? "secondary"
                             : "destructive"
                     }
-                    className={`ml-auto text-xs ${status === "Completed" ? "bg-success/20 text-success border-0" : ""}`}
+                    className={`ml-auto text-xs ${displayStatus === "Completed" ? "bg-success/20 text-success border-0" : ""}`}
                   >
-                    {status}
+                    {displayStatus}
                   </Badge>
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-2 pt-2">
-                {canEdit && onAmend && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      onAmend(b);
-                      onOpenChange(false);
-                    }}
-                  >
-                    <Pencil className="h-4 w-4 mr-1" />
-                    Amend
-                  </Button>
-                )}
+              {/* 🌟 PHASE 5: Once cancelled, or when service is read-only (fitness/wellness),
+                  hide the entire action row so no Bill / Amend / Cancel remain interactive. */}
+              {!isCancelled && !isReadOnlyService && (
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {canEdit && onAmend && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        onAmend(b);
+                        onOpenChange(false);
+                      }}
+                    >
+                      <Pencil className="h-4 w-4 mr-1" />
+                      Amend
+                    </Button>
+                  )}
 
-                {canCancel && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-amber-500 hover:bg-amber-500/10"
-                    onClick={() => setConfirmCancel(true)}
-                  >
-                    <Ban className="h-4 w-4 mr-1" />
-                    Cancel
-                  </Button>
-                )}
-                {status === "Completed" ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1"
-                    onClick={handleGenerateBill}
-                  >
-                    <Printer className="h-4 w-4 mr-1" />
-                    Print Bill
-                  </Button>
-                ) : (
-                  status !== "Cancelled" && (
+                  {canCancel && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-amber-500 hover:bg-amber-500/10"
+                      onClick={() => setConfirmCancel(true)}
+                    >
+                      <Ban className="h-4 w-4 mr-1" />
+                      Cancel
+                    </Button>
+                  )}
+                  {isCompleted ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={handleGenerateBill}
+                    >
+                      <Printer className="h-4 w-4 mr-1" />
+                      Print Bill
+                    </Button>
+                  ) : (
                     <Button
                       size="sm"
                       className="flex-1 gradient-gold text-primary-foreground disabled:opacity-50"
@@ -412,9 +414,20 @@ export function BookingDetailModal({
                         ? "Billing (Locked – Future)"
                         : "Billing / Record Payment"}
                     </Button>
-                  )
-                )}
-              </div>
+                  )}
+                </div>
+              )}
+
+              {/* Read-only banner for fitness/wellness or cancelled records */}
+              {(isReadOnlyService || isCancelled) && (
+                <div className="rounded-md border border-dashed border-border/60 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground text-center">
+                  {isCancelled
+                    ? "This booking has been cancelled. No further actions are available."
+                    : "Read-only view. Manage this booking from the POS screen."}
+                </div>
+              )}
+            </div>
+
             </div>
 
         </DialogContent>
