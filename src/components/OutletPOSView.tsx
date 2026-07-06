@@ -392,71 +392,111 @@ export function OutletPOSView({ outlet }: Props) {
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs">Member / Guest *</Label>
-            <Popover open={memberOpen} onOpenChange={setMemberOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full justify-between font-normal"
-                >
-                  {selectedMember ? (
-                    <span className="truncate">{selectedMember.name}</span>
-                  ) : (
-                    <span className="text-muted-foreground">
-                      Search member…
-                    </span>
-                  )}
-                  <Search className="h-3.5 w-3.5 opacity-60" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent
-                className="w-[--radix-popover-trigger-width] p-0"
-                align="start"
+            <Label className="text-xs">Customer *</Label>
+            <div className="inline-flex rounded-lg border border-border bg-muted/30 p-0.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("member");
+                  setGuestName("");
+                }}
+                className={cn(
+                  "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                  mode === "member"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
               >
-                <div className="p-2 border-b border-border">
-                  <Input
-                    value={memberSearch}
-                    onChange={(e) => setMemberSearch(e.target.value)}
-                    placeholder="Search name / phone / email"
-                    className="h-8"
-                    autoFocus
-                  />
-                </div>
-                <div className="max-h-64 overflow-y-auto">
-                  {filteredMembers.map((m) => (
-                    <button
-                      key={m.id}
-                      onClick={() => {
-                        setMemberId(m.id);
-                        setMemberOpen(false);
-                      }}
-                      className="flex items-center justify-between w-full px-3 py-2 text-sm text-left hover:bg-muted/50"
-                    >
-                      <div className="flex flex-col min-w-0">
-                        <span className="truncate">{m.name}</span>
-                        <span className="text-[11px] text-muted-foreground truncate">
-                          {m.phone || m.email || "—"}
-                        </span>
-                      </div>
-                      {memberId === m.id && (
-                        <Check className="h-3.5 w-3.5 text-primary" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
+                Member Mode
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("guest");
+                  setMemberId("");
+                  setMemberSearch("");
+                }}
+                className={cn(
+                  "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                  mode === "guest"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                Guest Mode
+              </button>
+            </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-xs">Guest Name (walk-in)</Label>
-            <Input
-              value={guestName}
-              onChange={(e) => setGuestName(e.target.value)}
-              placeholder="Optional"
-            />
-          </div>
+          {mode === "member" ? (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Member *</Label>
+              <Popover open={memberOpen} onOpenChange={setMemberOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between font-normal"
+                  >
+                    {selectedMember ? (
+                      <span className="truncate">{selectedMember.name}</span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        Search member…
+                      </span>
+                    )}
+                    <Search className="h-3.5 w-3.5 opacity-60" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-[--radix-popover-trigger-width] p-0"
+                  align="start"
+                >
+                  <div className="p-2 border-b border-border">
+                    <Input
+                      value={memberSearch}
+                      onChange={(e) => setMemberSearch(e.target.value)}
+                      placeholder="Search name / phone / email"
+                      className="h-8"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {filteredMembers.map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => {
+                          setMemberId(m.id);
+                          setMemberOpen(false);
+                        }}
+                        className="flex items-center justify-between w-full px-3 py-2 text-sm text-left hover:bg-muted/50"
+                      >
+                        <div className="flex flex-col min-w-0">
+                          <span className="truncate">{m.name}</span>
+                          <span className="text-[11px] text-muted-foreground truncate">
+                            {m.phone || m.email || "—"}
+                          </span>
+                        </div>
+                        {memberId === m.id && (
+                          <Check className="h-3.5 w-3.5 text-primary" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Guest Name *</Label>
+              <Input
+                value={guestName}
+                onChange={(e) => setGuestName(e.target.value)}
+                placeholder="Walk-in guest name"
+              />
+            </div>
+          )}
         </div>
+
 
         {/* RIGHT — Item selection + cart */}
         <div className="lg:col-span-3 space-y-3">
