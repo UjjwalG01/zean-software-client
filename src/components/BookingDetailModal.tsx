@@ -79,6 +79,7 @@ export function BookingDetailModal({
   open,
   onOpenChange,
   onAmend,
+  readOnly = false,
 }: BookingDetailModalProps) {
   const navigate = useNavigate();
   const updateBooking = useUpdateBooking();
@@ -100,12 +101,18 @@ export function BookingDetailModal({
     rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1).toLowerCase();
   const currentStatusClean = rawStatus.toLowerCase();
 
+  // 🌟 PHASE 5: Fitness/Wellness bookings are read-only in the detail modal.
+  // Sports (and any other type) retain interactive Amend/Cancel/Bill controls.
+  const svcNorm = String(b.service || "").toLowerCase();
+  const isReadOnlyService =
+    readOnly || svcNorm === "fitness" || svcNorm === "wellness";
+
+  const isCancelled = currentStatusClean === "cancelled";
+  const isCompleted = currentStatusClean === "completed";
+
   const canEdit =
-    isFutureBooking(b) &&
-    currentStatusClean !== "completed" &&
-    currentStatusClean !== "cancelled";
-  const canCancel =
-    currentStatusClean !== "completed" && currentStatusClean !== "cancelled";
+    !isReadOnlyService && isFutureBooking(b) && !isCompleted && !isCancelled;
+  const canCancel = !isReadOnlyService && !isCompleted && !isCancelled;
 
   const isStrictlyFuture = (() => {
     const today = getSystemNowDate();
@@ -114,6 +121,7 @@ export function BookingDetailModal({
     d.setHours(0, 0, 0, 0);
     return d.getTime() > today.getTime();
   })();
+
 
   const handleBillNow = async () => {
     if (isStrictlyFuture) {
