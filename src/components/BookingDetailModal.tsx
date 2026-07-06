@@ -81,39 +81,9 @@ export function BookingDetailModal({
   const { data: services = [] } = useServices();
   const [localStatus, setLocalStatus] = useState<string | null>(null);
 
-  // Edit state
-  const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({
-    date: "",
-    startTime: "",
-    endTime: "",
-    service: "Fitness" as ServiceType,
-    className: "",
-    instructor: "",
-  });
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
 
-  const setupServiceTypes = parseSetup(settings, "setup_serviceTypes", [
-    "Gym",
-    "Spa",
-    "Sauna",
-    "Swimming",
-  ]);
-
-  useEffect(() => {
-    if (b) {
-      setEditForm({
-        date: b.date,
-        startTime: b.startTime,
-        endTime: b.endTime,
-        service: b.service,
-        className: b.className,
-        instructor: b.instructor || "",
-      });
-      setEditing(false);
-    }
-  }, [b]);
 
   if (!b) return null;
 
