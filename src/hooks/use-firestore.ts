@@ -313,7 +313,7 @@ export function useAddTransaction() {
           memberId: data.memberId || "",
           memberName: data.memberName || "",
           amount: data.amount || 0,
-          vat: data.vat ?? (await import("@/lib/vat")).splitVatFromGross(Number(data.amount || 0)).vat,
+          vat: data.vat ?? (shouldBreakdownVat(data.type as any) ? splitVatFromGross(Number(data.amount || 0)).vat : 0),
           total: data.total || data.amount || 0,
           method: data.method || "cash",
           type: data.type || "Charge",
