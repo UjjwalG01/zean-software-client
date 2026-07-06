@@ -12,6 +12,8 @@ import { formatNPR } from "@/lib/mock-data";
 import { supabase } from "@/lib/supabase";
 import { useQueryClient } from "@tanstack/react-query";
 import { useOutlet } from "@/contexts/OutletContext";
+import { splitVatFromGross } from "@/lib/vat";
+
 
 interface Props {
   open: boolean;
