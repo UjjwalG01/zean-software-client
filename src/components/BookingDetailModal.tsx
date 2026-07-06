@@ -14,25 +14,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   CalendarDays,
   Clock,
   User,
   Dumbbell,
   Printer,
   Pencil,
-  Save,
-  X,
   Ban,
   Receipt,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+
 import type { Booking, ServiceType } from "@/lib/mock-data";
 import {
   useUpdateBooking,
@@ -89,39 +81,9 @@ export function BookingDetailModal({
   const { data: services = [] } = useServices();
   const [localStatus, setLocalStatus] = useState<string | null>(null);
 
-  // Edit state
-  const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({
-    date: "",
-    startTime: "",
-    endTime: "",
-    service: "Fitness" as ServiceType,
-    className: "",
-    instructor: "",
-  });
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
 
-  const setupServiceTypes = parseSetup(settings, "setup_serviceTypes", [
-    "Gym",
-    "Spa",
-    "Sauna",
-    "Swimming",
-  ]);
-
-  useEffect(() => {
-    if (b) {
-      setEditForm({
-        date: b.date,
-        startTime: b.startTime,
-        endTime: b.endTime,
-        service: b.service,
-        className: b.className,
-        instructor: b.instructor || "",
-      });
-      setEditing(false);
-    }
-  }, [b]);
 
   if (!b) return null;
 
@@ -183,39 +145,10 @@ export function BookingDetailModal({
     navigate(`/transactions?${params.toString()}`);
   };
 
-  const handleSaveEdit = async () => {
-    if (!editForm.date || !editForm.startTime || !editForm.className) {
-      toast.error("Date, time and class are required");
-      return;
-    }
-    const today = getSystemNowDate();
-    today.setHours(0, 0, 0, 0);
-    if (new Date(editForm.date) < today) {
-      toast.error("Cannot move booking to a past date");
-      return;
-    }
-    try {
-      await updateBooking.mutateAsync({
-        id: b.id,
-        data: {
-          bookingDate: editForm.date,
-          booking_date: editForm.date,
-          startTime: editForm.startTime,
-          endTime: editForm.endTime || editForm.startTime,
-          start_time: editForm.startTime,
-          end_time: editForm.endTime || editForm.startTime,
-          service: editForm.service,
-          className: editForm.className,
-          instructor: editForm.instructor,
-        },
-      });
-      toast.success("Booking updated");
-      setEditing(false);
-      onOpenChange(false);
-    } catch {
-      toast.error("Failed to update booking");
-    }
-  };
+  // Edit and Amend both delegate to the parent-owned unified booking dialog
+  // via the `onAmend` prop — this modal is now strictly read-only + actions.
+
+
 
   const handleCancel = async () => {
     if (!cancelReason.trim()) {
@@ -338,7 +271,6 @@ export function BookingDetailModal({
           onOpenChange(v);
           if (!v) {
             setLocalStatus(null);
-            setEditing(false);
           }
         }}
       >
@@ -346,99 +278,14 @@ export function BookingDetailModal({
           <DialogHeader>
             <DialogTitle className="font-display flex items-center gap-2">
               <CalendarDays className="h-5 w-5 text-primary" />
-              {editing ? "Edit Booking" : "Booking Details"}
+              Booking Details
             </DialogTitle>
           </DialogHeader>
 
-          {editing ? (
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label>Class / Session</Label>
-                <Input
-                  value={editForm.className}
-                  onChange={(e) =>
-                    setEditForm((p) => ({ ...p, className: e.target.value }))
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Service</Label>
-                <Select
-                  value={editForm.service}
-                  onValueChange={(v) =>
-                    setEditForm((p) => ({ ...p, service: v as ServiceType }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {setupServiceTypes.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Date</Label>
-                  <Input
-                    type="date"
-                    value={editForm.date}
-                    onChange={(e) =>
-                      setEditForm((p) => ({ ...p, date: e.target.value }))
-                    }
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Start</Label>
-                  <Input
-                    type="time"
-                    value={editForm.startTime}
-                    onChange={(e) =>
-                      setEditForm((p) => ({ ...p, startTime: e.target.value }))
-                    }
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>End</Label>
-                  <Input
-                    type="time"
-                    value={editForm.endTime}
-                    onChange={(e) =>
-                      setEditForm((p) => ({ ...p, endTime: e.target.value }))
-                    }
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Instructor</Label>
-                <Input
-                  value={editForm.instructor}
-                  onChange={(e) =>
-                    setEditForm((p) => ({ ...p, instructor: e.target.value }))
-                  }
-                />
-              </div>
-              <DialogFooter className="pt-2">
-                <Button variant="outline" onClick={() => setEditing(false)}>
-                  <X className="h-4 w-4 mr-1" />
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSaveEdit}
-                  disabled={updateBooking.isPending}
-                  className="gradient-gold text-primary-foreground"
-                >
-                  <Save className="h-4 w-4 mr-1" />
-                  {updateBooking.isPending ? "Saving..." : "Save Changes"}
-                </Button>
-              </DialogFooter>
-            </div>
-          ) : (
-            <div className="space-y-4">
+          <div className="space-y-4">
+
+
+
               <div className="rounded-lg border border-border/50 bg-muted/30 p-4 text-center">
                 <p className="font-semibold text-lg">{b.className}</p>
                 <Badge
@@ -497,23 +344,20 @@ export function BookingDetailModal({
               </div>
 
               <div className="flex flex-wrap gap-2 pt-2">
-                {canEdit && (
+                {canEdit && onAmend && (
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => {
-                      if (onAmend) {
-                        onAmend(b);
-                        onOpenChange(false);
-                      } else {
-                        setEditing(true);
-                      }
+                      onAmend(b);
+                      onOpenChange(false);
                     }}
                   >
                     <Pencil className="h-4 w-4 mr-1" />
                     Amend
                   </Button>
                 )}
+
                 {canCancel && (
                   <Button
                     size="sm"
@@ -557,7 +401,7 @@ export function BookingDetailModal({
                 )}
               </div>
             </div>
-          )}
+
         </DialogContent>
       </Dialog>
 

@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+
 import {
   format,
   startOfMonth,
@@ -182,6 +183,8 @@ const Bookings_Page = () => {
   const [membershipListOpen, setMembershipListOpen] = useState(false);
 
   const { data: bookings = [], isLoading } = useBookings();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const { data: members = [] } = useMembers();
   const { data: services = [] } = useServices();
   const { data: plans = [] } = useMembershipPlans();
@@ -397,6 +400,22 @@ const Bookings_Page = () => {
 
     setDialogOpen(true);
   };
+
+  // Cross-page unified Amend entry point — POS view (and any other caller)
+  // navigates here with ?amendBookingId=<id> so the unified booking dialog
+  // opens pre-populated. Guarantees Add / Edit / Amend share one component.
+  useEffect(() => {
+    const amendId = searchParams.get("amendBookingId");
+    if (!amendId || isLoading) return;
+    const target = bookings.find((b) => String(b.id) === amendId);
+    if (target) {
+      openAmendBookingDialog(target);
+      const next = new URLSearchParams(searchParams);
+      next.delete("amendBookingId");
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, bookings, isLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   const handleDayClick = (day: Date) => {
     setScheduleDay(day);
