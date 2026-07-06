@@ -721,9 +721,12 @@ export async function getTransactions(): Promise<Transaction[]> {
 }
 
 export async function addTransaction(data: Partial<Transaction>): Promise<string> {
+  const { splitVatFromGross, shouldBreakdownVat } = await import("./vat");
   const gross = Number(data.amount || 0);
-  const net = Math.round((gross / 1.13) * 100) / 100;
-  const vat = Math.round((gross - net) * 100) / 100;
+  const breakdown = shouldBreakdownVat(data.type as any, (data as any).isSettlement);
+  const split = breakdown ? splitVatFromGross(gross) : { net: gross, vat: 0 };
+  const net = split.net;
+  const vat = split.vat;
   const status = data.status === "pending" ? "pending" : "paid";
   const insertRow: any = {
     receipt_no: data.receiptNo || `${INVOICE_PREFIX}-${Date.now()}`,
@@ -748,6 +751,7 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
       isSettlement: (data as any).isSettlement || false,
     },
   };
+
   const { data: row, error } = await supabase.from("payments").insert(insertRow).select("id").single();
   if (error) throwDb(error, "payments");
   await maybeAudit("create", "payment", row.id, null, data);
