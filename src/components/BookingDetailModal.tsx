@@ -401,7 +401,7 @@ export function BookingDetailModal({
                 )}
               </div>
             </div>
-          )}
+
         </DialogContent>
       </Dialog>
 
