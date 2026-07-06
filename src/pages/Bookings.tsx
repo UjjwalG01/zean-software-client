@@ -82,6 +82,7 @@ import {
   usePlanDurations,
   useUpdateMember,
   useAddTransaction,
+  useUpdateTransaction,
 } from "@/hooks/use-firestore";
 import { formatMonths } from "@/lib/duration";
 import { useOutlet } from "@/contexts/OutletContext";
@@ -194,6 +195,7 @@ const Bookings_Page = () => {
   const updateMemberMutation = useUpdateMember();
   const addTransactionMutation = useAddTransaction();
   const updateBookingMutation = useUpdateBooking();
+  const updateTransactionMutation = useUpdateTransaction();
 
   const isMembershipOutlet =
     !!selectedOutlet &&
@@ -294,14 +296,25 @@ const Bookings_Page = () => {
   }, [filtered, listPage]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
 
+  // 🚀 FIX: Index bookings by date string upfront to avoid deep nested array looping
+  const bookingsByDateCache = useMemo(() => {
+    const map: Record<string, Booking[]> = {};
+
+    filtered.forEach((b) => {
+      if (!b.date || b.status === "cancelled") return;
+
+      if (!map[b.date]) map[b.date] = [];
+      map[b.date].push(b);
+    });
+    return map;
+  }, [filtered]);
+
   const getBookingsForDay = (day: Date) => {
     // 1. Convert the calendar grid day into a clean string relative to Kathmandu
     const dayStr = formatInTimeZone(day, getAppTimezone(), "yyyy-MM-dd");
 
     // 2. Perform a bulletproof string-to-string comparison
-    return filtered.filter(
-      (b) => b.date === dayStr && b.status !== "cancelled",
-    );
+    return bookingsByDateCache[dayStr] || [];
   };
 
   const isPastDateTime = (dateStr: string, startTime?: string): boolean => {
@@ -416,7 +429,6 @@ const Bookings_Page = () => {
     }
   }, [searchParams, bookings, isLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
-
   const handleDayClick = (day: Date) => {
     setScheduleDay(day);
     if (isMembershipOutlet) {
@@ -496,7 +508,12 @@ const Bookings_Page = () => {
 
     setIsSubmitting(true);
     try {
+      // 🚀 FIX: Prevent resetting lifecycle state back to "pending" on an edit
       const cleanBookStatus = bookStatus.toLowerCase();
+      const existingBooking = bookings.find((b) => b.id === editingBookingId);
+      const finalLifecycleStatus = editingBookingId
+        ? existingBooking?.status || "pending"
+        : "pending";
 
       // 🌟 1. Price, Rate, and Discount Calculations Upfront
       const basePrice = Number(selectedService.price || 0);
@@ -522,6 +539,7 @@ const Bookings_Page = () => {
             service: selectedService.type as ServiceType,
             service_id: selectedService.id, // 🌟 Added
             module_id: selectedOutlet.outletType || "", // 🌟 Added
+
             rate: finalPrice, // 🌟 Added
             original_rate: basePrice, // 🌟 Added
             discount_amount: discountAmt, // 🌟 Added
@@ -545,9 +563,11 @@ const Bookings_Page = () => {
             endAt: endIso,
 
             outletId: selectedOutlet.id,
-            status: "pending",
-            bookStatus: cleanBookStatus,
             instructor: bookInstructor || selectedService.instructor || "",
+
+            status: finalLifecycleStatus, // Controls the lifecycle
+            bookStatus: cleanBookStatus, // Retains classification type string
+            bookingStatus: cleanBookStatus, // Type descriptor fallback
           } as any,
         });
         toast.success("Booking updated");
@@ -1450,7 +1470,11 @@ const Bookings_Page = () => {
               </DialogTitle>
               <p className="text-xs text-muted-foreground">
                 {scheduleDay
-                  ? formatInTimeZone(scheduleDay, getAppTimezone(), "MMMM d, yyyy")
+                  ? formatInTimeZone(
+                      scheduleDay,
+                      getAppTimezone(),
+                      "MMMM d, yyyy",
+                    )
                   : ""}
               </p>
             </div>
@@ -1502,13 +1526,29 @@ const Bookings_Page = () => {
                         )
                       ) {
                         try {
+                          // 1. Move lifecycle status to cancelled, but pass back the original classification type intact
                           await updateBookingMutation.mutateAsync({
                             id: b.id,
                             data: {
                               status: "cancelled",
-                              bookStatus: b.bookingStatus,
+                              bookStatus: b.bookingStatus || "confirmed",
+                              bookingStatus: b.bookingStatus || "confirmed",
                             } as any,
                           });
+
+                          // 2. Void or neutralize any un-billed transaction entries linked to this booking id
+                          const linkedCharges =
+                            (bookings as any).transactions?.filter(
+                              (t: any) =>
+                                t.bookingId === b.id && t.status === "pending",
+                            ) || [];
+
+                          for (const charge of linkedCharges) {
+                            await updateTransactionMutation.mutateAsync({
+                              id: charge.id,
+                              data: { status: "voided" } as any,
+                            });
+                          }
                           toast.success(
                             "Enrollment successfully cancelled and slot freed.",
                           );
@@ -1553,7 +1593,6 @@ const Bookings_Page = () => {
         }
       />
 
-
       <DayScheduleDialog
         open={scheduleOpen}
         onOpenChange={setScheduleOpen}
@@ -1578,7 +1617,11 @@ const Bookings_Page = () => {
             return;
           }
 
-          const dStr = formatInTimeZone(scheduleDay, getAppTimezone(), "yyyy-MM-dd");
+          const dStr = formatInTimeZone(
+            scheduleDay,
+            getAppTimezone(),
+            "yyyy-MM-dd",
+          );
           const newStart = `${String(newHour).padStart(2, "0")}:00`;
           const newEnd = `${String(newHour + 1).padStart(2, "0")}:00`;
 
@@ -1599,7 +1642,7 @@ const Bookings_Page = () => {
             const tz = getAppTimezone();
             const startIsoStr = wallTimeToUtcIso(dStr, newStart, tz);
             const endIsoStr = wallTimeToUtcIso(dStr, newEnd, tz);
-            
+
             await updateBookingMutation.mutateAsync({
               id: b.id,
               data: {
@@ -1731,8 +1774,8 @@ const Bookings_Page = () => {
                   {dayBookings.length > 0 && (
                     <TooltipContent side="right" className="max-w-[220px]">
                       <p className="font-semibold text-xs mb-1">
-                        {formatInTimeZone(day, getAppTimezone(), "MMM d, yyyy")} ·{" "}
-                        {dayBookings.length} booking
+                        {formatInTimeZone(day, getAppTimezone(), "MMM d, yyyy")}{" "}
+                        · {dayBookings.length} booking
                         {dayBookings.length === 1 ? "" : "s"}
                       </p>
                       <p className="text-[11px] text-muted-foreground">

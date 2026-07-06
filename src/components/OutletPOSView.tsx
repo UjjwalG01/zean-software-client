@@ -2,12 +2,34 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { formatDate, formatTime, nowIso, toIsoDayInTz } from "@/lib/tz";
-import { Plus, Minus, Trash2, Search, Check, ShoppingCart, Pause, Loader2, Eye, X, CreditCard } from "lucide-react";
+import {
+  Plus,
+  Minus,
+  Trash2,
+  Search,
+  Check,
+  ShoppingCart,
+  Pause,
+  Loader2,
+  Eye,
+  X,
+  CreditCard,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
@@ -27,7 +49,11 @@ import { cn } from "@/lib/utils";
 import { BookingDetailModal } from "@/components/BookingDetailModal";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
-import { getSystemTimestamp, getSystemTimeStr, getSystemTodayStr } from "@/lib/timeUtils";
+import {
+  getSystemTimestamp,
+  getSystemTimeStr,
+  getSystemTodayStr,
+} from "@/lib/timeUtils";
 
 interface Props {
   outlet: Outlet;
@@ -44,7 +70,11 @@ interface CartLine {
   chargeId?: string;
 }
 
-function parseSetup(s: Record<string, string>, k: string, fb: string[]): string[] {
+function parseSetup(
+  s: Record<string, string>,
+  k: string,
+  fb: string[],
+): string[] {
   try {
     return s[k] ? JSON.parse(s[k]) : fb;
   } catch {
@@ -80,10 +110,15 @@ export function OutletPOSView({ outlet }: Props) {
   const [detailBooking, setDetailBooking] = useState<Booking | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
-  const attendants = parseSetup(settings, "setup_instructors", ["Reception", "Trainer", "Therapist"]);
+  const attendants = parseSetup(settings, "setup_instructors", [
+    "Reception",
+    "Trainer",
+    "Therapist",
+  ]);
 
   const outletServices = useMemo(
-    () => services.filter((s) => s.outletId === outlet.id && s.isActive !== false),
+    () =>
+      services.filter((s) => s.outletId === outlet.id && s.isActive !== false),
     [services, outlet.id],
   );
 
@@ -146,9 +181,14 @@ export function OutletPOSView({ outlet }: Props) {
 
   const updateQty = (id: string, delta: number) =>
     setCart((prev) =>
-      prev.map((l) => (l.serviceId === id ? { ...l, qty: Math.max(0, l.qty + delta) } : l)).filter((l) => l.qty > 0),
+      prev
+        .map((l) =>
+          l.serviceId === id ? { ...l, qty: Math.max(0, l.qty + delta) } : l,
+        )
+        .filter((l) => l.qty > 0),
     );
-  const removeLine = (id: string) => setCart((prev) => prev.filter((l) => l.serviceId !== id));
+  const removeLine = (id: string) =>
+    setCart((prev) => prev.filter((l) => l.serviceId !== id));
 
   /**
    * Create one booking+charge per cart line that hasn't been placed yet.
@@ -157,7 +197,8 @@ export function OutletPOSView({ outlet }: Props) {
    */
   const buildBookingsAndCharges = async () => {
     if (mode === "member" && !memberId) throw new Error("Select a member");
-    if (mode === "guest" && !guestName.trim()) throw new Error("Enter a guest name");
+    if (mode === "guest" && !guestName.trim())
+      throw new Error("Enter a guest name");
     if (cart.length === 0) throw new Error("Cart is empty");
 
     const today = getSystemTodayStr();
@@ -261,7 +302,8 @@ export function OutletPOSView({ outlet }: Props) {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      const { lastBookingId, lastChargeId, memberObj, itemDescriptions } = await buildBookingsAndCharges();
+      const { lastBookingId, lastChargeId, memberObj, itemDescriptions } =
+        await buildBookingsAndCharges();
       toast.success("Order ready — opening billing");
 
       const params = new URLSearchParams({
@@ -295,7 +337,8 @@ export function OutletPOSView({ outlet }: Props) {
         <div className="font-display font-semibold tracking-wide text-sm uppercase">
           {outlet.name}
           <span className="ml-2 text-xs text-muted-foreground">
-            [{outlet.outletType || outlet.serviceTypes.join(", ").toUpperCase()}]
+            [{outlet.outletType || outlet.serviceTypes.join(", ").toUpperCase()}
+            ]
           </span>
         </div>
         <Badge variant="outline" className="text-[10px] uppercase">
@@ -308,10 +351,12 @@ export function OutletPOSView({ outlet }: Props) {
         <div className="lg:col-span-2 space-y-4">
           <div>
             <h3 className="font-semibold font-display flex items-center gap-2 mb-1">
-              <span className="h-2 w-2 rounded-full bg-primary" /> General Information
+              <span className="h-2 w-2 rounded-full bg-primary" /> General
+              Information
             </h3>
             <p className="text-[11px] text-muted-foreground">
-              Fields marked with <span className="text-destructive">*</span> are mandatory.
+              Fields marked with <span className="text-destructive">*</span> are
+              mandatory.
             </p>
           </div>
 
@@ -322,7 +367,9 @@ export function OutletPOSView({ outlet }: Props) {
                 type="number"
                 min={1}
                 value={cover}
-                onChange={(e) => setCover(Math.max(1, Number(e.target.value) || 1))}
+                onChange={(e) =>
+                  setCover(Math.max(1, Number(e.target.value) || 1))
+                }
               />
             </div>
             <div className="space-y-1.5">
@@ -384,16 +431,24 @@ export function OutletPOSView({ outlet }: Props) {
               <Label className="text-xs">Member *</Label>
               <Popover open={memberOpen} onOpenChange={setMemberOpen}>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between font-normal">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between font-normal"
+                  >
                     {selectedMember ? (
                       <span className="truncate">{selectedMember.name}</span>
                     ) : (
-                      <span className="text-muted-foreground">Search member…</span>
+                      <span className="text-muted-foreground">
+                        Search member…
+                      </span>
                     )}
                     <Search className="h-3.5 w-3.5 opacity-60" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <PopoverContent
+                  className="w-[--radix-popover-trigger-width] p-0"
+                  align="start"
+                >
                   <div className="p-2 border-b border-border">
                     <Input
                       value={memberSearch}
@@ -419,7 +474,9 @@ export function OutletPOSView({ outlet }: Props) {
                             {m.phone || m.email || "—"}
                           </span>
                         </div>
-                        {memberId === m.id && <Check className="h-3.5 w-3.5 text-primary" />}
+                        {memberId === m.id && (
+                          <Check className="h-3.5 w-3.5 text-primary" />
+                        )}
                       </button>
                     ))}
                   </div>
@@ -442,11 +499,16 @@ export function OutletPOSView({ outlet }: Props) {
         <div className="lg:col-span-3 space-y-3">
           <div className="grid grid-cols-12 gap-2">
             <div className="col-span-8">
-              <Select value={pickerServiceId} onValueChange={setPickerServiceId}>
+              <Select
+                value={pickerServiceId}
+                onValueChange={setPickerServiceId}
+              >
                 <SelectTrigger>
                   <SelectValue
                     placeholder={
-                      outletServices.length === 0 ? "No services configured for this outlet" : "Choose service"
+                      outletServices.length === 0
+                        ? "No services configured for this outlet"
+                        : "Choose service"
                     }
                   />
                 </SelectTrigger>
@@ -465,11 +527,16 @@ export function OutletPOSView({ outlet }: Props) {
                 type="number"
                 min={1}
                 value={pickerQty}
-                onChange={(e) => setPickerQty(Math.max(1, Number(e.target.value) || 1))}
+                onChange={(e) =>
+                  setPickerQty(Math.max(1, Number(e.target.value) || 1))
+                }
               />
             </div>
             <div className="col-span-2">
-              <Button onClick={addToCart} className="w-full gradient-gold text-primary-foreground">
+              <Button
+                onClick={addToCart}
+                className="w-full gradient-gold text-primary-foreground"
+              >
                 Add
               </Button>
             </div>
@@ -483,7 +550,9 @@ export function OutletPOSView({ outlet }: Props) {
               <div className="col-span-2 text-right">Total</div>
             </div>
             {cart.length === 0 ? (
-              <div className="py-10 text-center text-xs text-muted-foreground">Cart is empty</div>
+              <div className="py-10 text-center text-xs text-muted-foreground">
+                Cart is empty
+              </div>
             ) : (
               cart.map((l) => (
                 <div
@@ -497,10 +566,14 @@ export function OutletPOSView({ outlet }: Props) {
                     <div className="font-medium truncate flex items-center gap-2">
                       {l.name}
                       {l.placed && (
-                        <Badge className="bg-success/20 text-success border-0 text-[9px] uppercase">Ordered</Badge>
+                        <Badge className="bg-success/20 text-success border-0 text-[9px] uppercase">
+                          Ordered
+                        </Badge>
                       )}
                     </div>
-                    <p className="text-[10px] text-muted-foreground uppercase">{l.type}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase">
+                      {l.type}
+                    </p>
                   </div>
                   <div className="col-span-2 flex items-center justify-center gap-1">
                     <Button
@@ -523,9 +596,13 @@ export function OutletPOSView({ outlet }: Props) {
                       <Plus className="h-3 w-3" />
                     </Button>
                   </div>
-                  <div className="col-span-2 text-right text-xs">{l.price.toFixed(2)}</div>
+                  <div className="col-span-2 text-right text-xs">
+                    {l.price.toFixed(2)}
+                  </div>
                   <div className="col-span-2 flex items-center justify-end gap-2">
-                    <span className="text-xs font-medium">{(l.price * l.qty).toFixed(2)}</span>
+                    <span className="text-xs font-medium">
+                      {(l.price * l.qty).toFixed(2)}
+                    </span>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -542,16 +619,29 @@ export function OutletPOSView({ outlet }: Props) {
           </div>
 
           {/* Grand total + actions */}
-          <div className={cn("rounded-lg border border-border bg-muted/30 p-3 flex items-center justify-between")}>
-            <span className="text-xs uppercase tracking-wider text-muted-foreground">Grand Total</span>
-            <span className="text-xl font-bold font-display text-primary">{formatNPR(grandTotal)}</span>
+          <div
+            className={cn(
+              "rounded-lg border border-border bg-muted/30 p-3 flex items-center justify-between",
+            )}
+          >
+            <span className="text-xs uppercase tracking-wider text-muted-foreground">
+              Grand Total
+            </span>
+            <span className="text-xl font-bold font-display text-primary">
+              {formatNPR(grandTotal)}
+            </span>
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            <Button variant="outline" disabled={cart.length === 0 || isSubmitting} onClick={handleBilling}>
+            <Button
+              variant="outline"
+              disabled={cart.length === 0 || isSubmitting}
+              onClick={handleBilling}
+            >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Processing...
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />{" "}
+                  Processing...
                 </>
               ) : (
                 <>
@@ -567,13 +657,16 @@ export function OutletPOSView({ outlet }: Props) {
               <Pause className="h-4 w-4 mr-1" /> Hold Order
             </Button>
             <Button
-              disabled={cart.length === 0 || isSubmitting || cart.every((l) => l.placed)}
+              disabled={
+                cart.length === 0 || isSubmitting || cart.every((l) => l.placed)
+              }
               onClick={handlePlace}
               className="gradient-gold text-primary-foreground"
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Processing...
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />{" "}
+                  Processing...
                 </>
               ) : (
                 <>
@@ -596,7 +689,10 @@ export function OutletPOSView({ outlet }: Props) {
         }}
         onBilling={(b) => {
           const linkedCharge = transactions.find(
-            (t: any) => String(t.bookingId) === String(b.id) && t.type === "Charge" && t.status === "pending",
+            (t: any) =>
+              String(t.bookingId) === String(b.id) &&
+              t.type === "Charge" &&
+              t.status === "pending",
           );
           const amount = Number(
             (linkedCharge as any)?.total ??
@@ -629,12 +725,15 @@ export function OutletPOSView({ outlet }: Props) {
               } as any,
             });
             const linkedCharges = transactions.filter(
-              (t: any) => t.bookingId === b.id && t.type === "Charge" && t.status === "pending",
+              (t: any) =>
+                t.bookingId === b.id &&
+                t.type === "Charge" &&
+                t.status === "pending",
             );
             for (const c of linkedCharges) {
               await updateTransactionMutation.mutateAsync({
                 id: c.id,
-                data: { status: "cancelled" } as any,
+                data: { status: "voided" } as any,
               });
             }
             toast.success("Order cancelled");
@@ -644,7 +743,12 @@ export function OutletPOSView({ outlet }: Props) {
         }}
       />
 
-      <BookingDetailModal booking={detailBooking} open={detailOpen} onOpenChange={setDetailOpen} readOnly />
+      <BookingDetailModal
+        booking={detailBooking}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        readOnly
+      />
     </div>
   );
 }
@@ -671,19 +775,27 @@ function CurrentBookingsPanel({
     [bookings, outlet.id],
   );
 
+  console.log(outlet, bookings);
+
   const active = useMemo(() => {
     return outletScoped
       .filter((b) => {
         const rawStatus = (b as any).status || (b as any).bookingStatus || "";
         const normalizedStatus = String(rawStatus).toLowerCase().trim();
-        if (normalizedStatus === "cancelled" || normalizedStatus === "completed" || normalizedStatus === "billed") {
+        if (
+          normalizedStatus === "cancelled" ||
+          normalizedStatus === "completed" ||
+          normalizedStatus === "billed"
+        ) {
           return false;
         }
         return true;
       })
       .filter((b) => {
         const linked = transactions.find(
-          (t: any) => String(t.bookingId) === String(b.id) && String(t.type).toLowerCase() === "charge",
+          (t: any) =>
+            String(t.bookingId) === String(b.id) &&
+            String(t.type).toLowerCase() === "charge",
         );
         if (!linked) return true;
         const chargeStatus = String(linked.status).toLowerCase().trim();
@@ -695,7 +807,7 @@ function CurrentBookingsPanel({
   const cancelled = useMemo(() => {
     return outletScoped
       .filter((b) => {
-        const rawStatus = (b as any).status || (b as any).bookingStatus || "";
+        const rawStatus = (b as any).status || "";
         return String(rawStatus).toLowerCase().trim() === "cancelled";
       })
       .slice(0, 30);
@@ -705,7 +817,9 @@ function CurrentBookingsPanel({
     if (list.length === 0) {
       return (
         <div className="text-xs text-muted-foreground text-center py-6 border border-dashed border-border rounded-lg">
-          {variant === "active" ? "No active bookings for this outlet" : "No cancelled bookings"}
+          {variant === "active"
+            ? "No active bookings for this outlet"
+            : "No cancelled bookings"}
         </div>
       );
     }
@@ -713,18 +827,25 @@ function CurrentBookingsPanel({
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         {list.map((b) => {
           const isCancelled = variant === "cancelled";
+          console.log(isCancelled, b.status, b.bookingStatus); // Console log to check the status values
           return (
             <div
               key={b.id}
               className={cn(
                 "rounded-lg border p-3 flex flex-col gap-2",
-                isCancelled ? "border-destructive/30 bg-destructive/5 opacity-80" : "border-border bg-muted/20",
+                isCancelled
+                  ? "border-destructive/30 bg-destructive/5 opacity-80"
+                  : "border-border bg-muted/20",
               )}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="font-medium text-sm truncate">{b.memberName || "Guest"}</p>
-                  <p className="text-[11px] text-muted-foreground truncate">{b.className || b.service}</p>
+                  <p className="font-medium text-sm truncate">
+                    {b.memberName || "Guest"}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {b.className || b.service}
+                  </p>
                 </div>
                 <Badge
                   variant="outline"
@@ -737,7 +858,12 @@ function CurrentBookingsPanel({
                 </Badge>
               </div>
               {isCancelled ? (
-                <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => onView(b)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-[11px]"
+                  onClick={() => onView(b)}
+                >
                   <Eye className="h-3 w-3 mr-1" /> View Details
                 </Button>
               ) : (
@@ -798,8 +924,12 @@ function CurrentBookingsPanel({
             </Badge>
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="active">{renderCards(active, "active")}</TabsContent>
-        <TabsContent value="cancelled">{renderCards(cancelled, "cancelled")}</TabsContent>
+        <TabsContent value="active">
+          {renderCards(active, "active")}
+        </TabsContent>
+        <TabsContent value="cancelled">
+          {renderCards(cancelled, "cancelled")}
+        </TabsContent>
       </Tabs>
     </div>
   );
