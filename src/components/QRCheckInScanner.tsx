@@ -63,21 +63,9 @@ export function QRCheckInScanner({ open, onOpenChange, onDetected }: Props) {
           { fps: 10, qrbox: { width: 240, height: 240 } },
           (decoded) => {
             if (cancelled) return;
-
-            let finalTargetString = decoded.trim();
-
-            // Intercept and unpack complex mobile digital layout configurations safely
-            try {
-              const parsedPayload = JSON.parse(finalTargetString);
-              if (parsedPayload && parsedPayload.vaf === "vitafit-pass" && parsedPayload.uid) {
-                // Safely isolate and pass just the unique member ID string upward
-                finalTargetString = parsedPayload.uid;
-              }
-            } catch (e) {
-              // Non-JSON standard fallbacks (printed keytags, raw code badges) bypass cleanly
-            }
-
-            onDetected(finalTargetString);
+            // Forward the raw decoded string upward. Parsing, VAF validation,
+            // and DB verification live in the Attendance page pipeline.
+            onDetected(decoded.trim());
             safeStop(scanner).finally(() => onOpenChange(false));
           },
           () => {},
