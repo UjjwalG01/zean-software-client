@@ -13,16 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  CalendarDays,
-  Clock,
-  User,
-  Dumbbell,
-  Printer,
-  Pencil,
-  Ban,
-  Receipt,
-} from "lucide-react";
+import { CalendarDays, Clock, User, Dumbbell, Printer, Pencil, Ban, Receipt } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
 import type { Booking, ServiceType } from "@/lib/mock-data";
@@ -55,12 +46,7 @@ interface BookingDetailModalProps {
   readOnly?: boolean;
 }
 
-
-function parseSetup(
-  settings: Record<string, string>,
-  key: string,
-  fallback: string[],
-): string[] {
+function parseSetup(settings: Record<string, string>, key: string, fallback: string[]): string[] {
   try {
     return settings[key] ? JSON.parse(settings[key]) : fallback;
   } catch {
@@ -92,26 +78,22 @@ export function BookingDetailModal({
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
 
-
   if (!b) return null;
 
   // 🌟 FIX: Normalize status checks to lowercase to safeguard against database/local casing mismatches
   const rawStatus = localStatus || b.status || "";
-  const displayStatus =
-    rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1).toLowerCase();
+  const displayStatus = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1).toLowerCase();
   const currentStatusClean = rawStatus.toLowerCase();
 
   // 🌟 PHASE 5: Fitness/Wellness bookings are read-only in the detail modal.
   // Sports (and any other type) retain interactive Amend/Cancel/Bill controls.
   const svcNorm = String(b.service || "").toLowerCase();
-  const isReadOnlyService =
-    readOnly || svcNorm === "fitness" || svcNorm === "wellness";
+  const isReadOnlyService = readOnly || svcNorm === "fitness" || svcNorm === "wellness";
 
   const isCancelled = currentStatusClean === "cancelled";
   const isCompleted = currentStatusClean === "completed";
 
-  const canEdit =
-    !isReadOnlyService && isFutureBooking(b) && !isCompleted && !isCancelled;
+  const canEdit = !isReadOnlyService && isFutureBooking(b) && !isCompleted && !isCancelled;
   const canCancel = !isReadOnlyService && !isCompleted && !isCancelled;
 
   const isStrictlyFuture = (() => {
@@ -122,7 +104,6 @@ export function BookingDetailModal({
     return d.getTime() > today.getTime();
   })();
 
-
   const handleBillNow = async () => {
     if (isStrictlyFuture) {
       toast.error("Future-dated bookings cannot be billed yet.");
@@ -130,13 +111,10 @@ export function BookingDetailModal({
     }
 
     const linkedCharge = transactions.find(
-      (t) =>
-        t.bookingId === b.id && t.type === "Charge" && t.status === "pending",
+      (t) => t.bookingId === b.id && t.type === "Charge" && t.status === "pending",
     );
 
-    const svc = services.find(
-      (s) => s.name === b.className || s.type === b.service,
-    );
+    const svc = services.find((s) => s.name === b.className || s.type === b.service);
 
     // 🔄 MODIFIED: Prioritize the recorded pending charge figure over default catalog price
     const amount = linkedCharge
@@ -163,8 +141,6 @@ export function BookingDetailModal({
   // Edit and Amend both delegate to the parent-owned unified booking dialog
   // via the `onAmend` prop — this modal is now strictly read-only + actions.
 
-
-
   const handleCancel = async () => {
     if (!cancelReason.trim()) {
       toast.error("Please provide a cancellation reason");
@@ -180,13 +156,12 @@ export function BookingDetailModal({
         } as any,
       });
       const linkedCharges = transactions.filter(
-        (t) =>
-          t.bookingId === b.id && t.type === "Charge" && t.status === "pending",
+        (t) => t.bookingId === b.id && t.type === "Charge" && t.status === "pending",
       );
       for (const c of linkedCharges) {
         await updateTransaction.mutateAsync({
           id: c.id,
-          data: { status: "voided" } as any,
+          data: { status: "cancelled" } as any,
         });
         const chargeRowId = (c as any).chargeRowId as string | undefined;
         if (chargeRowId) {
@@ -195,8 +170,8 @@ export function BookingDetailModal({
             await supabase
               .from("charges")
               .update({
-                status: "unpaid",
-                meta: { voided: true, bookingId: b.id },
+                status: "cancelled",
+                meta: { cancelled: true, bookingId: b.id },
               })
               .eq("id", chargeRowId);
           } catch (err) {
@@ -210,7 +185,7 @@ export function BookingDetailModal({
           : "Booking cancelled",
       );
       setConfirmCancel(false);
-      setLocalStatus("Cancelled");
+      setLocalStatus("cancelled");
       onOpenChange(false);
     } catch {
       toast.error("Failed to cancel booking");
@@ -222,31 +197,18 @@ export function BookingDetailModal({
     const companyName = settings.companyName || ".............";
 
     // 🔄 MODIFIED: Dynamically read ledger figures instead of hardcoding 500 NPR
-    const linkedTxn = transactions.find(
-      (t) => t.bookingId === b.id && !t.voided && t.status !== "voided",
-    );
-    const svc = services.find(
-      (s) => s.name === b.className || s.type === b.service,
-    );
+    const linkedTxn = transactions.find((t) => t.bookingId === b.id && !t.voided && t.status !== "voided");
+    const svc = services.find((s) => s.name === b.className || s.type === b.service);
 
-    const baseRate = linkedTxn
-      ? linkedTxn.amount || linkedTxn.total
-      : svc?.price || 500;
+    const baseRate = linkedTxn ? linkedTxn.amount || linkedTxn.total : svc?.price || 500;
 
     // 🌟 FIX: Read tax percent dynamically from company settings (supports 0 and positive numbers)
-    const activeVatRate =
-      settings.vatRate !== undefined && settings.vatRate !== null
-        ? Number(settings.vatRate)
-        : 13;
+    const activeVatRate = settings.vatRate !== undefined && settings.vatRate !== null ? Number(settings.vatRate) : 13;
 
     const vatMultiplier = activeVatRate / 100;
 
-    const grandTotal = linkedTxn
-      ? linkedTxn.total
-      : baseRate + Math.round(baseRate * vatMultiplier);
-    const vatAmount = linkedTxn
-      ? linkedTxn.vat
-      : Math.round(baseRate * vatMultiplier);
+    const grandTotal = linkedTxn ? linkedTxn.total : baseRate + Math.round(baseRate * vatMultiplier);
+    const vatAmount = linkedTxn ? linkedTxn.vat : Math.round(baseRate * vatMultiplier);
     const taxableAmount = grandTotal - vatAmount;
 
     const html = generateA5BillHTML({
@@ -298,137 +260,115 @@ export function BookingDetailModal({
           </DialogHeader>
 
           <div className="space-y-4">
-
-
-
-              <div className="rounded-lg border border-border/50 bg-muted/30 p-4 text-center">
-                <p className="font-semibold text-lg">{b.className}</p>
-                <Badge
-                  className={`text-xs mt-2 border-0 ${serviceColors[b.service] || ""}`}
-                >
-                  {b.service}
-                </Badge>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 text-sm">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Member</span>
-                  <span className="ml-auto font-medium">{b.memberName}</span>
-                </div>
-                <Separator />
-                <div className="flex items-center gap-3 text-sm">
-                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Date</span>
-                  <span className="ml-auto font-medium">{b.date}</span>
-                </div>
-                <Separator />
-                <div className="flex items-center gap-3 text-sm">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Time</span>
-                  <span className="ml-auto font-medium">
-                    {b.startTime} – {b.endTime}
-                  </span>
-                </div>
-                <Separator />
-                <div className="flex items-center gap-3 text-sm">
-                  <Dumbbell className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Instructor</span>
-                  <span className="ml-auto font-medium">
-                    {b.instructor || "-"}
-                  </span>
-                </div>
-                <Separator />
-                <div className="flex items-center gap-3 text-sm">
-                  <span className="text-muted-foreground ml-7">Status</span>
-                  <Badge
-                    variant={
-                      displayStatus === "Confirmed"
-                        ? "default"
-                        : displayStatus === "Completed"
-                          ? "default"
-                          : displayStatus === "Pending"
-                            ? "secondary"
-                            : "destructive"
-                    }
-                    className={`ml-auto text-xs ${displayStatus === "Completed" ? "bg-success/20 text-success border-0" : ""}`}
-                  >
-                    {displayStatus}
-                  </Badge>
-                </div>
-              </div>
-
-              {/* 🌟 PHASE 5: Once cancelled, or when service is read-only (fitness/wellness),
-                  hide the entire action row so no Bill / Amend / Cancel remain interactive. */}
-              {!isCancelled && !isReadOnlyService && (
-                <div className="flex flex-wrap gap-2 pt-2">
-                  {canEdit && onAmend && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        onAmend(b);
-                        onOpenChange(false);
-                      }}
-                    >
-                      <Pencil className="h-4 w-4 mr-1" />
-                      Amend
-                    </Button>
-                  )}
-
-                  {canCancel && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-amber-500 hover:bg-amber-500/10"
-                      onClick={() => setConfirmCancel(true)}
-                    >
-                      <Ban className="h-4 w-4 mr-1" />
-                      Cancel
-                    </Button>
-                  )}
-                  {isCompleted ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1"
-                      onClick={handleGenerateBill}
-                    >
-                      <Printer className="h-4 w-4 mr-1" />
-                      Print Bill
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      className="flex-1 gradient-gold text-primary-foreground disabled:opacity-50"
-                      onClick={handleBillNow}
-                      disabled={isStrictlyFuture}
-                      title={
-                        isStrictlyFuture
-                          ? "Cannot bill a future-dated booking"
-                          : undefined
-                      }
-                    >
-                      <Receipt className="h-4 w-4 mr-1" />
-                      {isStrictlyFuture
-                        ? "Billing (Locked – Future)"
-                        : "Billing / Record Payment"}
-                    </Button>
-                  )}
-                </div>
-              )}
-
-              {/* Read-only banner for fitness/wellness or cancelled records */}
-              {(isReadOnlyService || isCancelled) && (
-                <div className="rounded-md border border-dashed border-border/60 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground text-center">
-                  {isCancelled
-                    ? "This booking has been cancelled. No further actions are available."
-                    : "Read-only view. Manage this booking from the POS screen."}
-                </div>
-              )}
+            <div className="rounded-lg border border-border/50 bg-muted/30 p-4 text-center">
+              <p className="font-semibold text-lg">{b.className}</p>
+              <Badge className={`text-xs mt-2 border-0 ${serviceColors[b.service] || ""}`}>{b.service}</Badge>
             </div>
 
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 text-sm">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Member</span>
+                <span className="ml-auto font-medium">{b.memberName}</span>
+              </div>
+              <Separator />
+              <div className="flex items-center gap-3 text-sm">
+                <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Date</span>
+                <span className="ml-auto font-medium">{b.date}</span>
+              </div>
+              <Separator />
+              <div className="flex items-center gap-3 text-sm">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Time</span>
+                <span className="ml-auto font-medium">
+                  {b.startTime} – {b.endTime}
+                </span>
+              </div>
+              <Separator />
+              <div className="flex items-center gap-3 text-sm">
+                <Dumbbell className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Instructor</span>
+                <span className="ml-auto font-medium">{b.instructor || "-"}</span>
+              </div>
+              <Separator />
+              <div className="flex items-center gap-3 text-sm">
+                <span className="text-muted-foreground ml-7">Status</span>
+                <Badge
+                  variant={
+                    displayStatus === "Confirmed"
+                      ? "default"
+                      : displayStatus === "Completed"
+                        ? "default"
+                        : displayStatus === "Pending"
+                          ? "secondary"
+                          : "destructive"
+                  }
+                  className={`ml-auto text-xs ${displayStatus === "Completed" ? "bg-success/20 text-success border-0" : ""}`}
+                >
+                  {displayStatus}
+                </Badge>
+              </div>
+            </div>
 
+            {/* 🌟 PHASE 5: Once cancelled, or when service is read-only (fitness/wellness),
+                  hide the entire action row so no Bill / Amend / Cancel remain interactive. */}
+            {!isCancelled && !isReadOnlyService && (
+              <div className="flex flex-wrap gap-2 pt-2">
+                {canEdit && onAmend && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      onAmend(b);
+                      onOpenChange(false);
+                    }}
+                  >
+                    <Pencil className="h-4 w-4 mr-1" />
+                    Amend
+                  </Button>
+                )}
+
+                {canCancel && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-amber-500 hover:bg-amber-500/10"
+                    onClick={() => setConfirmCancel(true)}
+                  >
+                    <Ban className="h-4 w-4 mr-1" />
+                    Cancel
+                  </Button>
+                )}
+                {isCompleted ? (
+                  <Button size="sm" variant="outline" className="flex-1" onClick={handleGenerateBill}>
+                    <Printer className="h-4 w-4 mr-1" />
+                    Print Bill
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    className="flex-1 gradient-gold text-primary-foreground disabled:opacity-50"
+                    onClick={handleBillNow}
+                    disabled={isStrictlyFuture}
+                    title={isStrictlyFuture ? "Cannot bill a future-dated booking" : undefined}
+                  >
+                    <Receipt className="h-4 w-4 mr-1" />
+                    {isStrictlyFuture ? "Billing (Locked – Future)" : "Billing / Record Payment"}
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {/* Read-only banner for fitness/wellness or cancelled records */}
+            {(isReadOnlyService || isCancelled) && (
+              <div className="rounded-md border border-dashed border-border/60 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground text-center">
+                {isCancelled
+                  ? "This booking has been cancelled. No further actions are available."
+                  : "Read-only view. Manage this booking from the POS screen."}
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -439,8 +379,7 @@ export function BookingDetailModal({
               <Ban className="h-4 w-4 text-amber-500" /> Cancel Booking?
             </DialogTitle>
             <DialogDescription>
-              Cancel <strong>{b.memberName}</strong>'s booking on {b.date}. The
-              slot will be freed up.
+              Cancel <strong>{b.memberName}</strong>'s booking on {b.date}. The slot will be freed up.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
