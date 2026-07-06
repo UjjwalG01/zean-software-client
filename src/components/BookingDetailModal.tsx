@@ -343,23 +343,20 @@ export function BookingDetailModal({
               </div>
 
               <div className="flex flex-wrap gap-2 pt-2">
-                {canEdit && (
+                {canEdit && onAmend && (
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => {
-                      if (onAmend) {
-                        onAmend(b);
-                        onOpenChange(false);
-                      } else {
-                        setEditing(true);
-                      }
+                      onAmend(b);
+                      onOpenChange(false);
                     }}
                   >
                     <Pencil className="h-4 w-4 mr-1" />
                     Amend
                   </Button>
                 )}
+
                 {canCancel && (
                   <Button
                     size="sm"
