@@ -311,7 +311,7 @@ export function useAddTransaction() {
           memberId: data.memberId || "",
           memberName: data.memberName || "",
           amount: data.amount || 0,
-          vat: data.vat || Math.round((Number(data.amount || 0) - Number(data.amount || 0) / 1.13) * 100) / 100,
+          vat: data.vat ?? (await import("@/lib/vat")).splitVatFromGross(Number(data.amount || 0)).vat,
           total: data.total || data.amount || 0,
           method: data.method || "cash",
           type: data.type || "Charge",
