@@ -354,12 +354,57 @@ the outlet POS layout.
   `if (user.role === 'admin')` — always use the `has_role` RPC or the
   cached permissions from `use-permissions.ts`.
 
-### 4.5 Current Build Integrity
+### 4.6 Phase A–F — Payload / status-machine hardening
+
+The `bookings` row carries **two independent status columns**. Confusing
+them silently corrupts the UI. Treat this table as authoritative:
+
+| Column | Postgres enum | Domain | Legal values |
+| --- | --- | --- | --- |
+| `bookings.status` | `booking_status` | **Operational Lifecycle** | `pending`, `confirmed`, `completed`, `cancelled`, `no_show` |
+| `bookings.booking_status` | `booking_status_v2` | **Slot Allocation Classification** | `confirmed`, `wait-listed`, `not-fixed`, `provisional`, `pending` |
+| `payments.status` | `payment_status` | Financial ledger state | `pending`, `unpaid`, `paid`, `voided`, `settled`, `overpaid` |
+| `charges.status` | `charge_status` | Charge settlement state | `unpaid`, `billed`, `paid`, `overpaid` |
+
+**Rules**
+
+* Client `Booking.status` maps to the lifecycle column and is decoded via
+  `dbLifecycleStatusToDisplay` (whitelist). `Booking.bookingStatus` maps
+  to the classification column via `dbBookingStatusToDisplay`.
+* `updateBooking()` / `addBooking()` reject non-lifecycle strings on
+  writes to `bookings.status` through `assertLifecycle()` — classification
+  words (`wait-listed`, `provisional`, …) will be dropped with a warning
+  rather than causing a Postgres 22P02.
+* Cancellation cascade (`BookingDetailModal.handleCancel`): booking
+  lifecycle → `cancelled`; linked pending `payments` rows → `voided`
+  (with `voidedAt`, `voidReason`); canonical `charges` row is NOT
+  status-mutated (enum has no `cancelled`/`voided` slot) — instead
+  `meta.voided:true` + `meta.cancelled:true` flags the record.
+* Filters (`Bookings.tsx`, `OutletPOSView.tsx`) key **only** off
+  `b.status` for lifecycle checks. Cross-domain
+  `status || bookingStatus` fallback chains have been removed.
+* Guest POS bookings flow exclusively through `addBookingMutation`
+  (`addBooking()` service), with `memberName = "Guest · <name>"` and
+  `memberId = ""`. The redundant snake_case `booking_status` key was
+  removed — the service reads camelCase `bookingStatus` and routes it
+  through `displayBookingStatusToDb`.
+* `BookingDetailModal.handleGenerateBill` wraps every numeric
+  (`baseRate`, `vatAmount`, `grandTotal`, `taxableAmount`,
+  `settings.vatRate`) in `n(x) = Number.isFinite(Number(x ?? 0)) ? … : 0`
+  so `null`/`undefined`/malformed strings can never print as "NaN" on
+  the A5 bill.
+
+Regression coverage lives in
+`src/test/booking-status-machine.test.ts` (25 tests) and asserts full
+round-trip stability across both status domains plus the NaN guard.
+
+### 4.7 Current Build Integrity
 
 * `npx vite build` → ✅ green (Rollup module graph clean; only
   pre-existing chunk-size and dynamic-import advisory warnings remain).
-* `npx tsgo --noEmit` → ✅ clean after Phase 5.
+* `npx tsgo --noEmit` → ✅ clean after Phase A–F.
 * `npx eslint src` → 0 `no-restricted-syntax` violations.
+* `npx vitest run src/test/booking-status-machine.test.ts` → ✅ 25/25.
 
 
 ---

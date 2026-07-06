@@ -220,9 +220,15 @@ export function OutletPOSView({ outlet }: Props) {
         // POS orders (fitness/wellness) always land as pending + confirmed —
         // the operator does not pick these on this screen. Sports outlets use
         // the calendar view (Bookings.tsx) which still exposes booking_status.
+        // NOTE: extra snake_case `booking_status` was removed — the service layer
+        // only reads camelCase `bookingStatus` and routes it through
+        // `displayBookingStatusToDb`. Sending both keys silently discarded one.
         const bookingId = await addBookingMutation.mutateAsync({
-          memberId,
-          memberName: memberObj?.name || guestName || "",
+          memberId: mode === "guest" ? "" : memberId,
+          memberName:
+            mode === "guest"
+              ? `Guest · ${guestName.trim()}`
+              : memberObj?.name || "",
           service: line.type as ServiceType,
           className: line.name,
           date: today,
@@ -230,7 +236,6 @@ export function OutletPOSView({ outlet }: Props) {
           endTime: now,
           status: "pending",
           bookingStatus: "confirmed",
-          booking_status: "confirmed",
           original_rate: line.price,
           rate: line.price,
           service_id: line.serviceId,
