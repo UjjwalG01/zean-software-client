@@ -56,8 +56,9 @@ export function RecordChargeModal({ open, onOpenChange }: Props) {
   }, [selectedHead]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const gross = Number(amount || 0);
-  const net = gross ? Math.round((gross / 1.13) * 100) / 100 : 0;
-  const vat = gross ? Math.round((gross - net) * 100) / 100 : 0;
+  const { net, vat } = gross ? splitVatFromGross(gross) : { net: 0, vat: 0 };
+
+
 
   const submit = async () => {
     if (!outletId) {
