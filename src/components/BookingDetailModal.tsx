@@ -271,7 +271,6 @@ export function BookingDetailModal({
           onOpenChange(v);
           if (!v) {
             setLocalStatus(null);
-            setEditing(false);
           }
         }}
       >
@@ -279,99 +278,13 @@ export function BookingDetailModal({
           <DialogHeader>
             <DialogTitle className="font-display flex items-center gap-2">
               <CalendarDays className="h-5 w-5 text-primary" />
-              {editing ? "Edit Booking" : "Booking Details"}
+              Booking Details
             </DialogTitle>
           </DialogHeader>
 
-          {editing ? (
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label>Class / Session</Label>
-                <Input
-                  value={editForm.className}
-                  onChange={(e) =>
-                    setEditForm((p) => ({ ...p, className: e.target.value }))
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Service</Label>
-                <Select
-                  value={editForm.service}
-                  onValueChange={(v) =>
-                    setEditForm((p) => ({ ...p, service: v as ServiceType }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {setupServiceTypes.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Date</Label>
-                  <Input
-                    type="date"
-                    value={editForm.date}
-                    onChange={(e) =>
-                      setEditForm((p) => ({ ...p, date: e.target.value }))
-                    }
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Start</Label>
-                  <Input
-                    type="time"
-                    value={editForm.startTime}
-                    onChange={(e) =>
-                      setEditForm((p) => ({ ...p, startTime: e.target.value }))
-                    }
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>End</Label>
-                  <Input
-                    type="time"
-                    value={editForm.endTime}
-                    onChange={(e) =>
-                      setEditForm((p) => ({ ...p, endTime: e.target.value }))
-                    }
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Instructor</Label>
-                <Input
-                  value={editForm.instructor}
-                  onChange={(e) =>
-                    setEditForm((p) => ({ ...p, instructor: e.target.value }))
-                  }
-                />
-              </div>
-              <DialogFooter className="pt-2">
-                <Button variant="outline" onClick={() => setEditing(false)}>
-                  <X className="h-4 w-4 mr-1" />
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSaveEdit}
-                  disabled={updateBooking.isPending}
-                  className="gradient-gold text-primary-foreground"
-                >
-                  <Save className="h-4 w-4 mr-1" />
-                  {updateBooking.isPending ? "Saving..." : "Save Changes"}
-                </Button>
-              </DialogFooter>
-            </div>
-          ) : (
+          {(
             <div className="space-y-4">
+
               <div className="rounded-lg border border-border/50 bg-muted/30 p-4 text-center">
                 <p className="font-semibold text-lg">{b.className}</p>
                 <Badge
