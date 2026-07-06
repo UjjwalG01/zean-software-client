@@ -105,39 +105,94 @@ const Attendance = () => {
     }
   };
 
-  // Resolve a scanned QR payload to a member. Accepts a member id or admission code.
-  const handleScanned = (code: string) => {
-    let lookupTarget = code.trim();
-
+  // Resolve a scanned QR payload to a member using the strict VitaFit Pass
+  // pipeline: JSON parse → VAF check → DB verification → attendance insert.
+  const handleScanned = async (raw: string) => {
+    // ── 1. JSON parse guard ────────────────────────────────────────────
+    let parsed: { uid?: string; code?: string; name?: string; tier?: string; vaf?: string };
     try {
-      // 1. Try parsing the incoming code payload as a structured JSON string
-      const parsedPayload = JSON.parse(code);
-
-      // 2. If it matches our custom pass token blueprint, extract the identity token
-      if (parsedPayload && parsedPayload.vaf === "vitafit-pass") {
-        lookupTarget = parsedPayload.uid;
-      }
-    } catch (e) {
-      // 3. Fallback: If it's not valid JSON, treat it as a raw string value for backwards compatibility
-    }
-
-    // Find the match using the isolated unique identifier string
-    const member = members.find(
-      (m) =>
-        m.id === lookupTarget ||
-        (m as any).admissionNo === lookupTarget ||
-        (m as any).code === lookupTarget ||
-        (m as any).member_code === lookupTarget, // Added to align with custom member schema
-    );
-
-    if (!member) {
-      toast.error(`No member matched QR identifier: ${lookupTarget}`);
+      parsed = JSON.parse(raw);
+    } catch {
+      toast.error("Invalid QR Code format.");
       return;
     }
 
-    // Execute check-in pipeline using the true model fields
-    const memberName = member.name || (member as any).full_name || "Valued Member";
-    handleCheckIn(member.id, memberName);
+    if (!parsed || typeof parsed !== "object") {
+      toast.error("Invalid QR Code format.");
+      return;
+    }
+
+    // ── 2. VAF (VitaFit Pass) signature check ──────────────────────────
+    if (parsed.vaf !== "vitafit-pass") {
+      toast.error("Unrecognized pass type. Please use a valid VitaFit pass.");
+      return;
+    }
+
+    if (!parsed.uid || !parsed.code) {
+      toast.error("Pass validation failed. Member not found or inactive.");
+      return;
+    }
+
+    // ── 3. Database verification (uid + member_code + active status) ───
+    const expectedCode = String(parsed.code).toUpperCase();
+    const member = members.find((m) => {
+      const codeOnRecord = String(
+        (m as any).memberCode || (m as any).member_code || (m as any).code || "",
+      ).toUpperCase();
+      return m.id === parsed.uid && codeOnRecord === expectedCode;
+    });
+
+    if (!member) {
+      toast.error("Pass validation failed. Member not found or inactive.");
+      return;
+    }
+
+    const statusOk = ["active", "expiring"].includes(String(member.status || "").toLowerCase());
+    if (!statusOk) {
+      toast.error("Pass validation failed. Member not found or inactive.");
+      return;
+    }
+
+    // ── 4. Log attendance ──────────────────────────────────────────────
+    if (todayCheckedInIds.has(member.id)) {
+      toast.info(`${parsed.name || member.name} is already checked in today`);
+      return;
+    }
+
+    try {
+      const attendanceId = await addCheckInMutation.mutateAsync({
+        memberId: member.id,
+        memberName: parsed.name || member.name,
+        date: todayStr,
+      });
+      await logAudit({
+        module: "attendance",
+        entityType: "attendance",
+        action: "marke",
+        entityId: String(attendanceId || member.id),
+        outletId: "No Outlet",
+        newValue: { memberId: member.id, memberName: parsed.name || member.name, date: todayStr, via: "qr" },
+      });
+      toast.success(`Check-in Successful for ${parsed.name || member.name} - ${parsed.tier || member.tier} Tier`);
+
+      try {
+        const used = await consumeForAttendance({
+          memberId: member.id,
+          memberName: parsed.name || member.name,
+          attendanceId: String(attendanceId || ""),
+          day: todayStr,
+        });
+        if (used) {
+          toast.success(
+            `Deducted ${formatNPR(used.consumed)} from prepaid balance · Remaining ${formatNPR(used.remaining)}`,
+          );
+        }
+      } catch {
+        /* prepaid best-effort */
+      }
+    } catch {
+      toast.error("Failed to record check-in");
+    }
   };
 
   // Report data
