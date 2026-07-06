@@ -161,17 +161,18 @@ export function BookingDetailModal({
       for (const c of linkedCharges) {
         await updateTransaction.mutateAsync({
           id: c.id,
-          data: { status: "cancelled" } as any,
+          data: { status: "voided", voided: true, voidedAt: nowIso(), voidReason: cancelReason } as any,
         });
         const chargeRowId = (c as any).chargeRowId as string | undefined;
         if (chargeRowId) {
           try {
             const { supabase } = await import("@/lib/supabase");
+            // NOTE: `charges.status` enum = unpaid|billed|paid|overpaid — no "cancelled"/"voided"
+            // value exists. We flag the void via `meta.voided` instead of an invalid enum write.
             await supabase
               .from("charges")
               .update({
-                status: "cancelled",
-                meta: { cancelled: true, bookingId: b.id },
+                meta: { voided: true, cancelled: true, bookingId: b.id, reason: cancelReason },
               })
               .eq("id", chargeRowId);
           } catch (err) {
@@ -194,22 +195,26 @@ export function BookingDetailModal({
   // console.log(settings.company_name);
 
   const handleGenerateBill = () => {
+    const n = (x: unknown) => {
+      const v = Number(x ?? 0);
+      return Number.isFinite(v) ? v : 0;
+    };
     const companyName = settings.companyName || ".............";
 
     // 🔄 MODIFIED: Dynamically read ledger figures instead of hardcoding 500 NPR
     const linkedTxn = transactions.find((t) => t.bookingId === b.id && !t.voided && t.status !== "voided");
     const svc = services.find((s) => s.name === b.className || s.type === b.service);
 
-    const baseRate = linkedTxn ? linkedTxn.amount || linkedTxn.total : svc?.price || 500;
+    const baseRate = n(linkedTxn ? (linkedTxn.amount || linkedTxn.total) : (svc?.price ?? 500));
 
     // 🌟 FIX: Read tax percent dynamically from company settings (supports 0 and positive numbers)
-    const activeVatRate = settings.vatRate !== undefined && settings.vatRate !== null ? Number(settings.vatRate) : 13;
+    const activeVatRate = settings.vatRate !== undefined && settings.vatRate !== null ? n(settings.vatRate) : 13;
 
     const vatMultiplier = activeVatRate / 100;
 
-    const grandTotal = linkedTxn ? linkedTxn.total : baseRate + Math.round(baseRate * vatMultiplier);
-    const vatAmount = linkedTxn ? linkedTxn.vat : Math.round(baseRate * vatMultiplier);
-    const taxableAmount = grandTotal - vatAmount;
+    const grandTotal = n(linkedTxn ? linkedTxn.total : baseRate + Math.round(baseRate * vatMultiplier));
+    const vatAmount = n(linkedTxn ? linkedTxn.vat : Math.round(baseRate * vatMultiplier));
+    const taxableAmount = n(grandTotal - vatAmount);
 
     const html = generateA5BillHTML({
       companyName,
