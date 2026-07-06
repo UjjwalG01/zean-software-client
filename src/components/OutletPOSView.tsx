@@ -120,6 +120,7 @@ export function OutletPOSView({ outlet }: Props) {
     [services, outlet.id],
   );
 
+  const [mode, setMode] = useState<"member" | "guest">("member");
   const [memberId, setMemberId] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
   const [memberOpen, setMemberOpen] = useState(false);
@@ -127,6 +128,7 @@ export function OutletPOSView({ outlet }: Props) {
   const [cover, setCover] = useState(1);
   const [guestName, setGuestName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
 
   const [pickerServiceId, setPickerServiceId] = useState("");
   const [pickerQty, setPickerQty] = useState(1);
