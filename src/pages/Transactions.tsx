@@ -78,6 +78,8 @@ import {
 import { methodColors } from "@/lib/utils";
 
 import { INVOICE_PREFIX } from "@/lib/settings";
+import { splitVatFromGross } from "@/lib/vat";
+
 import { logAudit } from "@/lib/audit-log";
 
 import { useOutlet } from "@/contexts/OutletContext";
