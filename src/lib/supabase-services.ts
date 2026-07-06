@@ -517,12 +517,17 @@ export async function deleteMember(id: string): Promise<void> {
 }
 
 // ─── Bookings ───────────────────────────────────────────────────────
+// ── Booking classification (bookings.booking_status → booking_status_v2 enum) ──
+// Preserves the full allocation vocabulary on read so the UI can distinguish
+// confirmed / wait-listed / not-fixed / provisional / pending seats.
 function dbBookingStatusToDisplay(raw: unknown): BookingStatus {
   const s = String(raw || "")
     .toLowerCase()
     .replace(/[\s_]+/g, "-");
-  if (s === "wait-listed" || s === "waitlisted") return "Wait-listed" as BookingStatus;
+  if (s === "wait-listed" || s === "waitlisted") return "wait-listed" as BookingStatus;
   if (s === "not-fixed" || s === "notfixed") return "not-fixed" as BookingStatus;
+  if (s === "provisional") return "provisional" as BookingStatus;
+  if (s === "pending") return "pending" as BookingStatus;
   return "confirmed" as BookingStatus;
 }
 
@@ -532,13 +537,29 @@ function displayBookingStatusToDb(value: unknown): string {
     .replace(/[\s_]+/g, "-");
   if (s === "waitlisted" || s === "wait-listed") return "wait-listed";
   if (s === "notfixed" || s === "not-fixed") return "not-fixed";
+  if (s === "provisional") return "provisional";
+  if (s === "pending") return "pending";
   return "confirmed";
 }
 
-function dbPaymentStatusToDisplay(raw: unknown): string {
-  const s = String(raw || "").toLowerCase();
-  const validFinancialStatuses = ["pending", "unpaid", "paid", "voided", "settled", "overpaid"];
-  return validFinancialStatuses.includes(s) ? s : "pending";
+// ── Booking lifecycle (bookings.status → booking_status enum) ──
+// Whitelisted so unknown DB strings can never corrupt the UI state machine.
+const LIFECYCLE_VALUES = ["pending", "confirmed", "completed", "cancelled", "no_show"] as const;
+type LifecycleStatus = (typeof LIFECYCLE_VALUES)[number];
+
+function dbLifecycleStatusToDisplay(raw: unknown): LifecycleStatus {
+  const s = String(raw || "").toLowerCase().trim();
+  return (LIFECYCLE_VALUES as readonly string[]).includes(s) ? (s as LifecycleStatus) : "pending";
+}
+
+function assertLifecycle(value: unknown): LifecycleStatus | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  const s = String(value).toLowerCase().trim();
+  if (!(LIFECYCLE_VALUES as readonly string[]).includes(s)) {
+    console.warn(`[bookings] rejected non-lifecycle status value: ${value}`);
+    return undefined;
+  }
+  return s as LifecycleStatus;
 }
 
 function mapBookingRow(r: any): Booking {
@@ -566,7 +587,7 @@ function mapBookingRow(r: any): Booking {
     date: dateOnly(r.start_at ?? r.start_time),
     startTime: timeOnly(r.start_time ?? r.start_at),
     endTime: timeOnly(r.end_time ?? r.end_at),
-    status: dbPaymentStatusToDisplay(r.status),
+    status: dbLifecycleStatusToDisplay(r.status),
     bookingStatus: dbBookingStatusToDisplay(r.booking_status),
     originalRate: Number(r.original_rate ?? 0),
     rate: Number(r.rate ?? 0),
@@ -614,7 +635,7 @@ export async function addBooking(data: Partial<Booking> & { outletId?: string })
     rate: (data as any).rate ?? null,
     discount_amount: (data as any).discountAmount ?? 0,
     discount_reason: (data as any).discountReason || null,
-    status: data.status || "pending",
+    status: assertLifecycle(data.status) ?? "pending",
     booking_status: displayBookingStatusToDb(data.bookingStatus || "confirmed"),
     notes: typeof (data as any).notes === "string" ? (data as any).notes : null,
   };
@@ -670,7 +691,10 @@ export async function updateBooking(id: string, data: Partial<Record<string, any
     patch.end_time = endTs;
   }
 
-  if (data.status !== undefined) patch.status = data.status;
+  if (data.status !== undefined) {
+    const lifecycle = assertLifecycle(data.status);
+    if (lifecycle) patch.status = lifecycle;
+  }
   if (data.bookingStatus !== undefined) patch.booking_status = displayBookingStatusToDb(data.bookingStatus);
 
   const { error } = await supabase.from("bookings").update(patch).eq("id", id);

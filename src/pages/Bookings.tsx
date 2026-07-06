@@ -731,8 +731,7 @@ const Bookings_Page = () => {
         b.memberId === bookMember &&
         b.date === enrollmentDate &&
         b.service === "Membership" &&
-        (b.status || "").toLowerCase() !== "cancelled" &&
-        (b.bookingStatus || "").toLowerCase() !== "cancelled",
+        (b.status || "").toLowerCase() !== "cancelled",
     );
 
     if (isDuplicate) {
@@ -1609,10 +1608,7 @@ const Bookings_Page = () => {
         }}
         onReschedule={async (b, newHour) => {
           if (!scheduleDay) return;
-          if (
-            b.status?.toLowerCase() === "completed" ||
-            b.bookingStatus?.toLowerCase() === "completed"
-          ) {
+          if (b.status?.toLowerCase() === "completed") {
             toast.error("Completed bookings cannot be rescheduled");
             return;
           }
@@ -1633,9 +1629,9 @@ const Bookings_Page = () => {
           // Flawless string-to-string date match bypassing new Date() bugs
           const targetIsToday = dStr === getSystemTodayStr();
 
-          const targetStatus = targetIsToday
+          const targetLifecycle = targetIsToday
             ? "pending"
-            : (b.status || b.bookingStatus || "confirmed").toLowerCase();
+            : (b.status || "confirmed").toLowerCase();
 
           try {
             // Use wallTimeToUtcIso to properly convert local time to UTC
@@ -1657,8 +1653,7 @@ const Bookings_Page = () => {
                 end_at: endIsoStr,
                 startAt: startIsoStr,
                 endAt: endIsoStr,
-                status: targetStatus,
-                bookStatus: targetStatus,
+                status: targetLifecycle,
               },
             });
             toast.success(`Rescheduled to ${newStart}`);

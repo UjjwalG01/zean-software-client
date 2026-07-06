@@ -775,13 +775,10 @@ function CurrentBookingsPanel({
     [bookings, outlet.id],
   );
 
-  console.log(outlet, bookings);
-
   const active = useMemo(() => {
     return outletScoped
       .filter((b) => {
-        const rawStatus = (b as any).status || (b as any).bookingStatus || "";
-        const normalizedStatus = String(rawStatus).toLowerCase().trim();
+        const normalizedStatus = String((b as any).status || "").toLowerCase().trim();
         if (
           normalizedStatus === "cancelled" ||
           normalizedStatus === "completed" ||
@@ -827,7 +824,7 @@ function CurrentBookingsPanel({
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         {list.map((b) => {
           const isCancelled = variant === "cancelled";
-          console.log(isCancelled, b.status, b.bookingStatus); // Console log to check the status values
+          
           return (
             <div
               key={b.id}
