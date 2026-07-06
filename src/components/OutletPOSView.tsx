@@ -750,11 +750,9 @@ export function OutletPOSView({ outlet }: Props) {
         booking={detailBooking}
         open={detailOpen}
         onOpenChange={setDetailOpen}
-        onAmend={(b) => {
-          setDetailOpen(false);
-          navigate(`/bookings?amendBookingId=${encodeURIComponent(b.id)}`);
-        }}
+        readOnly
       />
+
 
     </div>
   );
