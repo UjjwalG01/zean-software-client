@@ -1544,7 +1544,15 @@ const Bookings_Page = () => {
         open={detailOpen}
         onOpenChange={setDetailOpen}
         onAmend={openAmendBookingDialog}
+        readOnly={
+          selectedBooking
+            ? ["fitness", "wellness"].includes(
+                String(selectedBooking.service || "").toLowerCase(),
+              )
+            : false
+        }
       />
+
 
       <DayScheduleDialog
         open={scheduleOpen}
