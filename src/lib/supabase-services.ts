@@ -723,12 +723,12 @@ export async function getTransactions(): Promise<Transaction[]> {
 }
 
 export async function addTransaction(data: Partial<Transaction>): Promise<string> {
-  const { splitVatFromGross, shouldBreakdownVat } = await import("./vat");
   const gross = Number(data.amount || 0);
   const breakdown = shouldBreakdownVat(data.type as any, (data as any).isSettlement);
   const split = breakdown ? splitVatFromGross(gross) : { net: gross, vat: 0 };
   const net = split.net;
   const vat = split.vat;
+
   const status = data.status === "pending" ? "pending" : "paid";
   const insertRow: any = {
     receipt_no: data.receiptNo || `${INVOICE_PREFIX}-${Date.now()}`,
