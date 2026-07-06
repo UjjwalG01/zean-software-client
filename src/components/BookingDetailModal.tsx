@@ -145,39 +145,10 @@ export function BookingDetailModal({
     navigate(`/transactions?${params.toString()}`);
   };
 
-  const handleSaveEdit = async () => {
-    if (!editForm.date || !editForm.startTime || !editForm.className) {
-      toast.error("Date, time and class are required");
-      return;
-    }
-    const today = getSystemNowDate();
-    today.setHours(0, 0, 0, 0);
-    if (new Date(editForm.date) < today) {
-      toast.error("Cannot move booking to a past date");
-      return;
-    }
-    try {
-      await updateBooking.mutateAsync({
-        id: b.id,
-        data: {
-          bookingDate: editForm.date,
-          booking_date: editForm.date,
-          startTime: editForm.startTime,
-          endTime: editForm.endTime || editForm.startTime,
-          start_time: editForm.startTime,
-          end_time: editForm.endTime || editForm.startTime,
-          service: editForm.service,
-          className: editForm.className,
-          instructor: editForm.instructor,
-        },
-      });
-      toast.success("Booking updated");
-      setEditing(false);
-      onOpenChange(false);
-    } catch {
-      toast.error("Failed to update booking");
-    }
-  };
+  // Edit and Amend both delegate to the parent-owned unified booking dialog
+  // via the `onAmend` prop — this modal is now strictly read-only + actions.
+
+
 
   const handleCancel = async () => {
     if (!cancelReason.trim()) {
