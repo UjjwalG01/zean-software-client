@@ -195,9 +195,12 @@ export function OutletPOSView({ outlet }: Props) {
    * Returns the most-recent chargeId so the caller can pass it to the settlement page.
    */
   const buildBookingsAndCharges = async () => {
-    if (!memberId && !guestName.trim())
-      throw new Error("Select a member or enter a guest name");
+    if (mode === "member" && !memberId)
+      throw new Error("Select a member");
+    if (mode === "guest" && !guestName.trim())
+      throw new Error("Enter a guest name");
     if (cart.length === 0) throw new Error("Cart is empty");
+
 
     const today = getSystemTodayStr();
     const now = getSystemTimeStr();
