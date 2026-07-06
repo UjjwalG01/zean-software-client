@@ -47,6 +47,8 @@ import type { Outlet } from "@/lib/supabase-outlets";
 import { formatNPR, type ServiceType, type Booking } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { BookingDetailModal } from "@/components/BookingDetailModal";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+
 import {
   getSystemTimestamp,
   getSystemTimeStr,
@@ -750,11 +752,9 @@ export function OutletPOSView({ outlet }: Props) {
         booking={detailBooking}
         open={detailOpen}
         onOpenChange={setDetailOpen}
-        onAmend={(b) => {
-          setDetailOpen(false);
-          navigate(`/bookings?amendBookingId=${encodeURIComponent(b.id)}`);
-        }}
+        readOnly
       />
+
 
     </div>
   );
@@ -777,18 +777,19 @@ function CurrentBookingsPanel({
   onBilling,
   onCancel,
 }: CurrentBookingsPanelProps) {
-  const active = useMemo(() => {
-    return bookings
-      .filter((b) => {
-        // 1. Validate Outlet Assignment
-        const matchesOutlet = b.outletId === outlet.id || !b.outletId;
-        if (!matchesOutlet) return false;
+  const outletScoped = useMemo(
+    () =>
+      bookings.filter(
+        (b) => b.outletId === outlet.id || !b.outletId,
+      ),
+    [bookings, outlet.id],
+  );
 
-        // 2. Extract and Normalize Booking Status (Handles case variations and alternative keys)
+  const active = useMemo(() => {
+    return outletScoped
+      .filter((b) => {
         const rawStatus = (b as any).status || (b as any).bookingStatus || "";
         const normalizedStatus = String(rawStatus).toLowerCase().trim();
-
-        // Filter out inactive states
         if (
           normalizedStatus === "cancelled" ||
           normalizedStatus === "completed" ||
@@ -796,47 +797,53 @@ function CurrentBookingsPanel({
         ) {
           return false;
         }
-
         return true;
       })
       .filter((b) => {
-        // 3. Normalize Linked Transaction Lookups
         const linked = transactions.find(
           (t: any) =>
             String(t.bookingId) === String(b.id) &&
             String(t.type).toLowerCase() === "charge",
         );
-
-        // If no charge is found, keep the booking visible
         if (!linked) return true;
-
-        // Hide bookings where the linked charge is no longer pending (e.g., paid, settled, voided)
         const chargeStatus = String(linked.status).toLowerCase().trim();
         return chargeStatus === "pending";
       })
       .slice(0, 30);
-  }, [bookings, transactions, outlet.id]);
+  }, [outletScoped, transactions]);
 
-  return (
-    <div className="border-t border-border px-5 py-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold font-display text-sm uppercase tracking-wider flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-primary" /> Current Bookings
-        </h3>
-        <Badge variant="outline" className="text-[10px]">
-          {active.length} active
-        </Badge>
-      </div>
-      {active.length === 0 ? (
+  const cancelled = useMemo(() => {
+    return outletScoped
+      .filter((b) => {
+        const rawStatus = (b as any).status || (b as any).bookingStatus || "";
+        return String(rawStatus).toLowerCase().trim() === "cancelled";
+      })
+      .slice(0, 30);
+  }, [outletScoped]);
+
+  const renderCards = (list: Booking[], variant: "active" | "cancelled") => {
+    if (list.length === 0) {
+      return (
         <div className="text-xs text-muted-foreground text-center py-6 border border-dashed border-border rounded-lg">
-          No active bookings for this outlet
+          {variant === "active"
+            ? "No active bookings for this outlet"
+            : "No cancelled bookings"}
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-          {active.map((b) => (
+      );
+    }
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+        {list.map((b) => {
+          const isCancelled = variant === "cancelled";
+          return (
             <div
               key={b.id}
-              className="rounded-lg border border-border bg-muted/20 p-3 flex flex-col gap-2"
+              className={cn(
+                "rounded-lg border p-3 flex flex-col gap-2",
+                isCancelled
+                  ? "border-destructive/30 bg-destructive/5 opacity-80"
+                  : "border-border bg-muted/20",
+              )}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -849,40 +856,87 @@ function CurrentBookingsPanel({
                 </div>
                 <Badge
                   variant="outline"
-                  className="text-[10px] font-mono shrink-0"
+                  className={cn(
+                    "text-[10px] font-mono shrink-0",
+                    isCancelled && "border-destructive/40 text-destructive",
+                  )}
                 >
-                  {b.startTime || "--:--"}
+                  {isCancelled ? "Cancelled" : b.startTime || "--:--"}
                 </Badge>
               </div>
-              <div className="grid grid-cols-3 gap-1.5">
+              {isCancelled ? (
                 <Button
                   size="sm"
                   variant="outline"
                   className="h-7 text-[11px]"
                   onClick={() => onView(b)}
                 >
-                  <Eye className="h-3 w-3 mr-1" /> View
+                  <Eye className="h-3 w-3 mr-1" /> View Details
                 </Button>
-                <Button
-                  size="sm"
-                  className="h-7 text-[11px] gradient-gold text-primary-foreground"
-                  onClick={() => onBilling(b)}
-                >
-                  <CreditCard className="h-3 w-3 mr-1" /> Billing
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-[11px] text-destructive hover:text-destructive"
-                  onClick={() => onCancel(b)}
-                >
-                  <X className="h-3 w-3 mr-1" /> Cancel
-                </Button>
-              </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-[11px]"
+                    onClick={() => onView(b)}
+                    title="View Details"
+                  >
+                    <Eye className="h-3 w-3 mr-1" /> View
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-7 text-[11px] gradient-gold text-primary-foreground"
+                    onClick={() => onBilling(b)}
+                    title="Go to Billing"
+                  >
+                    <CreditCard className="h-3 w-3 mr-1" /> Billing
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-[11px] text-destructive hover:text-destructive"
+                    onClick={() => onCancel(b)}
+                  >
+                    <X className="h-3 w-3 mr-1" /> Cancel
+                  </Button>
+                </div>
+              )}
             </div>
-          ))}
-        </div>
-      )}
+          );
+        })}
+      </div>
+    );
+  };
+
+  return (
+    <div className="border-t border-border px-5 py-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-semibold font-display text-sm uppercase tracking-wider flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-primary" /> Current Bookings
+        </h3>
+      </div>
+      <Tabs defaultValue="active" className="w-full">
+        <TabsList className="mb-3">
+          <TabsTrigger value="active" className="text-xs">
+            Active / Pending
+            <Badge variant="outline" className="ml-2 text-[10px]">
+              {active.length}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="cancelled" className="text-xs">
+            Cancelled
+            <Badge variant="outline" className="ml-2 text-[10px]">
+              {cancelled.length}
+            </Badge>
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="active">{renderCards(active, "active")}</TabsContent>
+        <TabsContent value="cancelled">
+          {renderCards(cancelled, "cancelled")}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
+

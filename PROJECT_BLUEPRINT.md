@@ -297,14 +297,70 @@ the outlet POS layout.
 * Type support: `BookingStatus` in `src/lib/mock-data.ts` extended with
   `"Completed"` and `"Cancelled"`.
 
-### 4.3 Current Build Integrity
+### 4.3 Phase 1-5 Refactor Sweep (current session)
 
-* `npx vite build` → ✅ green (Rollup module graph clean; only pre-existing
-  chunk-size and dynamic-import advisory warnings remain).
-* `npx tsgo --noEmit` → ✅ clean.
-* `npx eslint src` → 0 `no-restricted-syntax` violations (the sole new rule
-  from this session). Pre-existing `@typescript-eslint/no-explicit-any`
-  warnings are untouched and unrelated to the timezone SoT work.
+* **Phase 1 — Global VAT:** `src/lib/vat.ts` exposes `getActiveVatRate()`,
+  `splitVatFromGross(gross)`, and `shouldBreakdownVat(type)`. The App root
+  syncs the cache from `useCompanySettings`. All `1.13`/`0.13` literals
+  removed from `supabase-services.ts`, `charges.ts`, `RecordChargeModal.tsx`,
+  `Transactions.tsx`, `use-firestore.ts`, and `OutletPOSView.tsx`.
+  Advance / wallet / deposit / settlement types skip VAT split.
+* **Phase 2 — POS defaults & cart math:** POS orders write `status:"pending"`
+  and `booking_status:"confirmed"`. `original_rate` = catalog price;
+  `rate` = final payable (post-discount).
+* **Phase 3 — Member/Guest toggle & unified cart:** `OutletPOSView` now has
+  a segmented Member/Guest mode toggle. Multi-line carts bundle into a
+  single `charge_id` with `isBundledOrder: true`. `AdvanceModalBody`
+  displays a live "Total Net Payable" summary (gross − advance) with a
+  one-click auto-fill.
+* **Phase 4 — Unified Add/Edit/Amend:** `BookingDetailModal` no longer
+  edits inline; it delegates via the `onAmend` prop to the parent's
+  unified booking dialog on `Bookings.tsx`. POS "Amend" navigates to
+  `/bookings?amendBookingId=…`, which auto-opens the unified modal
+  pre-hydrated with the existing booking data.
+* **Phase 5 — Conditional UI & status pipeline:**
+  * `BookingDetailModal` accepts a `readOnly` prop and auto-derives it
+    for `Fitness`/`Wellness` service types. In read-only mode, Amend /
+    Cancel / Bill buttons are hidden and a banner is shown.
+  * Sports (and Events/Membership/Health) retain full Amend + Cancel +
+    Bill controls.
+  * Cancel pipeline: on confirm, booking → `status:"cancelled"`, any
+    linked pending `Charge` is voided, canonical `charges` row is set to
+    `unpaid` with `meta.voided:true`. The action row disappears
+    immediately (`localStatus="Cancelled"` guard + `isCancelled` gate).
+  * `CurrentBookingsPanel` (POS) is now a tabbed view:
+    **Active / Pending** and **Cancelled** — each with its own count
+    badge. Cancelled cards show a single "View Details" action; active
+    cards show quick-action buttons **View**, **Billing**, **Cancel**
+    directly on the card surface.
+  * Fixed a latent bug where the Status badge referenced the deprecated
+    `window.status` global instead of `displayStatus`.
+
+### 4.4 Schema note — new role columns
+
+* `members.role` — added upstream (default `'member'`). Used only for
+  display / filtering; **never** consulted for authorization. All
+  privilege checks continue to go through `public.has_role()` against the
+  `user_roles` table.
+* `app_users.role` — the enum has been extended with `'staff'`. `staff`
+  sits between `member` and `admin` and inherits the same
+  `useAppUsers`/`RouteGuard` plumbing. No RLS changes were required
+  because policies key off `has_role(auth.uid(), 'admin')`; to grant
+  staff-specific access, add a new `has_role(auth.uid(), 'staff')`
+  branch in the target policy rather than reading `app_users.role`
+  directly.
+* App code should treat both new columns as **presentation metadata**
+  only. Do not introduce client-side checks such as
+  `if (user.role === 'admin')` — always use the `has_role` RPC or the
+  cached permissions from `use-permissions.ts`.
+
+### 4.5 Current Build Integrity
+
+* `npx vite build` → ✅ green (Rollup module graph clean; only
+  pre-existing chunk-size and dynamic-import advisory warnings remain).
+* `npx tsgo --noEmit` → ✅ clean after Phase 5.
+* `npx eslint src` → 0 `no-restricted-syntax` violations.
+
 
 ---
 
