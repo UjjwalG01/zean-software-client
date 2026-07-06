@@ -912,23 +912,43 @@ function AdvanceModalBody({
       </div>
 
       {advMember && (
-        <div className="p-3 rounded-lg border bg-muted/40 space-y-2 text-sm animate-fade-in">
+        <div className="p-3 rounded-lg border bg-muted/40 space-y-1.5 text-sm animate-fade-in">
           <div className="flex justify-between items-center text-xs text-muted-foreground">
-            <span>Gross Outstanding Tab:</span>
+            <span>Gross Outstanding Charges</span>
             <span className="font-mono">
               {formatNPR(memberFinancials.grossCharges)}
             </span>
           </div>
-          <div className="pt-2 border-t flex items-center justify-between">
+          <div className="flex justify-between items-center text-xs text-muted-foreground">
+            <span>− Available Advance</span>
+            <span className="font-mono text-primary">
+              {formatNPR(memberFinancials.availableAdvance)}
+            </span>
+          </div>
+          <div className="pt-2 border-t flex items-center justify-between gap-2">
             <span className="text-xs font-medium block text-muted-foreground">
-              Net Outstanding Balance:
+              Total Net Payable
             </span>
-            <span className="font-mono font-bold text-primary">
-              {formatNPR(memberFinancials.netPayable)}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="font-mono font-bold text-primary">
+                {formatNPR(memberFinancials.netPayable)}
+              </span>
+              {memberFinancials.netPayable > 0 && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-6 px-2 text-[10px]"
+                  onClick={() => setAdvAmount(String(memberFinancials.netPayable))}
+                >
+                  Use
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       )}
+
 
       {advMember && memberFinancials.netPayable > 0 && (
         <div className="grid grid-cols-2 gap-3">
