@@ -183,6 +183,8 @@ const Bookings_Page = () => {
   const [membershipListOpen, setMembershipListOpen] = useState(false);
 
   const { data: bookings = [], isLoading } = useBookings();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const { data: members = [] } = useMembers();
   const { data: services = [] } = useServices();
   const { data: plans = [] } = useMembershipPlans();
