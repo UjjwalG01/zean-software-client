@@ -44,8 +44,9 @@ export interface ChargeForBookingInput {
  */
 export async function createChargeForBooking(add: AddFn, input: ChargeForBookingInput): Promise<string> {
   const gross = input.amount;
-  const net = Math.round((gross / 1.13) * 100) / 100;
-  const vat = Math.round((gross - net) * 100) / 100;
+  const { net, vat } = splitVatFromGross(gross);
+
+
 
   let chargeRowId: string | undefined;
   try {
