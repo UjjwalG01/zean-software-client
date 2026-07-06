@@ -635,7 +635,7 @@ export async function addBooking(data: Partial<Booking> & { outletId?: string })
     rate: (data as any).rate ?? null,
     discount_amount: (data as any).discountAmount ?? 0,
     discount_reason: (data as any).discountReason || null,
-    status: data.status || "pending",
+    status: assertLifecycle(data.status) ?? "pending",
     booking_status: displayBookingStatusToDb(data.bookingStatus || "confirmed"),
     notes: typeof (data as any).notes === "string" ? (data as any).notes : null,
   };
@@ -691,7 +691,10 @@ export async function updateBooking(id: string, data: Partial<Record<string, any
     patch.end_time = endTs;
   }
 
-  if (data.status !== undefined) patch.status = data.status;
+  if (data.status !== undefined) {
+    const lifecycle = assertLifecycle(data.status);
+    if (lifecycle) patch.status = lifecycle;
+  }
   if (data.bookingStatus !== undefined) patch.booking_status = displayBookingStatusToDb(data.bookingStatus);
 
   const { error } = await supabase.from("bookings").update(patch).eq("id", id);
