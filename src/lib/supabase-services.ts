@@ -520,7 +520,7 @@ export async function deleteMember(id: string): Promise<void> {
 // ── Booking classification (bookings.booking_status → booking_status_v2 enum) ──
 // Preserves the full allocation vocabulary on read so the UI can distinguish
 // confirmed / wait-listed / not-fixed / provisional / pending seats.
-function dbBookingStatusToDisplay(raw: unknown): BookingStatus {
+export function dbBookingStatusToDisplay(raw: unknown): BookingStatus {
   const s = String(raw || "")
     .toLowerCase()
     .replace(/[\s_]+/g, "-");
@@ -531,7 +531,7 @@ function dbBookingStatusToDisplay(raw: unknown): BookingStatus {
   return "confirmed" as BookingStatus;
 }
 
-function displayBookingStatusToDb(value: unknown): string {
+export function displayBookingStatusToDb(value: unknown): string {
   const s = String(value || "")
     .toLowerCase()
     .replace(/[\s_]+/g, "-");
@@ -547,12 +547,12 @@ function displayBookingStatusToDb(value: unknown): string {
 const LIFECYCLE_VALUES = ["pending", "confirmed", "completed", "cancelled", "no_show"] as const;
 type LifecycleStatus = (typeof LIFECYCLE_VALUES)[number];
 
-function dbLifecycleStatusToDisplay(raw: unknown): LifecycleStatus {
+export function dbLifecycleStatusToDisplay(raw: unknown): LifecycleStatus {
   const s = String(raw || "").toLowerCase().trim();
   return (LIFECYCLE_VALUES as readonly string[]).includes(s) ? (s as LifecycleStatus) : "pending";
 }
 
-function assertLifecycle(value: unknown): LifecycleStatus | undefined {
+export function assertLifecycle(value: unknown): LifecycleStatus | undefined {
   if (value === undefined || value === null || value === "") return undefined;
   const s = String(value).toLowerCase().trim();
   if (!(LIFECYCLE_VALUES as readonly string[]).includes(s)) {
