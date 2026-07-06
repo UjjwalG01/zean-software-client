@@ -775,13 +775,10 @@ function CurrentBookingsPanel({
     [bookings, outlet.id],
   );
 
-  console.log(outlet, bookings);
-
   const active = useMemo(() => {
     return outletScoped
       .filter((b) => {
-        const rawStatus = (b as any).status || (b as any).bookingStatus || "";
-        const normalizedStatus = String(rawStatus).toLowerCase().trim();
+        const normalizedStatus = String((b as any).status || "").toLowerCase().trim();
         if (
           normalizedStatus === "cancelled" ||
           normalizedStatus === "completed" ||

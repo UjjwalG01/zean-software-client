@@ -731,8 +731,7 @@ const Bookings_Page = () => {
         b.memberId === bookMember &&
         b.date === enrollmentDate &&
         b.service === "Membership" &&
-        (b.status || "").toLowerCase() !== "cancelled" &&
-        (b.bookingStatus || "").toLowerCase() !== "cancelled",
+        (b.status || "").toLowerCase() !== "cancelled",
     );
 
     if (isDuplicate) {
