@@ -102,6 +102,7 @@ import { useUpdateBooking } from "@/hooks/use-firestore";
 import { underlineFirstChar } from "@/lib/string-case-change";
 import { colorOptions } from "@/lib/utils";
 import { wallTimeToUtcIso, getAppTimezone } from "@/lib/tz";
+import { useAuth } from "@/hooks/use-auth";
 
 function parseSetup(
   settings: Record<string, string>,
@@ -788,6 +789,7 @@ const Bookings_Page = () => {
       // 3. Post Ledger Charge Entry
       if (finalAmount > 0) {
         try {
+          const { user } = useAuth();
           const { createChargeForBooking } = await import("@/lib/charges");
           await createChargeForBooking(
             (d) => addTransactionMutation.mutateAsync(d) as Promise<string>,
@@ -800,6 +802,7 @@ const Bookings_Page = () => {
               amount: finalAmount,
               chargeHead: "Membership",
               outletId: selectedOutlet?.id,
+              createdBy: user?.id || null,
             },
           );
         } catch (e) {
@@ -820,11 +823,6 @@ const Bookings_Page = () => {
     } catch {
       toast.error("Failed to enroll membership");
     }
-  };
-
-  const getServiceStyle = (service: string) => {
-    const color = serviceColors[service] || colorOptions[0].value;
-    return { backgroundColor: color, color: "#fff" };
   };
 
   const filteredMembers = useMemo(() => {
@@ -848,10 +846,12 @@ const Bookings_Page = () => {
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold font-display">Bookings</h1>
+          <h1 className="text-2xl font-bold font-display">
+            {isPOSOutlet ? "Point of Sale" : "Bookings"}
+          </h1>
           <div className="flex items-center gap-3 flex-wrap">
             <p className="text-muted-foreground text-sm">
-              {filtered.length} bookings
+              {filtered.length} {isPOSOutlet ? "orders" : "bookings"}
             </p>
             {outlets.length > 0 && (
               <button
@@ -870,29 +870,31 @@ const Bookings_Page = () => {
             )}
           </div>
         </div>
-        <div className="flex gap-2">
-          <div className="flex rounded-lg border border-border overflow-hidden">
-            <Button
-              variant={view === "calendar" ? "default" : "ghost"}
-              size="sm"
-              accessKey="1"
-              className="rounded-none"
-              onClick={() => setView("calendar")}
-            >
-              <CalIcon className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={view === "list" ? "default" : "ghost"}
-              size="sm"
-              accessKey="2"
-              className="rounded-none"
-              onClick={() => setView("list")}
-            >
-              <List className="h-4 w-4" />
-            </Button>
-          </div>
+        <div className="flex gap-2 items-center justify-end">
+          {!isPOSOutlet && (
+            <div className="flex rounded-lg border border-border overflow-hidden">
+              <Button
+                variant={view === "calendar" ? "default" : "ghost"}
+                size="sm"
+                accessKey="1"
+                className="rounded-none"
+                onClick={() => setView("calendar")}
+              >
+                <CalIcon className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={view === "list" ? "default" : "ghost"}
+                size="sm"
+                accessKey="2"
+                className="rounded-none"
+                onClick={() => setView("list")}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
           <Select value={serviceFilter} onValueChange={setServiceFilter}>
-            <SelectTrigger className="w-[130px] bg-muted/50 border-0">
+            <SelectTrigger className="w-[130px] bg-muted/50 border-0 hidden md:flex">
               <SelectValue placeholder="Service" />
             </SelectTrigger>
             <SelectContent>
@@ -909,7 +911,7 @@ const Bookings_Page = () => {
               type="month"
               value={listMonth}
               onChange={(e) => setListMonth(e.target.value)}
-              className="h-9 w-[172px] bg-muted/50 border-0"
+              className="h-9 w-[100px] md:w-[132px] bg-muted/50 border-0"
               title="Filter by month"
             />
           )}
@@ -1741,7 +1743,7 @@ const Bookings_Page = () => {
 
                       {/* Color-Coded Micro Rows for Each Active Booking */}
                       <div className="flex-1 flex flex-col gap-1 overflow-hidden mt-1.5 w-full">
-                        {dayBookings.slice(0, 3).map((b) => (
+                        {/* {dayBookings.slice(0, 3).map((b) => (
                           <div
                             key={b.id}
                             className="text-[10px] px-1.5 py-0.5 rounded text-white truncate font-medium tracking-wide shadow-sm flex items-center gap-1"
@@ -1757,7 +1759,7 @@ const Bookings_Page = () => {
                               {b.className || b.service}
                             </span>
                           </div>
-                        ))}
+                        ))} */}
                         {dayBookings.length > 3 && (
                           <div className="text-[9px] text-muted-foreground font-semibold px-1 mt-auto">
                             +{dayBookings.length - 3} more

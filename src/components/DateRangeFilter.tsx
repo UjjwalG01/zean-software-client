@@ -25,7 +25,7 @@ export function DateRangeFilter({ from, to, onChange, className = "" }: Props) {
           type="date"
           value={from}
           onChange={(e) => onChange({ from: e.target.value, to })}
-          className="h-9 w-[150px] bg-muted/50 border-0"
+          className="h-9 w-[150px] bg-muted/50 border-0 text-sm"
         />
       </div>
       <div className="space-y-1">
@@ -34,10 +34,10 @@ export function DateRangeFilter({ from, to, onChange, className = "" }: Props) {
           type="date"
           value={to}
           onChange={(e) => onChange({ from, to: e.target.value })}
-          className="h-9 w-[150px] bg-muted/50 border-0"
+          className="h-9 w-[150px] bg-muted/50 border-0 text-sm"
         />
       </div>
-      {(from || to) && (
+      {/* {(from || to) && (
         <Button
           variant="ghost"
           size="sm"
@@ -47,7 +47,7 @@ export function DateRangeFilter({ from, to, onChange, className = "" }: Props) {
         >
           <X className="h-3.5 w-3.5" />
         </Button>
-      )}
+      )} */}
     </div>
   );
 }

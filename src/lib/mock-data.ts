@@ -134,6 +134,7 @@ export interface Transaction {
   /** Marks settlement-type Payments so the ledger can label them correctly. */
   isSettlement?: boolean;
   createdAt?: string;
+  createdBy?: string;
 }
 
 export interface AttendanceRecord {

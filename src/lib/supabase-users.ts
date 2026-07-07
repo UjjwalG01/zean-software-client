@@ -142,3 +142,17 @@ export async function clearMustChangePassword(email: string): Promise<void> {
   const user = await getAppUserByEmail(email);
   if (user) await updateAppUser(user.id, { mustChangePassword: false });
 }
+
+export async function getAppUserById(userId: string) {
+  const { data, error } = await supabase
+    .from("app_users")
+    .select("*")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error(`[DB_ERROR] Failed to fetch app user ${userId}:`, error.message);
+    throw error;
+  }
+  return data;
+}

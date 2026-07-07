@@ -125,9 +125,9 @@ export function PremiumReportFrame({
   return (
     <div className="rounded-xl overflow-hidden border border-border/60 bg-card">
       {/* Header band */}
-      <div className="bg-gradient-to-r from-[hsl(220,70%,28%)] via-[hsl(220,70%,32%)] to-[hsl(220,70%,28%)] px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-gradient-to-r from-[hsl(220,70%,28%)] via-[hsl(220,70%,32%)] to-[hsl(220,70%,28%)] px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-1 md:gap-3">
         <div>
-          <h2 className="font-display font-bold text-lg leading-tight">
+          <h2 className="font-display font-bold text-sm md:text-lg leading-tight">
             {title}
           </h2>
 
@@ -147,7 +147,7 @@ export function PremiumReportFrame({
               onClick={() => setShowFilters((p) => !p)}
               className="bg-white/10 hover:bg-white/20 text-white border-white/20"
             >
-              <Filter className="h-4 w-4 mr-1.5" />
+              <Filter className="h-4 w-4 mr-1.5 hidden md:flex" />
               {underlineFirstChar(showFilters ? "Hide Filters" : "Load Report")}
             </Button>
           )}
@@ -159,7 +159,7 @@ export function PremiumReportFrame({
             disabled={rows.length === 0}
             className="bg-white/10 hover:bg-white/20 text-white border-white/20"
           >
-            <Printer className="h-4 w-4 mr-1.5" />
+            <Printer className="h-4 w-4 mr-1.5 hidden md:flex" />
             {underlineFirstChar("Print")}
           </Button>
           <Button
@@ -169,7 +169,7 @@ export function PremiumReportFrame({
             disabled={rows.length === 0}
             className="bg-success hover:bg-success/90 text-white"
           >
-            <Download className="h-4 w-4 mr-1.5" />
+            <Download className="h-4 w-4 mr-1.5 hidden md:flex" />
             {underlineSpecificChars("Export Excel", [1])}
           </Button>
         </div>

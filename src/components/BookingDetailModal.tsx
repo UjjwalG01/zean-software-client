@@ -13,7 +13,16 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CalendarDays, Clock, User, Dumbbell, Printer, Pencil, Ban, Receipt } from "lucide-react";
+import {
+  CalendarDays,
+  Clock,
+  User,
+  Dumbbell,
+  Printer,
+  Pencil,
+  Ban,
+  Receipt,
+} from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
 import type { Booking, ServiceType } from "@/lib/mock-data";
@@ -31,6 +40,7 @@ import { nowIso } from "@/lib/tz";
 import { getSystemNowDate } from "@/lib/timeUtils";
 
 import { serviceColors } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 
 interface BookingDetailModalProps {
   booking: Booking | null;
@@ -46,7 +56,11 @@ interface BookingDetailModalProps {
   readOnly?: boolean;
 }
 
-function parseSetup(settings: Record<string, string>, key: string, fallback: string[]): string[] {
+function parseSetup(
+  settings: Record<string, string>,
+  key: string,
+  fallback: string[],
+): string[] {
   try {
     return settings[key] ? JSON.parse(settings[key]) : fallback;
   } catch {
@@ -82,18 +96,21 @@ export function BookingDetailModal({
 
   // 🌟 FIX: Normalize status checks to lowercase to safeguard against database/local casing mismatches
   const rawStatus = localStatus || b.status || "";
-  const displayStatus = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1).toLowerCase();
+  const displayStatus =
+    rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1).toLowerCase();
   const currentStatusClean = rawStatus.toLowerCase();
 
   // 🌟 PHASE 5: Fitness/Wellness bookings are read-only in the detail modal.
   // Sports (and any other type) retain interactive Amend/Cancel/Bill controls.
   const svcNorm = String(b.service || "").toLowerCase();
-  const isReadOnlyService = readOnly || svcNorm === "fitness" || svcNorm === "wellness";
+  const isReadOnlyService =
+    readOnly || svcNorm === "fitness" || svcNorm === "wellness";
 
   const isCancelled = currentStatusClean === "cancelled";
   const isCompleted = currentStatusClean === "completed";
 
-  const canEdit = !isReadOnlyService && isFutureBooking(b) && !isCompleted && !isCancelled;
+  const canEdit =
+    !isReadOnlyService && isFutureBooking(b) && !isCompleted && !isCancelled;
   const canCancel = !isReadOnlyService && !isCompleted && !isCancelled;
 
   const isStrictlyFuture = (() => {
@@ -111,10 +128,13 @@ export function BookingDetailModal({
     }
 
     const linkedCharge = transactions.find(
-      (t) => t.bookingId === b.id && t.type === "Charge" && t.status === "pending",
+      (t) =>
+        t.bookingId === b.id && t.type === "Charge" && t.status === "pending",
     );
 
-    const svc = services.find((s) => s.name === b.className || s.type === b.service);
+    const svc = services.find(
+      (s) => s.name === b.className || s.type === b.service,
+    );
 
     // 🔄 MODIFIED: Prioritize the recorded pending charge figure over default catalog price
     const amount = linkedCharge
@@ -153,15 +173,23 @@ export function BookingDetailModal({
           status: "cancelled",
           cancelReason,
           cancelledAt: nowIso(),
+          createdBy: useAuth().user?.id || null,
         } as any,
       });
       const linkedCharges = transactions.filter(
-        (t) => t.bookingId === b.id && t.type === "Charge" && t.status === "pending",
+        (t) =>
+          t.bookingId === b.id && t.type === "Charge" && t.status === "pending",
       );
       for (const c of linkedCharges) {
         await updateTransaction.mutateAsync({
           id: c.id,
-          data: { status: "voided", voided: true, voidedAt: nowIso(), voidReason: cancelReason } as any,
+          data: {
+            status: "voided",
+            voided: true,
+            voidedAt: nowIso(),
+            voidReason: cancelReason,
+            createdBy: useAuth().user?.id || null,
+          } as any,
         });
         const chargeRowId = (c as any).chargeRowId as string | undefined;
         if (chargeRowId) {
@@ -172,7 +200,12 @@ export function BookingDetailModal({
             await supabase
               .from("charges")
               .update({
-                meta: { voided: true, cancelled: true, bookingId: b.id, reason: cancelReason },
+                meta: {
+                  voided: true,
+                  cancelled: true,
+                  bookingId: b.id,
+                  reason: cancelReason,
+                },
               })
               .eq("id", chargeRowId);
           } catch (err) {
@@ -202,18 +235,33 @@ export function BookingDetailModal({
     const companyName = settings.companyName || ".............";
 
     // 🔄 MODIFIED: Dynamically read ledger figures instead of hardcoding 500 NPR
-    const linkedTxn = transactions.find((t) => t.bookingId === b.id && !t.voided && t.status !== "voided");
-    const svc = services.find((s) => s.name === b.className || s.type === b.service);
+    const linkedTxn = transactions.find(
+      (t) => t.bookingId === b.id && !t.voided && t.status !== "voided",
+    );
+    const svc = services.find(
+      (s) => s.name === b.className || s.type === b.service,
+    );
 
-    const baseRate = n(linkedTxn ? (linkedTxn.amount || linkedTxn.total) : (svc?.price ?? 500));
+    const baseRate = n(
+      linkedTxn ? linkedTxn.amount || linkedTxn.total : (svc?.price ?? 500),
+    );
 
     // 🌟 FIX: Read tax percent dynamically from company settings (supports 0 and positive numbers)
-    const activeVatRate = settings.vatRate !== undefined && settings.vatRate !== null ? n(settings.vatRate) : 13;
+    const activeVatRate =
+      settings.vatRate !== undefined && settings.vatRate !== null
+        ? n(settings.vatRate)
+        : 13;
 
     const vatMultiplier = activeVatRate / 100;
 
-    const grandTotal = n(linkedTxn ? linkedTxn.total : baseRate + Math.round(baseRate * vatMultiplier));
-    const vatAmount = n(linkedTxn ? linkedTxn.vat : Math.round(baseRate * vatMultiplier));
+    const grandTotal = n(
+      linkedTxn
+        ? linkedTxn.total
+        : baseRate + Math.round(baseRate * vatMultiplier),
+    );
+    const vatAmount = n(
+      linkedTxn ? linkedTxn.vat : Math.round(baseRate * vatMultiplier),
+    );
     const taxableAmount = n(grandTotal - vatAmount);
 
     const html = generateA5BillHTML({
@@ -267,7 +315,11 @@ export function BookingDetailModal({
           <div className="space-y-4">
             <div className="rounded-lg border border-border/50 bg-muted/30 p-4 text-center">
               <p className="font-semibold text-lg">{b.className}</p>
-              <Badge className={`text-xs mt-2 border-0 ${serviceColors[b.service] || ""}`}>{b.service}</Badge>
+              <Badge
+                className={`text-xs mt-2 border-0 ${serviceColors[b.service] || ""}`}
+              >
+                {b.service}
+              </Badge>
             </div>
 
             <div className="space-y-3">
@@ -294,7 +346,9 @@ export function BookingDetailModal({
               <div className="flex items-center gap-3 text-sm">
                 <Dumbbell className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Instructor</span>
-                <span className="ml-auto font-medium">{b.instructor || "-"}</span>
+                <span className="ml-auto font-medium">
+                  {b.instructor || "-"}
+                </span>
               </div>
               <Separator />
               <div className="flex items-center gap-3 text-sm">
@@ -346,7 +400,12 @@ export function BookingDetailModal({
                   </Button>
                 )}
                 {isCompleted ? (
-                  <Button size="sm" variant="outline" className="flex-1" onClick={handleGenerateBill}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={handleGenerateBill}
+                  >
                     <Printer className="h-4 w-4 mr-1" />
                     Print Bill
                   </Button>
@@ -356,10 +415,16 @@ export function BookingDetailModal({
                     className="flex-1 gradient-gold text-primary-foreground disabled:opacity-50"
                     onClick={handleBillNow}
                     disabled={isStrictlyFuture}
-                    title={isStrictlyFuture ? "Cannot bill a future-dated booking" : undefined}
+                    title={
+                      isStrictlyFuture
+                        ? "Cannot bill a future-dated booking"
+                        : undefined
+                    }
                   >
                     <Receipt className="h-4 w-4 mr-1" />
-                    {isStrictlyFuture ? "Billing (Locked – Future)" : "Billing / Record Payment"}
+                    {isStrictlyFuture
+                      ? "Billing (Locked – Future)"
+                      : "Billing / Record Payment"}
                   </Button>
                 )}
               </div>
@@ -384,7 +449,8 @@ export function BookingDetailModal({
               <Ban className="h-4 w-4 text-amber-500" /> Cancel Booking?
             </DialogTitle>
             <DialogDescription>
-              Cancel <strong>{b.memberName}</strong>'s booking on {b.date}. The slot will be freed up.
+              Cancel <strong>{b.memberName}</strong>'s booking on {b.date}. The
+              slot will be freed up.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">

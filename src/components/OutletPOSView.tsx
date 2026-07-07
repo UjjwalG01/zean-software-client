@@ -54,6 +54,7 @@ import {
   getSystemTimeStr,
   getSystemTodayStr,
 } from "@/lib/timeUtils";
+import { useAuth } from "@/hooks/use-auth";
 
 interface Props {
   outlet: Outlet;
@@ -103,6 +104,7 @@ export function OutletPOSView({ outlet }: Props) {
     outletId: outlet.id,
     date: todayStr,
   });
+  const { user } = useAuth();
   const { data: transactions = [] } = useTransactions();
   const updateBookingMutation = useUpdateBooking();
   const updateTransactionMutation = useUpdateTransaction();
@@ -265,6 +267,7 @@ export function OutletPOSView({ outlet }: Props) {
         outletId: outlet.id,
         className: itemDescriptions.join(", "),
         createdAt: getSystemTimestamp(),
+        createdBy: user?.id,
         // Custom arrays/meta fields to keep them grouped in queries:
         bookingId: allBookingIds[0], // Primary reference fallback
         bookingIds: allBookingIds, // Array of all sub-bookings
@@ -395,7 +398,6 @@ export function OutletPOSView({ outlet }: Props) {
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs">Customer *</Label>
             <div className="inline-flex rounded-lg border border-border bg-muted/30 p-0.5">
               <button
                 type="button"
@@ -783,7 +785,9 @@ function CurrentBookingsPanel({
   const active = useMemo(() => {
     return outletScoped
       .filter((b) => {
-        const normalizedStatus = String((b as any).status || "").toLowerCase().trim();
+        const normalizedStatus = String((b as any).status || "")
+          .toLowerCase()
+          .trim();
         if (
           normalizedStatus === "cancelled" ||
           normalizedStatus === "completed" ||
@@ -829,7 +833,7 @@ function CurrentBookingsPanel({
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         {list.map((b) => {
           const isCancelled = variant === "cancelled";
-          
+
           return (
             <div
               key={b.id}

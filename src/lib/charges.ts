@@ -15,6 +15,7 @@ import { supabase } from "./supabase";
 import { toIsoDayInTz, getAppTimezone } from "./tz";
 import { getSystemTodayStr } from "./timeUtils";
 import { splitVatFromGross } from "./vat";
+import { useAuth } from "@/hooks/use-auth";
 
 
 type AddFn = (data: Partial<Transaction>) => Promise<string>;
@@ -32,6 +33,7 @@ export interface ChargeForBookingInput {
   amount: number; // VAT-inclusive
   chargeHead?: string; // service head name (defaults to the service)
   outletId?: string;
+  createdBy?: string;
 }
 
 /**
@@ -62,6 +64,7 @@ export async function createChargeForBooking(add: AddFn, input: ChargeForBooking
         total: gross,
         status: "unpaid",
         outlet_id: input.outletId || null,
+        created_by: input.createdBy || null,
         meta: { type: "booking", bookingId: input.bookingId, outletId: input.outletId || null },
       })
       .select("id")
@@ -87,6 +90,7 @@ export async function createChargeForBooking(add: AddFn, input: ChargeForBooking
     chargeHead: input.chargeHead || String(input.service),
     chargeRowId,
     outletId: input.outletId,
+    createdBy: input.createdBy,
   } as Partial<Transaction>);
 }
 
@@ -97,9 +101,11 @@ export interface ManualChargeInput {
   amount: number;
   note?: string;
   outletId?: string;
+  createdBy?: string;
 }
 
 export async function createManualCharge(add: AddFn, input: ManualChargeInput): Promise<string> {
+  const { user } = useAuth()
   return add({
     memberId: input.memberId,
     memberName: input.memberName,
@@ -112,6 +118,7 @@ export async function createManualCharge(add: AddFn, input: ManualChargeInput): 
     status: "pending",
     chargeHead: input.chargeHead,
     outletId: input.outletId,
+    createdBy: user.id || null,
   } as Partial<Transaction>);
 }
 
@@ -122,7 +129,7 @@ export async function createManualCharge(add: AddFn, input: ManualChargeInput): 
  */
 export async function applyAdvance(
   add: AddFn,
-  input: { memberId: string; memberName: string; amount: number; method: PaymentMethod; note?: string; outletId?: string },
+  input: { memberId: string; memberName: string; amount: number; method: PaymentMethod; note?: string; outletId?: string, createdBy?: string; },
 ): Promise<string> {
   return add({
     memberId: input.memberId,
@@ -135,6 +142,7 @@ export async function applyAdvance(
     receiptNo: receipt("ADV"),
     status: "paid",
     outletId: input.outletId,
+    createdBy: input.createdBy,
   } as Partial<Transaction>);
 }
 

@@ -87,10 +87,10 @@ export async function logAudit(entry: AuditEntry): Promise<void> {
 
     const { data: app_user_data } = user?.id
       ? await supabase
-          .from("app_users")
-          .select("display_name, extras")
-          .eq("id", user.id)
-          .maybeSingle()
+        .from("app_users")
+        .select("display_name, extras")
+        .eq("id", user.id)
+        .maybeSingle()
       : { data: null as any };
 
     const slug =
@@ -183,7 +183,7 @@ export async function listAuditLogs(filters: {
 
   let rows = (data || []).map((r: any) => {
     const descriptionText = r.new_value?.__description
-      || `${r.user_full_name || "system"} ${r.action}dj in ${r.module || "—"}`;
+      || `${r.user_full_name || "system"} ${r.action}d in ${r.module || "—"}`;
 
     return {
       id: r.id,

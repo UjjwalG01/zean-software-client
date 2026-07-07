@@ -1,6 +1,23 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as users from "@/lib/supabase-users";
 import { createFirebaseAuthUser } from "@/lib/auth-service";
+import { supabase } from "@/lib/supabase";
+
+const { data: { user: currentUser } } = await supabase.auth.getUser();
+
+
+export function useCurrentAppUser() {
+  return useQuery({
+    // 1. Dynamic cache key array prevents multi-user cache collisions
+    queryKey: ["appUser", currentUser.id],
+
+    // 2. Pass the ID straight to your underlying database select function
+    queryFn: () => users.getAppUserById(currentUser.id!),
+
+    // 3. Protection Guard: Don't execute the API query if no ID is provided
+    enabled: !!currentUser.id,
+  });
+}
 
 export function useAppUsers() {
   return useQuery({

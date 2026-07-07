@@ -100,6 +100,7 @@ import {
   getSystemTimestamp,
   getSystemNowDate,
 } from "@/lib/timeUtils";
+import { useCurrentAppUser } from "@/hooks/use-app-users";
 
 function parseSetup(
   settings: Record<string, string>,
@@ -155,7 +156,10 @@ const Transactions = () => {
   const addTransactionMutation = useAddTransaction();
   const updateTransactionMutation = useUpdateTransaction();
   const updateBookingMutation = useUpdateBooking();
+  const { data: user } = useCurrentAppUser();
   const qc = useQueryClient();
+
+  console.log(user);
 
   // Debounce global search input to prevent filtering lists on every keypress
   useEffect(() => {
@@ -347,6 +351,7 @@ const Transactions = () => {
           bookingId: bookingId || undefined,
           outletId: searchParams.get("outletId") || undefined,
           isGuest: isGuestFlow || undefined,
+          createdBy: user?.id,
           guestName: isGuestFlow
             ? memberNameStr.replace(/^Guest\s*·\s*/i, "")
             : undefined,
@@ -389,6 +394,7 @@ const Transactions = () => {
         <div className="flex gap-2 flex-wrap">
           <Button
             variant="outline"
+            className="hidden md:flex"
             size="sm"
             accessKey="x"
             onClick={() => {
@@ -423,7 +429,7 @@ const Transactions = () => {
                   filters: {
                     Search: search || "—",
                     "Total Records": String(filtered.length),
-                    "Total Amount (NPR)": String(totalAmount),
+                    "Total Amount": String(totalAmount),
                   },
                 },
               );
@@ -447,13 +453,13 @@ const Transactions = () => {
             <DialogTrigger asChild>
               <Button accessKey="a" size="sm">
                 <Plus className="h-4 w-4 mr-1" />
-                {underlineFirstChar("Add Advance / Checkout")}
+                {underlineFirstChar("Add Receipt")}
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle className="font-display">
-                  Account Settlement & Advance
+                  Account Settlement & Receipt
                 </DialogTitle>
               </DialogHeader>
               {/* 🌟 Optimization 2: Isolated contents prevent parent lag */}
@@ -484,7 +490,7 @@ const Transactions = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             accessKey="/"
-            placeholder="Click Alt + / to search..."
+            placeholder="Search transactions here..."
             className="pl-9 justify-center bg-muted/50 border-0"
             value={searchInput}
             autoFocus
@@ -493,7 +499,7 @@ const Transactions = () => {
         </div>
         {/* Basic Filters */}
         <Select value={methodFilter} onValueChange={setMethodFilter}>
-          <SelectTrigger className="w-[140px] bg-muted/50 border-0">
+          <SelectTrigger className="w-[140px] bg-muted/50 border-0 hidden md:flex">
             <SelectValue placeholder="Method" />
           </SelectTrigger>
           <SelectContent>
@@ -506,7 +512,7 @@ const Transactions = () => {
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[130px] bg-muted/50 border-0">
+          <SelectTrigger className="w-[130px] bg-muted/50 border-0 hidden md:flex">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -538,11 +544,11 @@ const Transactions = () => {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead>Receipt</TableHead>
+                <TableHead className="hidden md:table-cell">Receipt</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Member</TableHead>
                 <TableHead>Method</TableHead>
-                <TableHead>Type</TableHead>
+                <TableHead className="hidden md:table-cell">Type</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead className="w-32 text-right">Actions</TableHead>
@@ -560,12 +566,16 @@ const Transactions = () => {
                       setDetailOpen(true);
                     }}
                   >
-                    <TableCell className="font-mono text-xs text-muted-foreground">
+                    <TableCell className="font-mono text-xs text-muted-foreground hidden md:table-cell">
                       {t.receiptNo}
                     </TableCell>
                     <TableCell className="text-sm">{t.date}</TableCell>
                     <TableCell className="text-sm font-medium">
-                      {t.memberName}
+                      {t.memberName ? (
+                        t.memberName
+                      ) : (
+                        <span className="text-muted-foreground">FIT Guest</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge
@@ -576,7 +586,7 @@ const Transactions = () => {
                           : t.method}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <Badge variant="outline" className="text-[10px]">
                         {t.type}
                       </Badge>
@@ -939,7 +949,9 @@ function AdvanceModalBody({
                   size="sm"
                   variant="outline"
                   className="h-6 px-2 text-[10px]"
-                  onClick={() => setAdvAmount(String(memberFinancials.netPayable))}
+                  onClick={() =>
+                    setAdvAmount(String(memberFinancials.netPayable))
+                  }
                 >
                   Use
                 </Button>
@@ -948,7 +960,6 @@ function AdvanceModalBody({
           </div>
         </div>
       )}
-
 
       {advMember && memberFinancials.netPayable > 0 && (
         <div className="grid grid-cols-2 gap-3">
