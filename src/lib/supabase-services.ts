@@ -517,22 +517,40 @@ export async function deleteMember(id: string): Promise<void> {
 }
 
 // ─── Bookings ───────────────────────────────────────────────────────
-function dbBookingStatusToDisplay(raw: unknown): BookingStatus {
+export function dbBookingStatusToDisplay(raw: unknown): BookingStatus {
   const s = String(raw || "")
     .toLowerCase()
     .replace(/[\s_]+/g, "-");
-  if (s === "wait-listed" || s === "waitlisted") return "Wait-listed" as BookingStatus;
+  if (s === "wait-listed" || s === "waitlisted") return "wait-listed" as BookingStatus;
   if (s === "not-fixed" || s === "notfixed") return "not-fixed" as BookingStatus;
+  if (s === "provisional") return "provisional" as BookingStatus;
+  if (s === "pending") return "pending" as BookingStatus;
   return "confirmed" as BookingStatus;
 }
 
-function displayBookingStatusToDb(value: unknown): string {
+export function displayBookingStatusToDb(value: unknown): string {
   const s = String(value || "")
     .toLowerCase()
     .replace(/[\s_]+/g, "-");
   if (s === "waitlisted" || s === "wait-listed") return "wait-listed";
   if (s === "notfixed" || s === "not-fixed") return "not-fixed";
+  if (s === "provisional") return "provisional";
+  if (s === "pending") return "pending";
   return "confirmed";
+}
+
+const LIFECYCLE_VALUES = ["pending", "confirmed", "completed", "cancelled", "no_show"] as const;
+
+export function dbLifecycleStatusToDisplay(raw: unknown): string {
+  const s = String(raw ?? "").toLowerCase();
+  return (LIFECYCLE_VALUES as readonly string[]).includes(s) ? s : "pending";
+}
+
+export function assertLifecycle(raw: unknown): string | undefined {
+  if (raw === null || raw === undefined) return undefined;
+  const s = String(raw).toLowerCase();
+  if (!s) return undefined;
+  return (LIFECYCLE_VALUES as readonly string[]).includes(s) ? s : undefined;
 }
 
 function dbPaymentStatusToDisplay(raw: unknown): string {
@@ -540,6 +558,7 @@ function dbPaymentStatusToDisplay(raw: unknown): string {
   const validFinancialStatuses = ["pending", "unpaid", "paid", "voided", "settled", "overpaid"];
   return validFinancialStatuses.includes(s) ? s : "pending";
 }
+
 
 function mapBookingRow(r: any): Booking {
   const notesFallback = (() => {
