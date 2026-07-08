@@ -2,6 +2,25 @@ import { formatNPR, type Transaction, type Booking } from "./mock-data";
 import { capitalizeFirstLetter } from "./string-case-change";
 import { formatDateTime, formatInTz, nowIso } from "./tz";
 
+export interface A5BillItem {
+  description: string;
+  quantity: number;
+  rate: number;
+  amount: number;
+  head?: string;
+}
+
+export type BillPaperSize = "A4" | "A5" | "80mm";
+export type BillKind = "payment" | "advance";
+
+export interface CSVExportMeta {
+  propertyName?: string;
+  reportTitle?: string;
+  dateRange?: string;
+  generatedAt?: string;
+  filters?: Record<string, string>;
+}
+
 // HTML escape helper to prevent XSS when interpolating user-supplied data
 function escHtml(s: unknown): string {
   if (s === null || s === undefined) return "";
@@ -11,6 +30,11 @@ function escHtml(s: unknown): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function csvEscape(v: unknown): string {
+  const s = v === null || v === undefined ? "" : String(v);
+  return `"${s.replace(/"/g, '""')}"`;
 }
 
 // Number to words for NPR
@@ -47,16 +71,6 @@ function numberToWords(n: number): string {
   return words.trim();
 }
 
-export interface A5BillItem {
-  description: string;
-  quantity: number;
-  rate: number;
-  amount: number;
-  head?: string;
-}
-
-export type BillPaperSize = "A4" | "A5" | "80mm";
-export type BillKind = "payment" | "advance";
 
 export function generateA5BillHTML(options: {
   companyName: string;
@@ -77,7 +91,7 @@ export function generateA5BillHTML(options: {
   luxuryTax?: number;
   taxableAmount: number;
   vatAmount: number;
-  vatRate?: number; // 🌟 Added: Dynamic Tax Rate pass-through
+  vatRate?: number;
   grandTotal: number;
   previousBalance?: number;
   discount?: number;
@@ -158,7 +172,14 @@ export function generateA5BillHTML(options: {
     )
     .join("");
 
-  // 🌟 FIX: Rectified calculation breakdowns to cleanly display Subtotal, VAT, and Discounts sequentially
+  console.log(
+    "subtotal", o.subtotal,
+    "Vat", o.vatAmount,
+    "Gross", grossDue,
+    "Net", netPayable,
+    "Paid", paid
+  )
+
   const summaryRowsPayment = `
     <tr class="sep"><td colspan="2"></td></tr>
     <tr><td>Subtotal (before VAT)</td><td class="right">NPR ${o.subtotal.toFixed(2)}</td></tr>
@@ -269,6 +290,58 @@ export function generateA5BillHTML(options: {
   </body></html>`;
 }
 
+export function generateReceiptHTML(
+  t: Transaction,
+  companyName: string,
+  extras?: {
+    companyTagline?: string;
+    companyAddress?: string;
+    companyPhone?: string;
+    companyEmail?: string;
+    companyLogoUrl?: string;
+    memberCode?: string;
+    memberClass?: string;
+    paymentMethod?: string;
+    remarks?: string;
+    paperSize?: BillPaperSize;
+    kind?: BillKind;
+    vatRate?: number;
+  },
+): string {
+  const discountAmount = Number((t as any).discount) || 0;
+  const calculatedPaidAmount = t.status === "pending" || t.status === "voided"
+    ? 0
+    : Math.max(0, t.total - discountAmount);
+
+  return generateA5BillHTML({
+    companyName,
+    companyTagline: extras?.companyTagline,
+    companyAddress: extras?.companyAddress,
+    companyPhone: extras?.companyPhone,
+    companyEmail: extras?.companyEmail,
+    companyLogoUrl: extras?.companyLogoUrl,
+    memberCode: extras?.memberCode,
+    memberClass: extras?.memberClass,
+    paymentMethod: extras?.paymentMethod || t.method,
+    remarks: extras?.remarks || t.description,
+    guestName: t.memberName,
+    billNo: t.receiptNo,
+    billDate: t.date,
+    billForMonth: formatInTz(t.date, { month: "long", year: "numeric" }),
+    items: [{ description: t.description || "Subscription / Services", quantity: 1, rate: t.amount, amount: t.amount }],
+    subtotal: t.amount,
+    taxableAmount: t.amount,
+    vatAmount: t.vat,
+    vatRate: extras?.vatRate,
+    grandTotal: t.total,
+    discount: discountAmount,
+    paidAmount: calculatedPaidAmount,
+    status: t.status,
+    paperSize: extras?.paperSize,
+    kind: extras?.kind,
+  });
+}
+
 export function printHTML(html: string) {
   const win = window.open("", "_blank", "width=600,height=800");
   if (!win) return;
@@ -286,19 +359,6 @@ export function downloadHTML(html: string, filename: string) {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
-}
-
-function csvEscape(v: unknown): string {
-  const s = v === null || v === undefined ? "" : String(v);
-  return `"${s.replace(/"/g, '""')}"`;
-}
-
-export interface CSVExportMeta {
-  propertyName?: string;
-  reportTitle?: string;
-  dateRange?: string;
-  generatedAt?: string;
-  filters?: Record<string, string>;
 }
 
 export function exportTableToCSV(headers: string[], rows: string[][], filename: string, meta?: CSVExportMeta) {
@@ -326,59 +386,6 @@ export function exportTableToCSV(headers: string[], rows: string[][], filename: 
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
-}
-
-export function generateReceiptHTML(
-  t: Transaction,
-  companyName: string,
-  extras?: {
-    companyTagline?: string;
-    companyAddress?: string;
-    companyPhone?: string;
-    companyEmail?: string;
-    companyLogoUrl?: string;
-    memberCode?: string;
-    memberClass?: string;
-    paymentMethod?: string;
-    remarks?: string;
-    paperSize?: BillPaperSize;
-    kind?: BillKind;
-    vatRate?: number; // 🌟 Added: Receive configurable VAT context
-  },
-): string {
-  // 🌟 FIX: Pull discount context dynamically so the printable matches the view modal layout perfectly
-  const discountAmount = Number((t as any).discount) || 0;
-  const calculatedPaidAmount = t.status === "pending" || t.status === "voided"
-    ? 0
-    : Math.max(0, t.total - discountAmount);
-
-  return generateA5BillHTML({
-    companyName,
-    companyTagline: extras?.companyTagline,
-    companyAddress: extras?.companyAddress,
-    companyPhone: extras?.companyPhone,
-    companyEmail: extras?.companyEmail,
-    companyLogoUrl: extras?.companyLogoUrl,
-    memberCode: extras?.memberCode,
-    memberClass: extras?.memberClass,
-    paymentMethod: extras?.paymentMethod || t.method,
-    remarks: extras?.remarks || t.description,
-    guestName: t.memberName,
-    billNo: t.receiptNo,
-    billDate: t.date,
-    billForMonth: formatInTz(t.date, { month: "long", year: "numeric" }),
-    items: [{ description: t.description || "Subscription / Club Services", quantity: 1, rate: t.amount, amount: t.amount }],
-    subtotal: t.amount,
-    taxableAmount: t.amount,
-    vatAmount: t.vat,
-    vatRate: extras?.vatRate, // Pass down to the layout summary renderer
-    grandTotal: t.total,
-    discount: discountAmount,
-    paidAmount: calculatedPaidAmount,
-    status: t.status,
-    paperSize: extras?.paperSize,
-    kind: extras?.kind,
-  });
 }
 
 export const handlePrintReport = (columns, rows, title, propertyName) => {

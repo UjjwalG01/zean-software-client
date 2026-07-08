@@ -159,8 +159,6 @@ const Transactions = () => {
   const { data: user } = useCurrentAppUser();
   const qc = useQueryClient();
 
-  console.log(user);
-
   // Debounce global search input to prevent filtering lists on every keypress
   useEffect(() => {
     const timer = setTimeout(() => setSearch(searchInput), 250);
