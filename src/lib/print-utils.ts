@@ -321,7 +321,7 @@ export function generateReceiptHTML(
     ? 0
     : Math.max(0, t.total - discountAmount);
 
-  return generateA5BillHTML({
+  return generateStandardReceiptHTML({
     companyName,
     companyTagline: extras?.companyTagline,
     companyAddress: extras?.companyAddress,
