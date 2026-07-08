@@ -4,9 +4,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { formatNPR, type Member } from "@/lib/mock-data";
-import { useTransactions } from "@/hooks/use-firestore";
-import { useCharges } from "@/hooks/use-charges";
-import { buildMemberLedger } from "@/lib/member-ledger";
+import { useMemberLedger, type MemberLedgerRow } from "@/hooks/use-member-ledger";
+import { useMemberFinancials } from "@/hooks/use-member-financials";
 import { getMemberPoolsSummary } from "@/lib/prepaid";
 
 interface Props {
@@ -15,36 +14,18 @@ interface Props {
   member: Member | null;
 }
 
+type DerivedStatus = "Settled" | "Partial" | "Unpaid" | "Overpaid";
+
 /**
  * Quick Balance — full transaction history + running balance for one member.
- * Modeled on the screenshot: dark header strip, ledger table, summary card.
+ *
+ * Reads the server-side SSOT views (`vw_member_ledger` + `member_financial_summaries`)
+ * via TanStack Query hooks. All balance math is server-computed; the UI just
+ * projects rows and derives the display status from the signed net outstanding.
  */
 export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
-  const { data: transactions = [] } = useTransactions();
-  const { data: charges = [] } = useCharges();
-
-  const { rows, summary } = useMemo(() => {
-    if (!member) {
-      return {
-        rows: [],
-        summary: {
-          totalCharged: 0,
-          bookingCharges: 0,
-          manualCharges: 0,
-          vatTotal: 0,
-          netCharges: 0,
-          totalPaid: 0,
-          advance: 0,
-          discountTotal: 0,
-          netPayable: 0,
-          dueBalance: 0,
-          isSettled: true,
-          status: "Settled" as const,
-        },
-      };
-    }
-    return buildMemberLedger(member.id, transactions, member.openingBalance || 0, charges);
-  }, [member, transactions, charges]);
+  const { data: ledgerRows = [] } = useMemberLedger(member?.id);
+  const { data: financials } = useMemberFinancials(member?.id);
 
   const { data: prepaid } = useQuery({
     queryKey: ["prepaidPools", member?.id],
@@ -52,7 +33,66 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
     enabled: !!member && open,
   });
 
+  // Ledger view returns rows DESC by occurred_at; QuickBalance shows oldest→newest for the running balance.
+  const chronoRows = useMemo(
+    () => [...ledgerRows].sort((a, b) => a.occurred_at.localeCompare(b.occurred_at)),
+    [ledgerRows],
+  );
+
+  const summary = useMemo(() => {
+    // Booking vs manual charge split is a display-only derivation over the SSOT ledger rows.
+    let bookingCharges = 0;
+    let manualCharges = 0;
+    let vatTotal = 0;
+    for (const r of chronoRows) {
+      if (r.voided || r.type !== "Charge") continue;
+      const gross = Number(r.debit) || 0;
+      vatTotal += Number(r.vat_amount) || 0;
+      if (r.source === "booking") bookingCharges += gross;
+      else manualCharges += gross;
+    }
+
+    const totalCharged = Number(financials?.total_invoiced ?? 0);
+    const totalPaid = Number(financials?.total_paid ?? 0);
+    const advance = Number(financials?.total_advances ?? 0);
+    const discountTotal = Number(financials?.total_discounts ?? 0);
+    const netPayable = Number(financials?.net_outstanding ?? 0);
+
+    const status: DerivedStatus =
+      netPayable < 0
+        ? "Overpaid"
+        : totalCharged === 0 || netPayable === 0
+          ? "Settled"
+          : totalPaid + advance + discountTotal > 0
+            ? "Partial"
+            : "Unpaid";
+
+    return {
+      totalCharged,
+      bookingCharges,
+      manualCharges,
+      vatTotal,
+      netCharges: Math.max(0, totalCharged - vatTotal),
+      totalPaid,
+      advance,
+      discountTotal,
+      netPayable,
+      status,
+    };
+  }, [chronoRows, financials]);
+
   if (!member) return null;
+
+  // Discount / Advance / voided rows surface in the summary cards below, not as individual lines.
+  const visibleRows = chronoRows.filter(
+    (r) =>
+      !r.voided &&
+      r.type !== "Advance" &&
+      r.source !== "advance" &&
+      r.source !== "discount",
+  );
+
+  const displayDate = (r: MemberLedgerRow) => (r.occurred_on || r.occurred_at || "").slice(0, 10);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -64,7 +104,8 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
         {/* Header strip */}
         <div className="grid grid-cols-1 sm:grid-cols-3 rounded-md overflow-hidden bg-primary text-primary-foreground">
           <div className="px-4 py-2 text-sm">
-            <span className="opacity-80">Member No:</span> <strong>{(member as any).memberCode || (member as any).grcNo || member.id}</strong>
+            <span className="opacity-80">Member No:</span>{" "}
+            <strong>{(member as any).memberCode || (member as any).grcNo || member.id}</strong>
           </div>
           <div className="px-4 py-2 text-sm border-l border-primary-foreground/20">
             <span className="opacity-80">Name:</span> <strong>{member.name}</strong>
@@ -77,49 +118,51 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
           </div>
         </div>
 
-        {/* Ledger — Discount / Advance / Void rows are surfaced in the summary cards below, not as individual lines */}
+        {/* Ledger */}
         <div className="rounded-md border border-border/50 overflow-hidden">
-          {(() => {
-            const visibleRows = rows.filter((r) => !r.voided && r.kind !== "Discount" && r.kind !== "Advance" && r.kind !== "Void");
-            if (visibleRows.length === 0) {
-              return <p className="text-center text-muted-foreground py-8 text-sm">No transactions recorded yet</p>;
-            }
-            return (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[110px]">Date</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="w-[90px]">Kind</TableHead>
-                    <TableHead className="text-right w-[110px]">Charge</TableHead>
-                    <TableHead className="text-right w-[110px]">Paid</TableHead>
-                    <TableHead className="text-right w-[120px]">Balance</TableHead>
+          {visibleRows.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8 text-sm">No transactions recorded yet</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[110px]">Date</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead className="w-[90px]">Kind</TableHead>
+                  <TableHead className="text-right w-[110px]">Charge</TableHead>
+                  <TableHead className="text-right w-[110px]">Paid</TableHead>
+                  <TableHead className="text-right w-[120px]">Balance</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visibleRows.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="text-xs">{displayDate(r)}</TableCell>
+                    <TableCell className="text-sm">
+                      {r.description}
+                      {r.receipt_no && (
+                        <span className="block text-[10px] text-muted-foreground font-mono">{r.receipt_no}</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-[10px]">
+                        {r.type}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right text-sm">
+                      {r.debit ? formatNPR(r.debit) : "—"}
+                    </TableCell>
+                    <TableCell className="text-right text-sm text-success">
+                      {r.credit ? formatNPR(r.credit) : "—"}
+                    </TableCell>
+                    <TableCell className="text-right text-sm font-semibold">
+                      {formatNPR(r.running_balance)}
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {visibleRows.map((r, i) => (
-                    <TableRow key={i}>
-                      <TableCell className="text-xs">{r.date}</TableCell>
-                      <TableCell className="text-sm">
-                        {r.description}
-                        {r.receiptNo && (
-                          <span className="block text-[10px] text-muted-foreground font-mono">{r.receiptNo}</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-[10px]">{r.kind}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right text-sm">{r.debit ? formatNPR(r.debit) : "—"}</TableCell>
-                      <TableCell className="text-right text-sm text-success">
-                        {r.credit ? formatNPR(r.credit) : "—"}
-                      </TableCell>
-                      <TableCell className="text-right text-sm font-semibold">{formatNPR(r.balance)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            );
-          })()}
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </div>
 
         {/* Detailed breakdown — booking charges, VAT, discounts, settlements → Net Payable */}
