@@ -72,7 +72,22 @@ function numberToWords(n: number): string {
 }
 
 
-export function generateA5BillHTML(options: {
+/**
+ * Canonical, unified receipt/bill generator — the ONLY print layout in the app.
+ *
+ * Strict standard layout enforced here:
+ *   Fee Description | Amount
+ *   Subtotal (before VAT)
+ *   VAT
+ *   Previous Balance (only if > 0)
+ *   Grand Total (Subtotal + Previous Balance)
+ *   Advance Amount   (only if > 0)
+ *   Discount         (only if > 0)
+ *   Net Payable      (Grand Total − Advance − Discount)
+ *   Amount Paid
+ *   Payment Method + Status (CLEARED | PARTIAL | OVERPAID | PENDING)
+ */
+export function generateStandardReceiptHTML(options: {
   companyName: string;
   companyTagline?: string;
   companyAddress?: string;
@@ -172,13 +187,6 @@ export function generateA5BillHTML(options: {
     )
     .join("");
 
-  console.log(
-    "subtotal", o.subtotal,
-    "Vat", o.vatAmount,
-    "Gross", grossDue,
-    "Net", netPayable,
-    "Paid", paid
-  )
 
   const summaryRowsPayment = `
     <tr class="sep"><td colspan="2"></td></tr>
@@ -313,7 +321,7 @@ export function generateReceiptHTML(
     ? 0
     : Math.max(0, t.total - discountAmount);
 
-  return generateA5BillHTML({
+  return generateStandardReceiptHTML({
     companyName,
     companyTagline: extras?.companyTagline,
     companyAddress: extras?.companyAddress,
