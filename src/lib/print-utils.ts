@@ -1,6 +1,7 @@
-import { formatNPR, type Transaction, type Booking } from "./mock-data";
+import { formatNPR } from "./mock-data";
 import { capitalizeFirstLetter } from "./string-case-change";
 import { formatDateTime, formatInTz, nowIso } from "./tz";
+
 
 export interface A5BillItem {
   description: string;
