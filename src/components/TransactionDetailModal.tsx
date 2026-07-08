@@ -13,10 +13,12 @@ import { Label } from "@/components/ui/label";
 import { Receipt, Download, Printer, Ban } from "lucide-react";
 import { formatNPR, type Transaction } from "@/lib/mock-data";
 import {
-  generateReceiptHTML,
+  generateStandardReceiptHTML,
   printHTML,
   downloadHTML,
 } from "@/lib/print-utils";
+import { formatInTz } from "@/lib/tz";
+
 import {
   useCompanySettings,
   useUpdateTransaction,
@@ -73,21 +75,45 @@ export function TransactionDetailModal({
   const receiptKind: "payment" | "advance" =
     t.type === "Advance" ? "advance" : "payment";
 
-  const handlePrint = () => {
-    const html = generateReceiptHTML(t, companyName, {
+  const buildReceiptHTML = () =>
+    generateStandardReceiptHTML({
+      companyName,
+      companyTagline: (settings as any).companyTagline,
+      companyAddress: (settings as any).companyAddress,
+      companyPhone: (settings as any).companyPhone,
+      companyEmail: (settings as any).companyEmail,
+      companyLogoUrl: (settings as any).companyLogoUrl,
+      paymentMethod: t.method,
+      remarks: t.description,
+      guestName: t.memberName,
+      billNo: t.receiptNo,
+      billDate: t.date,
+      billForMonth: formatInTz(t.date, { month: "long", year: "numeric" }),
+      items: [
+        {
+          description: t.description || "Subscription / Services",
+          quantity: 1,
+          rate: t.amount,
+          amount: t.amount,
+        },
+      ],
+      subtotal: t.amount,
+      taxableAmount: t.amount,
+      vatAmount: t.vat,
+      vatRate: activeVatRate,
+      grandTotal: t.total,
+      discount: discountAmount,
+      paidAmount:
+        t.status === "pending" || t.status === "voided" ? 0 : paidAmount,
+      status: t.status,
       paperSize,
       kind: receiptKind,
     });
-    printHTML(html);
-  };
 
-  const handleDownload = () => {
-    const html = generateReceiptHTML(t, companyName, {
-      paperSize,
-      kind: receiptKind,
-    });
-    downloadHTML(html, `receipt-${t.receiptNo}.html`);
-  };
+  const handlePrint = () => printHTML(buildReceiptHTML());
+  const handleDownload = () =>
+    downloadHTML(buildReceiptHTML(), `receipt-${t.receiptNo}.html`);
+
 
   const handleVoid = async () => {
     if (!voidReason.trim()) {
