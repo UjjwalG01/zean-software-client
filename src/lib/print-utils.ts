@@ -1,6 +1,7 @@
-import { formatNPR, type Transaction, type Booking } from "./mock-data";
+import { formatNPR } from "./mock-data";
 import { capitalizeFirstLetter } from "./string-case-change";
-import { formatDateTime, formatInTz, nowIso } from "./tz";
+import { formatDateTime, nowIso } from "./tz";
+
 
 export interface A5BillItem {
   description: string;
@@ -72,7 +73,22 @@ function numberToWords(n: number): string {
 }
 
 
-export function generateA5BillHTML(options: {
+/**
+ * Canonical, unified receipt/bill generator — the ONLY print layout in the app.
+ *
+ * Strict standard layout enforced here:
+ *   Fee Description | Amount
+ *   Subtotal (before VAT)
+ *   VAT
+ *   Previous Balance (only if > 0)
+ *   Grand Total (Subtotal + Previous Balance)
+ *   Advance Amount   (only if > 0)
+ *   Discount         (only if > 0)
+ *   Net Payable      (Grand Total − Advance − Discount)
+ *   Amount Paid
+ *   Payment Method + Status (CLEARED | PARTIAL | OVERPAID | PENDING)
+ */
+export function generateStandardReceiptHTML(options: {
   companyName: string;
   companyTagline?: string;
   companyAddress?: string;
@@ -172,13 +188,6 @@ export function generateA5BillHTML(options: {
     )
     .join("");
 
-  console.log(
-    "subtotal", o.subtotal,
-    "Vat", o.vatAmount,
-    "Gross", grossDue,
-    "Net", netPayable,
-    "Paid", paid
-  )
 
   const summaryRowsPayment = `
     <tr class="sep"><td colspan="2"></td></tr>
@@ -290,57 +299,11 @@ export function generateA5BillHTML(options: {
   </body></html>`;
 }
 
-export function generateReceiptHTML(
-  t: Transaction,
-  companyName: string,
-  extras?: {
-    companyTagline?: string;
-    companyAddress?: string;
-    companyPhone?: string;
-    companyEmail?: string;
-    companyLogoUrl?: string;
-    memberCode?: string;
-    memberClass?: string;
-    paymentMethod?: string;
-    remarks?: string;
-    paperSize?: BillPaperSize;
-    kind?: BillKind;
-    vatRate?: number;
-  },
-): string {
-  const discountAmount = Number((t as any).discount) || 0;
-  const calculatedPaidAmount = t.status === "pending" || t.status === "voided"
-    ? 0
-    : Math.max(0, t.total - discountAmount);
+// NOTE: The legacy `generateReceiptHTML(t, companyName, extras)` wrapper was
+// removed on 2026-07-08. All callers now invoke `generateStandardReceiptHTML`
+// directly with a strict, explicit parameter object so we have one canonical
+// receipt renderer with no drift between screens.
 
-  return generateA5BillHTML({
-    companyName,
-    companyTagline: extras?.companyTagline,
-    companyAddress: extras?.companyAddress,
-    companyPhone: extras?.companyPhone,
-    companyEmail: extras?.companyEmail,
-    companyLogoUrl: extras?.companyLogoUrl,
-    memberCode: extras?.memberCode,
-    memberClass: extras?.memberClass,
-    paymentMethod: extras?.paymentMethod || t.method,
-    remarks: extras?.remarks || t.description,
-    guestName: t.memberName,
-    billNo: t.receiptNo,
-    billDate: t.date,
-    billForMonth: formatInTz(t.date, { month: "long", year: "numeric" }),
-    items: [{ description: t.description || "Subscription / Services", quantity: 1, rate: t.amount, amount: t.amount }],
-    subtotal: t.amount,
-    taxableAmount: t.amount,
-    vatAmount: t.vat,
-    vatRate: extras?.vatRate,
-    grandTotal: t.total,
-    discount: discountAmount,
-    paidAmount: calculatedPaidAmount,
-    status: t.status,
-    paperSize: extras?.paperSize,
-    kind: extras?.kind,
-  });
-}
 
 export function printHTML(html: string) {
   const win = window.open("", "_blank", "width=600,height=800");

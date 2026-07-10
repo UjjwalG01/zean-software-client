@@ -332,6 +332,9 @@ export function useAddTransaction() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["charges"] });
+      qc.invalidateQueries({ queryKey: ["member-ledger"] });
+      qc.invalidateQueries({ queryKey: ["member-financials"] });
     },
   });
 }
@@ -352,6 +355,9 @@ export function useUpdateTransaction() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["charges"] });
+      qc.invalidateQueries({ queryKey: ["member-ledger"] });
+      qc.invalidateQueries({ queryKey: ["member-financials"] });
     },
   });
 }

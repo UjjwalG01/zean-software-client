@@ -63,7 +63,7 @@ import {
 } from "@/hooks/use-firestore";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  generateA5BillHTML,
+  generateStandardReceiptHTML,
   printHTML,
   exportTableToCSV,
 } from "@/lib/print-utils";
@@ -258,7 +258,7 @@ const Transactions = () => {
           .reduce((s, t) => s + (t.total || 0), 0)
       : 0;
 
-    const html = generateA5BillHTML({
+    const html = generateStandardReceiptHTML({
       companyName,
       companyAddress: settings.companyAddress || "",
       companyPhone: settings.companyPhone || "",

@@ -33,7 +33,7 @@ import {
   useUpdateTransaction,
   useServices,
 } from "@/hooks/use-firestore";
-import { generateA5BillHTML, printHTML } from "@/lib/print-utils";
+import { generateStandardReceiptHTML, printHTML } from "@/lib/print-utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { nowIso } from "@/lib/tz";
@@ -264,7 +264,7 @@ export function BookingDetailModal({
     );
     const taxableAmount = n(grandTotal - vatAmount);
 
-    const html = generateA5BillHTML({
+    const html = generateStandardReceiptHTML({
       companyName,
       companyAddress: settings.companyAddress || "",
       companyPhone: settings.companyPhone || "",
