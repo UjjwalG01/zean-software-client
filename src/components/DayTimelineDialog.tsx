@@ -18,6 +18,7 @@ interface Props {
   bookings: Booking[]; // bookings filtered to outlet+date
   durationMinutes: number; // selected service duration
   onPick: (startTime: string, endTime: string) => void;
+  setOpen: (open: boolean) => void;
 }
 
 /**
@@ -31,6 +32,7 @@ export function DayTimelineDialog({
   date,
   bookings,
   durationMinutes,
+  setOpen,
   onPick,
 }: Props) {
   const hours = useMemo(() => Array.from({ length: 24 }, (_, i) => i), []);
@@ -63,7 +65,7 @@ export function DayTimelineDialog({
   // Rule #6 — disable hours that have already passed on today.
   const todayStr = getSystemTodayStr();
   const currentHour = Number(getSystemTimeStr().split(":")[0]);
-  const isPastHour = (h: number) => date === todayStr && h <= currentHour;
+  const isPastHour = (h: number) => date === todayStr && h < currentHour;
 
   const pick = (h: number) => {
     const start = `${String(h).padStart(2, "0")}:00`;
@@ -81,7 +83,8 @@ export function DayTimelineDialog({
     <Dialog
       open={open}
       onOpenChange={() => {
-        /* non-dismissible */
+        setOpen(false);
+        /* mdae-dismissible */
       }}
     >
       <DialogContent

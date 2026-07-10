@@ -336,13 +336,14 @@ const Bookings_Page = () => {
     // 4. Extract Kathmandu's exact current hours & minutes as standalone numbers
     const [curHStr, curMStr] = getSystemTimeStr().split(":");
     const currentHour = Number(curHStr);
-    const currentMin = Number(curMStr);
+    // const currentMin = Number(curMStr);
 
     // 5. Convert both times to total minutes elapsed since midnight for a pure numeric comparison
-    const slotTotalMinutes = slotH * 60 + (slotM || 0);
-    const currentTotalMinutes = currentHour * 60 + currentMin;
+    // const slotTotalMinutes = slotH * 60 + (slotM || 0);
+    // const currentTotalMinutes = currentHour * 60 + currentMin;
 
-    return slotTotalMinutes <= currentTotalMinutes;
+    // return slotTotalMinutes <= currentTotalMinutes;
+    return slotH < currentHour;
   };
 
   const openNewBookingDialog = (day?: Date, startTime?: string) => {
@@ -1570,6 +1571,7 @@ const Bookings_Page = () => {
 
       <DayTimelineDialog
         open={timelineOpen}
+        setOpen={setTimelineOpen}
         onOpenChange={setTimelineOpen}
         date={bookDate}
         bookings={filtered.filter((b) => b.date === bookDate)}

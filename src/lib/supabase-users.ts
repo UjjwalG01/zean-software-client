@@ -88,7 +88,7 @@ export async function getAppUserByEmail(email: string): Promise<AppUser | null> 
 
 export async function createAppUserRecord(data: Omit<AppUser, "id" | "createdAt">): Promise<string> {
   const id = data.uid;
-  if (!id) throw new Error("Missing Supabase auth user id");
+  if (!id) throw new Error("Missing auth user id");
   const { error } = await supabase.from("app_users").upsert(
     {
       id,

@@ -36,32 +36,82 @@ import {
 } from "@/components/ui/sidebar";
 import { useMyPermissions, canView } from "@/hooks/use-permissions";
 
-const softwareName = "ZEAN";
-const softwareVersion = "2.0.1";
+export const softwareName = "ZEAN";
+export const softwareVersion = "2.0.1";
 
 const mainItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard, key: "dashboard" },
   { title: "Members", url: "/members", icon: Users, key: "members" },
   { title: "Bookings", url: "/bookings", icon: CalendarDays, key: "bookings" },
-  { title: "Attendance", url: "/attendance", icon: UserCheck, key: "attendance" },
-  { title: "Transactions", url: "/transactions", icon: Receipt, key: "transactions" },
+  {
+    title: "Attendance",
+    url: "/attendance",
+    icon: UserCheck,
+    key: "attendance",
+  },
+  {
+    title: "Transactions",
+    url: "/transactions",
+    icon: Receipt,
+    key: "transactions",
+  },
   { title: "Inventory", url: "/inventory", icon: Package, key: "inventory" },
   { title: "Reports", url: "/reports", icon: BarChart3, key: "reports" },
   { title: "Forecast", url: "/forecast", icon: TrendingUp, key: "forecast" },
-  { title: "Audit Logs", url: "/audit-logs", icon: ScrollText, key: "audit-logs" },
+  {
+    title: "Audit Logs",
+    url: "/audit-logs",
+    icon: ScrollText,
+    key: "audit-logs",
+  },
 ];
 
 const setupItems = [
-  { title: "General Setup", url: "/setup/general", icon: Wrench, key: "general" },
+  {
+    title: "General Setup",
+    url: "/setup/general",
+    icon: Wrench,
+    key: "general",
+  },
   { title: "Outlets", url: "/setup/outlets", icon: Building2, key: "outlets" },
-  { title: "Service Types", url: "/setup/service-types", icon: Tag, key: "service-types" },
-  { title: "Plans & Services", url: "/setup/plans", icon: Dumbbell, key: "plans" },
+  {
+    title: "Service Types",
+    url: "/setup/service-types",
+    icon: Tag,
+    key: "service-types",
+  },
+  {
+    title: "Plans & Services",
+    url: "/setup/plans",
+    icon: Dumbbell,
+    key: "plans",
+  },
   { title: "Stores", url: "/setup/stores", icon: Warehouse, key: "stores" },
-  { title: "Item Groups", url: "/setup/item-groups", icon: Layers, key: "item-groups" },
-  { title: "Charge Heads", url: "/setup/charge-heads", icon: Tag, key: "charge-heads" },
+  {
+    title: "Item Groups",
+    url: "/setup/item-groups",
+    icon: Layers,
+    key: "item-groups",
+  },
+  {
+    title: "Charge Heads",
+    url: "/setup/charge-heads",
+    icon: Tag,
+    key: "charge-heads",
+  },
   { title: "Users & Roles", url: "/setup/users", icon: UserCog, key: "users" },
-  { title: "Email Templates", url: "/setup/email-templates", icon: Mail, key: "email-templates" },
-  { title: "Settings", url: "/setup/settings", icon: Settings, key: "settings" },
+  {
+    title: "Email Templates",
+    url: "/setup/email-templates",
+    icon: Mail,
+    key: "email-templates",
+  },
+  {
+    title: "Settings",
+    url: "/setup/settings",
+    icon: Settings,
+    key: "settings",
+  },
 ];
 
 export function AppSidebar() {
@@ -69,7 +119,10 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { data: myPerms } = useMyPermissions();
-  const isActive = (path: string) => (path === "/" ? location.pathname === "/" : location.pathname.startsWith(path));
+  const isActive = (path: string) =>
+    path === "/"
+      ? location.pathname === "/"
+      : location.pathname.startsWith(path);
 
   const visibleMain = mainItems.filter((i) => canView(myPerms, i.key));
   const visibleSetup = setupItems.filter((i) => canView(myPerms, i.key));
@@ -77,17 +130,26 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg gradient-gold">
-            <Crown className="h-5 w-5 text-primary-foreground" />
+        <NavLink to="/" className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg">
+            <img
+              src="public/favicon.ico"
+              className="h-6 w-6 text-primary-foreground"
+              alt=""
+            />
+            {/* <Crown className="h-5 w-5 text-primary-foreground" /> */}
           </div>
           {!collapsed && (
             <div>
-              <h1 className="text-lg font-extrabold font-display text-gradient-gold">{softwareName}</h1>
-              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Software</p>
+              <h1 className="text-lg font-extrabold font-display text-gradient-gold">
+                {softwareName}
+              </h1>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                Software
+              </p>
             </div>
           )}
-        </div>
+        </NavLink>
       </SidebarHeader>
 
       <SidebarContent>
@@ -99,7 +161,11 @@ export function AppSidebar() {
             <SidebarMenu>
               {visibleMain.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.url)}
+                    tooltip={item.title}
+                  >
                     <NavLink
                       to={item.url}
                       end={item.url === "/"}
@@ -123,8 +189,15 @@ export function AppSidebar() {
             <SidebarMenu>
               {visibleSetup.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
-                    <NavLink to={item.url} activeClassName="bg-sidebar-accent text-sidebar-accent-foreground">
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.url)}
+                    tooltip={item.title}
+                  >
+                    <NavLink
+                      to={item.url}
+                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
+                    >
                       <item.icon className="h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
                     </NavLink>
@@ -139,8 +212,12 @@ export function AppSidebar() {
       <SidebarFooter className="p-4">
         {!collapsed && (
           <div className="rounded-lg border border-border/50 bg-muted/30 p-3">
-            <p className="text-xs text-muted-foreground">Version {softwareVersion}</p>
-            <p className="text-[10px] text-muted-foreground/60">© 2026 {softwareName} Software</p>
+            <p className="text-xs text-muted-foreground">
+              Version {softwareVersion}
+            </p>
+            <p className="text-[10px] text-muted-foreground/60">
+              © {new Date().getFullYear()} {softwareName} Software
+            </p>
           </div>
         )}
       </SidebarFooter>

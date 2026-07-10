@@ -1103,7 +1103,7 @@ function SettleModalBody({
           date: getSystemTodayStr(),
           description: settleTxn.description,
           receiptNo: settleTxn.receiptNo,
-          status: "paid",
+          status: "completed",
           bookingId: settleTxn.bookingId,
           outletId: (settleTxn as any).outletId,
           isSettlement: true,
@@ -1126,7 +1126,7 @@ function SettleModalBody({
         await updateTransactionMutation.mutateAsync({
           id: settleTxn.id,
           data: {
-            status: "paid",
+            status: "completed",
             method: settleMethod,
             date: getSystemTodayStr(),
             discount,

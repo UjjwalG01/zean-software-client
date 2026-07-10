@@ -34,6 +34,14 @@ export const serviceColors: Record<ServiceType, string> = {
   Wellness: "bg-wellness/20 text-wellness",
 };
 
+export const bookingStatusColors: Record<string, string> = {
+  confirmed: "bg-success/15 text-success border-success/30",
+  completed: "bg-success/15 text-success border-success/30",
+  pending: "bg-amber-500/15 text-amber-500 border-amber-500/30",
+  cancelled:
+    "bg-destructive/15 text-destructive border-destructive/30 line-through",
+};
+
 
 export const colorOptions = [
   { label: "Gold", value: "#FFD700", tw: "bg-events" }, // Events → celebratory gold

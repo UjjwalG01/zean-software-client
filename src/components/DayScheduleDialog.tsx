@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import type { Booking } from "@/lib/mock-data";
 
 import { getSystemNowDate } from "@/lib/timeUtils";
+import { bookingStatusColors } from "@/lib/utils";
 
 interface Props {
   open: boolean;
@@ -41,14 +42,6 @@ interface Props {
     newStartHour: number,
   ) => Promise<void> | void;
 }
-
-const statusColors: Record<string, string> = {
-  Confirmed: "bg-success/15 text-success border-success/30",
-  Completed: "bg-success/15 text-success border-success/30",
-  Pending: "bg-amber-500/15 text-amber-500 border-amber-500/30",
-  Cancelled:
-    "bg-destructive/15 text-destructive border-destructive/30 line-through",
-};
 
 export function DayScheduleDialog({
   open,
@@ -277,10 +270,10 @@ export function DayScheduleDialog({
                                       variant="outline"
                                       className={cn(
                                         "text-[10px] shrink-0",
-                                        statusColors[b.status] || "",
+                                        bookingStatusColors[b.status] || "",
                                       )}
                                     >
-                                      {b.status}
+                                      {b.status.toUpperCase()}
                                     </Badge>
                                   </div>
                                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground pl-2">
