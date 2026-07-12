@@ -119,10 +119,7 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { data: myPerms } = useMyPermissions();
-  const isActive = (path: string) =>
-    path === "/"
-      ? location.pathname === "/"
-      : location.pathname.startsWith(path);
+  const isActive = (path: string) => (path === "/" ? location.pathname === "/" : location.pathname.startsWith(path));
 
   const visibleMain = mainItems.filter((i) => canView(myPerms, i.key));
   const visibleSetup = setupItems.filter((i) => canView(myPerms, i.key));
@@ -132,21 +129,13 @@ export function AppSidebar() {
       <SidebarHeader className="p-4">
         <NavLink to="/" className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg">
-            <img
-              src="favicon.ico"
-              className="h-6 w-6 text-primary-foreground"
-              alt=""
-            />
+            <img src="@/favicon.ico" className="h-6 w-6 text-primary-foreground" alt="" />
             {/* <Crown className="h-5 w-5 text-primary-foreground" /> */}
           </div>
           {!collapsed && (
             <div>
-              <h1 className="text-lg font-extrabold font-display text-gradient-gold">
-                {softwareName}
-              </h1>
-              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                Software
-              </p>
+              <h1 className="text-lg font-extrabold font-display text-gradient-gold">{softwareName}</h1>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Software</p>
             </div>
           )}
         </NavLink>
@@ -161,11 +150,7 @@ export function AppSidebar() {
             <SidebarMenu>
               {visibleMain.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive(item.url)}
-                    tooltip={item.title}
-                  >
+                  <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
                     <NavLink
                       to={item.url}
                       end={item.url === "/"}
@@ -189,15 +174,8 @@ export function AppSidebar() {
             <SidebarMenu>
               {visibleSetup.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive(item.url)}
-                    tooltip={item.title}
-                  >
-                    <NavLink
-                      to={item.url}
-                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
-                    >
+                  <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
+                    <NavLink to={item.url} activeClassName="bg-sidebar-accent text-sidebar-accent-foreground">
                       <item.icon className="h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
                     </NavLink>
@@ -212,9 +190,7 @@ export function AppSidebar() {
       <SidebarFooter className="p-4">
         {!collapsed && (
           <div className="rounded-lg border border-border/50 bg-muted/30 p-3">
-            <p className="text-xs text-muted-foreground">
-              Version {softwareVersion}
-            </p>
+            <p className="text-xs text-muted-foreground">Version {softwareVersion}</p>
             <p className="text-[10px] text-muted-foreground/60">
               © {new Date().getFullYear()} {softwareName} Software
             </p>
