@@ -1,8 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
@@ -13,7 +25,6 @@ import { supabase } from "@/lib/supabase";
 import { useQueryClient } from "@tanstack/react-query";
 import { useOutlet } from "@/contexts/OutletContext";
 import { splitVatFromGross } from "@/lib/vat";
-
 
 interface Props {
   open: boolean;
@@ -47,7 +58,10 @@ export function RecordChargeModal({ open, onOpenChange }: Props) {
     }
   }, [open, selected?.id, outlets]);
 
-  const selectedHead = useMemo(() => heads.find((h) => h.id === headId), [heads, headId]);
+  const selectedHead = useMemo(
+    () => heads.find((h) => h.id === headId),
+    [heads, headId],
+  );
 
   useEffect(() => {
     if (selectedHead?.defaultAmount && !amount) {
@@ -57,8 +71,6 @@ export function RecordChargeModal({ open, onOpenChange }: Props) {
 
   const gross = Number(amount || 0);
   const { net, vat } = gross ? splitVatFromGross(gross) : { net: 0, vat: 0 };
-
-
 
   const submit = async () => {
     if (!outletId) {
@@ -167,7 +179,12 @@ export function RecordChargeModal({ open, onOpenChange }: Props) {
 
           <div className="space-y-2">
             <Label>Amount (NPR, VAT incl.) *</Label>
-            <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" />
+            <Input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0"
+            />
           </div>
 
           <div className="space-y-2">
@@ -187,7 +204,7 @@ export function RecordChargeModal({ open, onOpenChange }: Props) {
                 <span>{formatNPR(net)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">VAT (13% incl.)</span>
+                <span className="text-muted-foreground">VAT</span>
                 <span>{formatNPR(vat)}</span>
               </div>
               <div className="flex justify-between font-bold">

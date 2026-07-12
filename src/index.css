@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -6,7 +6,8 @@
 
 @layer base {
   :root {
-    --background: 40 20% 98%;
+    /* --background: 40 20% 98%; */
+    --background: 210 20% 98%;
     --foreground: 220 20% 15%;
     --card: 0 0% 100%;
     --card-foreground: 220 20% 15%;
@@ -26,13 +27,15 @@
     --input: 220 13% 91%;
     --ring: 38 92% 50%;
     --radius: 0.75rem;
-    --sidebar-background: 0 0% 100%;
+    /* --sidebar-background: 0 0% 100%; */
+    --sidebar-background: 210 20% 100%;
     --sidebar-foreground: 220 20% 15%;
     --sidebar-primary: 38 92% 50%;
     --sidebar-primary-foreground: 0 0% 5%;
     --sidebar-accent: 38 92% 95%;
     --sidebar-accent-foreground: 38 92% 30%;
-    --sidebar-border: 220 13% 91%;
+    /* --sidebar-border: 220 13% 91%; */
+    --sidebar-border: 210 20% 92%;
     --sidebar-ring: 38 92% 50%;
     --chart-gym: 38 92% 50%;
     --chart-spa: 280 60% 55%;
@@ -89,10 +92,15 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: "Inter", system-ui, sans-serif;
   }
-  h1, h2, h3, h4, h5, h6 {
-    font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Space Grotesk", "Inter", system-ui, sans-serif;
   }
 }
 

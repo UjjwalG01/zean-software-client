@@ -1,10 +1,25 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { formatNPR, type Member } from "@/lib/mock-data";
-import { useMemberLedger, type MemberLedgerRow } from "@/hooks/use-member-ledger";
+import {
+  useMemberLedger,
+  type MemberLedgerRow,
+} from "@/hooks/use-member-ledger";
 import { useMemberFinancials } from "@/hooks/use-member-financials";
 import { getMemberPoolsSummary } from "@/lib/prepaid";
 
@@ -29,13 +44,17 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
 
   const { data: prepaid } = useQuery({
     queryKey: ["prepaidPools", member?.id],
-    queryFn: () => (member ? getMemberPoolsSummary(member.id) : Promise.resolve(null)),
+    queryFn: () =>
+      member ? getMemberPoolsSummary(member.id) : Promise.resolve(null),
     enabled: !!member && open,
   });
 
   // Ledger view returns rows DESC by occurred_at; QuickBalance shows oldest→newest for the running balance.
   const chronoRows = useMemo(
-    () => [...ledgerRows].sort((a, b) => a.occurred_at.localeCompare(b.occurred_at)),
+    () =>
+      [...ledgerRows].sort((a, b) =>
+        a.occurred_at.localeCompare(b.occurred_at),
+      ),
     [ledgerRows],
   );
 
@@ -92,7 +111,8 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
       r.source !== "discount",
   );
 
-  const displayDate = (r: MemberLedgerRow) => (r.occurred_on || r.occurred_at || "").slice(0, 10);
+  const displayDate = (r: MemberLedgerRow) =>
+    (r.occurred_on || r.occurred_at || "").slice(0, 10);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -105,10 +125,13 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
         <div className="grid grid-cols-1 sm:grid-cols-3 rounded-md overflow-hidden bg-primary text-primary-foreground">
           <div className="px-4 py-2 text-sm">
             <span className="opacity-80">Member No:</span>{" "}
-            <strong>{(member as any).memberCode || (member as any).grcNo || member.id}</strong>
+            <strong>
+              {(member as any).memberCode || (member as any).grcNo || member.id}
+            </strong>
           </div>
           <div className="px-4 py-2 text-sm border-l border-primary-foreground/20">
-            <span className="opacity-80">Name:</span> <strong>{member.name}</strong>
+            <span className="opacity-80">Name:</span>{" "}
+            <strong>{member.name}</strong>
           </div>
           <div className="px-4 py-2 text-sm border-l border-primary-foreground/20">
             <span className="opacity-80">Plan:</span>{" "}
@@ -121,7 +144,9 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
         {/* Ledger */}
         <div className="rounded-md border border-border/50 overflow-hidden">
           {visibleRows.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8 text-sm">No transactions recorded yet</p>
+            <p className="text-center text-muted-foreground py-8 text-sm">
+              No transactions recorded yet
+            </p>
           ) : (
             <Table>
               <TableHeader>
@@ -131,7 +156,9 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
                   <TableHead className="w-[90px]">Kind</TableHead>
                   <TableHead className="text-right w-[110px]">Charge</TableHead>
                   <TableHead className="text-right w-[110px]">Paid</TableHead>
-                  <TableHead className="text-right w-[120px]">Balance</TableHead>
+                  <TableHead className="text-right w-[120px]">
+                    Balance
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -141,7 +168,9 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
                     <TableCell className="text-sm">
                       {r.description}
                       {r.receipt_no && (
-                        <span className="block text-[10px] text-muted-foreground font-mono">{r.receipt_no}</span>
+                        <span className="block text-[10px] text-muted-foreground font-mono">
+                          {r.receipt_no}
+                        </span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -168,37 +197,47 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
         {/* Detailed breakdown — booking charges, VAT, discounts, settlements → Net Payable */}
         <div className="ml-auto w-full sm:w-[420px] rounded-md border border-border/60 bg-muted/30 p-3 text-sm space-y-1">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Booking Charges (gross)</span>
+            <span className="text-muted-foreground">
+              Booking Charges (gross)
+            </span>
             <strong>{formatNPR(summary.bookingCharges)}</strong>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Manual / Misc Charges</span>
             <strong>{formatNPR(summary.manualCharges)}</strong>
           </div>
-          <div className="flex justify-between text-xs">
+          {/* <div className="flex justify-between text-xs">
             <span className="text-muted-foreground pl-3">↳ Net (pre-VAT)</span>
             <span className="text-muted-foreground">{formatNPR(summary.netCharges)}</span>
           </div>
           <div className="flex justify-between text-xs">
             <span className="text-muted-foreground pl-3">↳ VAT (13%)</span>
             <span className="text-muted-foreground">{formatNPR(summary.vatTotal)}</span>
-          </div>
+          </div> */}
           <div className="border-t border-border/50 my-1" />
           <div className="flex justify-between">
             <span className="text-muted-foreground">＋ Total Billed</span>
             <strong>{formatNPR(summary.totalCharged)}</strong>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">－ Total Paid (Settlements)</span>
-            <strong className="text-success">{formatNPR(summary.totalPaid)}</strong>
+            <span className="text-muted-foreground">
+              － Total Paid (Settlements)
+            </span>
+            <strong className="text-success">
+              {formatNPR(summary.totalPaid)}
+            </strong>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">－ Advance Balance</span>
-            <strong className="text-primary">{formatNPR(summary.advance)}</strong>
+            <strong className="text-primary">
+              {formatNPR(summary.advance)}
+            </strong>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">－ Discounts</span>
-            <strong className="text-warning">{formatNPR(summary.discountTotal)}</strong>
+            <strong className="text-warning">
+              {formatNPR(summary.discountTotal)}
+            </strong>
           </div>
           <div className="border-t border-border/60 mt-1 pt-1 flex justify-between text-base">
             <strong
@@ -212,7 +251,8 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
                       : "text-destructive"
               }
             >
-              ＝ {summary.status === "Overpaid" ? "Refund Due" : "Net Payable"} ({summary.status})
+              ＝ {summary.status === "Overpaid" ? "Refund Due" : "Net Payable"}{" "}
+              ({summary.status})
             </strong>
             <strong
               className={
@@ -235,18 +275,26 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
         {/* Prepaid Membership Pool — only shown if any pool exists */}
         {prepaid && prepaid.pools.length > 0 && (
           <div className="ml-auto w-full sm:w-[420px] rounded-md border border-primary/30 bg-primary/5 p-3 text-sm space-y-1">
-            <p className="text-xs uppercase tracking-wider text-primary font-semibold mb-1">Prepaid Membership</p>
+            <p className="text-xs uppercase tracking-wider text-primary font-semibold mb-1">
+              Prepaid Membership
+            </p>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Total Payment Done</span>
               <strong>{formatNPR(prepaid.totalPaid)}</strong>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Total Used (attendance)</span>
-              <strong className="text-warning">−{formatNPR(prepaid.usedAmount)}</strong>
+              <span className="text-muted-foreground">
+                Total Used (attendance)
+              </span>
+              <strong className="text-warning">
+                −{formatNPR(prepaid.usedAmount)}
+              </strong>
             </div>
             <div className="border-t border-primary/20 mt-1 pt-1 flex justify-between text-base">
               <strong className="text-primary">＝ Remaining Balance</strong>
-              <strong className="text-primary">{formatNPR(prepaid.remaining)}</strong>
+              <strong className="text-primary">
+                {formatNPR(prepaid.remaining)}
+              </strong>
             </div>
           </div>
         )}

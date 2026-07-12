@@ -100,7 +100,7 @@ const Reports = () => {
           variant="secondary"
           size="sm"
           accessKey="l"
-          className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+          className="bg-white/10 border"
         >
           <Download className="h-4 w-4 mr-1.5" />
           {underlineFirstChar("Load Report")}
@@ -314,9 +314,7 @@ const Reports = () => {
       a.joinDate.localeCompare(b.joinDate),
     );
     sorted.forEach((m, i) => {
-      const month = m.joinDate
-        ? formatMonthShort(m.joinDate)
-        : "Unknown";
+      const month = m.joinDate ? formatMonthShort(m.joinDate) : "Unknown";
       if (!monthMap[month]) monthMap[month] = { newMembers: 0, total: 0 };
       monthMap[month].newMembers++;
       monthMap[month].total = i + 1;

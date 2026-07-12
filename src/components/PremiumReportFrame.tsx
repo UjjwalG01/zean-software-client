@@ -127,7 +127,7 @@ export function PremiumReportFrame({
       {/* Header band */}
       <div className="bg-gradient-to-r from-[hsl(220,70%,28%)] via-[hsl(220,70%,32%)] to-[hsl(220,70%,28%)] px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-1 md:gap-3">
         <div>
-          <h2 className="font-display font-bold text-sm md:text-lg leading-tight">
+          <h2 className="font-display font-bold text-sm text-white md:text-lg leading-tight">
             {title}
           </h2>
 

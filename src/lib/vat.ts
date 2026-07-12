@@ -8,9 +8,27 @@
 // sites (e.g. `addTransaction`, `createChargeForBooking`) can consume it
 // synchronously without another round-trip to Supabase.
 
-const DEFAULT_VAT_RATE = 13;
+import { useEffect, useState } from "react";
+import { supabase } from "./supabase"; // Adjust this path to your actual supabase client init file
 
+const DEFAULT_VAT_RATE = 0;
 let activeVatRate = DEFAULT_VAT_RATE;
+
+
+try {
+  const { data, error } = await supabase
+    .from("company_settings")
+    .select("vat_rate")
+    .maybeSingle();
+
+  if (!error && data && data.vat_rate !== null) {
+    activeVatRate = Number(data.vat_rate);
+  }
+  console.log(data)
+} catch (error) {
+  console.error("Failed to eagerly load default VAT rate from database during boot:", error);
+}
+
 
 /** Prime the module cache from a React component that consumes useCompanySettings. */
 export function setActiveVatRate(rate: number | string | undefined | null): void {
@@ -29,6 +47,47 @@ export function getActiveVatRate(): number {
 export function getVatMultiplier(): number {
   return 1 + activeVatRate / 100;
 }
+
+export function useVatCalculator() {
+  // Use the cached activeVatRate as the starting initial state
+  const [vatRate, setVatRate] = useState<number>(activeVatRate);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    async function fetchVatRate() {
+      try {
+        const { data, error } = await supabase
+          .from("company_settings")
+          .select("vat_rate")
+          .maybeSingle();
+
+        if (error) throw error;
+
+        if (data && data.vat_rate !== null) {
+          const rateNum = Number(data.vat_rate);
+          setVatRate(rateNum);
+          setActiveVatRate(rateNum); // 🔥 Automatically updates module cache for non-hook utilities
+        }
+      } catch (error) {
+        console.error("Failed to fetch VAT rate from Supabase:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchVatRate();
+  }, []);
+
+  const calculateVat = (amount: number) => {
+    // Converts whole number percentage (e.g., 13) back to a decimal fraction (0.13) for calculation
+    return amount * (vatRate / 100);
+  };
+
+  return { calculateVat, vatRate, isLoading };
+}
+
+
+
 
 export interface VatSplit {
   gross: number; // total incl. VAT (what the customer pays)

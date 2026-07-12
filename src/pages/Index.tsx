@@ -176,7 +176,7 @@ const Dashboard = () => {
           <Button
             size="sm"
             className="gradient-gold text-primary-foreground"
-            onClick={() => navigate("/members/add")}
+            onClick={() => navigate("/members/new")}
           >
             <Plus className="h-4 w-4 mr-1" /> New Member
           </Button>

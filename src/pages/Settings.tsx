@@ -32,6 +32,7 @@ import { SYSTEM_TZ } from "@/lib/tz";
 import { getSystemNowDate } from "@/lib/timeUtils";
 
 import { useQueryClient } from "@tanstack/react-query";
+import { useVatCalculator } from "@/lib/vat";
 
 const Settings = () => {
   const queryClient = useQueryClient();
@@ -92,42 +93,51 @@ const Settings = () => {
     smsNotifications: false,
   });
 
+  const { vatRate } = useVatCalculator();
+  console.log(vatRate);
+
   // Populate from settings when loaded
   useEffect(() => {
-    console.log(settings);
     if (Object.keys(settings).length > 0) {
+      // Safely extract extras object
+      const extras = settings.extras || {};
+
       setCompany((prev) => ({
-        companyName:
-          settings.company_name || settings.companyName || prev.companyName,
+        companyName: settings.company_name || prev.companyName,
         registrationNumber:
-          settings.registrationNumber || prev.registrationNumber,
-        companyEmail:
-          settings.email || settings.companyEmail || prev.companyEmail,
-        companyPhone:
-          settings.phone || settings.companyPhone || prev.companyPhone,
-        companyAddress:
-          settings.address || settings.companyAddress || prev.companyAddress,
+          extras.registrationNumber || prev.registrationNumber,
+        companyEmail: settings.email || prev.companyEmail,
+        companyPhone: settings.phone || prev.companyPhone,
+        companyAddress: settings.address || prev.companyAddress,
       }));
       setTax((prev) => ({
         vatRate:
           settings.vat_rate !== undefined
             ? String(settings.vat_rate)
             : prev.vatRate,
-        panNumber: settings.vat_no || settings.panNumber || prev.panNumber,
-        taxYearStart: settings.taxYearStart || prev.taxYearStart,
+        panNumber: settings.vat_no || prev.panNumber,
+        taxYearStart: extras.taxYearStart || prev.taxYearStart,
         currency: settings.currency || prev.currency,
       }));
       setGeneral((prev) => ({
-        language: settings.language || prev.language,
-        timezone: settings.timezone || prev.timezone,
-        dateFormat: settings.dateFormat || prev.dateFormat,
-        defaultMemberView: settings.defaultMemberView || prev.defaultMemberView,
+        language: extras.language || prev.language,
+        timezone: extras.timezone || prev.timezone,
+        dateFormat: extras.dateFormat || prev.dateFormat,
+        defaultMemberView: extras.defaultMemberView || prev.defaultMemberView,
       }));
     }
   }, [settings]);
 
   const handleSaveCompany = async () => {
     try {
+      // Clone extras and strip any accidental overlapping root keys
+      const updatedExtras = { ...(settings.extras || {}) };
+      updatedExtras.registrationNumber = company.registrationNumber;
+
+      // Clean up legacy keys if they exist inside extras
+      delete updatedExtras.companyName;
+      delete updatedExtras.company_name;
+
       await saveMutation.mutateAsync({
         ...settings,
         company_name: company.companyName,
@@ -152,15 +162,27 @@ const Settings = () => {
     }
 
     try {
+      // 1. Shallow copy existing extras
+      const updatedExtras = { ...(settings.extras || {}) };
+
+      // 2. Explicitly purge ALL matching or legacy variations from the JSONB field
+      delete updatedExtras.vat_rate;
+      delete updatedExtras.vatRate;
+      delete updatedExtras.taxRate;
+      delete updatedExtras.vat_no;
+      delete updatedExtras.vatNo;
+      delete updatedExtras.panNumber;
+      delete updatedExtras.currency;
+
+      // 3. Keep non-column configurations safely nested inside extras
+      updatedExtras.taxYearStart = tax.taxYearStart;
+
       await saveMutation.mutateAsync({
         ...settings, // Retain existing payload structure
-        vat_rate: taxRate.toString(), // Correctly overwrite root vat_rate payload property as a number
-        vat_no: tax.panNumber,
-        currency: tax.currency,
-        extras: {
-          ...(settings.extras || {}),
-          taxYearStart: tax.taxYearStart,
-        },
+        vat_rate: taxRate.toString(), // Map to main numeric column
+        vat_no: tax.panNumber, // Map to main text column
+        currency: tax.currency, // Map to main text column
+        extras: updatedExtras, // Sanitized JSONB payload
       });
       await queryClient.invalidateQueries({ queryKey: ["companySettings"] });
       toast.success("Tax settings saved!");
@@ -171,15 +193,22 @@ const Settings = () => {
 
   const handleSaveGeneral = async () => {
     try {
+      const updatedExtras = {
+        ...(settings.extras || {}),
+        language: general.language,
+        timezone: general.timezone,
+        dateFormat: general.dateFormat,
+        defaultMemberView: general.defaultMemberView,
+      };
+
+      // Preventive clean-up of main database columns
+      delete updatedExtras.vat_rate;
+      delete updatedExtras.vat_no;
+      delete updatedExtras.company_name;
+
       await saveMutation.mutateAsync({
         ...settings,
-        extras: {
-          ...(settings.extras || {}),
-          language: general.language,
-          timezone: general.timezone,
-          dateFormat: general.dateFormat,
-          defaultMemberView: general.defaultMemberView,
-        },
+        extras: updatedExtras,
       });
       await queryClient.invalidateQueries({ queryKey: ["companySettings"] });
       toast.success("General settings saved!");

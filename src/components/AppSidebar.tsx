@@ -133,7 +133,7 @@ export function AppSidebar() {
         <NavLink to="/" className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg">
             <img
-              src="public/favicon.ico"
+              src="favicon.ico"
               className="h-6 w-6 text-primary-foreground"
               alt=""
             />
