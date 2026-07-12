@@ -15,19 +15,21 @@ const DEFAULT_VAT_RATE = 0;
 let activeVatRate = DEFAULT_VAT_RATE;
 
 
-try {
-  const { data, error } = await supabase
-    .from("company_settings")
-    .select("vat_rate")
-    .maybeSingle();
-
-  if (!error && data && data.vat_rate !== null) {
-    activeVatRate = Number(data.vat_rate);
-  }
-  console.log(data)
-} catch (error) {
-  console.error("Failed to eagerly load default VAT rate from database during boot:", error);
-}
+// Eagerly kick off a fetch (fire-and-forget) so the module cache is warm
+// shortly after boot. Uses .then/.catch instead of top-level await so the
+// bundle stays compatible with the configured browser targets.
+supabase
+  .from("company_settings")
+  .select("vat_rate")
+  .maybeSingle()
+  .then(({ data, error }) => {
+    if (!error && data && data.vat_rate !== null) {
+      activeVatRate = Number(data.vat_rate);
+    }
+  })
+  .catch((error) => {
+    console.error("Failed to eagerly load default VAT rate from database during boot:", error);
+  });
 
 
 /** Prime the module cache from a React component that consumes useCompanySettings. */
