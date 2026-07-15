@@ -113,12 +113,9 @@ const GeneralSetup = () => {
     "Membership expiration will be informed before 7 days.",
   ]);
   const instructors = useSetupList("setup_instructors", [
-    "Trainer Ravi",
     "Trainer Prakash",
     "Therapist Maya",
-    "Therapist Sunita",
     "Coach Anil",
-    "Staff Binita",
   ]);
 
   const sections = [
@@ -587,7 +584,6 @@ function GRCSettingsPanel() {
   );
 }
 
-
 // ─── Print Settings Panel ────────────────────────────────────────────
 function PrintSettingsPanel() {
   const { data: settings = {} } = useCompanySettings();
@@ -615,7 +611,8 @@ function PrintSettingsPanel() {
       <div>
         <h3 className="font-semibold font-display">Bill / Receipt Printing</h3>
         <p className="text-xs text-muted-foreground">
-          Controls the paper size used when printing Payment and Advance receipts.
+          Controls the paper size used when printing Payment and Advance
+          receipts.
         </p>
       </div>
 
@@ -655,6 +652,5 @@ function PrintSettingsPanel() {
     </div>
   );
 }
-
 
 export default GeneralSetup;

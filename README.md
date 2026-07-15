@@ -4,6 +4,67 @@ A single-document knowledge transfer for handing this codebase to another AI
 assistant or engineer. Everything below reflects the current, green-build state
 of the repository.
 
+## 1. Think Before Coding
+
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
+
+Before implementing:
+
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+## 2. Simplicity First
+
+**Minimum code that solves the problem. Nothing speculative.**
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+## 3. Surgical Changes
+
+**Touch only what you must. Clean up only your own mess.**
+
+When editing existing code:
+
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
+
+When your changes create orphans:
+
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+The test: Every changed line should trace directly to the user's request.
+
+## 4. Goal-Driven Execution
+
+**Define success criteria. Loop until verified.**
+
+Transform tasks into verifiable goals:
+
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+For multi-step tasks, state a brief plan:
+
+```
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
+```
+
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
 ---
 
 ## 1. Architecture & Frontend Workflow
@@ -73,20 +134,20 @@ supabase/functions/          # Edge functions (send-email, admin-reset-password)
 
 Routes declared in `src/App.tsx` (wrapped by `RouteGuard` + `AppLayout`):
 
-| Path                     | Screen              |
-| ------------------------ | ------------------- |
-| `/login`                 | Login               |
-| `/`                      | Dashboard (Index)   |
-| `/members`, `/members/new`, `/members/:id`, `/members/:id/grc` | Members     |
-| `/bookings`              | Bookings + POS      |
-| `/attendance`            | Attendance          |
-| `/forecast`              | Revenue forecast    |
-| `/transactions`          | Ledger / settlement |
-| `/reports`               | Reports             |
-| `/inventory`             | Inventory           |
-| `/audit-logs`            | Audit trail         |
-| `/setup/general\|plans\|users\|email-templates\|outlets\|service-types\|settings\|stores\|item-groups\|charge-heads` | Admin setup |
-| `*`                      | NotFound            |
+| Path                                                                                                                 | Screen              |
+| -------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| `/login`                                                                                                             | Login               |
+| `/`                                                                                                                  | Dashboard (Index)   |
+| `/members`, `/members/new`, `/members/:id`, `/members/:id/grc`                                                       | Members             |
+| `/bookings`                                                                                                          | Bookings + POS      |
+| `/attendance`                                                                                                        | Attendance          |
+| `/forecast`                                                                                                          | Revenue forecast    |
+| `/transactions`                                                                                                      | Ledger / settlement |
+| `/reports`                                                                                                           | Reports             |
+| `/inventory`                                                                                                         | Inventory           |
+| `/audit-logs`                                                                                                        | Audit trail         |
+| `/setup/general\|plans\|users\|email-templates\|outlets\|service-types\|settings\|stores\|item-groups\|charge-heads` | Admin setup         |
+| `*`                                                                                                                  | NotFound            |
 
 **Primary workflows**
 
@@ -94,9 +155,9 @@ Routes declared in `src/App.tsx` (wrapped by `RouteGuard` + `AppLayout`):
    `OutletContext`. `OutletPOSView` shows a cart plus a **Current Bookings**
    panel (active bookings for the outlet, excluding `Cancelled`/`Completed`
    and those whose linked charge is settled). Each card has three actions:
-   * **View** → opens `BookingDetailModal`.
-   * **Billing** → `navigate("/transactions?newPayment=true&bookingId=…&memberId=…&memberName=…&service=…&amount=…&outletId=…&guest=1&chargeId=…")`.
-   * **Cancel** → sets booking status to `Cancelled` and voids the linked
+   - **View** → opens `BookingDetailModal`.
+   - **Billing** → `navigate("/transactions?newPayment=true&bookingId=…&memberId=…&memberName=…&service=…&amount=…&outletId=…&guest=1&chargeId=…")`.
+   - **Cancel** → sets booking status to `Cancelled` and voids the linked
      pending `Charge` via `useUpdateTransaction`.
 2. **Checkout (Transactions).** On mount, `Transactions.tsx` reads the query
    params above and auto-opens the settlement modal prefilled with member,
@@ -167,16 +228,16 @@ a `QueryClient` mounted in `App.tsx`. Convention: reads use `useQuery` with
 stable `queryKey` arrays; writes use `useMutation` and invalidate the
 matching keys.
 
-| Domain      | Queries                                              | Mutations                                                      |
-| ----------- | ---------------------------------------------------- | -------------------------------------------------------------- |
-| Members     | `useMembers`, `useMember`, `useExpiryAlerts`         | `useAddMember`, `useUpdateMember`, `useDeleteMember`           |
-| Bookings    | `useBookings({service?,outletId?,date?})`            | `useAddBooking`, `useUpdateBooking`, `useDeleteBooking`        |
-| Transactions| `useTransactions({outletId?})`                        | `useAddTransaction`, `useUpdateTransaction`                    |
-| Attendance  | `useCheckIns`                                        | `useAddCheckIn`                                                |
-| Services    | `useServiceTypes`, `useServices`                     | `useAddService`, `useUpdateService`, `useDeleteService`        |
-| Plans       | `useMembershipPlans`, `usePlanDurations`             | `useAdd/Update/DeleteMembershipPlan`, `…PlanDuration`          |
-| Settings    | `useCompanySettings`, `useDiscountRules`             | `useSaveCompanySettings`, `useSaveDiscountRules`               |
-| Dashboard   | `useDashboardStats`                                  | —                                                              |
+| Domain       | Queries                                      | Mutations                                               |
+| ------------ | -------------------------------------------- | ------------------------------------------------------- |
+| Members      | `useMembers`, `useMember`, `useExpiryAlerts` | `useAddMember`, `useUpdateMember`, `useDeleteMember`    |
+| Bookings     | `useBookings({service?,outletId?,date?})`    | `useAddBooking`, `useUpdateBooking`, `useDeleteBooking` |
+| Transactions | `useTransactions({outletId?})`               | `useAddTransaction`, `useUpdateTransaction`             |
+| Attendance   | `useCheckIns`                                | `useAddCheckIn`                                         |
+| Services     | `useServiceTypes`, `useServices`             | `useAddService`, `useUpdateService`, `useDeleteService` |
+| Plans        | `useMembershipPlans`, `usePlanDurations`     | `useAdd/Update/DeleteMembershipPlan`, `…PlanDuration`   |
+| Settings     | `useCompanySettings`, `useDiscountRules`     | `useSaveCompanySettings`, `useSaveDiscountRules`        |
+| Dashboard    | `useDashboardStats`                          | —                                                       |
 
 Additional hooks: `use-charges.ts` (charges table), `use-inventory.ts`,
 `use-app-users.ts`, `use-auth.ts`, `use-permissions.ts`.
@@ -192,22 +253,22 @@ Caching/revalidation: default `staleTime: 0`, mutations call
 
 ### 3.1 Timezone & Date Handling — **STRICT**
 
-* **`src/lib/timeUtils.ts` is the single source of truth for "now".**
+- **`src/lib/timeUtils.ts` is the single source of truth for "now".**
   Every current-moment read in feature code MUST use one of:
-  * `getSystemNowDate(): Date`
-  * `getSystemTodayStr(): "YYYY-MM-DD"`
-  * `getSystemTimeStr(): "HH:mm"`
-  * `getSystemTimestamp(): "YYYY-MM-DDTHH:mm:ss"`
-  * `getSystemMonthStr(): "YYYY-MM"`
-  * `SYSTEM_TZ = "Asia/Kathmandu"`
-* `src/lib/tz.ts` holds low-level primitives (`toIsoDayInTz`,
+  - `getSystemNowDate(): Date`
+  - `getSystemTodayStr(): "YYYY-MM-DD"`
+  - `getSystemTimeStr(): "HH:mm"`
+  - `getSystemTimestamp(): "YYYY-MM-DDTHH:mm:ss"`
+  - `getSystemMonthStr(): "YYYY-MM"`
+  - `SYSTEM_TZ = "Asia/Kathmandu"`
+- `src/lib/tz.ts` holds low-level primitives (`toIsoDayInTz`,
   `dayToTimestampInTz`, `wallTimeToUtcIso`, `formatInTz`, `nowIso`,
   `getAppTimezone`). Feature code composes these with `timeUtils.ts`
   helpers — it does **not** call `new Date()` for "now".
-* **Prohibited:** raw `new Date()` (zero-arg) anywhere under `src/**` except
+- **Prohibited:** raw `new Date()` (zero-arg) anywhere under `src/**` except
   `src/lib/timeUtils.ts`, `src/lib/tz.ts`, and tests. Parsing existing ISO
   strings (`new Date(someIso)`) remains allowed.
-* **Enforced by ESLint** (`eslint.config.js`) via a scoped
+- **Enforced by ESLint** (`eslint.config.js`) via a scoped
   `no-restricted-syntax` rule:
 
   ```js
@@ -219,31 +280,32 @@ Caching/revalidation: default `staleTime: 0`, mutations call
 
   The rule is scoped to `src/**/*.{ts,tsx}` and ignores `timeUtils.ts`,
   `tz.ts`, and test files. Zero violations at HEAD.
-* Persisted timestamps (audit logs, DB writes) use `getSystemTimestamp()`
+
+- Persisted timestamps (audit logs, DB writes) use `getSystemTimestamp()`
   or `wallTimeToUtcIso(...)` so the wall clock stays anchored to Kathmandu
   regardless of the browser locale.
 
 ### 3.2 Data Mutation Guards
 
-* **Bookings.** Past-time creation blocked at UI (compare against
+- **Bookings.** Past-time creation blocked at UI (compare against
   `getSystemTodayStr()` + `getSystemTimeStr()`). Drag-and-drop reschedule
   must go through `wallTimeToUtcIso` — no hand-rolled `Z`-suffixed strings.
   Booking status transitions are `Confirmed → Completed | Cancelled` (and
   `Waitlisted`, `NotFixed`); `Cancelled` bookings hide from active lists and
   void any linked pending charge.
-* **Charges & Payments.** Every settlement mirrors a `charges` row via
+- **Charges & Payments.** Every settlement mirrors a `charges` row via
   `chargeRowId` and links back to the booking via `linkedBookingId` /
   `linkedChargeIds`. `Payment` records with `isSettlement: true` are
   labelled as settlements in ledgers. Voids are non-destructive
   (`voided/voidReason/voidedAt`).
-* **Discounts.** Applied at settlement (`Transaction.discount`) — never
+- **Discounts.** Applied at settlement (`Transaction.discount`) — never
   mutated onto the booking's original rate.
-* **Guest Mode** applies uniformly to Sports and Fitness outlets; the
+- **Guest Mode** applies uniformly to Sports and Fitness outlets; the
   registered-member requirement is bypassed only when Guest Mode is active.
-* **Roles.** `user_roles` is the sole authority. RLS policies invoke
+- **Roles.** `user_roles` is the sole authority. RLS policies invoke
   `public.has_role(auth.uid(), 'admin')` — never read a role column off a
   profile.
-* **Audit logs** are append-only; timestamps come from `getSystemTimestamp()`.
+- **Audit logs** are append-only; timestamps come from `getSystemTimestamp()`.
 
 ---
 
@@ -258,21 +320,21 @@ Round 1 (previous session): `src/lib/timeUtils.ts`, `src/pages/Bookings.tsx`,
 
 Round 2 (current session — residual sweep):
 
-| File                                   | Change                                                    |
-| -------------------------------------- | --------------------------------------------------------- |
-| `src/lib/backup.ts`                    | `toIsoDayInTz(new Date())` → `toIsoDayInTz(getSystemNowDate())` |
-| `src/pages/Index.tsx`                  | Dashboard `today` memo + greeting-hour use `getSystemNowDate()` |
-| `src/pages/Reports.tsx`                | `today` / `monthStart` derived via `getSystemNowDate()`   |
-| `src/pages/Settings.tsx`               | Timezone "Now" preview uses `getSystemNowDate()`          |
-| `src/pages/MembersList.tsx`            | CSV export filename + date-range stamps via helper        |
-| `src/components/LedgerReport.tsx`      | CSV export filename + date-range stamps via helper        |
+| File                              | Change                                                          |
+| --------------------------------- | --------------------------------------------------------------- |
+| `src/lib/backup.ts`               | `toIsoDayInTz(new Date())` → `toIsoDayInTz(getSystemNowDate())` |
+| `src/pages/Index.tsx`             | Dashboard `today` memo + greeting-hour use `getSystemNowDate()` |
+| `src/pages/Reports.tsx`           | `today` / `monthStart` derived via `getSystemNowDate()`         |
+| `src/pages/Settings.tsx`          | Timezone "Now" preview uses `getSystemNowDate()`                |
+| `src/pages/MembersList.tsx`       | CSV export filename + date-range stamps via helper              |
+| `src/components/LedgerReport.tsx` | CSV export filename + date-range stamps via helper              |
 
 Bad-import fixes required for the Rollup build graph:
 
-| File                                     | Fix                                                        |
-| ---------------------------------------- | ---------------------------------------------------------- |
-| `src/lib/supabase-services.ts`           | `getSystemTodayStr` / `getSystemNowDate` imported from `./timeUtils` (previously wrongly from `./tz`) |
-| `src/components/BookingDetailModal.tsx`  | Same fix for `getSystemNowDate`                            |
+| File                                    | Fix                                                                                                   |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `src/lib/supabase-services.ts`          | `getSystemTodayStr` / `getSystemNowDate` imported from `./timeUtils` (previously wrongly from `./tz`) |
+| `src/components/BookingDetailModal.tsx` | Same fix for `getSystemNowDate`                                                                       |
 
 ESLint guard added (`eslint.config.js`) — see §3.1.
 
@@ -281,28 +343,28 @@ ESLint guard added (`eslint.config.js`) — see §3.1.
 Location: `src/components/OutletPOSView.tsx`, integrated below the cart in
 the outlet POS layout.
 
-* Fetches `useBookings({ outletId })` and `useTransactions()`; filters out
+- Fetches `useBookings({ outletId })` and `useTransactions()`; filters out
   `Cancelled`, `Completed`, and bookings whose linked charge is
   settled/paid.
-* Uses a 3-column grid of cards showing member/guest name, service, and
+- Uses a 3-column grid of cards showing member/guest name, service, and
   time; empty state renders "No active bookings".
-* Actions per card: **View** (opens `BookingDetailModal`), **Billing**
+- Actions per card: **View** (opens `BookingDetailModal`), **Billing**
   (redirects to `/transactions?newPayment=true&bookingId=…&memberId=…&memberName=…&service=…&amount=…&outletId=…&guest=1&chargeId=…`),
   and **Cancel** (sets booking `status: "Cancelled"` and voids the linked
   pending `Charge` transaction through `useUpdateTransaction`).
-* `Transactions.tsx` detects the `newPayment` query params on mount and
+- `Transactions.tsx` detects the `newPayment` query params on mount and
   auto-opens the settlement modal prefilled with those values, reusing the
   standard payment workflow (double-submit guard via local `isSubmitting`
   flag included).
-* Type support: `BookingStatus` in `src/lib/mock-data.ts` extended with
+- Type support: `BookingStatus` in `src/lib/mock-data.ts` extended with
   `"Completed"` and `"Cancelled"`.
 
 ### 4.3 Current Build Integrity
 
-* `npx vite build` → ✅ green (Rollup module graph clean; only pre-existing
+- `npx vite build` → ✅ green (Rollup module graph clean; only pre-existing
   chunk-size and dynamic-import advisory warnings remain).
-* `npx tsgo --noEmit` → ✅ clean.
-* `npx eslint src` → 0 `no-restricted-syntax` violations (the sole new rule
+- `npx tsgo --noEmit` → ✅ clean.
+- `npx eslint src` → 0 `no-restricted-syntax` violations (the sole new rule
   from this session). Pre-existing `@typescript-eslint/no-explicit-any`
   warnings are untouched and unrelated to the timezone SoT work.
 
@@ -310,9 +372,9 @@ the outlet POS layout.
 
 ## Appendix — Environment & Runbook
 
-* Dev server: `npm run dev` (Vite on `:8080`, HMR overlay off).
-* Env vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (see `.env.example`).
-* Apply DB: paste `db/schema.sql` into Supabase SQL editor for fresh
+- Dev server: `npm run dev` (Vite on `:8080`, HMR overlay off).
+- Env vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (see `.env.example`).
+- Apply DB: paste `db/schema.sql` into Supabase SQL editor for fresh
   installs; use `db/migrations/*.sql` incrementally for existing ones.
-* Edge functions: `supabase/functions/send-email`, `admin-reset-password`.
-* Tests: `npx vitest run` (see `src/test/booking-time-consistency.test.ts`).
+- Edge functions: `supabase/functions/send-email`, `admin-reset-password`.
+- Tests: `npx vitest run` (see `src/test/booking-time-consistency.test.ts`).

@@ -41,6 +41,8 @@ import {
   useBookings,
   useUpdateMember,
   useCompanySettings,
+  useDiscountRules,
+  useMembershipPlans,
 } from "@/hooks/use-firestore";
 import { useCharges } from "@/hooks/use-charges";
 import { buildMemberLedger } from "@/lib/member-ledger";
@@ -63,6 +65,7 @@ import {
   underlineFirstChar,
   underlineSpecificChars,
 } from "@/lib/string-case-change";
+import { useMemberFinancials } from "@/hooks/use-member-financials";
 
 const MemberProfile = () => {
   const { id } = useParams();
@@ -72,6 +75,7 @@ const MemberProfile = () => {
   const { data: allBookings = [] } = useBookings();
   const { data: allCharges = [] } = useCharges();
   const { data: settings = {} } = useCompanySettings();
+  const { data: currentMember } = useMemberFinancials(id);
   const updateMember = useUpdateMember();
 
   const [editOpen, setEditOpen] = useState(false);
@@ -84,8 +88,6 @@ const MemberProfile = () => {
     address: "",
     emergencyContact: "",
   });
-
-  console.log(member);
 
   // Preferences tab state — wired to members.preferences (jsonb).
   const [prefsForm, setPrefsForm] = useState({
@@ -284,11 +286,6 @@ const MemberProfile = () => {
     (member as any).openingBalance || 0,
     allCharges,
   );
-  // const { data: prepaid } = useQuery({
-  //   queryKey: ["prepaidPools", member.id],
-  //   queryFn: () => getMemberPoolsSummary(member.id),
-  //   enabled: !!member.id,
-  // });
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -411,8 +408,20 @@ const MemberProfile = () => {
           { label: "Plan", value: member.plan },
           { label: "Years", value: `${member.membershipYears} yrs` },
           { label: "Discount", value: `${member.discount}%` },
-          { label: "Total Paid", value: formatNPR(member.totalPaid) },
-          { label: "Due", value: formatNPR(member.dueAmount) },
+          {
+            label: "Total Paid",
+            value: formatNPR(
+              currentMember?.total_paid + currentMember?.total_advances,
+            ),
+          },
+          {
+            label: "Due",
+            value: formatNPR(
+              currentMember?.net_outstanding
+                ? currentMember.net_outstanding
+                : 0,
+            ),
+          },
         ].map((s) => (
           <div key={s.label} className="glass-card rounded-lg p-4 text-center">
             <p className="text-xs text-muted-foreground">{s.label}</p>

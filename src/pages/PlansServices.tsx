@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Plus,
   Edit,
@@ -218,12 +218,14 @@ const PlansServices = () => {
       return [];
     }
   })();
-  const { data: planDurations = [], isLoading: durationsLoading } = usePlanDurations();
+  const { data: planDurations = [], isLoading: durationsLoading } =
+    usePlanDurations();
   const addDurationMutation = useAddPlanDuration();
   const updateDurationMutation = useUpdatePlanDuration();
   const deleteDurationMutation = useDeletePlanDuration();
 
-  const plans = firestorePlans.length > 0 ? firestorePlans : (fallbackPlans as any);
+  const plans =
+    firestorePlans.length > 0 ? firestorePlans : (fallbackPlans as any);
   const services =
     firestoreServices.length > 0 ? firestoreServices : fallbackServices;
 
@@ -235,10 +237,14 @@ const PlansServices = () => {
     { years: 5, discount: 15 },
     { years: 7, discount: 20 },
   ];
-  const [editableDiscounts, setEditableDiscounts] = useState(
-    discountRules.length > 0 ? discountRules : defaultDiscounts,
-  );
+  const [editableDiscounts, setEditableDiscounts] = useState(defaultDiscounts);
   const [discountsEdited, setDiscountsEdited] = useState(false);
+
+  useEffect(() => {
+    if (discountRules && discountRules.length > 0) {
+      setEditableDiscounts(discountRules);
+    }
+  }, [discountRules]);
 
   const handleCreatePlan = async () => {
     if (!newPlan.name.trim()) {
@@ -273,7 +279,10 @@ const PlansServices = () => {
       };
 
       if (editPlanId) {
-        await updatePlanMutation.mutateAsync({ id: editPlanId, data: planPayload });
+        await updatePlanMutation.mutateAsync({
+          id: editPlanId,
+          data: planPayload,
+        });
         await logAudit({
           module: "Plans & Services",
           entityType: "plan",
@@ -289,7 +298,8 @@ const PlansServices = () => {
           module: "Plans & Services",
           entityType: "plan",
           action: "create",
-          entityId: typeof addedPlanId === "string" ? addedPlanId : newPlan.name,
+          entityId:
+            typeof addedPlanId === "string" ? addedPlanId : newPlan.name,
           outletId: null,
           newValue: planPayload,
         });
@@ -312,12 +322,21 @@ const PlansServices = () => {
       durationMonths: String(plan.durationMonths || plan.durationInMonths || 1),
       includedServices: Array.isArray(plan.includedServices)
         ? plan.includedServices
-        : (plan.includes ? String(plan.includes).split(/[+,]/).map((s: string) => s.trim()).filter(Boolean) : []),
+        : plan.includes
+          ? String(plan.includes)
+              .split(/[+,]/)
+              .map((s: string) => s.trim())
+              .filter(Boolean)
+          : [],
       autoRenew: !!plan.autoRenew,
       autoDiscount: !!plan.autoDiscount,
-      prices: Array.isArray(plan.prices) && plan.prices.length > 0
-        ? plan.prices.map((p: any) => ({ durationId: p.durationId, price: String(p.price) }))
-        : [],
+      prices:
+        Array.isArray(plan.prices) && plan.prices.length > 0
+          ? plan.prices.map((p: any) => ({
+              durationId: p.durationId,
+              price: String(p.price),
+            }))
+          : [],
     });
     setIncludeInput("");
     setPlanDialogOpen(true);
@@ -332,10 +351,15 @@ const PlansServices = () => {
     }));
   };
 
-  const updatePriceTier = (idx: number, patch: Partial<{ durationId: string; price: string }>) => {
+  const updatePriceTier = (
+    idx: number,
+    patch: Partial<{ durationId: string; price: string }>,
+  ) => {
     setNewPlan((p) => ({
       ...p,
-      prices: p.prices.map((row, i) => (i === idx ? { ...row, ...patch } : row)),
+      prices: p.prices.map((row, i) =>
+        i === idx ? { ...row, ...patch } : row,
+      ),
     }));
   };
 
@@ -381,10 +405,17 @@ const PlansServices = () => {
     if (!name) return toast.error("Enter a name");
     try {
       if (editDurationId) {
-        await updateDurationMutation.mutateAsync({ id: editDurationId, data: { months, name } });
+        await updateDurationMutation.mutateAsync({
+          id: editDurationId,
+          data: { months, name },
+        });
         toast.success("Duration updated");
       } else {
-        await addDurationMutation.mutateAsync({ months, name, sortOrder: months });
+        await addDurationMutation.mutateAsync({
+          months,
+          name,
+          sortOrder: months,
+        });
         toast.success("Duration added");
       }
       setDurationDialogOpen(false);
@@ -655,20 +686,30 @@ const PlansServices = () => {
                       <Input
                         placeholder="e.g. Silver Annual"
                         value={newPlan.name}
-                        onChange={(e) => setNewPlan((p) => ({ ...p, name: e.target.value }))}
+                        onChange={(e) =>
+                          setNewPlan((p) => ({ ...p, name: e.target.value }))
+                        }
                       />
                     </div>
                     <div className="space-y-2">
                       <Label>Tier *</Label>
                       <Select
                         value={newPlan.tier}
-                        onValueChange={(v) => setNewPlan((p) => ({ ...p, tier: v }))}
+                        onValueChange={(v) =>
+                          setNewPlan((p) => ({ ...p, tier: v }))
+                        }
                       >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {["Basic", "Silver", "Gold", "Platinum", "Diamond"].map((t) => (
+                          {[
+                            "Basic",
+                            "Silver",
+                            "Gold",
+                            "Platinum",
+                            "Diamond",
+                          ].map((t) => (
                             <SelectItem key={t} value={t}>
                               {t}
                             </SelectItem>
@@ -685,7 +726,12 @@ const PlansServices = () => {
                       min={1}
                       placeholder="1"
                       value={newPlan.durationMonths}
-                      onChange={(e) => setNewPlan((p) => ({ ...p, durationMonths: e.target.value }))}
+                      onChange={(e) =>
+                        setNewPlan((p) => ({
+                          ...p,
+                          durationMonths: e.target.value,
+                        }))
+                      }
                     />
                     <p className="text-[11px] text-muted-foreground">
                       {Number(newPlan.durationMonths) > 0
@@ -702,7 +748,10 @@ const PlansServices = () => {
                         variant="outline"
                         size="sm"
                         onClick={addPriceTier}
-                        disabled={newPlan.prices.length >= planDurations.filter((d) => d.active).length}
+                        disabled={
+                          newPlan.prices.length >=
+                          planDurations.filter((d) => d.active).length
+                        }
                       >
                         <Plus className="h-3 w-3 mr-1" />
                         Add Tier
@@ -710,26 +759,37 @@ const PlansServices = () => {
                     </div>
                     {planDurations.length === 0 && (
                       <p className="text-xs text-destructive">
-                        No plan durations configured. Add some in the Plan Durations tab.
+                        No plan durations configured. Add some in the Plan
+                        Durations tab.
                       </p>
                     )}
                     <div className="space-y-2">
                       {newPlan.prices.length === 0 ? (
                         <p className="text-xs text-muted-foreground py-2">
-                          No tiers yet — click "Add Tier" to attach a duration + price.
+                          No tiers yet — click "Add Tier" to attach a duration +
+                          price.
                         </p>
                       ) : (
                         newPlan.prices.map((row, idx) => {
                           const usedIds = new Set(
-                            newPlan.prices.filter((_, i) => i !== idx).map((p) => p.durationId),
+                            newPlan.prices
+                              .filter((_, i) => i !== idx)
+                              .map((p) => p.durationId),
                           );
                           return (
-                            <div key={idx} className="grid grid-cols-[1fr_140px_auto] gap-2 items-end">
+                            <div
+                              key={idx}
+                              className="grid grid-cols-[1fr_140px_auto] gap-2 items-end"
+                            >
                               <div>
-                                <Label className="text-[11px] text-muted-foreground">Duration</Label>
+                                <Label className="text-[11px] text-muted-foreground">
+                                  Duration
+                                </Label>
                                 <Select
                                   value={row.durationId}
-                                  onValueChange={(v) => updatePriceTier(idx, { durationId: v })}
+                                  onValueChange={(v) =>
+                                    updatePriceTier(idx, { durationId: v })
+                                  }
                                 >
                                   <SelectTrigger>
                                     <SelectValue placeholder="Select duration" />
@@ -750,12 +810,18 @@ const PlansServices = () => {
                                 </Select>
                               </div>
                               <div>
-                                <Label className="text-[11px] text-muted-foreground">Price (NPR)</Label>
+                                <Label className="text-[11px] text-muted-foreground">
+                                  Price (NPR)
+                                </Label>
                                 <Input
                                   type="number"
                                   placeholder="0"
                                   value={row.price}
-                                  onChange={(e) => updatePriceTier(idx, { price: e.target.value })}
+                                  onChange={(e) =>
+                                    updatePriceTier(idx, {
+                                      price: e.target.value,
+                                    })
+                                  }
                                 />
                               </div>
                               <Button
@@ -785,12 +851,24 @@ const PlansServices = () => {
                           if (e.key === "Enter") {
                             e.preventDefault();
                             addIncludedService();
-                          } else if (e.key === "Backspace" && !includeInput && newPlan.includedServices.length > 0) {
-                            removeIncludedService(newPlan.includedServices[newPlan.includedServices.length - 1]);
+                          } else if (
+                            e.key === "Backspace" &&
+                            !includeInput &&
+                            newPlan.includedServices.length > 0
+                          ) {
+                            removeIncludedService(
+                              newPlan.includedServices[
+                                newPlan.includedServices.length - 1
+                              ],
+                            );
                           }
                         }}
                       />
-                      <Button type="button" variant="outline" onClick={addIncludedService}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={addIncludedService}
+                      >
                         Add
                       </Button>
                     </div>
@@ -822,7 +900,9 @@ const PlansServices = () => {
                       </div>
                       <Switch
                         checked={newPlan.autoRenew}
-                        onCheckedChange={(v) => setNewPlan((p) => ({ ...p, autoRenew: v }))}
+                        onCheckedChange={(v) =>
+                          setNewPlan((p) => ({ ...p, autoRenew: v }))
+                        }
                       />
                     </div>
                     <div className="rounded-lg border border-border bg-muted/30 p-3 flex items-center justify-between">
@@ -834,14 +914,18 @@ const PlansServices = () => {
                       </div>
                       <Switch
                         checked={newPlan.autoDiscount}
-                        onCheckedChange={(v) => setNewPlan((p) => ({ ...p, autoDiscount: v }))}
+                        onCheckedChange={(v) =>
+                          setNewPlan((p) => ({ ...p, autoDiscount: v }))
+                        }
                       />
                     </div>
                   </div>
 
                   <Button
                     onClick={handleCreatePlan}
-                    disabled={addPlanMutation.isPending || updatePlanMutation.isPending}
+                    disabled={
+                      addPlanMutation.isPending || updatePlanMutation.isPending
+                    }
                     className="w-full gradient-gold text-primary-foreground"
                   >
                     {addPlanMutation.isPending || updatePlanMutation.isPending
@@ -866,7 +950,10 @@ const PlansServices = () => {
                 const priceList = Array.isArray(plan.prices) ? plan.prices : [];
                 const headline = priceList[0]?.price ?? plan.price ?? 0;
                 return (
-                  <div key={plan.id} className="glass-card rounded-xl p-5 space-y-4">
+                  <div
+                    key={plan.id}
+                    className="glass-card rounded-xl p-5 space-y-4"
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <TierBadge tier={plan.tier as any} />
@@ -879,20 +966,32 @@ const PlansServices = () => {
                       <Crown className="h-4 w-4 text-primary/60" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium truncate">{plan.name || plan.tier}</p>
-                      <p className="text-2xl font-bold font-display">{formatNPR(headline)}</p>
+                      <p className="text-sm font-medium truncate">
+                        {plan.name || plan.tier}
+                      </p>
+                      <p className="text-2xl font-bold font-display">
+                        {formatNPR(headline)}
+                      </p>
                       <p className="text-xs text-muted-foreground">
-                        {priceList[0]?.name || formatMonths(plan.durationMonths || plan.durationInMonths || 1)}
+                        {priceList[0]?.name ||
+                          formatMonths(
+                            plan.durationMonths || plan.durationInMonths || 1,
+                          )}
                       </p>
                     </div>
                     {priceList.length > 0 && (
                       <div className="space-y-1.5 text-sm">
                         {priceList.map((p: any) => (
-                          <div key={p.durationId} className="flex justify-between">
+                          <div
+                            key={p.durationId}
+                            className="flex justify-between"
+                          >
                             <span className="text-muted-foreground text-xs">
                               {p.name || formatMonths(p.months || 0)}
                             </span>
-                            <span className="font-medium text-xs">{formatNPR(p.price)}</span>
+                            <span className="font-medium text-xs">
+                              {formatNPR(p.price)}
+                            </span>
                           </div>
                         ))}
                       </div>
@@ -900,26 +999,45 @@ const PlansServices = () => {
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground">Includes</p>
                       <div className="flex flex-wrap gap-1">
-                        {(plan.includedServices && plan.includedServices.length > 0
+                        {(plan.includedServices &&
+                        plan.includedServices.length > 0
                           ? plan.includedServices
                           : plan.includes
-                            ? String(plan.includes).split(/[+,]/).map((s: string) => s.trim()).filter(Boolean)
+                            ? String(plan.includes)
+                                .split(/[+,]/)
+                                .map((s: string) => s.trim())
+                                .filter(Boolean)
                             : []
                         ).map((s: string) => (
-                          <Badge key={s} variant="secondary" className="text-[10px]">
+                          <Badge
+                            key={s}
+                            variant="secondary"
+                            className="text-[10px]"
+                          >
                             {s}
                           </Badge>
                         ))}
-                        {((!plan.includedServices || plan.includedServices.length === 0) && !plan.includes) && (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
+                        {(!plan.includedServices ||
+                          plan.includedServices.length === 0) &&
+                          !plan.includes && (
+                            <span className="text-xs text-muted-foreground">
+                              —
+                            </span>
+                          )}
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Auto-Renew</span>
+                      <span className="text-sm text-muted-foreground">
+                        Auto-Renew
+                      </span>
                       <Switch
                         checked={plan.autoRenew || false}
-                        onCheckedChange={() => handleToggleAutoRenew(plan.id, plan.autoRenew || false)}
+                        onCheckedChange={() =>
+                          handleToggleAutoRenew(
+                            plan.id,
+                            plan.autoRenew || false,
+                          )
+                        }
                       />
                     </div>
                     <div className="flex gap-2">
@@ -954,7 +1072,8 @@ const PlansServices = () => {
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
-                Reusable duration presets. These power every plan & booking duration dropdown.
+                Reusable duration presets. These power every plan & booking
+                duration dropdown.
               </p>
             </div>
             <Button size="sm" onClick={openAddDuration}>
@@ -981,23 +1100,35 @@ const PlansServices = () => {
                 <TableBody>
                   {planDurations.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={3} className="text-center text-sm text-muted-foreground py-8">
+                      <TableCell
+                        colSpan={3}
+                        className="text-center text-sm text-muted-foreground py-8"
+                      >
                         No durations yet. Add one to start.
                       </TableCell>
                     </TableRow>
                   ) : (
                     planDurations.map((d) => (
                       <TableRow key={d.id}>
-                        <TableCell className="font-medium">{d.months}</TableCell>
+                        <TableCell className="font-medium">
+                          {d.months}
+                        </TableCell>
                         <TableCell>
                           <div className="flex flex-col">
                             <span>{d.name}</span>
-                            <span className="text-[11px] text-muted-foreground">{formatMonths(d.months)}</span>
+                            <span className="text-[11px] text-muted-foreground">
+                              {formatMonths(d.months)}
+                            </span>
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditDuration(d)}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => openEditDuration(d)}
+                            >
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
                             <Button
@@ -1018,7 +1149,10 @@ const PlansServices = () => {
             </div>
           )}
 
-          <Dialog open={durationDialogOpen} onOpenChange={setDurationDialogOpen}>
+          <Dialog
+            open={durationDialogOpen}
+            onOpenChange={setDurationDialogOpen}
+          >
             <DialogContent>
               <DialogHeader>
                 <DialogTitle className="font-display">
@@ -1032,27 +1166,40 @@ const PlansServices = () => {
                     type="number"
                     min={1}
                     value={durationDraft.months}
-                    onChange={(e) => setDurationDraft((d) => ({ ...d, months: e.target.value }))}
+                    onChange={(e) =>
+                      setDurationDraft((d) => ({
+                        ...d,
+                        months: e.target.value,
+                      }))
+                    }
                     placeholder="12"
                   />
                   {Number(durationDraft.months) > 0 && (
-                    <p className="text-[11px] text-muted-foreground">{formatMonths(Number(durationDraft.months))}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {formatMonths(Number(durationDraft.months))}
+                    </p>
                   )}
                 </div>
                 <div className="space-y-2">
                   <Label>Name *</Label>
                   <Input
                     value={durationDraft.name}
-                    onChange={(e) => setDurationDraft((d) => ({ ...d, name: e.target.value }))}
+                    onChange={(e) =>
+                      setDurationDraft((d) => ({ ...d, name: e.target.value }))
+                    }
                     placeholder="Yearly"
                   />
                 </div>
                 <Button
                   onClick={handleSaveDuration}
                   className="w-full gradient-gold text-primary-foreground"
-                  disabled={addDurationMutation.isPending || updateDurationMutation.isPending}
+                  disabled={
+                    addDurationMutation.isPending ||
+                    updateDurationMutation.isPending
+                  }
                 >
-                  {addDurationMutation.isPending || updateDurationMutation.isPending
+                  {addDurationMutation.isPending ||
+                  updateDurationMutation.isPending
                     ? "Saving..."
                     : editDurationId
                       ? "Update Duration"
@@ -1062,7 +1209,6 @@ const PlansServices = () => {
             </DialogContent>
           </Dialog>
         </TabsContent>
-
 
         {/* ─── Services ─── */}
         <TabsContent value="services">

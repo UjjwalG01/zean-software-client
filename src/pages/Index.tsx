@@ -357,7 +357,7 @@ const Dashboard = () => {
                 onClick={() => navigate("/bookings")}
                 className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 p-3 cursor-pointer hover:bg-muted/40 transition-colors"
               >
-                <div className="h-9 w-9 rounded-lg bg-primary/15 flex items-center justify-center text-primary text-xs font-semibold shrink-0">
+                <div className="h-9 w-11 rounded-lg bg-primary/15 flex items-center justify-center text-primary text-xs font-semibold shrink-0 px-1">
                   {b.startTime}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -368,7 +368,7 @@ const Dashboard = () => {
                 </div>
                 <Badge
                   variant="outline"
-                  className="text-[10px] whitespace-nowrap"
+                  className={`text-[10px] uppercase whitespace-nowrap`}
                 >
                   {b.status}
                 </Badge>

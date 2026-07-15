@@ -131,13 +131,13 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="p-4">
         <NavLink to="/" className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg">
-            <img
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-t gradient-gold">
+            {/* <img
               src="favicon.ico"
               className="h-6 w-6 text-primary-foreground"
               alt=""
-            />
-            {/* <Crown className="h-5 w-5 text-primary-foreground" /> */}
+            /> */}
+            <Crown className="h-5 w-5 text-primary-foreground" />
           </div>
           {!collapsed && (
             <div>
