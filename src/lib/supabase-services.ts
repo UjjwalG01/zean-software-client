@@ -1171,23 +1171,40 @@ export async function getDashboardStats() {
 // ─── Company Settings ───────────────────────────────────────────────
 function mapSettingsRow(row: any): Record<string, string> {
   const extras = row?.extras && typeof row.extras === "object" ? row.extras : {};
+
   return {
     ...extras,
-    companyName: row?.company_name || extras.companyName || ".............",
+    // 1. Legacy camelCase mappings (keeps compatibility with any other parts of the app)
+    companyName: row?.company_name || extras.companyName || "",
     companyAddress: row?.address || extras.companyAddress || "",
     companyPhone: row?.phone || extras.companyPhone || "",
     companyEmail: row?.email || extras.companyEmail || "",
     logoUrl: row?.logo_url || extras.logoUrl || "",
     vatNo: row?.vat_no || extras.vatNo || "",
     panNumber: extras.panNumber || row?.vat_no || "",
-    currency: row?.currency || extras.currency || "NPR",
     vatRate: String(row?.vat_rate ?? extras.vatRate ?? "13"),
     maxOutlets: row?.max_outlets || extras.maxOutlets || "unlimited",
     resendEndpoint: row?.resend_endpoint || extras.resendEndpoint || "",
+
+    // 2. Direct database columns expected by your original frontend file
+    id: row?.id || "main",
+    company_name: row?.company_name || "",
+    address: row?.address || "",
+    phone: row?.phone || "",
+    email: row?.email || "",
+    logo_url: row?.logo_url || "",
+    vat_no: row?.vat_no || "",
+    currency: row?.currency || extras.currency || "NPR",
+    vat_rate: row?.vat_rate !== undefined ? row.vat_rate : (extras.vatRate ? Number(extras.vatRate) : 13),
+    max_outlets: row?.max_outlets || "unlimited",
+    resend_endpoint: row?.resend_endpoint || "",
+
+    // 3. Nested object explicitly returned for your component's destructuring (const extras = settings.extras || {})
+    extras: extras,
   };
 }
 
-export async function getCompanySettings(): Promise<Record<string, string>> {
+export async function getCompanySettings(): Promise<Record<string, any>> {
   const { data, error } = await supabase.from("company_settings").select("*").eq("id", "main").maybeSingle();
   if (error) {
     console.warn("[company_settings] read failed:", error.message);
@@ -1196,37 +1213,68 @@ export async function getCompanySettings(): Promise<Record<string, string>> {
   return mapSettingsRow(data || {});
 }
 
-export async function setCompanySetting(key: string, value: string): Promise<void> {
+export async function setCompanySetting(key: string, value: any): Promise<void> {
   await saveCompanySettings({ [key]: value });
 }
 
-export async function saveCompanySettings(settings: Record<string, string>): Promise<void> {
+export async function saveCompanySettings(settings: Record<string, any>): Promise<void> {
   const { data: existing } = await supabase.from("company_settings").select("*").eq("id", "main").maybeSingle();
-  const extras = { ...(existing?.extras && typeof existing.extras === "object" ? existing.extras : {}) } as Record<
+
+  // 1. Initialize extras with existing data
+  let extras = { ...(existing?.extras && typeof existing.extras === "object" ? existing.extras : {}) } as Record<
     string,
-    string
+    any
   >;
+
   const payload: Record<string, any> = { id: "main", updated_at: nowIso() };
+
+  // 2. Loop and map both snake_case (DB format) and camelCase inputs cleanly
   for (const [key, value] of Object.entries(settings)) {
-    if (key === "companyName") payload.company_name = value;
-    else if (key === "companyAddress") payload.address = value;
-    else if (key === "companyPhone") payload.phone = value;
-    else if (key === "companyEmail") payload.email = value;
-    else if (key === "logoUrl") payload.logo_url = value;
-    else if (key === "vatNo" || key === "panNumber") {
-      payload.vat_no = value;
+    if (key === "company_name" || key === "companyName") {
+      payload.company_name = value;
+    } else if (key === "address" || key === "companyAddress") {
+      payload.address = value;
+    } else if (key === "phone" || key === "companyPhone") {
+      payload.phone = value;
+    } else if (key === "email" || key === "companyEmail") {
+      payload.email = value;
+    } else if (key === "logo_url" || key === "logoUrl") {
+      payload.logo_url = value;
+    } else if (key === "vat_no" || key === "vatNo" || key === "panNumber") {
+      payload.vat_no = value; // Fixed: Removed explicit assignment to extras[key]
+    } else if (key === "currency") {
+      payload.currency = value;
+    } else if (key === "vat_rate" || key === "vatRate") {
+      payload.vat_rate = typeof value === "number" ? value : (Number(value) || 13);
+    } else if (key === "max_outlets" || key === "maxOutlets") {
+      payload.max_outlets = value;
+    } else if (key === "resend_endpoint" || key === "resendEndpoint") {
+      payload.resend_endpoint = value;
+    } else if (key === "extras") {
+      // Fixed: If an explicit extras object is passed, merge its entries instead of double-nesting it
+      if (value && typeof value === "object") {
+        extras = { ...extras, ...value };
+      }
+    } else if (key !== "id" && key !== "updated_at") {
+      // Catch-all for actual miscellaneous configuration parameters
       extras[key] = value;
-    } else if (key === "currency") payload.currency = value;
-    else if (key === "vatRate") payload.vat_rate = Number(value) || 13;
-    else if (key === "maxOutlets") payload.max_outlets = value;
-    else if (key === "resendEndpoint") payload.resend_endpoint = value;
-    else extras[key] = value;
+    }
   }
+
+  // 3. Absolute Sanity Clean up: Ensure no columns ever leak into the JSONB extras payload
+  const tableColumns = [
+    "id", "company_name", "companyName", "address", "companyAddress",
+    "phone", "companyPhone", "email", "companyEmail", "logo_url", "logoUrl",
+    "vat_no", "vatNo", "panNumber", "currency", "vat_rate", "vatRate",
+    "max_outlets", "maxOutlets", "resend_endpoint", "resendEndpoint", "extras"
+  ];
+  tableColumns.forEach((col) => delete extras[col]);
+
   payload.extras = extras;
+
   const { error } = await supabase.from("company_settings").upsert(payload, { onConflict: "id" });
   if (error) throwDb(error, "company_settings");
 }
-
 // ─── Check-ins ──────────────────────────────────────────────────────
 export async function addCheckIn(memberId: string): Promise<string> {
   return addCheckInRecord({ memberId, memberName: "", date: getSystemTodayStr() });

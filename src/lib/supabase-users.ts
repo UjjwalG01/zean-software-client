@@ -1,5 +1,7 @@
 // Supabase-backed app user helpers.
 
+import { logAudit } from "./audit-log";
+import { getModuleIdBySlug } from "./modules";
 import { supabase } from "./supabase";
 import { nowIso } from "./tz";
 
@@ -57,7 +59,7 @@ function mapRow(r: any): AppUser {
 
 async function syncRole(userId: string, role: UserRole | string) {
   await supabase.from("user_roles").delete().eq("user_id", userId);
-  const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: dbRole(role) });
+  const { data, error } = await supabase.from("user_roles").upsert({ user_id: userId, role: dbRole(role) }, { onConflict: 'user_id,role' });
   if (error) throw error;
 }
 

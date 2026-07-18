@@ -119,24 +119,24 @@ export async function logAudit(entry: AuditEntry): Promise<void> {
     await supabase.from("audit_logs").insert({
       actor_id: user?.id ?? null,
       actor_email: actorEmail, // Matches table layout metric
-      user_id: user?.id ?? null,
-      username: username || user?.email?.split("@")[0] || null,
+      // user_id: user?.id ?? null,
+      // username: username || user?.email?.split("@")[0] || null,
       user_full_name: userFullName,
       entity_type: inferredEntityType,
       module: moduleName,
-      module_name: moduleName,
+      // module_name: moduleName,
       module_id,
       action: entry.action,
       entity_id: entry.entityId ?? null,
       old_value: entry.oldValue ?? null,
-      outlet_name: outlet.name || "No Outlet",
-      ts: currentTs, // Matches schema 'ts' requirement
+      outlet_name: outlet.name || "DEFAULT",
+      created_at: currentTs, // Matches schema 'ts' requirement
       new_value: {
         ...(entry.newValue && typeof entry.newValue === "object" ? entry.newValue : { value: entry.newValue }),
         __outletId: outlet.id,
         __outletName: outlet.name,
         __description: generatedDescription,
-        __ts: currentTs
+        __created_at: currentTs
       },
     });
   } catch (e) {
@@ -146,7 +146,7 @@ export async function logAudit(entry: AuditEntry): Promise<void> {
 
 export interface AuditRow {
   id: string;
-  ts: string; // Synced with schema database column
+  created_at: string; // Synced with schema database column
   actor_email: string | null;
   user_full_name: string | null;
   module: string | null;
@@ -166,14 +166,14 @@ export async function listAuditLogs(filters: {
 }): Promise<AuditRow[]> {
   let q = supabase
     .from("audit_logs")
-    .select("id, ts, actor_email, user_full_name, module, action, entity_id, outlet_name, new_value")
-    .order("ts", { ascending: false })
+    .select("id, created_at, actor_email, user_full_name, module, action, entity_id, outlet_name, new_value")
+    .order("created_at", { ascending: false })
     .limit(filters.limit ?? 300);
 
   if (filters.module && filters.module !== "all") q = q.eq("module", filters.module);
   if (filters.action && filters.action !== "all") q = q.eq("action", filters.action);
-  if (filters.from) q = q.gte("ts", filters.from);
-  if (filters.to) q = q.lte("ts", filters.to);
+  if (filters.from) q = q.gte("created_at", filters.from);
+  if (filters.to) q = q.lte("created_at", filters.to);
 
   const { data, error } = await q;
   if (error) {
@@ -187,7 +187,7 @@ export async function listAuditLogs(filters: {
 
     return {
       id: r.id,
-      ts: r.ts,
+      created_at: r.created_at,
       actor_email: r.actor_email,
       user_full_name: r.user_full_name,
       module: r.module,

@@ -26,7 +26,7 @@ import {
   useCompanySettings,
   useSaveCompanySettings,
 } from "@/hooks/use-firestore";
-import { getBrowserTimezone, listTimezones, formatInTz } from "@/lib/tz";
+import { listTimezones, formatInTz } from "@/lib/tz";
 import { toast } from "sonner";
 import { SYSTEM_TZ } from "@/lib/tz";
 import { getSystemNowDate } from "@/lib/timeUtils";
@@ -65,7 +65,7 @@ const Settings = () => {
     registrationNumber: "REG-2018-KTM-4521",
     companyEmail: "info@zeansoftware.com",
     companyPhone: "+977-xx-xxxxxxx",
-    companyAddress: "Thamel, Kathmandu, Nepal",
+    companyAddress: "Boudha, Kathmandu, Nepal",
   });
 
   const [tax, setTax] = useState({
@@ -93,13 +93,10 @@ const Settings = () => {
     smsNotifications: false,
   });
 
-  const { vatRate } = useVatCalculator();
-  console.log(vatRate);
-
   // Populate from settings when loaded
   useEffect(() => {
     if (Object.keys(settings).length > 0) {
-      // Safely extract extras object
+      console.log(settings);
       const extras = settings.extras || {};
 
       setCompany((prev) => ({
@@ -125,101 +122,60 @@ const Settings = () => {
         dateFormat: extras.dateFormat || prev.dateFormat,
         defaultMemberView: extras.defaultMemberView || prev.defaultMemberView,
       }));
+      if (extras.notifications) {
+        setNotifications((prev) => ({ ...prev, ...extras.notifications }));
+      }
     }
   }, [settings]);
 
-  const handleSaveCompany = async () => {
-    try {
-      // Clone extras and strip any accidental overlapping root keys
-      const updatedExtras = { ...(settings.extras || {}) };
-      updatedExtras.registrationNumber = company.registrationNumber;
-
-      // Clean up legacy keys if they exist inside extras
-      delete updatedExtras.companyName;
-      delete updatedExtras.company_name;
-
-      await saveMutation.mutateAsync({
-        ...settings,
-        company_name: company.companyName,
-        email: company.companyEmail,
-        phone: company.companyPhone,
-        address: company.companyAddress,
-      });
-      await queryClient.invalidateQueries({ queryKey: ["companySettings"] });
-      toast.success("Company settings saved!");
-    } catch {
-      toast.error("Failed to save settings");
-    }
-  };
-
-  const handleSaveTax = async () => {
-    const taxRate = Number(tax.vatRate);
-
-    // Block save actions on strings, negative constraints, or numbers above 100
-    if (isNaN(taxRate) || taxRate < 0 || taxRate > 100) {
+  // Unified builder ensuring strict mapping to Database schema columns vs JSONB extras
+  const saveUnifiedSettings = async (
+    updatedNotifications?: typeof notifications,
+  ) => {
+    const parsedVatRate = Number(tax.vatRate);
+    if (isNaN(parsedVatRate) || parsedVatRate < 0 || parsedVatRate > 100) {
       toast.error("Tax rate must be a valid number between 0 and 100");
       return;
     }
 
     try {
-      // 1. Shallow copy existing extras
-      const updatedExtras = { ...(settings.extras || {}) };
-
-      // 2. Explicitly purge ALL matching or legacy variations from the JSONB field
-      delete updatedExtras.vat_rate;
-      delete updatedExtras.vatRate;
-      delete updatedExtras.taxRate;
-      delete updatedExtras.vat_no;
-      delete updatedExtras.vatNo;
-      delete updatedExtras.panNumber;
-      delete updatedExtras.currency;
-
-      // 3. Keep non-column configurations safely nested inside extras
-      updatedExtras.taxYearStart = tax.taxYearStart;
-
-      await saveMutation.mutateAsync({
-        ...settings, // Retain existing payload structure
-        vat_rate: taxRate.toString(), // Map to main numeric column
-        vat_no: tax.panNumber, // Map to main text column
-        currency: tax.currency, // Map to main text column
-        extras: updatedExtras, // Sanitized JSONB payload
-      });
-      await queryClient.invalidateQueries({ queryKey: ["companySettings"] });
-      toast.success("Tax settings saved!");
-    } catch {
-      toast.error("Failed to save settings");
-    }
-  };
-
-  const handleSaveGeneral = async () => {
-    try {
-      const updatedExtras = {
-        ...(settings.extras || {}),
-        language: general.language,
-        timezone: general.timezone,
-        dateFormat: general.dateFormat,
-        defaultMemberView: general.defaultMemberView,
+      const cleanPayload = {
+        id: "main",
+        company_name: company.companyName,
+        address: company.companyAddress,
+        phone: company.companyPhone,
+        email: company.companyEmail,
+        vat_no: tax.panNumber,
+        vat_rate: parsedVatRate,
+        currency: tax.currency,
+        extras: {
+          registrationNumber: company.registrationNumber,
+          taxYearStart: tax.taxYearStart,
+          language: general.language,
+          timezone: general.timezone,
+          dateFormat: general.dateFormat,
+          defaultMemberView: general.defaultMemberView,
+          notifications: updatedNotifications || notifications, // Keep notifications in sync
+        },
       };
 
-      // Preventive clean-up of main database columns
-      delete updatedExtras.vat_rate;
-      delete updatedExtras.vat_no;
-      delete updatedExtras.company_name;
-
-      await saveMutation.mutateAsync({
-        ...settings,
-        extras: updatedExtras,
-      });
+      await saveMutation.mutateAsync(cleanPayload);
       await queryClient.invalidateQueries({ queryKey: ["companySettings"] });
-      toast.success("General settings saved!");
+      toast.success("Settings saved successfully!");
     } catch {
       toast.error("Failed to save settings");
     }
   };
 
-  const toggleNotif = (key: keyof typeof notifications) => {
-    setNotifications((prev) => ({ ...prev, [key]: !prev[key] }));
-    toast.success("Setting updated");
+  const handleSaveCompany = () => saveUnifiedSettings();
+  const handleSaveTax = () => saveUnifiedSettings();
+  const handleSaveGeneral = () => saveUnifiedSettings();
+
+  const toggleNotif = async (key: keyof typeof notifications) => {
+    const updatedNotifs = { ...notifications, [key]: !notifications[key] };
+    setNotifications(updatedNotifs);
+    // Instantly save notification switches to DB
+    await saveUnifiedSettings(updatedNotifs);
   };
 
   if (isLoading) {

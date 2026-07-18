@@ -208,11 +208,13 @@ const UsersPage = () => {
         roleId: customRoleId,
       });
       await logAudit({
-        module: "users & roles",
-        entityType: "user",
+        module: "users",
+        moduleSlug: "users",
+        entityType: "users",
         action: "role_update",
         entityId: id,
-        outletId: "No Outlet",
+        // outletId: "No Outlet",
+        outletName: "No Outlet",
         newValue: { customRoleId },
       });
       toast.success("Role updated");

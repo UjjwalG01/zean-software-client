@@ -72,6 +72,7 @@ const AuditLogs = () => {
           actor_email: username, // Overwrite with clear display name string logic
           module: fallbackModule,
           outlet_name: fallbackOutlet,
+          // created_at: ``,
         };
       });
 
@@ -224,7 +225,9 @@ const AuditLogs = () => {
               {rows.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="text-xs text-muted-foreground">
-                    {r.ts ? format(new Date(r.ts), "yyyy-MM-dd HH:mm:ss") : "—"}
+                    {r.created_at
+                      ? format(new Date(r.created_at), "yyyy-MM-dd HH:mm:ss")
+                      : "—"}
                   </TableCell>
                   <TableCell className="text-sm font-medium text-slate-100">
                     {r.actor_email}

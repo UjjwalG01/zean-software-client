@@ -605,7 +605,7 @@ export function useCompanySettings() {
 export function useSaveCompanySettings() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (settings: Record<string, string>) => {
+    mutationFn: async (settings: Record<string, any>) => {
       if (!isSupabaseEnabled) {
         toast.success("Settings saved (mock mode)");
         return;
