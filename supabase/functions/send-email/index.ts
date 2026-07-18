@@ -51,6 +51,35 @@ Deno.serve(async (req) => {
     });
   }
 
+  // ─── AuthZ: caller must be staff/admin ────────────────────────────────────
+  const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const adminClient = createClient(SUPABASE_URL, SERVICE_ROLE ?? ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const callerId = userData.user.id;
+  const { data: roleRow } = await adminClient
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", callerId)
+    .in("role", ["admin", "staff"])
+    .maybeSingle();
+  let isStaff = !!roleRow;
+  if (!isStaff) {
+    const { data: appUser } = await adminClient
+      .from("app_users")
+      .select("role")
+      .eq("id", callerId)
+      .maybeSingle();
+    if (appUser?.role && ["admin", "staff"].includes(String(appUser.role))) {
+      isStaff = true;
+    }
+  }
+  if (!isStaff) {
+    return new Response(JSON.stringify({ error: "Forbidden — staff only" }), {
+      status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
   if (!RESEND_API_KEY) {
     return new Response(JSON.stringify({ error: "RESEND_API_KEY is not configured" }), {
