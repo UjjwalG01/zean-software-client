@@ -382,15 +382,13 @@ const MemberProfile = () => {
       {/* Header Card */}
       <div className="glass-card rounded-xl p-6">
         <div className="flex flex-col sm:flex-row gap-6">
-          <Avatar className="h-20 w-20 ring-2 ring-primary/30 ring-offset-2 ring-offset-background">
-            <AvatarImage src={member.avatar} alt={member.name} />
-            <AvatarFallback className="text-xl">
-              {member.name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")}
-            </AvatarFallback>
-          </Avatar>
+          <MemberAvatar
+            src={member.avatar}
+            name={member.name}
+            className="h-20 w-20 ring-2 ring-primary/30 ring-offset-2 ring-offset-background"
+            fallbackClassName="text-xl"
+          />
+
           <div className="flex-1 space-y-3">
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="text-2xl font-bold font-display">{member.name}</h1>
@@ -796,7 +794,7 @@ const MemberProfile = () => {
 
       {/* Edit Member Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="sm:max-w-[640px] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display flex items-center gap-2">
               <Edit className="h-4 w-4 text-primary" /> Edit Member
