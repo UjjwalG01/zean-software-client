@@ -18,6 +18,12 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { MemberAvatar } from "@/components/MemberAvatar";
+import {
+  MemberQuickEditSchema,
+  firstZodMessage,
+  type MemberQuickEditValues,
+} from "@/lib/schemas/member";
 import { TierBadge } from "@/components/TierBadge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Badge } from "@/components/ui/badge";
@@ -81,12 +87,22 @@ const MemberProfile = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [deactivateOpen, setDeactivateOpen] = useState(false);
   const [quickBalanceOpen, setQuickBalanceOpen] = useState(false);
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<MemberQuickEditValues>({
     name: "",
     email: "",
     phone: "",
-    address: "",
-    emergencyContact: "",
+    permanentAddress: "",
+    temporaryAddress: "",
+    emergencyName: "",
+    emergencyContactNum: "",
+    emergencyAddress: "",
+    height: "",
+    weight: "",
+    chest: "",
+    bloodGroup: "",
+    heartStroke: false,
+    skinDisease: false,
+    breathingDifficulty: false,
   });
 
   // Preferences tab state — wired to members.preferences (jsonb).
@@ -161,36 +177,55 @@ const MemberProfile = () => {
 
   useEffect(() => {
     if (member) {
+      const m: any = member;
       setEditForm({
-        name: member.name,
-        email: member.email,
-        phone: member.phone,
-        address: member.address,
-        emergencyContact: member.emergencyContact,
+        name: m.name ?? "",
+        email: m.email ?? "",
+        phone: m.phone ?? "",
+        permanentAddress: m.permanentAddress ?? m.address ?? "",
+        temporaryAddress: m.temporaryAddress ?? "",
+        emergencyName: m.emergencyName ?? "",
+        emergencyContactNum: m.emergencyContactNum ?? m.emergencyContact ?? "",
+        emergencyAddress: m.emergencyAddress ?? "",
+        height: m.height ?? "",
+        weight: m.weight ?? "",
+        chest: m.chest ?? "",
+        bloodGroup: m.bloodGroup ?? "",
+        heartStroke: !!m.heartStroke,
+        skinDisease: !!m.skinDisease,
+        breathingDifficulty: !!m.breathingDifficulty,
       });
     }
   }, [member]);
 
   const handleSaveEdit = async () => {
     if (!id) return;
-    if (
-      !editForm.name.trim() ||
-      !editForm.email.trim() ||
-      !editForm.phone.trim()
-    ) {
-      toast.error("Name, email and phone are required");
+    const parsed = MemberQuickEditSchema.safeParse(editForm);
+    if (!parsed.success) {
+      toast.error(firstZodMessage(parsed.error));
       return;
     }
-    const [firstName, ...rest] = editForm.name.trim().split(" ");
+    const values = parsed.data;
+    const [firstName, ...rest] = values.name.trim().split(" ");
 
     try {
       const updatePayload = {
         firstName,
         lastName: rest.join(" "),
-        email: editForm.email,
-        phone: editForm.phone,
-        address: editForm.address,
-        emergencyContactNum: editForm.emergencyContact,
+        email: values.email,
+        phone: values.phone,
+        permanentAddress: values.permanentAddress,
+        temporaryAddress: values.temporaryAddress,
+        emergencyName: values.emergencyName,
+        emergencyContactNum: values.emergencyContactNum,
+        emergencyAddress: values.emergencyAddress,
+        height: values.height,
+        weight: values.weight,
+        chest: values.chest,
+        bloodGroup: values.bloodGroup,
+        heartStroke: values.heartStroke,
+        skinDisease: values.skinDisease,
+        breathingDifficulty: values.breathingDifficulty,
       };
 
       await updateMember.mutateAsync({
@@ -198,7 +233,6 @@ const MemberProfile = () => {
         data: updatePayload,
       });
 
-      // ⚡ AUDIT LOG INSERTION
       await logAudit({
         module: "members",
         entityType: "member",
@@ -212,6 +246,7 @@ const MemberProfile = () => {
       setEditOpen(false);
     } catch {
       toast.error("Failed to update member");
+
     }
   };
 
@@ -347,15 +382,13 @@ const MemberProfile = () => {
       {/* Header Card */}
       <div className="glass-card rounded-xl p-6">
         <div className="flex flex-col sm:flex-row gap-6">
-          <Avatar className="h-20 w-20 ring-2 ring-primary/30 ring-offset-2 ring-offset-background">
-            <AvatarImage src={member.avatar} alt={member.name} />
-            <AvatarFallback className="text-xl">
-              {member.name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")}
-            </AvatarFallback>
-          </Avatar>
+          <MemberAvatar
+            src={member.avatar}
+            name={member.name}
+            className="h-20 w-20 ring-2 ring-primary/30 ring-offset-2 ring-offset-background"
+            fallbackClassName="text-xl"
+          />
+
           <div className="flex-1 space-y-3">
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="text-2xl font-bold font-display">{member.name}</h1>
@@ -761,7 +794,7 @@ const MemberProfile = () => {
 
       {/* Edit Member Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="sm:max-w-[640px] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display flex items-center gap-2">
               <Edit className="h-4 w-4 text-primary" /> Edit Member
@@ -801,27 +834,144 @@ const MemberProfile = () => {
                 />
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Permanent Address</Label>
+                <Input
+                  value={editForm.permanentAddress}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, permanentAddress: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Temporary Address</Label>
+                <Input
+                  value={editForm.temporaryAddress}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, temporaryAddress: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="pt-1">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Emergency Contact
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Name</Label>
+                <Input
+                  value={editForm.emergencyName}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, emergencyName: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Phone</Label>
+                <Input
+                  value={editForm.emergencyContactNum}
+                  onChange={(e) =>
+                    setEditForm((p) => ({
+                      ...p,
+                      emergencyContactNum: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+            </div>
             <div className="space-y-1.5">
-              <Label>Address</Label>
+              <Label>Emergency Address</Label>
               <Input
-                value={editForm.address}
+                value={editForm.emergencyAddress}
                 onChange={(e) =>
-                  setEditForm((p) => ({ ...p, address: e.target.value }))
+                  setEditForm((p) => ({ ...p, emergencyAddress: e.target.value }))
                 }
               />
             </div>
-            <div className="space-y-1.5">
-              <Label>Emergency Contact</Label>
-              <Input
-                value={editForm.emergencyContact}
-                onChange={(e) =>
-                  setEditForm((p) => ({
-                    ...p,
-                    emergencyContact: e.target.value,
-                  }))
-                }
-              />
+
+            <div className="pt-1">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Physical
+              </p>
             </div>
+            <div className="grid grid-cols-4 gap-3">
+              <div className="space-y-1.5">
+                <Label>Height</Label>
+                <Input
+                  value={editForm.height}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, height: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Weight</Label>
+                <Input
+                  value={editForm.weight}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, weight: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Chest</Label>
+                <Input
+                  value={editForm.chest}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, chest: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Blood Grp.</Label>
+                <Input
+                  value={editForm.bloodGroup}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, bloodGroup: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="pt-1">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Medical
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-4">
+              <label className="flex items-center gap-2 text-sm">
+                <Switch
+                  checked={editForm.heartStroke}
+                  onCheckedChange={(v) =>
+                    setEditForm((p) => ({ ...p, heartStroke: v }))
+                  }
+                />
+                Heart / Stroke
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <Switch
+                  checked={editForm.breathingDifficulty}
+                  onCheckedChange={(v) =>
+                    setEditForm((p) => ({ ...p, breathingDifficulty: v }))
+                  }
+                />
+                Breathing Difficulty
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <Switch
+                  checked={editForm.skinDisease}
+                  onCheckedChange={(v) =>
+                    setEditForm((p) => ({ ...p, skinDisease: v }))
+                  }
+                />
+                Skin Disease
+              </label>
+            </div>
+
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>
