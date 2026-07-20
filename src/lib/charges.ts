@@ -15,7 +15,7 @@ import { supabase } from "./supabase";
 import { toIsoDayInTz, getAppTimezone } from "./tz";
 import { getSystemTodayStr } from "./timeUtils";
 import { splitVatFromGross } from "./vat";
-import { useAuth } from "@/hooks/use-auth";
+
 
 
 type AddFn = (data: Partial<Transaction>) => Promise<string>;
