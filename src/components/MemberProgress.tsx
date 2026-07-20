@@ -39,6 +39,7 @@ import {
   underlineFirstChar,
   underlineSpecificChars,
 } from "@/lib/string-case-change";
+import { PlanUsageWidget } from "@/components/PlanUsageWidget";
 
 const COLORS = [
   "hsl(38, 92%, 50%)",
