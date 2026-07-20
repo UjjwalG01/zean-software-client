@@ -848,20 +848,28 @@ create index if not exists idx_audit_entity     on public.audit_logs(entity_type
 -- ─── 5. RBAC + config helpers ─────────────────────────────────────────────
 create or replace function public.user_has_outlet_access(_user_id uuid, _outlet uuid)
 returns boolean language sql stable security definer set search_path = public as $$
+  -- Default-deny. NULL outlet rows are NOT world-readable; only admins or users
+  -- with an explicit global (outlet_id IS NULL) assignment can access them.
   select
-    _outlet IS NULL
-    OR _user_id IS NULL
-    OR EXISTS (
-      SELECT 1 FROM public.user_role_assignments ura
-        JOIN public.custom_roles cr ON cr.id = ura.role_id
-       WHERE ura.user_id = _user_id AND cr.is_admin = true
-    )
-    OR EXISTS (
-      SELECT 1 FROM public.user_role_assignments ura
-       WHERE ura.user_id = _user_id
-         AND (ura.outlet_id IS NULL OR ura.outlet_id = _outlet)
+    _user_id IS NOT NULL
+    AND (
+      public.has_role(_user_id, 'admin')
+      OR EXISTS (
+        SELECT 1 FROM public.user_role_assignments ura
+          JOIN public.custom_roles cr ON cr.id = ura.role_id
+         WHERE ura.user_id = _user_id AND cr.is_admin = true
+      )
+      OR EXISTS (
+        SELECT 1 FROM public.user_role_assignments ura
+         WHERE ura.user_id = _user_id
+           AND (
+             ura.outlet_id IS NULL
+             OR (_outlet IS NOT NULL AND ura.outlet_id = _outlet)
+           )
+      )
     );
 $$;
+
 
 create or replace function public.user_has_page_permission(
   _user_id uuid, _page_key text, _action text default 'view'
