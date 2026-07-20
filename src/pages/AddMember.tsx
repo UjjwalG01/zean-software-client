@@ -27,6 +27,8 @@ import {
   uploadMemberAvatar,
   generateMemberCode,
 } from "@/lib/supabase-services";
+import { getMemberAvatarSignedUrl } from "@/lib/member-avatar";
+import { MemberFormSchema, firstZodMessage } from "@/lib/schemas/member";
 import PackageSelectionModal from "@/components/PackageSelectionModal";
 import { logAudit } from "@/lib/audit-log";
 import { getDate } from "date-fns";
@@ -213,8 +215,16 @@ const AddMember = () => {
           : !!String(m.skinDisease || "").trim(),
       preferences: Array.isArray(m.preferences) ? m.preferences : [],
     }));
-    if (m.avatar && !String(m.avatar).includes("dicebear"))
-      setPhotoPreview(m.avatar);
+    if (m.avatar && !String(m.avatar).includes("dicebear")) {
+      // `m.avatar` may be a storage path (private members bucket) or a legacy
+      // absolute URL. Resolve to a signed URL for preview when needed.
+      const raw = String(m.avatar);
+      if (/^https?:\/\//i.test(raw) || raw.startsWith("data:") || raw.startsWith("blob:")) {
+        setPhotoPreview(raw);
+      } else {
+        getMemberAvatarSignedUrl(raw).then((url) => url && setPhotoPreview(url));
+      }
+    }
     setMemberCode(m.memberCode || m.grcNo || "");
   }, [existing]);
 
