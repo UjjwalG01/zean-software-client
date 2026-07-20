@@ -5,6 +5,7 @@ import { useMember, useCompanySettings } from "@/hooks/use-firestore";
 import { useOutlet } from "@/contexts/OutletContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { underlineFirstChar } from "@/lib/string-case-change";
+import { PlanUsageWidget } from "@/components/PlanUsageWidget";
 
 function parseList(
   settings: Record<string, string>,
