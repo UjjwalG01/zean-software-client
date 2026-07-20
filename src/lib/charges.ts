@@ -15,7 +15,7 @@ import { supabase } from "./supabase";
 import { toIsoDayInTz, getAppTimezone } from "./tz";
 import { getSystemTodayStr } from "./timeUtils";
 import { splitVatFromGross } from "./vat";
-import { useAuth } from "@/hooks/use-auth";
+
 
 
 type AddFn = (data: Partial<Transaction>) => Promise<string>;
@@ -105,7 +105,6 @@ export interface ManualChargeInput {
 }
 
 export async function createManualCharge(add: AddFn, input: ManualChargeInput): Promise<string> {
-  const { user } = useAuth()
   return add({
     memberId: input.memberId,
     memberName: input.memberName,
@@ -118,7 +117,7 @@ export async function createManualCharge(add: AddFn, input: ManualChargeInput): 
     status: "pending",
     chargeHead: input.chargeHead,
     outletId: input.outletId,
-    createdBy: user.id || null,
+    createdBy: input.createdBy,
   } as Partial<Transaction>);
 }
 

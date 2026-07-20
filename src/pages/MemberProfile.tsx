@@ -591,48 +591,52 @@ const MemberProfile = () => {
                 </TableBody>
               </Table>
             )}
-            {/* Summary footer mirrors Quick Balance */}
-            <div className="border-t border-border/50 p-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm bg-muted/20">
-              <div>
-                <span className="text-muted-foreground">＋ Total Billed</span>
-                <div className="font-semibold">
-                  {formatNPR(memberLedger.summary.totalCharged)}
+            {/* Summary footer — prefers server-view aggregates when available */}
+            {(() => {
+              const s = memberLedger.summary;
+              const totalCharged = currentMember?.total_invoiced ?? s.totalCharged;
+              const totalPaid = currentMember?.total_paid ?? s.totalPaid;
+              const advance = currentMember?.total_advances ?? s.advance;
+              const netPayable = currentMember?.net_outstanding ?? s.netPayable;
+              return (
+                <div className="border-t border-border/50 p-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm bg-muted/20">
+                  <div>
+                    <span className="text-muted-foreground">＋ Total Billed</span>
+                    <div className="font-semibold">{formatNPR(totalCharged)}</div>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">－ Total Paid</span>
+                    <div className="font-semibold text-success">
+                      {formatNPR(totalPaid)}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">－ Advance</span>
+                    <div className="font-semibold text-primary">
+                      {formatNPR(advance)}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">
+                      ＝ {netPayable < 0 ? "Refund Due" : "Net Payable"}
+                    </span>
+                    <div
+                      className={
+                        netPayable < 0
+                          ? "font-bold text-blue-500"
+                          : netPayable === 0
+                            ? "font-bold text-success"
+                            : "font-bold text-destructive"
+                      }
+                    >
+                      {netPayable < 0
+                        ? `(${formatNPR(Math.abs(netPayable))})`
+                        : formatNPR(netPayable)}
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div>
-                <span className="text-muted-foreground">－ Total Paid</span>
-                <div className="font-semibold text-success">
-                  {formatNPR(memberLedger.summary.totalPaid)}
-                </div>
-              </div>
-              <div>
-                <span className="text-muted-foreground">－ Advance</span>
-                <div className="font-semibold text-primary">
-                  {formatNPR(memberLedger.summary.advance)}
-                </div>
-              </div>
-              <div>
-                <span className="text-muted-foreground">
-                  ＝{" "}
-                  {memberLedger.summary.netPayable < 0
-                    ? "Refund Due"
-                    : "Net Payable"}
-                </span>
-                <div
-                  className={
-                    memberLedger.summary.netPayable < 0
-                      ? "font-bold text-blue-500"
-                      : memberLedger.summary.netPayable === 0
-                        ? "font-bold text-success"
-                        : "font-bold text-destructive"
-                  }
-                >
-                  {memberLedger.summary.netPayable < 0
-                    ? `(${formatNPR(Math.abs(memberLedger.summary.netPayable))})`
-                    : formatNPR(memberLedger.summary.netPayable)}
-                </div>
-              </div>
-            </div>
+              );
+            })()}
           </div>
         </TabsContent>
 
