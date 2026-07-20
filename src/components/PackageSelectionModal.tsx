@@ -35,6 +35,7 @@ export default function PackageSelectionModal({ open, onOpenChange, memberId, me
   const { data: plans = [] } = useMembershipPlans();
   const { data: services = [] } = useServices();
   const { data: settings = {} } = useCompanySettings();
+  const { data: member } = useMember(memberId);
   const updateMember = useUpdateMember();
 
   const packageOptions = parseList(settings, "setup_packages", ["Gym","Cardio","Swimming","Spa","Combo"]);
@@ -55,6 +56,21 @@ export default function PackageSelectionModal({ open, onOpenChange, memberId, me
     setSaving(true);
     try {
       const planRow: any = plans.find((p: any) => p.id === planId);
+
+      // Compute expiry = (member join date OR today) + plan duration months.
+      // Falls back safely when join date is missing/invalid.
+      let expiryDate: string | undefined;
+      if (planRow) {
+        const months = Number(planRow.durationMonths || planRow.durationInMonths || 0);
+        if (months > 0) {
+          const startStr = (member as any)?.joinDate || getSystemTodayStr();
+          const start = parseISO(startStr);
+          if (!Number.isNaN(start.getTime())) {
+            expiryDate = format(addMonths(start, months), "yyyy-MM-dd");
+          }
+        }
+      }
+
       await updateMember.mutateAsync({
         id: memberId,
         data: {
@@ -62,6 +78,8 @@ export default function PackageSelectionModal({ open, onOpenChange, memberId, me
           packages: pkgs,
           plan: planRow?.name || planRow?.tier || undefined,
           tier: planRow?.tier || undefined,
+          planId: planRow?.id || undefined,
+          ...(expiryDate ? { expiryDate } : {}),
         },
       });
       toast.success("Package assigned");
