@@ -52,7 +52,7 @@ export function useMyPermissions() {
 export function canView(perms: { isAdmin: boolean; perms: Record<string, { view: boolean }> } | undefined, pageKey: string) {
   if (!perms) return true; // while loading, don't hide
   if (perms.isAdmin) return true;
-  // No permissions configured at all → fall back to allow (don't lock users out)
-  if (Object.keys(perms.perms).length === 0) return true;
+  // Default-deny: users without an explicit `view` grant on this page cannot
+  // access it. Server-side RLS (user_has_action) enforces the same rule.
   return !!perms.perms[pageKey]?.view;
 }
