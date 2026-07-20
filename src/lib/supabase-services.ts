@@ -349,6 +349,12 @@ export async function generateMemberCode(): Promise<string> {
 
 export const generateGRCNumber = async (_outletId?: string, _outletCode?: string) => generateMemberCode();
 
+/**
+ * Upload a member avatar into the PRIVATE `members` bucket and return the
+ * storage object path (not a public URL). Persist the returned string to
+ * `members.avatar_url`; render it via `getMemberAvatarSignedUrl` /
+ * `useMemberAvatar` from `@/lib/member-avatar`.
+ */
 export async function uploadMemberAvatar(key: string, file: File): Promise<string> {
   const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
   const path = `${key}/photo-${Date.now()}.${ext}`;
@@ -358,7 +364,7 @@ export async function uploadMemberAvatar(key: string, file: File): Promise<strin
     contentType: file.type || undefined,
   });
   if (error) throw error;
-  return supabase.storage.from("members").getPublicUrl(path).data.publicUrl;
+  return path;
 }
 
 export async function addMember(data: Partial<Member>): Promise<string> {

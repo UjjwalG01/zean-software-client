@@ -632,18 +632,22 @@ export function useDashboardStats() {
   });
 }
 
-export function useExpiryAlerts() {
+export function useExpiryAlerts(thresholdDays = 30) {
   return useQuery({
-    queryKey: ["expiryAlerts"],
+    queryKey: ["expiryAlerts", thresholdDays],
     queryFn: async () => {
       if (!isSupabaseEnabled) return mockExpiryAlerts;
-      const members = await fbServices.getMembers({ status: "Expiring" as MemberStatus });
+      // Pull all members and filter in-memory so we catch anyone with an
+      // expiry_date within the threshold — regardless of a possibly stale
+      // `status` column. Invalid/missing dates are dropped safely.
+      const members = await fbServices.getMembers();
       const now = getSystemNowDate();
+      const DAY_MS = 1000 * 60 * 60 * 24;
       return members
         .map((m) => {
-          const parsed = parseUiDate(m.expiryDate) || now;
-          const expiry = new Date(parsed);
-          const daysLeft = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          const parsed = parseUiDate(m.expiryDate);
+          if (!parsed || Number.isNaN(parsed.getTime())) return null;
+          const daysLeft = Math.ceil((parsed.getTime() - now.getTime()) / DAY_MS);
           return {
             memberId: m.id,
             memberName: m.name,
@@ -653,10 +657,12 @@ export function useExpiryAlerts() {
             avatar: m.avatar,
           };
         })
+        .filter((x): x is NonNullable<typeof x> => !!x && x.daysLeft <= thresholdDays)
         .sort((a, b) => a.daysLeft - b.daysLeft);
     },
   });
 }
+
 
 // ─── Discount Rules ─────────────────────────────────────────────────
 export function useDiscountRules() {

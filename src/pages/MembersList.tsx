@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { MemberAvatar } from "@/components/MemberAvatar";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   Table,
@@ -273,22 +273,15 @@ const MembersList = () => {
                 >
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <Avatar
+                      <MemberAvatar
+                        src={m.avatar}
+                        name={m.name}
                         className="h-8 w-8 cursor-zoom-in ring-1 ring-transparent hover:ring-primary/60"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (m.avatar)
-                            setPhotoPreview({ url: m.avatar, name: m.name });
-                        }}
-                      >
-                        <AvatarImage src={m.avatar} alt={m.name} />
-                        <AvatarFallback className="text-xs">
-                          {m.name
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")}
-                        </AvatarFallback>
-                      </Avatar>
+                        onImageClick={(url) =>
+                          setPhotoPreview({ url, name: m.name })
+                        }
+                      />
+
                       <div>
                         <p className="font-medium text-sm">{m.name}</p>
                         <p className="text-xs text-muted-foreground">

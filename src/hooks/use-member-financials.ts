@@ -1,21 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
+import type { MemberFinancialSummary } from "@/types/finance";
+
+export type { MemberFinancialSummary } from "@/types/finance";
 
 /**
- * A row from `member_financial_summaries` — server-side aggregate totals per
- * member. Replaces the client-side .reduce() balance math previously done in
- * Advance / Settle / Ledger flows.
+ * Server-side aggregate totals per member from `member_financial_summaries`.
+ * SSOT for balance/paid/advance figures rendered anywhere in the UI.
  */
-export interface MemberFinancialSummary {
-  member_id: string;
-  total_invoiced: number;
-  total_paid: number;
-  total_discounts: number;
-  total_advances: number;
-  /** Signed. Positive = member owes, negative = member is owed (overpaid/refund). */
-  net_outstanding: number;
-}
-
 export function useMemberFinancials(memberId?: string) {
   return useQuery({
     queryKey: ["member-financials", memberId],

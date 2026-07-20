@@ -48,17 +48,7 @@ import {
   underlineSpecificChars,
 } from "@/lib/string-case-change";
 
-interface MemberLedgerRow {
-  memberId: string;
-  memberName: string;
-  tier: string;
-  services: string;
-  totalBilled: number;
-  totalPaid: number;
-  netBalance: number;
-  status: "Settled" | "Partial" | "Unpaid" | "Overpaid";
-  memberStatus?: string;
-}
+import type { MemberLedgerReportRow as MemberLedgerRow } from "@/types/finance";
 
 export default function LedgerReport() {
   const { data: members = [], isLoading: mLoading } = useMembers();

@@ -5,6 +5,7 @@ import { useMember, useCompanySettings } from "@/hooks/use-firestore";
 import { useOutlet } from "@/contexts/OutletContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { underlineFirstChar } from "@/lib/string-case-change";
+import { PlanUsageWidget } from "@/components/PlanUsageWidget";
 
 function parseList(
   settings: Record<string, string>,
@@ -622,6 +623,9 @@ const MemberGRC = () => {
               }
             />
             <F label="Outlet" value={outlet?.name} />
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <PlanUsageWidget memberId={m.id} member={m} />
           </div>
           {show.packages && packages.length > 0 && (
             <div style={{ marginTop: 10 }}>

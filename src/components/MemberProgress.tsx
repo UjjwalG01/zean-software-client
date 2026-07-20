@@ -39,6 +39,7 @@ import {
   underlineFirstChar,
   underlineSpecificChars,
 } from "@/lib/string-case-change";
+import { PlanUsageWidget } from "@/components/PlanUsageWidget";
 
 const COLORS = [
   "hsl(38, 92%, 50%)",
@@ -244,6 +245,9 @@ td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
           {underlineSpecificChars("Download Report Card (PDF)", [2])}
         </Button>
       </div>
+
+      {/* Plan usage vs attendance */}
+      <PlanUsageWidget memberId={member.id} member={member} />
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

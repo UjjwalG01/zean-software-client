@@ -1,33 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
+import type { MemberLedgerRow } from "@/types/finance";
 
-/**
- * A row from the `vw_member_ledger` Postgres view — the server-side SSOT for
- * chronological member ledger entries (charges + payments + advances + settlements).
- */
-export interface MemberLedgerRow {
-  id: string;
-  member_id: string;
-  receipt_no: string | null;
-  occurred_at: string;
-  occurred_on: string;
-  type: "Charge" | "Payment" | "Advance" | "Settlement" | "Refund" | string;
-  description: string;
-  charge_head: string | null;
-  method: string | null;
-  gross_amount: number;
-  vat_amount: number;
-  discount_amount: number;
-  net_amount: number;
-  voided: boolean;
-  computed_status: "Settled" | "Partial" | "Pending" | "Voided";
-  debit: number;
-  credit: number;
-  source: "booking" | "manual" | "payment" | "advance" | "settlement" | string;
-  running_balance: number;
-}
+export type { MemberLedgerRow } from "@/types/finance";
 
-/** Fetch the server-computed ledger rows for a member. */
+/** Fetch the server-computed ledger rows for a member from `vw_member_ledger`. */
 export function useMemberLedger(memberId?: string) {
   return useQuery({
     queryKey: ["member-ledger", memberId],

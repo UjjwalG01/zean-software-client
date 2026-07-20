@@ -1,40 +1,9 @@
 import type { Transaction } from "./mock-data";
 import type { ChargeRow } from "@/hooks/use-charges";
+import type { LedgerRow, LedgerSummary } from "@/types/finance";
 
-export interface LedgerRow {
-  date: string;
-  description: string;
-  kind: "Charge" | "Payment" | "Advance" | "Settlement" | "Refund" | "Void" | "Discount";
-  debit: number;   // increases what member owes (charges)
-  credit: number;  // decreases what member owes (payments / advances / settlements / discounts)
-  balance: number; // running balance after this row
-  receiptNo?: string;
-  method?: string;
-  voided?: boolean;
-  /** Charge-row metadata for breakdown displays. */
-  net?: number;
-  vat?: number;
-  chargeHead?: string;
-  source?: "booking" | "manual" | "payment" | "advance" | "discount" | "settlement";
-}
-
-export interface LedgerSummary {
-  totalCharged: number;        // gross billed (incl. VAT)
-  bookingCharges: number;      // gross from booking-sourced charges
-  manualCharges: number;       // gross from manual "Record Charge" entries
-  vatTotal: number;            // total VAT embedded in charges
-  netCharges: number;          // totalCharged − vatTotal
-  totalPaid: number;           // settlements + plain payments
-  advance: number;             // advance balance available
-  discountTotal: number;       // total settlement discounts
-  /** Signed balance: positive = member owes; negative = member is owed (overpaid / refund pending). */
-  netPayable: number;
-  /** Alias for netPayable — explicit "due balance" name used by Quick Balance + profile cards. */
-  dueBalance: number;
-  isSettled: boolean;
-  /** Settled | Partial | Unpaid | Overpaid — mirrors Quick Balance / Ledger Report status chip. */
-  status: "Settled" | "Partial" | "Unpaid" | "Overpaid";
-}
+// Re-export unified types so existing imports from this module keep working.
+export type { LedgerRow, LedgerSummary } from "@/types/finance";
 
 const isVoidedTx = (t: Transaction) => (t as any).voided || t.status === "voided";
 
