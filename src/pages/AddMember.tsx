@@ -273,6 +273,12 @@ const AddMember = () => {
 
   const handleSubmit = async () => {
     if (!validateStep(0) || !validateStep(1)) return;
+    // Full Zod validation across all steps; surfaces the first offending field.
+    const parsed = MemberFormSchema.safeParse(f);
+    if (!parsed.success) {
+      toast.error(firstZodMessage(parsed.error));
+      return;
+    }
     const fullName = [f.firstName, f.middleName, f.lastName]
       .filter(Boolean)
       .join(" ")
