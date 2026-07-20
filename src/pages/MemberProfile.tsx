@@ -177,36 +177,55 @@ const MemberProfile = () => {
 
   useEffect(() => {
     if (member) {
+      const m: any = member;
       setEditForm({
-        name: member.name,
-        email: member.email,
-        phone: member.phone,
-        address: member.address,
-        emergencyContact: member.emergencyContact,
+        name: m.name ?? "",
+        email: m.email ?? "",
+        phone: m.phone ?? "",
+        permanentAddress: m.permanentAddress ?? m.address ?? "",
+        temporaryAddress: m.temporaryAddress ?? "",
+        emergencyName: m.emergencyName ?? "",
+        emergencyContactNum: m.emergencyContactNum ?? m.emergencyContact ?? "",
+        emergencyAddress: m.emergencyAddress ?? "",
+        height: m.height ?? "",
+        weight: m.weight ?? "",
+        chest: m.chest ?? "",
+        bloodGroup: m.bloodGroup ?? "",
+        heartStroke: !!m.heartStroke,
+        skinDisease: !!m.skinDisease,
+        breathingDifficulty: !!m.breathingDifficulty,
       });
     }
   }, [member]);
 
   const handleSaveEdit = async () => {
     if (!id) return;
-    if (
-      !editForm.name.trim() ||
-      !editForm.email.trim() ||
-      !editForm.phone.trim()
-    ) {
-      toast.error("Name, email and phone are required");
+    const parsed = MemberQuickEditSchema.safeParse(editForm);
+    if (!parsed.success) {
+      toast.error(firstZodMessage(parsed.error));
       return;
     }
-    const [firstName, ...rest] = editForm.name.trim().split(" ");
+    const values = parsed.data;
+    const [firstName, ...rest] = values.name.trim().split(" ");
 
     try {
       const updatePayload = {
         firstName,
         lastName: rest.join(" "),
-        email: editForm.email,
-        phone: editForm.phone,
-        address: editForm.address,
-        emergencyContactNum: editForm.emergencyContact,
+        email: values.email,
+        phone: values.phone,
+        permanentAddress: values.permanentAddress,
+        temporaryAddress: values.temporaryAddress,
+        emergencyName: values.emergencyName,
+        emergencyContactNum: values.emergencyContactNum,
+        emergencyAddress: values.emergencyAddress,
+        height: values.height,
+        weight: values.weight,
+        chest: values.chest,
+        bloodGroup: values.bloodGroup,
+        heartStroke: values.heartStroke,
+        skinDisease: values.skinDisease,
+        breathingDifficulty: values.breathingDifficulty,
       };
 
       await updateMember.mutateAsync({
@@ -214,7 +233,6 @@ const MemberProfile = () => {
         data: updatePayload,
       });
 
-      // ⚡ AUDIT LOG INSERTION
       await logAudit({
         module: "members",
         entityType: "member",
@@ -228,6 +246,7 @@ const MemberProfile = () => {
       setEditOpen(false);
     } catch {
       toast.error("Failed to update member");
+
     }
   };
 
