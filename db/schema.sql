@@ -1297,14 +1297,15 @@ grant execute on function public.user_has_page_permission(uuid, text, text)     
 grant execute on function public.user_has_action(uuid, text, text)              to authenticated, service_role;
 grant execute on function public.is_config_value_in_use(text, text)             to authenticated, service_role;
 
--- ─── 9. STORAGE: members avatar bucket ──────────────────────────────────
+-- ─── 9. STORAGE: members avatar bucket (PRIVATE — signed URLs only) ────
 insert into storage.buckets (id, name, public)
-values ('members', 'members', true)
-on conflict (id) do update set public = true;
+values ('members', 'members', false)
+on conflict (id) do update set public = false;
 
 drop policy if exists "members avatars public read"  on storage.objects;
-create policy "members avatars public read"  on storage.objects
-  for select using (bucket_id = 'members');
+drop policy if exists "members avatars auth read"    on storage.objects;
+create policy "members avatars auth read" on storage.objects
+  for select to authenticated using (bucket_id = 'members');
 drop policy if exists "members avatars auth insert" on storage.objects;
 create policy "members avatars auth insert" on storage.objects
   for insert to authenticated with check (bucket_id = 'members');
