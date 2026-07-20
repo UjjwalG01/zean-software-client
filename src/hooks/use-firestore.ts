@@ -370,6 +370,7 @@ export interface CheckInRecord {
   date: string;
   checkInTime: string;
   checkOutTime?: string;
+  status?: string;
 }
 
 export function useCheckIns() {
@@ -394,6 +395,7 @@ export function useAddCheckIn() {
           memberName: data.memberName,
           date: data.date,
           checkInTime: `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
+          status: "verified"
         };
         localMockCheckIns.unshift(newRecord); // Persist to local array
         toast.success("Check-in recorded (mock mode)");
@@ -411,6 +413,7 @@ export function useAddCheckIn() {
         memberName: data.memberName,
         date: data.date,
         checkInTime: `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
+        status: "verified"
       };
       qc.setQueryData<CheckInRecord[]>(["checkIns"], [optimistic, ...previous]);
       return { previous };

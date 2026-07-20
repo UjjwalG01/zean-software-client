@@ -17,6 +17,7 @@ import { getSystemTodayStr, getSystemNowDate } from "./timeUtils";
 import { logAudit as _logAudit } from "./audit-log";
 import { INVOICE_PREFIX } from "./settings";
 import { splitVatFromGross, shouldBreakdownVat } from "./vat";
+import { CheckInRecord } from "@/hooks/use-firestore";
 
 
 const avatarUrl = (seed: string) =>
@@ -1280,14 +1281,14 @@ export async function addCheckIn(memberId: string): Promise<string> {
   return addCheckInRecord({ memberId, memberName: "", date: getSystemTodayStr() });
 }
 
-export interface CheckInRecord {
-  id: string;
-  memberId: string;
-  memberName: string;
-  date: string;
-  checkInTime: string;
-  checkOutTime?: string;
-}
+// export interface CheckInRecord {
+//   id: string;
+//   memberId: string;
+//   memberName: string;
+//   date: string;
+//   checkInTime: string;
+//   checkOutTime?: string;
+// }
 
 export async function getCheckIns(): Promise<CheckInRecord[]> {
   const { data, error } = await supabase.from("check_ins").select("*").order("check_in_at", { ascending: false });
@@ -1302,6 +1303,7 @@ export async function getCheckIns(): Promise<CheckInRecord[]> {
     date: dateOnly(r.check_in_at),
     checkInTime: timeOnly(r.check_in_at),
     checkOutTime: r.check_out_at ? timeOnly(r.check_out_at) : undefined,
+    status: r.status,
   }));
 }
 
@@ -1312,6 +1314,7 @@ export async function addCheckInRecord(data: { memberId: string; memberName: str
       member_id: data.memberId || null,
       member_name: data.memberName || null,
       check_in_at: at(data.date),
+      status: "verified"
     })
     .select("id")
     .single();
