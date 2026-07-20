@@ -18,6 +18,12 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { MemberAvatar } from "@/components/MemberAvatar";
+import {
+  MemberQuickEditSchema,
+  firstZodMessage,
+  type MemberQuickEditValues,
+} from "@/lib/schemas/member";
 import { TierBadge } from "@/components/TierBadge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Badge } from "@/components/ui/badge";
@@ -81,12 +87,22 @@ const MemberProfile = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [deactivateOpen, setDeactivateOpen] = useState(false);
   const [quickBalanceOpen, setQuickBalanceOpen] = useState(false);
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<MemberQuickEditValues>({
     name: "",
     email: "",
     phone: "",
-    address: "",
-    emergencyContact: "",
+    permanentAddress: "",
+    temporaryAddress: "",
+    emergencyName: "",
+    emergencyContactNum: "",
+    emergencyAddress: "",
+    height: "",
+    weight: "",
+    chest: "",
+    bloodGroup: "",
+    heartStroke: false,
+    skinDisease: false,
+    breathingDifficulty: false,
   });
 
   // Preferences tab state — wired to members.preferences (jsonb).
