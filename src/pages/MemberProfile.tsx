@@ -836,27 +836,144 @@ const MemberProfile = () => {
                 />
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Permanent Address</Label>
+                <Input
+                  value={editForm.permanentAddress}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, permanentAddress: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Temporary Address</Label>
+                <Input
+                  value={editForm.temporaryAddress}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, temporaryAddress: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="pt-1">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Emergency Contact
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Name</Label>
+                <Input
+                  value={editForm.emergencyName}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, emergencyName: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Phone</Label>
+                <Input
+                  value={editForm.emergencyContactNum}
+                  onChange={(e) =>
+                    setEditForm((p) => ({
+                      ...p,
+                      emergencyContactNum: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+            </div>
             <div className="space-y-1.5">
-              <Label>Address</Label>
+              <Label>Emergency Address</Label>
               <Input
-                value={editForm.address}
+                value={editForm.emergencyAddress}
                 onChange={(e) =>
-                  setEditForm((p) => ({ ...p, address: e.target.value }))
+                  setEditForm((p) => ({ ...p, emergencyAddress: e.target.value }))
                 }
               />
             </div>
-            <div className="space-y-1.5">
-              <Label>Emergency Contact</Label>
-              <Input
-                value={editForm.emergencyContact}
-                onChange={(e) =>
-                  setEditForm((p) => ({
-                    ...p,
-                    emergencyContact: e.target.value,
-                  }))
-                }
-              />
+
+            <div className="pt-1">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Physical
+              </p>
             </div>
+            <div className="grid grid-cols-4 gap-3">
+              <div className="space-y-1.5">
+                <Label>Height</Label>
+                <Input
+                  value={editForm.height}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, height: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Weight</Label>
+                <Input
+                  value={editForm.weight}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, weight: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Chest</Label>
+                <Input
+                  value={editForm.chest}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, chest: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Blood Grp.</Label>
+                <Input
+                  value={editForm.bloodGroup}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, bloodGroup: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="pt-1">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Medical
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-4">
+              <label className="flex items-center gap-2 text-sm">
+                <Switch
+                  checked={editForm.heartStroke}
+                  onCheckedChange={(v) =>
+                    setEditForm((p) => ({ ...p, heartStroke: v }))
+                  }
+                />
+                Heart / Stroke
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <Switch
+                  checked={editForm.breathingDifficulty}
+                  onCheckedChange={(v) =>
+                    setEditForm((p) => ({ ...p, breathingDifficulty: v }))
+                  }
+                />
+                Breathing Difficulty
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <Switch
+                  checked={editForm.skinDisease}
+                  onCheckedChange={(v) =>
+                    setEditForm((p) => ({ ...p, skinDisease: v }))
+                  }
+                />
+                Skin Disease
+              </label>
+            </div>
+
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>
