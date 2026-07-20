@@ -246,6 +246,9 @@ td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
         </Button>
       </div>
 
+      {/* Plan usage vs attendance */}
+      <PlanUsageWidget memberId={member.id} member={member} />
+
       {/* Stat cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
