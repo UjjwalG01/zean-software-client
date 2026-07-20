@@ -902,7 +902,6 @@ create or replace function public.user_has_action(_uid uuid, _page_key text, _ac
 returns boolean language plpgsql stable security definer set search_path = public as $$
 declare
   v_is_admin boolean;
-  v_has_any  boolean;
   v_allowed  boolean;
 begin
   if _uid is null then return false; end if;
@@ -915,13 +914,8 @@ begin
   ) into v_is_admin;
   if v_is_admin then return true; end if;
 
-  select exists (
-    select 1 from public.role_permissions rp
-      join public.user_role_assignments ura on ura.role_id = rp.role_id
-     where ura.user_id = _uid
-  ) into v_has_any;
-  if not v_has_any then return true; end if;
-
+  -- Default-deny. Require an explicit permission grant; unconfigured users
+  -- do not get blanket access to bookings/payments/charges/services/plans.
   execute format(
     'select exists (
        select 1 from public.role_permissions rp
@@ -932,6 +926,7 @@ begin
 
   return coalesce(v_allowed, false);
 end $$;
+
 
 create or replace function public.is_config_value_in_use(_category text, _value text)
 returns boolean language plpgsql stable security definer set search_path = public as $$
