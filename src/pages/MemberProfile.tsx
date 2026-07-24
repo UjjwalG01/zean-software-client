@@ -246,7 +246,6 @@ const MemberProfile = () => {
       setEditOpen(false);
     } catch {
       toast.error("Failed to update member");
-
     }
   };
 
@@ -303,7 +302,7 @@ const MemberProfile = () => {
       <div className="flex flex-col items-center justify-center py-20">
         <p className="text-muted-foreground">Member not found</p>
         <Button
-          variant="ghost"
+          variant="link"
           className="mt-4"
           onClick={() => navigate("/members")}
         >
@@ -439,21 +438,18 @@ const MemberProfile = () => {
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
           { label: "Plan", value: member.plan },
-          { label: "Years", value: `${member.membershipYears} yrs` },
-          { label: "Discount", value: `${member.discount}%` },
+          { label: "Time Period", value: `${member.membershipYears} yrs` },
+          {
+            label: "Advance",
+            value: formatNPR(currentMember?.total_advances ?? 0),
+          },
           {
             label: "Total Paid",
-            value: formatNPR(
-              currentMember?.total_paid + currentMember?.total_advances,
-            ),
+            value: formatNPR(currentMember?.total_paid ?? 0),
           },
           {
             label: "Due",
-            value: formatNPR(
-              currentMember?.net_outstanding
-                ? currentMember.net_outstanding
-                : 0,
-            ),
+            value: formatNPR(currentMember?.net_outstanding ?? 0),
           },
         ].map((s) => (
           <div key={s.label} className="glass-card rounded-lg p-4 text-center">
@@ -594,15 +590,20 @@ const MemberProfile = () => {
             {/* Summary footer — prefers server-view aggregates when available */}
             {(() => {
               const s = memberLedger.summary;
-              const totalCharged = currentMember?.total_invoiced ?? s.totalCharged;
+              const totalCharged =
+                currentMember?.total_invoiced ?? s.totalCharged;
               const totalPaid = currentMember?.total_paid ?? s.totalPaid;
               const advance = currentMember?.total_advances ?? s.advance;
               const netPayable = currentMember?.net_outstanding ?? s.netPayable;
               return (
                 <div className="border-t border-border/50 p-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm bg-muted/20">
                   <div>
-                    <span className="text-muted-foreground">＋ Total Billed</span>
-                    <div className="font-semibold">{formatNPR(totalCharged)}</div>
+                    <span className="text-muted-foreground">
+                      ＋ Total Billed
+                    </span>
+                    <div className="font-semibold">
+                      {formatNPR(totalCharged)}
+                    </div>
                   </div>
                   <div>
                     <span className="text-muted-foreground">－ Total Paid</span>
@@ -844,7 +845,10 @@ const MemberProfile = () => {
                 <Input
                   value={editForm.permanentAddress}
                   onChange={(e) =>
-                    setEditForm((p) => ({ ...p, permanentAddress: e.target.value }))
+                    setEditForm((p) => ({
+                      ...p,
+                      permanentAddress: e.target.value,
+                    }))
                   }
                 />
               </div>
@@ -853,7 +857,10 @@ const MemberProfile = () => {
                 <Input
                   value={editForm.temporaryAddress}
                   onChange={(e) =>
-                    setEditForm((p) => ({ ...p, temporaryAddress: e.target.value }))
+                    setEditForm((p) => ({
+                      ...p,
+                      temporaryAddress: e.target.value,
+                    }))
                   }
                 />
               </div>
@@ -870,7 +877,10 @@ const MemberProfile = () => {
                 <Input
                   value={editForm.emergencyName}
                   onChange={(e) =>
-                    setEditForm((p) => ({ ...p, emergencyName: e.target.value }))
+                    setEditForm((p) => ({
+                      ...p,
+                      emergencyName: e.target.value,
+                    }))
                   }
                 />
               </div>
@@ -892,7 +902,10 @@ const MemberProfile = () => {
               <Input
                 value={editForm.emergencyAddress}
                 onChange={(e) =>
-                  setEditForm((p) => ({ ...p, emergencyAddress: e.target.value }))
+                  setEditForm((p) => ({
+                    ...p,
+                    emergencyAddress: e.target.value,
+                  }))
                 }
               />
             </div>
@@ -975,7 +988,6 @@ const MemberProfile = () => {
                 Skin Disease
               </label>
             </div>
-
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>

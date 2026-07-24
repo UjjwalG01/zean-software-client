@@ -118,14 +118,20 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
-  const { data: myPerms } = useMyPermissions();
+
+  const { data: myPerms, isLoading: isPermsLoading } = useMyPermissions();
+
   const isActive = (path: string) =>
     path === "/"
       ? location.pathname === "/"
       : location.pathname.startsWith(path);
 
-  const visibleMain = mainItems.filter((i) => canView(myPerms, i.key));
-  const visibleSetup = setupItems.filter((i) => canView(myPerms, i.key));
+  const visibleMain = mainItems.filter((i) =>
+    canView(myPerms, i.key, isPermsLoading),
+  );
+  const visibleSetup = setupItems.filter((i) =>
+    canView(myPerms, i.key, isPermsLoading),
+  );
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">

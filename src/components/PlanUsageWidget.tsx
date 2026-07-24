@@ -28,13 +28,13 @@ export function PlanUsageWidget({ memberId, member, compact }: Props) {
 
   if (!data || !data.isValid) {
     return (
-      <div className="glass-card rounded-xl p-4">
-        <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
+      <div className="">
+        {/* <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
           Plan Usage &amp; Attendance
         </p>
         <p className="text-sm text-muted-foreground">
           Assign a plan with join and expiry dates to see utilization.
-        </p>
+        </p> */}
       </div>
     );
   }
@@ -67,8 +67,8 @@ export function PlanUsageWidget({ memberId, member, compact }: Props) {
             Plan Usage &amp; Attendance Breakdown
           </p>
           <p className="text-sm mt-0.5">
-            <span className="font-semibold">{attendedDays}</span> days used out of{" "}
-            <span className="font-semibold">{totalPlanDays}</span> plan days
+            <span className="font-semibold">{attendedDays}</span> days used out
+            of <span className="font-semibold">{totalPlanDays}</span> plan days
             <span className="text-muted-foreground">
               {" "}
               ({totalCheckIns} check-ins recorded)
@@ -81,14 +81,31 @@ export function PlanUsageWidget({ memberId, member, compact }: Props) {
       </div>
       <Progress value={utilizationPercent} className="h-2" />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-1">
-        <Stat icon={CalendarCheck} label="Plan Window" value={
-          startDate && expiryDate
-            ? `${format(startDate, "dd MMM yy")} → ${format(expiryDate, "dd MMM yy")}`
-            : "—"
-        } />
-        <Stat icon={Activity} label="Days Elapsed" value={`${daysElapsed} / ${totalPlanDays}`} />
-        <Stat icon={TrendingUp} label="Days Remaining" value={String(daysRemaining)} />
-        <Stat icon={Activity} label="Attendance Rate" value={`${attendanceRatePercent}%`} sub="of days elapsed" />
+        <Stat
+          icon={CalendarCheck}
+          label="Plan Window"
+          value={
+            startDate && expiryDate
+              ? `${format(startDate, "dd MMM yy")} → ${format(expiryDate, "dd MMM yy")}`
+              : "—"
+          }
+        />
+        <Stat
+          icon={Activity}
+          label="Days Elapsed"
+          value={`${daysElapsed} / ${totalPlanDays}`}
+        />
+        <Stat
+          icon={TrendingUp}
+          label="Days Remaining"
+          value={String(daysRemaining)}
+        />
+        <Stat
+          icon={Activity}
+          label="Attendance Rate"
+          value={`${attendanceRatePercent}%`}
+          sub="of days elapsed"
+        />
       </div>
     </div>
   );

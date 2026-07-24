@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { QrCode, X } from "lucide-react";
 import { toast } from "sonner";
@@ -46,7 +51,8 @@ export function QRCheckInScanner({ open, onOpenChange, onDetected }: Props) {
         const tick = () => {
           const el = document.getElementById(containerId);
           if (el) return resolve(el);
-          if (Date.now() - started > 3000) return reject(new Error("scanner container not mounted"));
+          if (Date.now() - started > 3000)
+            return reject(new Error("scanner container not mounted"));
           requestAnimationFrame(tick);
         };
         tick();
@@ -74,7 +80,9 @@ export function QRCheckInScanner({ open, onOpenChange, onDetected }: Props) {
       .then(() => !cancelled && setStarting(false))
       .catch((err) => {
         if (cancelled) return;
-        toast.error("Camera unavailable: " + (err?.message || "permission denied"));
+        toast.error(
+          "Camera unavailable: " + (err?.message || "permission denied"),
+        );
         onOpenChange(false);
       });
 
@@ -100,11 +108,21 @@ export function QRCheckInScanner({ open, onOpenChange, onDetected }: Props) {
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <div id={containerId} className="rounded-lg overflow-hidden bg-black aspect-square" />
+          <div
+            id={containerId}
+            className="rounded-lg overflow-hidden bg-black aspect-square"
+          />
           <p className="text-xs text-muted-foreground text-center">
-            {starting ? "Starting camera…" : "Hold the member QR steady inside the frame"}
+            {starting
+              ? "Starting camera…"
+              : "Hold the member QR steady inside the frame"}
           </p>
-          <Button variant="outline" size="sm" className="w-full" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={() => onOpenChange(false)}
+          >
             <X className="h-4 w-4 mr-1" /> Cancel
           </Button>
         </div>

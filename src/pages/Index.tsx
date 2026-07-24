@@ -55,8 +55,6 @@ const Dashboard = () => {
   const { data: bookings = [] } = useBookings();
   const { data: serviceTypes = [] } = useServiceTypes();
 
-  console.log(appUser, user);
-
   const recentMembers = members.slice(0, 5);
   const dashboardStats = stats || {
     totalMembers: 0,

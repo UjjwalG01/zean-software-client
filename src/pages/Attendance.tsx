@@ -55,6 +55,7 @@ import {
   getSystemMonthStr,
 } from "@/lib/timeUtils";
 import { underlineSpecificChars } from "@/lib/string-case-change";
+import { MobileAppConnectModal } from "@/components/MobileAppConnectModal";
 
 const Attendance = () => {
   const { data: members = [], isLoading: membersLoading } = useMembers();
@@ -340,12 +341,20 @@ const Attendance = () => {
             {activeMembers.length - todayCheckIns.length} absent
           </p>
         </div>
-        <Button
-          onClick={() => setScanOpen(true)}
-          className="gradient-gold text-primary-foreground"
-        >
-          <QrCode className="h-4 w-4 mr-2" /> Scan QR Check-in
-        </Button>
+        {/* Action Buttons Toolbar */}
+        <div className="flex items-center gap-3">
+          {/* Mobile App Pair QR Button */}
+          <MobileAppConnectModal propertyName="VitaFit Club" />
+
+          {/* Other existing buttons... */}
+
+          <Button
+            onClick={() => setScanOpen(true)}
+            className="gradient-gold text-primary-foreground"
+          >
+            <QrCode className="h-4 w-4 mr-2" /> Scan QR Check-in
+          </Button>
+        </div>
       </div>
 
       <QRCheckInScanner

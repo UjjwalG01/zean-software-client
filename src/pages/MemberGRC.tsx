@@ -624,7 +624,9 @@ const MemberGRC = () => {
             />
             <F label="Outlet" value={outlet?.name} />
           </div>
-          <div style={{ marginTop: 8 }}>
+
+          {/* Plan Usage & Attendance */}
+          <div style={{ marginTop: 2 }}>
             <PlanUsageWidget memberId={m.id} member={m} />
           </div>
           {show.packages && packages.length > 0 && (

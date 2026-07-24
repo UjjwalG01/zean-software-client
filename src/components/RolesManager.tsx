@@ -177,14 +177,14 @@ export function RolesManager() {
               return (
                 <div key={r.id} className="glass-card rounded-xl p-4 space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="font-semibold flex items-center gap-2">
+                    <div className="font-semibold flex items-center gap-2">
                       {r.name}
                       {r.isAdmin && (
                         <Badge className="bg-primary/20 text-primary text-[10px]">
                           Admin
                         </Badge>
                       )}
-                    </p>
+                    </div>
                     <Badge
                       variant={r.active ? "default" : "secondary"}
                       className="text-[10px]"

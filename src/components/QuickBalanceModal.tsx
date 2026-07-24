@@ -122,7 +122,7 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
         </DialogHeader>
 
         {/* Header strip */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 rounded-md overflow-hidden bg-primary text-primary-foreground">
+        <div className="grid grid-cols-1 sm:grid-cols-3 rounded-md overflow-hidden ">
           <div className="px-4 py-2 text-sm">
             <span className="opacity-80">Member No:</span>{" "}
             <strong>
@@ -200,11 +200,11 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
             <span className="text-muted-foreground">
               Booking Charges (gross)
             </span>
-            <strong>{formatNPR(summary.bookingCharges)}</strong>
+            <p>{formatNPR(summary.bookingCharges)}</p>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Manual / Misc Charges</span>
-            <strong>{formatNPR(summary.manualCharges)}</strong>
+            <p>{formatNPR(summary.manualCharges)}</p>
           </div>
           {/* <div className="flex justify-between text-xs">
             <span className="text-muted-foreground pl-3">↳ Net (pre-VAT)</span>
@@ -217,53 +217,48 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
           <div className="border-t border-border/50 my-1" />
           <div className="flex justify-between">
             <span className="text-muted-foreground">＋ Total Billed</span>
-            <strong>{formatNPR(summary.totalCharged)}</strong>
+            <p>{formatNPR(summary.totalCharged)}</p>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">
-              － Total Paid (Settlements)
-            </span>
-            <strong className="text-success">
-              {formatNPR(summary.totalPaid)}
-            </strong>
+            <span className="text-muted-foreground">－ Total Paid</span>
+            <p className="">{formatNPR(summary.totalPaid)}</p>
           </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">－ Advance Balance</span>
-            <strong className="text-primary">
-              {formatNPR(summary.advance)}
-            </strong>
-          </div>
+          {summary.advance ? (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">－ Advance Balance</span>
+              <p className="text-primary">{formatNPR(summary.advance)}</p>
+            </div>
+          ) : null}
+
           <div className="flex justify-between">
             <span className="text-muted-foreground">－ Discounts</span>
-            <strong className="text-warning">
-              {formatNPR(summary.discountTotal)}
-            </strong>
+            <p className="">{formatNPR(summary.discountTotal)}</p>
           </div>
           <div className="border-t border-border/60 mt-1 pt-1 flex justify-between text-base">
             <strong
-              className={
-                summary.status === "Settled"
-                  ? "text-success"
-                  : summary.status === "Partial"
-                    ? "text-warning"
-                    : summary.status === "Overpaid"
-                      ? "text-blue-500"
-                      : "text-destructive"
-              }
+            // className={
+            //   summary.status === "Settled"
+            //     ? "text-success"
+            //     : summary.status === "Partial"
+            //       ? "text-warning"
+            //       : summary.status === "Overpaid"
+            //         ? "text-blue-500"
+            //         : "text-destructive"
+            // }
             >
               ＝ {summary.status === "Overpaid" ? "Refund Due" : "Net Payable"}{" "}
-              ({summary.status})
+              {summary.netPayable > 0 ? summary.status : null}
             </strong>
             <strong
-              className={
-                summary.status === "Settled"
-                  ? "text-success"
-                  : summary.status === "Partial"
-                    ? "text-warning"
-                    : summary.status === "Overpaid"
-                      ? "text-blue-500"
-                      : "text-destructive"
-              }
+            // className={
+            //   summary.status === "Settled"
+            //     ? "text-success"
+            //     : summary.status === "Partial"
+            //       ? "text-warning"
+            //       : summary.status === "Overpaid"
+            //         ? "text-blue-500"
+            //         : "text-destructive"
+            // }
             >
               {summary.netPayable < 0
                 ? `(${formatNPR(Math.abs(summary.netPayable))})`
