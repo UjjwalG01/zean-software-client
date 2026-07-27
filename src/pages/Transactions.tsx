@@ -1129,7 +1129,38 @@ function SettleModalBody({
     }
 
     try {
-      if (settleTxn.id.startsWith("TEMP-")) {
+      if (isCredit) {
+        // Pay Later: keep charge unpaid, tag method=credit, and bump member due_amount.
+        const { supabase } = await import("@/lib/supabase");
+        const chargeRowId = (settleTxn as any).chargeRowId;
+        if (chargeRowId) {
+          await supabase
+            .from("charges")
+            .update({ status: "unpaid", method: "credit", discount })
+            .eq("id", chargeRowId);
+        }
+        if (!settleTxn.id.startsWith("TEMP-")) {
+          await updateTransactionMutation.mutateAsync({
+            id: settleTxn.id,
+            data: {
+              status: "pending",
+              method: "credit" as PaymentMethod,
+              discount,
+            } as any,
+          });
+        }
+        // Increment member.due_amount by netDue.
+        const { data: memberRow } = await supabase
+          .from("members")
+          .select("due_amount")
+          .eq("id", settleTxn.memberId)
+          .maybeSingle();
+        const currentDue = Number(memberRow?.due_amount || 0);
+        await supabase
+          .from("members")
+          .update({ due_amount: currentDue + netDue })
+          .eq("id", settleTxn.memberId);
+      } else if (settleTxn.id.startsWith("TEMP-")) {
         await addTransactionMutation.mutateAsync({
           memberId: settleTxn.memberId,
           memberName: settleTxn.memberName,
@@ -1173,7 +1204,7 @@ function SettleModalBody({
         });
       }
 
-      if (settleTxn.bookingId) {
+      if (settleTxn.bookingId && !isCredit) {
         await updateBookingMutation.mutateAsync({
           id: settleTxn.bookingId,
           data: {
