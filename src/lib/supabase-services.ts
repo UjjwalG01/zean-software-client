@@ -996,6 +996,7 @@ export interface FirestoreMembershipPlan {
   longTermPrice?: number;
   // includes?: string;
   durationInMonths?: number;
+  moduleId?: string;
 }
 
 function mapPlanRow(r: any, durations: PlanDuration[]): FirestoreMembershipPlan {
