@@ -264,6 +264,7 @@ const Transactions = () => {
       companyAddress: settings.companyAddress || "",
       companyPhone: settings.companyPhone || "",
       companyEmail: settings.companyEmail || "",
+      companyLogoUrl: (settings as any).extras?.logoUrl || (settings as any).logo_url || (settings as any).companyLogoUrl,
       vatNo: settings.vatNo || settings.panNumber || "",
       guestName: memberName,
       billNo: receiptNo,
