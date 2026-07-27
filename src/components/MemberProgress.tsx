@@ -1,20 +1,8 @@
 import { useMemo } from "react";
 import { formatDateTime, nowIso } from "@/lib/tz";
-import {
-  Activity,
-  Calendar as CalIcon,
-  CreditCard,
-  TrendingUp,
-  Award,
-  Download,
-} from "lucide-react";
+import { Activity, Calendar as CalIcon, CreditCard, TrendingUp, Award, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  formatNPR,
-  type Member,
-  type Booking,
-  type Transaction,
-} from "@/lib/mock-data";
+import { formatNPR, type Member, type Booking, type Transaction } from "@/lib/mock-data";
 import {
   BarChart,
   Bar,
@@ -35,10 +23,7 @@ import { getSystemNowDate } from "@/lib/timeUtils";
 import { printHTML } from "@/lib/print-utils";
 import { toast } from "sonner";
 import { tooltipStyle } from "@/lib/utils";
-import {
-  underlineFirstChar,
-  underlineSpecificChars,
-} from "@/lib/string-case-change";
+import { underlineFirstChar, underlineSpecificChars } from "@/lib/string-case-change";
 import { PlanUsageWidget } from "@/components/PlanUsageWidget";
 
 const COLORS = [
@@ -65,12 +50,7 @@ function safeDate(s: string): Date | null {
   }
 }
 
-export function MemberProgress({
-  member,
-  bookings,
-  transactions,
-  propertyName = ".............",
-}: Props) {
+export function MemberProgress({ member, bookings, transactions, propertyName = "............." }: Props) {
   const stats = useMemo(() => {
     const total = bookings.length;
     const completed = bookings.filter((b) => b.bookingStatus === "Completed").length;
@@ -94,10 +74,7 @@ export function MemberProgress({
   }, [bookings, transactions]);
 
   const monthlyTrend = useMemo(() => {
-    const map: Record<
-      string,
-      { month: string; visits: number; spend: number }
-    > = {};
+    const map: Record<string, { month: string; visits: number; spend: number }> = {};
     for (let i = 5; i >= 0; i--) {
       const d = startOfMonth(subMonths(getSystemNowDate(), i));
       const key = format(d, "MMM");
@@ -210,8 +187,7 @@ td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
               (t) =>
                 `<tr><td>${t.date}</td><td>${t.receiptNo}</td><td>${t.description}</td><td>${t.method}</td><td style="text-align:right">${formatNPR(t.total)}</td></tr>`,
             )
-            .join("") ||
-          `<tr><td colspan="5" style="text-align:center;color:#94a3b8">No payments</td></tr>`
+            .join("") || `<tr><td colspan="5" style="text-align:center;color:#94a3b8">No payments</td></tr>`
         }
       </tbody>
     </table>
@@ -231,23 +207,15 @@ td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
           <h3 className="font-display font-bold flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-primary" /> Progress Overview
           </h3>
-          <p className="text-xs text-muted-foreground">
-            Track sessions, attendance and spend over time.
-          </p>
+          <p className="text-xs text-muted-foreground">Track sessions, attendance and spend over time.</p>
         </div>
-        <Button
-          onClick={generateReportCard}
-          size="sm"
-          accessKey="w"
-          className="gradient-gold text-primary-foreground"
-        >
-          <Download className="h-4 w-4 mr-1" />{" "}
-          {underlineSpecificChars("Download Report Card (PDF)", [2])}
+        <Button onClick={generateReportCard} size="sm" accessKey="w" className="gradient-gold text-primary-foreground">
+          <Download className="h-4 w-4 mr-1" /> {underlineSpecificChars("Download Report Card (PDF)", [2])}
         </Button>
       </div>
 
       {/* Plan usage vs attendance */}
-      <PlanUsageWidget memberId={member.id} member={member} />
+      {/* <PlanUsageWidget memberId={member.id} member={member} /> */}
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -283,14 +251,10 @@ td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
         ].map((s) => (
           <div key={s.label} className="glass-card rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
-              <span
-                className={`h-8 w-8 rounded-lg bg-muted/40 flex items-center justify-center ${s.color}`}
-              >
+              <span className={`h-8 w-8 rounded-lg bg-muted/40 flex items-center justify-center ${s.color}`}>
                 <s.icon className="h-4 w-4" />
               </span>
-              <span className="text-[10px] uppercase text-muted-foreground tracking-wider">
-                {s.label}
-              </span>
+              <span className="text-[10px] uppercase text-muted-foreground tracking-wider">{s.label}</span>
             </div>
             <p className="text-xl font-bold font-display">{s.value}</p>
             <p className="text-[11px] text-muted-foreground mt-0.5">{s.sub}</p>
@@ -306,10 +270,7 @@ td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
           </p>
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={monthlyTrend}>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="hsl(224, 15%, 18%)"
-              />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(224, 15%, 18%)" />
               <XAxis
                 dataKey="month"
                 tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 11 }}
@@ -353,24 +314,13 @@ td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
         </div>
 
         <div className="glass-card rounded-xl p-4">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
-            Service Mix
-          </p>
+          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">Service Mix</p>
           {serviceMix.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-12 text-center">
-              No sessions yet
-            </p>
+            <p className="text-xs text-muted-foreground py-12 text-center">No sessions yet</p>
           ) : (
             <ResponsiveContainer width="100%" height={240}>
               <PieChart>
-                <Pie
-                  data={serviceMix}
-                  innerRadius={50}
-                  outerRadius={90}
-                  dataKey="value"
-                  paddingAngle={3}
-                  stroke="none"
-                >
+                <Pie data={serviceMix} innerRadius={50} outerRadius={90} dataKey="value" paddingAngle={3} stroke="none">
                   {serviceMix.map((_, i) => (
                     <Cell key={i} fill={COLORS[i % COLORS.length]} />
                   ))}
