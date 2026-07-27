@@ -66,6 +66,7 @@ const Settings = () => {
     companyEmail: "info@zeansoftware.com",
     companyPhone: "+977-xx-xxxxxxx",
     companyAddress: "Boudha, Kathmandu, Nepal",
+    logoUrl: "",
   });
 
   const [tax, setTax] = useState({
