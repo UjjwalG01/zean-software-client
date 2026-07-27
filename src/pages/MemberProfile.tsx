@@ -830,6 +830,14 @@ const MemberProfile = () => {
         member={member}
       />
 
+      <BookingDetailModal
+        booking={viewBooking}
+        open={!!viewBooking}
+        onOpenChange={(v) => !v && setViewBooking(null)}
+        readOnly
+      />
+
+
       {/* Edit Member Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-[640px] max-h-[85vh] overflow-y-auto">
