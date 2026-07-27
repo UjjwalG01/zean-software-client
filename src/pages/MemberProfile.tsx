@@ -467,6 +467,20 @@ const MemberProfile = () => {
         ))}
       </div>
 
+      {/* Plan Usage & Attendance Breakdown — Phase 3 */}
+      {member.id && (
+        <PlanUsageWidget
+          memberId={member.id}
+          member={{
+            joinDate: member.joinDate,
+            expiryDate: member.expiryDate,
+            plan: member.plan,
+          }}
+        />
+      )}
+
+
+
       {/* Prepaid Membership row — only when there is a pool */}
       {prepaid && prepaid.pools.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
