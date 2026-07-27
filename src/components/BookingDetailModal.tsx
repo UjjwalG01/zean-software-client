@@ -269,6 +269,7 @@ export function BookingDetailModal({
       companyAddress: settings.companyAddress || "",
       companyPhone: settings.companyPhone || "",
       companyEmail: settings.companyEmail || "",
+      companyLogoUrl: (settings as any).extras?.logoUrl || (settings as any).logo_url || (settings as any).companyLogoUrl,
       vatNo: settings.panNumber || settings.vatNo || "",
       guestName: b.memberName,
       billNo: linkedTxn?.receiptNo || `BK-${b.id.slice(0, 8)}`,

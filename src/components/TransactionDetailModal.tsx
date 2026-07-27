@@ -82,7 +82,7 @@ export function TransactionDetailModal({
       companyAddress: (settings as any).companyAddress,
       companyPhone: (settings as any).companyPhone,
       companyEmail: (settings as any).companyEmail,
-      companyLogoUrl: (settings as any).companyLogoUrl,
+      companyLogoUrl: (settings as any).extras?.logoUrl || (settings as any).logo_url || (settings as any).companyLogoUrl,
       paymentMethod: t.method,
       remarks: t.description,
       guestName: t.memberName,
