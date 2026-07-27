@@ -207,6 +207,7 @@ td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
           <h3 className="font-display font-bold flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-primary" /> Progress Overview
           </h3>
+          <p className="text-xs text-muted-foreground">Track sessions, attendance and spend over time.</p>
         </div>
         <Button onClick={generateReportCard} size="sm" accessKey="w" className="gradient-gold text-primary-foreground">
           <Download className="h-4 w-4 mr-1" /> {underlineSpecificChars("Download Report Card (PDF)", [2])}
