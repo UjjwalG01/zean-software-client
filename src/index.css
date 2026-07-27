@@ -106,7 +106,11 @@
 
 @layer utilities {
   .glass-card {
-    @apply bg-card/80 backdrop-blur-xl border border-border/50;
+    @apply bg-card/70 
+         backdrop-blur-3xl backdrop-saturate-150 backdrop-brightness-105 
+         border border-border/60 
+         shadow-[6px_16px_35px_-8px_rgba(0,0,0,0.12)] 
+         dark:shadow-[6px_16px_35px_-8px_rgba(0,0,0,0.5)];
   }
   .gradient-gold {
     background: linear-gradient(135deg, hsl(38 92% 50%), hsl(45 93% 60%));

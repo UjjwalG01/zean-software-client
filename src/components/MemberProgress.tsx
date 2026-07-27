@@ -73,7 +73,9 @@ export function MemberProgress({
 }: Props) {
   const stats = useMemo(() => {
     const total = bookings.length;
-    const completed = bookings.filter((b) => b.bookingStatus === "Completed").length;
+    const completed = bookings.filter(
+      (b) => b.bookingStatus === "Completed",
+    ).length;
     const upcoming = bookings.filter((b) => {
       const d = safeDate(b.date);
       return d && isAfter(d, getSystemNowDate());
@@ -226,23 +228,20 @@ td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="font-display font-bold flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-primary" /> Progress Overview
-          </h3>
-          <p className="text-xs text-muted-foreground">
-            Track sessions, attendance and spend over time.
-          </p>
-        </div>
+      <div className="flex justify-between items-center">
+        <h3 className="text-xs font-display font-bold uppercase tracking-wider">
+          Plan Usage &amp; Attendance Breakdown
+        </h3>
         <Button
           onClick={generateReportCard}
           size="sm"
           accessKey="w"
           className="gradient-gold text-primary-foreground"
         >
-          <Download className="h-4 w-4 mr-1" />{" "}
-          {underlineSpecificChars("Download Report Card (PDF)", [2])}
+          <Download className="h-4 w-4 mx-1" />{" "}
+          <span className="hidden sm:inline">
+            {underlineSpecificChars("Download Report Card (PDF)", [2])}
+          </span>
         </Button>
       </div>
 

@@ -63,10 +63,7 @@ export function PlanUsageWidget({ memberId, member, compact }: Props) {
     <div className="glass-card rounded-xl p-4 space-y-3">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">
-            Plan Usage &amp; Attendance Breakdown
-          </p>
-          <p className="text-sm mt-0.5">
+          <p className="text-sm mt-1">
             <span className="font-semibold">{attendedDays}</span> days used out
             of <span className="font-semibold">{totalPlanDays}</span> plan days
             <span className="text-muted-foreground">

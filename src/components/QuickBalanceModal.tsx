@@ -216,22 +216,22 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
           </div> */}
           <div className="border-t border-border/50 my-1" />
           <div className="flex justify-between">
-            <span className="text-muted-foreground">＋ Total Billed</span>
+            <span className="text-muted-foreground">Total Billed</span>
             <p>{formatNPR(summary.totalCharged)}</p>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">－ Total Paid</span>
+            <span className="text-muted-foreground">Total Paid</span>
             <p className="">{formatNPR(summary.totalPaid)}</p>
           </div>
           {summary.advance ? (
             <div className="flex justify-between">
-              <span className="text-muted-foreground">－ Advance Balance</span>
+              <span className="text-muted-foreground">Advance Balance</span>
               <p className="text-primary">{formatNPR(summary.advance)}</p>
             </div>
           ) : null}
 
           <div className="flex justify-between">
-            <span className="text-muted-foreground">－ Discounts</span>
+            <span className="text-muted-foreground">Discounts</span>
             <p className="">{formatNPR(summary.discountTotal)}</p>
           </div>
           <div className="border-t border-border/60 mt-1 pt-1 flex justify-between text-base">
@@ -246,7 +246,7 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
             //         : "text-destructive"
             // }
             >
-              ＝ {summary.status === "Overpaid" ? "Refund Due" : "Net Payable"}{" "}
+              {summary.status === "Overpaid" ? "Refund Due" : "Net Payable"}{" "}
               {summary.netPayable > 0 ? summary.status : null}
             </strong>
             <strong

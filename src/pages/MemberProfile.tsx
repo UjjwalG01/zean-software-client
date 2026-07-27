@@ -602,28 +602,26 @@ const MemberProfile = () => {
               return (
                 <div className="border-t border-border/50 p-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm bg-muted/20">
                   <div>
-                    <span className="text-muted-foreground">
-                      ＋ Total Billed
-                    </span>
+                    <span className="text-muted-foreground">Total Billed</span>
                     <div className="font-semibold">
                       {formatNPR(totalCharged)}
                     </div>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">－ Total Paid</span>
+                    <span className="text-muted-foreground">Total Paid</span>
                     <div className="font-semibold text-success">
                       {formatNPR(totalPaid)}
                     </div>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">－ Advance</span>
+                    <span className="text-muted-foreground">Advance</span>
                     <div className="font-semibold text-primary">
                       {formatNPR(advance)}
                     </div>
                   </div>
                   <div>
                     <span className="text-muted-foreground">
-                      ＝ {netPayable < 0 ? "Refund Due" : "Net Payable"}
+                      {netPayable < 0 ? "Refund Due" : "Net Payable"}
                     </span>
                     <div
                       className={

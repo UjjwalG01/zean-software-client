@@ -123,11 +123,11 @@ export function PremiumReportFrame({
     : null;
 
   return (
-    <div className="rounded-xl overflow-hidden border border-border/60 bg-card">
+    <div className="glass-card rounded-xl overflow-hidden border border-border/60 bg-card">
       {/* Header band */}
-      <div className="bg-gradient-to-r from-[hsl(220,70%,28%)] via-[hsl(220,70%,32%)] to-[hsl(220,70%,28%)] px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-1 md:gap-3">
+      <div className=" px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-1 md:gap-3">
         <div>
-          <h2 className="font-display font-bold text-sm text-white md:text-lg leading-tight">
+          <h2 className="font-display font-bold text-sm md:text-lg leading-tight">
             {title}
           </h2>
 
@@ -141,23 +141,23 @@ export function PremiumReportFrame({
         <div className="flex gap-2">
           {filters && collapsibleFilters && (
             <Button
-              variant="secondary"
+              variant="outline"
               size="sm"
               accessKey={showFilters ? "h" : "l"}
               onClick={() => setShowFilters((p) => !p)}
-              className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+              className="m-0.5"
             >
               <Filter className="h-4 w-4 mr-1.5 hidden md:flex" />
               {underlineFirstChar(showFilters ? "Hide Filters" : "Load Report")}
             </Button>
           )}
           <Button
-            variant="secondary"
+            variant="outline"
             size="sm"
             accessKey="p"
             onClick={handlePrint}
             disabled={rows.length === 0}
-            className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+            className="text-pretty"
           >
             <Printer className="h-4 w-4 mr-1.5 hidden md:flex" />
             {underlineFirstChar("Print")}
@@ -186,7 +186,7 @@ export function PremiumReportFrame({
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gradient-to-r from-[hsl(220,70%,28%)] to-[hsl(220,70%,28%)] text-white">
+            <tr className="border-y-[1px]">
               {columns.map((c) => (
                 <th
                   key={c.key}
@@ -286,7 +286,7 @@ export function PremiumReportFrame({
               ))
             )}
             {footerTotals && rows.length > 0 && (
-              <tr className="bg-gradient-to-r from-[hsl(220,70%,28%)] to-[hsl(220,70%,28%)] text-white font-bold border-t-2 border-[hsl(220,70%,28%)]">
+              <tr className="glass-card">
                 {columns.map((c, i) => (
                   <td
                     key={c.key}
