@@ -107,6 +107,7 @@ const Settings = () => {
         companyEmail: settings.email || prev.companyEmail,
         companyPhone: settings.phone || prev.companyPhone,
         companyAddress: settings.address || prev.companyAddress,
+        logoUrl: extras.logoUrl || settings.logo_url || prev.logoUrl,
       }));
       setTax((prev) => ({
         vatRate:
