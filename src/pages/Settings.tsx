@@ -157,6 +157,7 @@ const Settings = () => {
           timezone: general.timezone,
           dateFormat: general.dateFormat,
           defaultMemberView: general.defaultMemberView,
+          logoUrl: company.logoUrl,
           notifications: updatedNotifications || notifications, // Keep notifications in sync
         },
       };
