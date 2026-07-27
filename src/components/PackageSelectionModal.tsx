@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useOutlet } from "@/contexts/OutletContext";
-import { useMembershipPlans, useServices, useUpdateMember, useCompanySettings, useMember } from "@/hooks/use-firestore";
+import { useMembershipPlans, useServices, useUpdateMember, useCompanySettings, useMember, useAddBooking } from "@/hooks/use-firestore";
 import { formatNPR } from "@/lib/mock-data";
 import { getSystemTodayStr } from "@/lib/timeUtils";
 import { addMonths, parseISO, format } from "date-fns";
@@ -37,6 +37,7 @@ export default function PackageSelectionModal({ open, onOpenChange, memberId, me
   const { data: settings = {} } = useCompanySettings();
   const { data: member } = useMember(memberId);
   const updateMember = useUpdateMember();
+  const addBooking = useAddBooking();
 
   const packageOptions = parseList(settings, "setup_packages", ["Gym","Cardio","Swimming","Spa","Combo"]);
 
@@ -60,10 +61,10 @@ export default function PackageSelectionModal({ open, onOpenChange, memberId, me
       // Compute expiry = (member join date OR today) + plan duration months.
       // Falls back safely when join date is missing/invalid.
       let expiryDate: string | undefined;
+      const startStr = (member as any)?.joinDate || getSystemTodayStr();
       if (planRow) {
         const months = Number(planRow.durationMonths || planRow.durationInMonths || 0);
         if (months > 0) {
-          const startStr = (member as any)?.joinDate || getSystemTodayStr();
           const start = parseISO(startStr);
           if (!Number.isNaN(start.getTime())) {
             expiryDate = format(addMonths(start, months), "yyyy-MM-dd");
@@ -82,6 +83,36 @@ export default function PackageSelectionModal({ open, onOpenChange, memberId, me
           ...(expiryDate ? { expiryDate } : {}),
         },
       });
+
+      // Membership enrollment → create a matching booking row so the plan is
+      // reflected in bookings/ledger. Populates rate + member_package_id +
+      // module_id per the enrollment schema.
+      if (planRow) {
+        const planPrice = Number(planRow.price || 0);
+        try {
+          await addBooking.mutateAsync({
+            memberId,
+            memberName,
+            outletId,
+            service: "Membership" as any,
+            className: planRow.name || planRow.tier || "Membership",
+            date: startStr,
+            startTime: "00:00",
+            endTime: "23:59",
+            status: "confirmed" as any,
+            bookingStatus: "Confirmed" as any,
+            rate: planPrice,
+            originalRate: planPrice,
+            memberPackageId: planRow.id,
+            moduleId: planRow.moduleId,
+            notes: expiryDate ? `Membership window: ${startStr} → ${expiryDate}` : undefined,
+          } as any);
+        } catch (bookingErr: any) {
+          // Non-fatal — package assignment already succeeded.
+          console.warn("[PackageSelectionModal] booking creation failed:", bookingErr?.message);
+        }
+      }
+
       toast.success("Package assigned");
       onOpenChange(false);
       onDone?.();

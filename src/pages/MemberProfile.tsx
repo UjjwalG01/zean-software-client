@@ -65,6 +65,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MemberProgress } from "@/components/MemberProgress";
 import { QuickBalanceModal } from "@/components/QuickBalanceModal";
+import { PlanUsageWidget } from "@/components/PlanUsageWidget";
+import { BookingDetailModal } from "@/components/BookingDetailModal";
+import type { Booking } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { logAudit } from "@/lib/audit-log";
 import {
@@ -88,6 +91,7 @@ const MemberProfile = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [deactivateOpen, setDeactivateOpen] = useState(false);
   const [quickBalanceOpen, setQuickBalanceOpen] = useState(false);
+  const [viewBooking, setViewBooking] = useState<Booking | null>(null);
   const [editForm, setEditForm] = useState<MemberQuickEditValues>({
     name: "",
     email: "",
@@ -463,6 +467,20 @@ const MemberProfile = () => {
         ))}
       </div>
 
+      {/* Plan Usage & Attendance Breakdown — Phase 3 */}
+      {member.id && (
+        <PlanUsageWidget
+          memberId={member.id}
+          member={{
+            joinDate: member.joinDate,
+            expiryDate: member.expiryDate,
+            plan: member.plan,
+          }}
+        />
+      )}
+
+
+
       {/* Prepaid Membership row — only when there is a pool */}
       {prepaid && prepaid.pools.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -660,6 +678,7 @@ const MemberProfile = () => {
                     <TableHead>Service</TableHead>
                     <TableHead>Time</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="w-[110px] text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -688,6 +707,16 @@ const MemberProfile = () => {
                         >
                           {b.bookingStatus}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-[11px]"
+                          onClick={() => setViewBooking(b)}
+                        >
+                          View Details
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -800,6 +829,14 @@ const MemberProfile = () => {
         onOpenChange={setQuickBalanceOpen}
         member={member}
       />
+
+      <BookingDetailModal
+        booking={viewBooking}
+        open={!!viewBooking}
+        onOpenChange={(v) => !v && setViewBooking(null)}
+        readOnly
+      />
+
 
       {/* Edit Member Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>

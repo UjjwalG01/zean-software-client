@@ -378,3 +378,48 @@ the outlet POS layout.
   installs; use `db/migrations/*.sql` incrementally for existing ones.
 - Edge functions: `supabase/functions/send-email`, `admin-reset-password`.
 - Tests: `npx vitest run` (see `src/test/booking-time-consistency.test.ts`).
+
+---
+
+## Appendix — Member Financial Columns & Credit Workflow
+
+### Direct financial columns on `public.members`
+
+| Column | Type | Purpose |
+| --- | --- | --- |
+| `opening_balance` | `numeric(12,2)` | Legacy carry-over balance at member creation. |
+| `total_paid` | `numeric(12,2)` | Lifetime total collected from this member (cash/card/fonepay/etc). |
+| `due_amount` | `numeric(12,2)` | Outstanding balance the member owes (incremented on Credit sales). |
+| `discount` | `numeric(12,2)` | Cumulative discounts granted. |
+| `services` | `text[]` | Enrolled service tags mirrored from the packages picker. |
+| `preferences` | `jsonb` (**array**) | Favorite activities — strictly a JSON array. |
+| `extras` | `jsonb` (**object**) | Free-form: `plan`, `membershipYears`, `autoRenew`, `logoUrl`, and any other dynamic keys. |
+
+Roll-up SSOT stays the SQL views `vw_member_ledger` +
+`member_financial_summaries` (consumed via `useMemberLedger` /
+`useMemberFinancials`). The direct columns above are the fast per-member
+snapshot written by mutations.
+
+### Credit / Pay-Later settlement flow
+
+1. Booking or manual charge modal offers a `Credit` payment method.
+2. Guard: if there is no `memberId` (walk-in guest), the UI blocks the
+   sale with the toast **"Walk-in guests cannot pay on credit. Please
+   select a registered member."**
+3. On accept: the charge/transaction is written with `status: "unpaid"`
+   and `method: "credit"`, the ledger records a `credit_hold` audit
+   entry, and `members.due_amount` is incremented by the charge total.
+4. Later settlement happens via `QuickBalanceModal` or Member Financials
+   by recording a Cash/Card/Fonepay payment; the payment reduces
+   `due_amount` and lands as a normal credit row in the ledger view.
+
+### Membership enrollment → booking bridge
+
+`PackageSelectionModal` writes a matching row to `public.bookings` when a
+plan is picked, populating `rate` (from `plan.price`), `member_package_id`
+and `module_id`. The Member Profile → Bookings tab exposes a
+**View Details** action that opens `BookingDetailModal` in read-only
+mode, so staff can inspect package/price/duration/module/dates without
+mutating the plan. The Plan Usage & Attendance Breakdown card
+(`PlanUsageWidget` + `useMemberPlanUsage`) reads the same `joinDate` /
+`expiryDate` window written by the enrollment step.
