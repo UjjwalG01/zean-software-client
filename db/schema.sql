@@ -272,15 +272,17 @@ create table if not exists public.members (
   expiry_date        timestamptz,
   outlet_id          uuid references public.outlets(id) on delete set null,
   grc_no             text,
-  preferences        jsonb not null default '{}'::jsonb,
+  preferences        jsonb not null default '[]'::jsonb,
   extras             jsonb not null default '{}'::jsonb,
+  -- Direct financial columns (SSOT for per-member roll-ups; details live in
+  -- charges/payments and the vw_member_ledger / member_financial_summaries views).
+  opening_balance    numeric(12,2) not null default 0,
+  total_paid         numeric(12,2) not null default 0,
+  due_amount         numeric(12,2) not null default 0,
+  discount           numeric(12,2) not null default 0,
+  services           text[] not null default '{}',
   created_at         timestamptz not null default now(),
   updated_at         timestamptz not null default now()
-  opening_balance     numeric null default '0'::numeric,
-  due_amount          numeric null default '0'::numeric,
-  discount            numeric null default '0'::numeric,
-  total_paid          numeric null default '0'::numeric,
-  services            text[] null default '{}',
 );
 create index if not exists members_status_idx on public.members(status);
 create index if not exists members_expiry_idx on public.members(expiry_date);

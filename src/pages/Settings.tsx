@@ -66,6 +66,7 @@ const Settings = () => {
     companyEmail: "info@zeansoftware.com",
     companyPhone: "+977-xx-xxxxxxx",
     companyAddress: "Boudha, Kathmandu, Nepal",
+    logoUrl: "",
   });
 
   const [tax, setTax] = useState({
@@ -106,6 +107,7 @@ const Settings = () => {
         companyEmail: settings.email || prev.companyEmail,
         companyPhone: settings.phone || prev.companyPhone,
         companyAddress: settings.address || prev.companyAddress,
+        logoUrl: extras.logoUrl || settings.logo_url || prev.logoUrl,
       }));
       setTax((prev) => ({
         vatRate:
@@ -155,6 +157,7 @@ const Settings = () => {
           timezone: general.timezone,
           dateFormat: general.dateFormat,
           defaultMemberView: general.defaultMemberView,
+          logoUrl: company.logoUrl,
           notifications: updatedNotifications || notifications, // Keep notifications in sync
         },
       };
@@ -289,19 +292,37 @@ const Settings = () => {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Company Logo</Label>
+              <Label>Company Logo URL</Label>
               <div className="flex items-center gap-4">
-                <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center text-xl font-bold text-primary">
-                  ZEAN
+                <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
+                  {company.logoUrl ? (
+                    <img
+                      src={company.logoUrl}
+                      alt="Logo preview"
+                      className="h-full w-full object-contain"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <span className="text-xl font-bold text-primary">
+                      {(company.companyName || "LOGO").slice(0, 4).toUpperCase()}
+                    </span>
+                  )}
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => toast.info("Upload logo via backend storage.")}
-                >
-                  Upload Logo
-                </Button>
+                <Input
+                  type="url"
+                  placeholder="https://example.com/logo.png"
+                  value={company.logoUrl}
+                  onChange={(e) =>
+                    setCompany((p) => ({ ...p, logoUrl: e.target.value }))
+                  }
+                  className="flex-1"
+                />
               </div>
+              <p className="text-xs text-muted-foreground">
+                Paste a hosted image URL. Leave blank to hide the logo on printed receipts.
+              </p>
             </div>
             <Button
               onClick={handleSaveCompany}

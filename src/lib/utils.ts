@@ -13,6 +13,7 @@ export const methodColors: Record<PaymentMethod, string> = {
   bank_transfer: "bg-muted text-muted-foreground",
   fonepay: "bg-purple-500/20 text-purple-400",
   cheque: "bg-yellow-500/20 text-yellow-400",
+  credit: "bg-orange-500/20 text-orange-400",
   other: "bg-blue-500/20 text-blue-400",
 };
 

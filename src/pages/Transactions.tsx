@@ -131,6 +131,7 @@ const Transactions = () => {
   const [methodFilter, setMethodFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [outletFilter, setOutletFilter] = useState<string>("all");
 
   const [advanceOpen, setAdvanceOpen] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
@@ -147,9 +148,19 @@ const Transactions = () => {
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 25;
 
-  const { selected: activeOutlet } = useOutlet();
+  const { selected: activeOutlet, outlets: availableOutlets } = useOutlet();
+
+  // Default outlet filter to the user's active outlet (local scope only —
+  // never mutates the global OutletContext used by Bookings/Attendance).
+  useEffect(() => {
+    if (activeOutlet?.id && outletFilter === "all") {
+      setOutletFilter(activeOutlet.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeOutlet?.id]);
+
   const { data: transactions = [], isLoading } = useTransactions({
-    outletId: activeOutlet?.id,
+    outletId: outletFilter === "all" ? undefined : outletFilter,
   });
   const { data: members = [] } = useMembers({ outletId: activeOutlet?.id });
   const { data: settings = {} } = useCompanySettings();
@@ -172,6 +183,7 @@ const Transactions = () => {
     "bank_transfer",
     "fonepay",
     "cheque",
+    "credit",
     "other",
   ]);
 
@@ -264,6 +276,7 @@ const Transactions = () => {
       companyAddress: settings.companyAddress || "",
       companyPhone: settings.companyPhone || "",
       companyEmail: settings.companyEmail || "",
+      companyLogoUrl: (settings as any).extras?.logoUrl || (settings as any).logo_url || (settings as any).companyLogoUrl,
       vatNo: settings.vatNo || settings.panNumber || "",
       guestName: memberName,
       billNo: receiptNo,
@@ -521,6 +534,21 @@ const Transactions = () => {
             <SelectItem value="voided">Voided</SelectItem>
           </SelectContent>
         </Select>
+        {availableOutlets.length > 1 && (
+          <Select value={outletFilter} onValueChange={setOutletFilter}>
+            <SelectTrigger className="w-[160px] bg-muted/50 border-0 hidden md:flex">
+              <SelectValue placeholder="Outlet" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Outlets</SelectItem>
+              {availableOutlets.map((o) => (
+                <SelectItem key={o.id} value={o.id}>
+                  {o.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <DateRangeFilter
           from={dateFrom}
           to={dateTo}
@@ -1090,8 +1118,49 @@ function SettleModalBody({
     const discount = Math.max(0, Number(settleDiscount) || 0);
     const netDue = Math.max(0, (settleTxn.total || 0) - discount);
 
+    // "Credit" / Pay Later — reserved for registered members only.
+    const isCredit = settleMethod === ("credit" as PaymentMethod);
+    const isGuestTxn = !settleTxn.memberId;
+    if (isCredit && isGuestTxn) {
+      toast.error(
+        "Walk-in guests cannot pay on credit. Please select a registered member.",
+      );
+      return;
+    }
+
     try {
-      if (settleTxn.id.startsWith("TEMP-")) {
+      if (isCredit) {
+        // Pay Later: keep charge unpaid, tag method=credit, and bump member due_amount.
+        const { supabase } = await import("@/lib/supabase");
+        const chargeRowId = (settleTxn as any).chargeRowId;
+        if (chargeRowId) {
+          await supabase
+            .from("charges")
+            .update({ status: "unpaid", method: "credit", discount })
+            .eq("id", chargeRowId);
+        }
+        if (!settleTxn.id.startsWith("TEMP-")) {
+          await updateTransactionMutation.mutateAsync({
+            id: settleTxn.id,
+            data: {
+              status: "pending",
+              method: "credit" as PaymentMethod,
+              discount,
+            } as any,
+          });
+        }
+        // Increment member.due_amount by netDue.
+        const { data: memberRow } = await supabase
+          .from("members")
+          .select("due_amount")
+          .eq("id", settleTxn.memberId)
+          .maybeSingle();
+        const currentDue = Number(memberRow?.due_amount || 0);
+        await supabase
+          .from("members")
+          .update({ due_amount: currentDue + netDue })
+          .eq("id", settleTxn.memberId);
+      } else if (settleTxn.id.startsWith("TEMP-")) {
         await addTransactionMutation.mutateAsync({
           memberId: settleTxn.memberId,
           memberName: settleTxn.memberName,
@@ -1135,7 +1204,7 @@ function SettleModalBody({
         });
       }
 
-      if (settleTxn.bookingId) {
+      if (settleTxn.bookingId && !isCredit) {
         await updateBookingMutation.mutateAsync({
           id: settleTxn.bookingId,
           data: {
@@ -1148,25 +1217,33 @@ function SettleModalBody({
 
       qc.invalidateQueries({ queryKey: ["bookings"] });
       qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["members"] });
 
       await logAudit({
         module: "transactions",
         entityType: "transaction",
-        action: "settle",
+        action: isCredit ? "credit_hold" : "settle",
         entityId: settleTxn.id,
         outletId: activeOutlet?.id || null,
         newValue: {
           memberId: settleTxn.memberId,
-          amountPaid: netDue,
+          amountPaid: isCredit ? 0 : netDue,
+          amountOnCredit: isCredit ? netDue : 0,
           discountApplied: discount,
           paymentMethod: settleMethod,
         },
       });
 
-      toast.success("Payment settled securely");
+      if (isCredit) {
+        toast.success(
+          `${formatNPR(netDue)} added to member dues (pay later)`,
+        );
+      } else {
+        toast.success("Payment settled securely");
+      }
 
       // 🌟 FIX 2: Prevent automatic printing when resetting an already settled bill
-      if (!isResettlement) {
+      if (!isResettlement && !isCredit) {
         printBill(
           settleTxn.memberName,
           settleTxn.receiptNo,
