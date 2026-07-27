@@ -678,6 +678,7 @@ const MemberProfile = () => {
                     <TableHead>Service</TableHead>
                     <TableHead>Time</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="w-[110px] text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -706,6 +707,16 @@ const MemberProfile = () => {
                         >
                           {b.bookingStatus}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-[11px]"
+                          onClick={() => setViewBooking(b)}
+                        >
+                          View Details
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
