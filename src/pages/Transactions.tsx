@@ -1217,25 +1217,33 @@ function SettleModalBody({
 
       qc.invalidateQueries({ queryKey: ["bookings"] });
       qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["members"] });
 
       await logAudit({
         module: "transactions",
         entityType: "transaction",
-        action: "settle",
+        action: isCredit ? "credit_hold" : "settle",
         entityId: settleTxn.id,
         outletId: activeOutlet?.id || null,
         newValue: {
           memberId: settleTxn.memberId,
-          amountPaid: netDue,
+          amountPaid: isCredit ? 0 : netDue,
+          amountOnCredit: isCredit ? netDue : 0,
           discountApplied: discount,
           paymentMethod: settleMethod,
         },
       });
 
-      toast.success("Payment settled securely");
+      if (isCredit) {
+        toast.success(
+          `${formatNPR(netDue)} added to member dues (pay later)`,
+        );
+      } else {
+        toast.success("Payment settled securely");
+      }
 
       // 🌟 FIX 2: Prevent automatic printing when resetting an already settled bill
-      if (!isResettlement) {
+      if (!isResettlement && !isCredit) {
         printBill(
           settleTxn.memberName,
           settleTxn.receiptNo,
