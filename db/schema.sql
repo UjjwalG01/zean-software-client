@@ -29,9 +29,10 @@ create extension if not exists btree_gist;
 -- ─── 2. ENUMS ───────────────────────────────────────────────────────────────
 do $$ begin create type public.app_role       as enum ('admin','manager','staff','member'); exception when duplicate_object then null; end $$;
 do $$ begin create type public.member_status  as enum ('active','expired','expiring','inactive'); exception when duplicate_object then null; end $$;
-do $$ begin create type public.booking_status as enum ('pending','confirmed','provisional','waitlisted','completed','cancelled','no_show','wait-listed','not-fixed','amended'); exception when duplicate_object then null; end $$;
+do $$ begin create type public.status         as enum ('pending','completed','cancelled', 'amended'); exception when duplicate_object then null; end $$;
+do $$ begin create type public.booking_status as enum ('confirmed','provisional','waitlisted', 'wait-listed','not-fixed'); exception when duplicate_object then null; end $$;
 do $$ begin create type public.invoice_status as enum ('draft','issued','partial','paid','void'); exception when duplicate_object then null; end $$;
-do $$ begin create type public.payment_status as enum ('pending','paid','failed','refunded'); exception when duplicate_object then null; end $$;
+do $$ begin create type public.payment_status as enum ('pending','paid','failed','refunded', 'completed'); exception when duplicate_object then null; end $$;
 do $$ begin create type public.payment_method as enum ('cash','card','esewa','bank_transfer','mobile_wallet','cheque'); exception when duplicate_object then null; end $$;
 do $$ begin create type public.gender_enum    as enum ('male','female','other'); exception when duplicate_object then null; end $$;
 do $$ begin create type public.marital_enum   as enum ('single','married','widowed','divorced'); exception when duplicate_object then null; end $$;
@@ -83,6 +84,7 @@ create table if not exists public.app_users (
   extras       jsonb not null default '{}'::jsonb,
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()
+  role         public.app_role null default 'staff'::app_role,
 );
 drop trigger if exists tg_app_users_touch on public.app_users;
 create trigger tg_app_users_touch before update on public.app_users
@@ -91,7 +93,7 @@ for each row execute function public.tg_touch_updated_at();
 -- 4.3 Company settings (singleton) ------------------------------------------
 create table if not exists public.company_settings (
   id              text primary key default 'main',
-  company_name    text not null default 'VitaFit Club',
+  company_name    text not null default 'Zean Software',
   tagline         text,
   address         text,
   phone           text,
@@ -259,7 +261,7 @@ create table if not exists public.members (
   emergency_contact  jsonb not null default '{"name":"","phone":"","address":""}'::jsonb,
   physical           jsonb not null default '{"height":"","weight":"","chest":"","blood_group":""}'::jsonb,
   medical            jsonb not null default '{"heart_stroke":false,"breathing_difficulty":false,"skin_disease":false}'::jsonb,
-  member_preferences text[] not null default '{}',
+  -- member_preferences text[] not null default '{}',
   office_name        text,
   office_address     text,
   contact_alt        text,
@@ -274,6 +276,11 @@ create table if not exists public.members (
   extras             jsonb not null default '{}'::jsonb,
   created_at         timestamptz not null default now(),
   updated_at         timestamptz not null default now()
+  opening_balance     numeric null default '0'::numeric,
+  due_amount          numeric null default '0'::numeric,
+  discount            numeric null default '0'::numeric,
+  total_paid          numeric null default '0'::numeric,
+  services            text[] null default '{}',
 );
 create index if not exists members_status_idx on public.members(status);
 create index if not exists members_expiry_idx on public.members(expiry_date);
@@ -361,7 +368,7 @@ create table if not exists public.bookings (
   end_at            timestamptz,
   start_time        timestamptz,
   end_time          timestamptz,
-  booking_status    public.booking_status not null default 'confirmed',
+  booking_status    public.booking_status_v2 not null default 'confirmed',
   original_rate     numeric,
   rate              numeric,
   discount_amount   numeric not null default 0,
@@ -372,12 +379,14 @@ create table if not exists public.bookings (
   notes             text,
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now(),
-  created_by        uuid references auth.users(id) on delete set null
+  created_by        uuid references auth.users(id) on delete set null,
+  status            public.booking_status not null default 'pending'::booking_status,
 );
 create index if not exists idx_bookings_start_at     on public.bookings(start_at);
 create index if not exists idx_bookings_end_at       on public.bookings(end_at);
 create index if not exists idx_bookings_date_range   on public.bookings(start_at, end_at);
-create index if not exists idx_bookings_status       on public.bookings(booking_status);
+create index IF not exists idx_bookings_status       on public.bookings(status);
+create index if not exists idx_bookings_status_v2    on public.bookings(booking_status);
 create index if not exists idx_bookings_member_id    on public.bookings(member_id);
 create index if not exists idx_bookings_member_start on public.bookings(member_id, start_at);
 create index if not exists idx_bookings_outlet       on public.bookings(outlet_id);

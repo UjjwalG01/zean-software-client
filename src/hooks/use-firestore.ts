@@ -513,8 +513,8 @@ export function useAddMembershipPlan() {
   return useMutation({
     mutationFn: async (data: Partial<fbServices.FirestoreMembershipPlan>) => {
       if (!isSupabaseEnabled) {
-        toast.success("Plan created (mock mode)");
-        return "mock-id";
+        toast.success("No membership plans found.");
+        // return "mock-id";
       }
       return fbServices.addMembershipPlan(data);
     },

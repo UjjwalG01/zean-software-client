@@ -170,12 +170,13 @@ const Transactions = () => {
     "card",
     "esewa",
     "bank_transfer",
-    "mobile_wallet",
+    "fonepay",
     "cheque",
     "other",
   ]);
 
   const filtered = useMemo(() => {
+    console.log(transactions);
     const list = transactions.filter((t) => {
       const matchSearch =
         t.memberName.toLowerCase().includes(search.toLowerCase()) ||

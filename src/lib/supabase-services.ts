@@ -148,17 +148,23 @@ function splitFullName(full?: string): { firstName: string; middleName: string; 
 }
 
 function mapMemberRow(r: any): Member {
-  const prefs = r.preferences && typeof r.preferences === "object" ? r.preferences : {};
   const extras = r.extras && typeof r.extras === "object" ? r.extras : {};
   const address = r.address && typeof r.address === "object" ? r.address : {};
   const emergency = r.emergency_contact && typeof r.emergency_contact === "object" ? r.emergency_contact : {};
   const physical = r.physical && typeof r.physical === "object" ? r.physical : {};
   const medical = r.medical && typeof r.medical === "object" ? r.medical : {};
-  const services = Array.isArray(r.services) ? r.services : Array.isArray(prefs.services) ? prefs.services : [];
+  const services = Array.isArray(r.services) ? r.services : Array.isArray(extras.services) ? extras.services : [];
 
-  const fullName = r.full_name || prefs.name || "";
+  const fullName = r.full_name || extras.name || "";
   const nameParts = splitFullName(fullName);
   const legacyAddress = typeof r.address === "string" ? r.address : "";
+
+  // Extract preferences array cleanly
+  const preferencesArray = Array.isArray(r.preferences)
+    ? r.preferences
+    : Array.isArray(r.preferences?.preferences)
+      ? r.preferences.preferences
+      : [];
 
   const base: any = {
     id: r.id,
@@ -166,34 +172,35 @@ function mapMemberRow(r: any): Member {
     name: fullName,
     email: r.email || "",
     phone: r.phone || "",
-    avatar: r.avatar_url || prefs.avatar || avatarUrl(fullName || r.email || r.id),
+    avatar: r.avatar_url || extras.avatar || avatarUrl(fullName || r.email || r.id),
     tier: (r.tier || "Basic") as MemberTier,
     services: services as ServiceType[],
     status: (r.status || "active").replace(/^./, (c: string) => c.toUpperCase()) as MemberStatus,
     joinDate: dateOnly(r.join_date),
     expiryDate: dateOnly(r.expiry_date),
-    plan: r.plan || prefs.plan || "Monthly",
+
+    // Read exclusively from extras column (or root fallback)
+    plan: extras.plan || r.plan || "Monthly",
+    membershipYears: Number(extras.membershipYears ?? r.membership_years ?? 0),
+    autoRenew: Boolean(extras.autoRenew ?? r.auto_renew ?? false),
+
     planId: r.plan_id || "",
     maritalStatus: r.marital_status || extras.maritalStatus || "",
     address:
       address.permanent ||
       address.temporary ||
       legacyAddress ||
-      (typeof prefs.address === "string" ? prefs.address : "") ||
+      (typeof extras.address === "string" ? extras.address : "") ||
       "",
-    emergencyContact: emergency.phone || prefs.emergencyContact || "",
-    preferences:
-      Array.isArray(r.member_preferences) && r.member_preferences.length
-        ? r.member_preferences
-        : Array.isArray(prefs.preferences)
-          ? prefs.preferences
-          : [],
-    openingBalance: Number(r.opening_balance ?? prefs.openingBalance ?? 0),
-    totalPaid: Number(r.total_paid ?? prefs.totalPaid ?? 0),
-    dueAmount: Number(r.due_amount ?? prefs.dueAmount ?? 0),
-    membershipYears: Number(r.membership_years ?? prefs.membershipYears ?? 0),
-    discount: Number(r.discount ?? prefs.discount ?? 0),
-    autoRenew: Boolean(r.auto_renew ?? prefs.autoRenew ?? false),
+    emergencyContact: emergency.phone || extras.emergencyContact || "",
+    preferences: preferencesArray,
+
+    // Read directly from dedicated database columns
+    openingBalance: Number(r.opening_balance ?? 0),
+    totalPaid: Number(r.total_paid ?? 0),
+    dueAmount: Number(r.due_amount ?? 0),
+    discount: Number(r.discount ?? 0),
+
     outletId: r.outlet_id || extras.outletId || "",
     grcNo: r.grc_no || "",
 
@@ -234,19 +241,14 @@ function mapMemberRow(r: any): Member {
 
 function memberPayload(data: Partial<Member>): Record<string, any> {
   const fullName = data.name || [data.firstName, data.middleName, data.lastName].filter(Boolean).join(" ").trim();
-  const prefs = {
-    preferences: data.preferences || [],
-    plan: data.plan || "Monthly",
-    services: data.services || [],
-    openingBalance: data.openingBalance || 0,
-    totalPaid: data.totalPaid || 0,
-    dueAmount: data.dueAmount || 0,
-    membershipYears: data.membershipYears || 0,
-    discount: data.discount || 0,
-    autoRenew: data.autoRenew || false,
-  };
+  const preferencesList = Array.isArray(data.preferences) ? data.preferences : [];
 
-  const extras: Record<string, any> = {};
+  // Pack ONLY plan, membershipYears, autoRenew (and EXTRA_KEYS) into extras
+  const extras: Record<string, any> = {
+    plan: data.plan || "Monthly",
+    membershipYears: data.membershipYears || 0,
+    autoRenew: Boolean(data.autoRenew),
+  };
   for (const k of EXTRA_KEYS) if ((data as any)[k] !== undefined) extras[k] = (data as any)[k];
 
   const payload: Record<string, any> = {
@@ -270,7 +272,13 @@ function memberPayload(data: Partial<Member>): Record<string, any> {
     office_name: data.officeName || null,
     office_address: data.officeAddress || null,
     contact_alt: data.contactAlt || null,
-    member_preferences: Array.isArray(data.preferences) ? data.preferences : [],
+
+
+
+    // Dedicated JSON array column
+    preferences: preferencesList,
+    // member_preferences: preferencesList,
+
     address: {
       permanent: data.permanentAddress || "",
       temporary: data.temporaryAddress || "",
@@ -291,9 +299,18 @@ function memberPayload(data: Partial<Member>): Record<string, any> {
       skin_disease: toBool((data as any).skinDisease),
       breathing_difficulty: toBool((data as any).breathingDifficulty),
     },
-    preferences: prefs,
-    extras,
+
+    // Dedicated database columns
+    opening_balance: data.openingBalance || 0,
+    total_paid: data.totalPaid || 0,
+    due_amount: data.dueAmount || 0, // Fixed due_mount typo
+    discount: data.discount || 0,
+    services: data.services || [],
+
+    // Extras JSON column containing plan, membershipYears, autoRenew
+    extras: extras,
   };
+
   if ((data as any).memberCode) payload.member_code = (data as any).memberCode;
   return payload;
 }
@@ -378,6 +395,20 @@ export async function updateMember(id: string, data: Partial<Record<string, any>
   const current = await getMember(id);
   const payload: Record<string, any> = { updated_at: nowIso() };
 
+  // 1. Direct database columns for financials & services
+  if (data.openingBalance !== undefined) payload.opening_balance = data.openingBalance;
+  if (data.totalPaid !== undefined) payload.total_paid = data.totalPaid;
+  if (data.dueAmount !== undefined) payload.due_amount = data.dueAmount;
+  if (data.discount !== undefined) payload.discount = data.discount;
+  if (data.services !== undefined) payload.services = data.services;
+
+  // 2. Preferences column updated strictly as an array
+  if (data.preferences !== undefined && Array.isArray(data.preferences)) {
+    payload.preferences = data.preferences;
+    // payload.member_preferences = data.preferences;
+  }
+
+  // 3. Scalar columns mapping
   const scalarCols: Record<string, string> = {
     name: "full_name",
     email: "email",
@@ -401,13 +432,12 @@ export async function updateMember(id: string, data: Partial<Record<string, any>
   for (const [k, col] of Object.entries(scalarCols)) {
     if (data[k] !== undefined) payload[col] = data[k] === "" ? null : data[k];
   }
+
   if (data.status !== undefined) payload.status = String(data.status).toLowerCase();
   if (data.joinDate !== undefined) payload.join_date = data.joinDate;
   if (data.expiryDate !== undefined) payload.expiry_date = data.expiryDate;
-  if (data.preferences !== undefined && Array.isArray(data.preferences)) {
-    payload.member_preferences = data.preferences;
-  }
 
+  // 4. Name construction fallback
   if (
     data.name === undefined &&
     (data.firstName !== undefined || data.middleName !== undefined || data.lastName !== undefined)
@@ -418,6 +448,7 @@ export async function updateMember(id: string, data: Partial<Record<string, any>
     payload.full_name = [fn, mn, ln].filter(Boolean).join(" ").trim();
   }
 
+  // 5. Nested JSON objects (Address, Emergency Contact, Physical, Medical)
   if (data.permanentAddress !== undefined || data.temporaryAddress !== undefined) {
     payload.address = {
       permanent: data.permanentAddress ?? current?.permanentAddress ?? "",
@@ -467,44 +498,21 @@ export async function updateMember(id: string, data: Partial<Record<string, any>
     };
   }
 
-  const prefsKeys = [
-    "preferences",
-    "plan",
-    "services",
-    "openingBalance",
-    "totalPaid",
-    "dueAmount",
-    "membershipYears",
-    "discount",
-    "autoRenew",
-  ];
-  const prefsTouched: Record<string, any> = {};
-  for (const k of prefsKeys) if (data[k] !== undefined) prefsTouched[k] = data[k];
-  if (Object.keys(prefsTouched).length) {
-    payload.preferences = {
-      preferences: current?.preferences || [],
-      plan: current?.plan || "Monthly",
-      services: current?.services || [],
-      openingBalance: current?.openingBalance || 0,
-      totalPaid: current?.totalPaid || 0,
-      dueAmount: current?.dueAmount || 0,
-      membershipYears: current?.membershipYears || 0,
-      discount: current?.discount || 0,
-      autoRenew: current?.autoRenew || false,
-      ...prefsTouched,
-    };
-  }
-
+  // 6. Extras JSON column logic (strictly handles plan, membershipYears, autoRenew, and EXTRA_KEYS)
+  const extrasKeys = ["plan", "membershipYears", "autoRenew", ...EXTRA_KEYS];
   const extras: Record<string, any> = {};
   let extrasTouched = false;
-  for (const k of EXTRA_KEYS) {
+
+  for (const k of extrasKeys) {
     if (data[k] !== undefined) {
       extras[k] = data[k];
       extrasTouched = true;
     }
   }
+
   if (extrasTouched) {
-    for (const k of EXTRA_KEYS) {
+    // Retain existing values from current record for untouched keys
+    for (const k of extrasKeys) {
       if (extras[k] === undefined && (current as any)?.[k] !== undefined) {
         extras[k] = (current as any)[k];
       }
@@ -512,6 +520,7 @@ export async function updateMember(id: string, data: Partial<Record<string, any>
     payload.extras = extras;
   }
 
+  // 7. Supabase Update & Audit
   const { error } = await supabase.from("members").update(payload).eq("id", id);
   if (error) throwDb(error, "members");
   await maybeAudit("update", "member", id, current, data);
@@ -985,7 +994,7 @@ export interface FirestoreMembershipPlan {
   price: number;
   yearlyPrice?: number;
   longTermPrice?: number;
-  includes?: string;
+  // includes?: string;
   durationInMonths?: number;
 }
 
@@ -1042,7 +1051,7 @@ function mapPlanRow(r: any, durations: PlanDuration[]): FirestoreMembershipPlan 
     price: headlinePrice,
     yearlyPrice: Number(r.yearly_price || meta.yearlyPrice || 0),
     longTermPrice: Number(r.long_term_price || meta.longTermPrice || 0),
-    includes: includedServices.join(" + "),
+    // includes: includedServices.join(" + "),
     durationInMonths: durationMonths,
   };
 }

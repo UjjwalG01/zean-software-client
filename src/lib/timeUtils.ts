@@ -1,3 +1,5 @@
+import { parseISO, differenceInDays, differenceInMonths, isValid } from "date-fns";
+
 // src/lib/timeUtils.ts
 //
 // Single source of truth for all "current date/time" reads across the app.
@@ -54,3 +56,35 @@ export const getSystemNowDate = (): Date => {
 
 /** Current system month in "YYYY-MM" format. */
 export const getSystemMonthStr = (): string => getSystemTodayStr().slice(0, 7);
+
+
+
+export function formatTimePeriod(joinDate?: string | null, expiryDate?: string | null): string {
+    if (!joinDate || !expiryDate) return "N/A";
+
+    // Safely parse string dates like "2027-01-20"
+    const start = parseISO(joinDate);
+    const end = parseISO(expiryDate);
+
+    if (!isValid(start) || !isValid(end)) return "N/A";
+
+    const totalDays = differenceInDays(end, start);
+    if (totalDays <= 0) return "Expired";
+
+    const months = differenceInMonths(end, start);
+
+    // 1 year or more -> format as years (e.g. "1 yr", "1.5 yrs", "2 yrs")
+    if (months >= 12) {
+        const years = Number((months / 12).toFixed(1));
+        const formattedYears = Number.isInteger(years) ? years : years.toFixed(1);
+        return `${formattedYears} ${formattedYears === 1 ? "yr" : "yrs"}`;
+    }
+
+    // Under a year -> format as months (e.g. "6 mos")
+    if (months > 0) {
+        return `${months} ${months === 1 ? "mo" : "mos"}`;
+    }
+
+    // Under a month -> format as days (e.g. "15 days")
+    return `${totalDays} ${totalDays === 1 ? "day" : "days"}`;
+}

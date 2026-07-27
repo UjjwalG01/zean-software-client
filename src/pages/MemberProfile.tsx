@@ -72,6 +72,7 @@ import {
   underlineSpecificChars,
 } from "@/lib/string-case-change";
 import { useMemberFinancials } from "@/hooks/use-member-financials";
+import { formatTimePeriod } from "@/lib/timeUtils";
 
 const MemberProfile = () => {
   const { id } = useParams();
@@ -438,7 +439,10 @@ const MemberProfile = () => {
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
           { label: "Plan", value: member.plan },
-          { label: "Time Period", value: `${member.membershipYears} yrs` },
+          {
+            label: "Time Period",
+            value: `${formatTimePeriod(member.joinDate, member.expiryDate)}`,
+          },
           {
             label: "Advance",
             value: formatNPR(currentMember?.total_advances ?? 0),

@@ -336,7 +336,7 @@ const Reports = () => {
       card: "hsl(200, 80%, 50%)",
       esewa: "hsl(142, 71%, 45%)",
       bank_transfer: "hsl(220, 10%, 55%)",
-      mobile_wallet: "hsl(280, 60%, 55%)",
+      fonepay: "hsl(280, 60%, 55%)",
       other: "hsl(15, 80%, 55%)",
     };
     return Object.entries(counts).map(([name, count]) => ({

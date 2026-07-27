@@ -11,7 +11,7 @@ export const methodColors: Record<PaymentMethod, string> = {
   card: "bg-primary/20 text-primary",
   esewa: "bg-emerald-500/20 text-emerald-400",
   bank_transfer: "bg-muted text-muted-foreground",
-  mobile_wallet: "bg-purple-500/20 text-purple-400",
+  fonepay: "bg-purple-500/20 text-purple-400",
   cheque: "bg-yellow-500/20 text-yellow-400",
   other: "bg-blue-500/20 text-blue-400",
 };

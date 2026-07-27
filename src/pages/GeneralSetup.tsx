@@ -75,7 +75,7 @@ const GeneralSetup = () => {
     "card",
     "esewa",
     "bank_transfer",
-    "mobile_wallet",
+    "fonepay",
     "cheque",
     "other",
   ]);
