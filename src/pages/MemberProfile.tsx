@@ -65,6 +65,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MemberProgress } from "@/components/MemberProgress";
 import { QuickBalanceModal } from "@/components/QuickBalanceModal";
+import { PlanUsageWidget } from "@/components/PlanUsageWidget";
+import { BookingDetailModal } from "@/components/BookingDetailModal";
+import type { Booking } from "@/lib/mock-data";
 import { toast } from "sonner";
 import { logAudit } from "@/lib/audit-log";
 import {
