@@ -91,6 +91,7 @@ const MemberProfile = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [deactivateOpen, setDeactivateOpen] = useState(false);
   const [quickBalanceOpen, setQuickBalanceOpen] = useState(false);
+  const [viewBooking, setViewBooking] = useState<Booking | null>(null);
   const [editForm, setEditForm] = useState<MemberQuickEditValues>({
     name: "",
     email: "",
