@@ -292,19 +292,37 @@ const Settings = () => {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Company Logo</Label>
+              <Label>Company Logo URL</Label>
               <div className="flex items-center gap-4">
-                <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center text-xl font-bold text-primary">
-                  ZEAN
+                <div className="h-16 w-16 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
+                  {company.logoUrl ? (
+                    <img
+                      src={company.logoUrl}
+                      alt="Logo preview"
+                      className="h-full w-full object-contain"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <span className="text-xl font-bold text-primary">
+                      {(company.companyName || "LOGO").slice(0, 4).toUpperCase()}
+                    </span>
+                  )}
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => toast.info("Upload logo via backend storage.")}
-                >
-                  Upload Logo
-                </Button>
+                <Input
+                  type="url"
+                  placeholder="https://example.com/logo.png"
+                  value={company.logoUrl}
+                  onChange={(e) =>
+                    setCompany((p) => ({ ...p, logoUrl: e.target.value }))
+                  }
+                  className="flex-1"
+                />
               </div>
+              <p className="text-xs text-muted-foreground">
+                Paste a hosted image URL. Leave blank to hide the logo on printed receipts.
+              </p>
             </div>
             <Button
               onClick={handleSaveCompany}
