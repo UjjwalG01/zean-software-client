@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useOutlet } from "@/contexts/OutletContext";
-import { useMembershipPlans, useServices, useUpdateMember, useCompanySettings, useMember } from "@/hooks/use-firestore";
+import { useMembershipPlans, useServices, useUpdateMember, useCompanySettings, useMember, useAddBooking } from "@/hooks/use-firestore";
 import { formatNPR } from "@/lib/mock-data";
 import { getSystemTodayStr } from "@/lib/timeUtils";
 import { addMonths, parseISO, format } from "date-fns";
