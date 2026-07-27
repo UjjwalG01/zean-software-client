@@ -37,6 +37,7 @@ export default function PackageSelectionModal({ open, onOpenChange, memberId, me
   const { data: settings = {} } = useCompanySettings();
   const { data: member } = useMember(memberId);
   const updateMember = useUpdateMember();
+  const addBooking = useAddBooking();
 
   const packageOptions = parseList(settings, "setup_packages", ["Gym","Cardio","Swimming","Spa","Combo"]);
 
