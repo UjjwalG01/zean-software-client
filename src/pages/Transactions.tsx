@@ -534,6 +534,21 @@ const Transactions = () => {
             <SelectItem value="voided">Voided</SelectItem>
           </SelectContent>
         </Select>
+        {availableOutlets.length > 1 && (
+          <Select value={outletFilter} onValueChange={setOutletFilter}>
+            <SelectTrigger className="w-[160px] bg-muted/50 border-0 hidden md:flex">
+              <SelectValue placeholder="Outlet" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Outlets</SelectItem>
+              {availableOutlets.map((o) => (
+                <SelectItem key={o.id} value={o.id}>
+                  {o.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <DateRangeFilter
           from={dateFrom}
           to={dateTo}
