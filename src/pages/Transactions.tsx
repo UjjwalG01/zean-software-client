@@ -131,6 +131,7 @@ const Transactions = () => {
   const [methodFilter, setMethodFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [outletFilter, setOutletFilter] = useState<string>("all");
 
   const [advanceOpen, setAdvanceOpen] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
@@ -147,9 +148,19 @@ const Transactions = () => {
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 25;
 
-  const { selected: activeOutlet } = useOutlet();
+  const { selected: activeOutlet, outlets: availableOutlets } = useOutlet();
+
+  // Default outlet filter to the user's active outlet (local scope only —
+  // never mutates the global OutletContext used by Bookings/Attendance).
+  useEffect(() => {
+    if (activeOutlet?.id && outletFilter === "all") {
+      setOutletFilter(activeOutlet.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeOutlet?.id]);
+
   const { data: transactions = [], isLoading } = useTransactions({
-    outletId: activeOutlet?.id,
+    outletId: outletFilter === "all" ? undefined : outletFilter,
   });
   const { data: members = [] } = useMembers({ outletId: activeOutlet?.id });
   const { data: settings = {} } = useCompanySettings();
