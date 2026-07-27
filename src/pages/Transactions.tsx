@@ -183,6 +183,7 @@ const Transactions = () => {
     "bank_transfer",
     "fonepay",
     "cheque",
+    "credit",
     "other",
   ]);
 
