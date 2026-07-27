@@ -1118,6 +1118,16 @@ function SettleModalBody({
     const discount = Math.max(0, Number(settleDiscount) || 0);
     const netDue = Math.max(0, (settleTxn.total || 0) - discount);
 
+    // "Credit" / Pay Later — reserved for registered members only.
+    const isCredit = settleMethod === ("credit" as PaymentMethod);
+    const isGuestTxn = !settleTxn.memberId;
+    if (isCredit && isGuestTxn) {
+      toast.error(
+        "Walk-in guests cannot pay on credit. Please select a registered member.",
+      );
+      return;
+    }
+
     try {
       if (settleTxn.id.startsWith("TEMP-")) {
         await addTransactionMutation.mutateAsync({
