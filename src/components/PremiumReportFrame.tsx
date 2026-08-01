@@ -53,7 +53,16 @@ interface PremiumReportFrameProps {
   defaultSortDir?: "asc" | "desc";
   /** Optional row-click handler that turns body rows into interactive items. */
   onRowClick?: (row: any) => void;
+  /** Paginate the (ungrouped) table body. Default: false. */
+  paginated?: boolean;
+  /** Rows per page when `paginated` is on. Default: 25. */
+  pageSize?: number;
+  /** Hides the built-in Print/Export buttons (parent toolbar owns them). */
+  hideActions?: boolean;
+  /** Receives an imperative handle so a parent toolbar can export/print. */
+  apiRef?: MutableRefObject<ReportFrameApi | null>;
 }
+
 
 
 /**
