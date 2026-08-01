@@ -238,16 +238,42 @@ export function PremiumReportFrame({
               {columns.map((c) => (
                 <th
                   key={c.key}
+                  onClick={() => toggleSort(c)}
+                  aria-sort={
+                    sortKey === c.key
+                      ? sortDir === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : undefined
+                  }
                   className={cn(
                     "px-4 py-3 text-xs uppercase tracking-wider font-semibold",
                     c.align === "right" && "text-right",
                     c.align === "center" && "text-center",
                     !c.align && "text-left",
+                    isSortable(c) &&
+                      "cursor-pointer select-none hover:text-primary transition-colors",
                   )}
                   style={c.width ? { width: c.width } : undefined}
                 >
-                  {c.label}
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1",
+                      c.align === "right" && "flex-row-reverse",
+                    )}
+                  >
+                    {c.label}
+                    {isSortable(c) &&
+                      (sortKey !== c.key ? (
+                        <ChevronsUpDown className="h-3 w-3 opacity-30" />
+                      ) : sortDir === "asc" ? (
+                        <ChevronUp className="h-3 w-3 text-primary" />
+                      ) : (
+                        <ChevronDown className="h-3 w-3 text-primary" />
+                      ))}
+                  </span>
                 </th>
+
               ))}
             </tr>
           </thead>
