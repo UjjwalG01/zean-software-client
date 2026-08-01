@@ -90,10 +90,16 @@ export function PremiumReportFrame({
   defaultSortKey,
   defaultSortDir = "asc",
   onRowClick,
+  paginated = false,
+  pageSize = 25,
+  hideActions = false,
+  apiRef,
 }: PremiumReportFrameProps) {
   const [showFilters, setShowFilters] = useState(false);
+  const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<string | undefined>(defaultSortKey);
   const [sortDir, setSortDir] = useState<"asc" | "desc">(defaultSortDir);
+
 
   const isSortable = (c: Column) =>
     sortable && c.sortable !== false && c.key !== "actions";
