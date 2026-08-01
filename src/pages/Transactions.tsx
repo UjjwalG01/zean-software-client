@@ -1179,20 +1179,9 @@ function SettleModalBody({
           isSettlement: true,
         } as any);
       } else {
-        const chargeRowId = (settleTxn as any).chargeRowId;
-        if (chargeRowId) {
-          const { supabase } = await import("@/lib/supabase");
-          const nowTs = getSystemTodayStr();
-          await supabase
-            .from("charges")
-            .update({
-              status: "paid",
-              paid_at: nowTs,
-              discount,
-              method: settleMethod,
-            })
-            .eq("id", chargeRowId);
-        }
+        // The service layer flips the canonical charge row to `paid` AND books
+        // the matching credit row in `payments` — that is what increases the
+        // member's "Total Paid" and settles the net balance.
         await updateTransactionMutation.mutateAsync({
           id: settleTxn.id,
           data: {

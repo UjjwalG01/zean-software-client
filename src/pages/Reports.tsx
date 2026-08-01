@@ -197,6 +197,21 @@ const Reports = () => {
     });
   }, [txOutletFiltered, from, to, includeVoided]);
 
+  /**
+   * Sales side (debits): charge rows raised by bookings, POS orders and manual
+   * charges. These represent revenue billed, whether or not it is collected.
+   */
+  const chargeTx = useMemo(
+    () => txInRange.filter((t) => String(t.type) === "Charge"),
+    [txInRange],
+  );
+
+  /** Collection side (credits): actual money received — payments/advances. */
+  const paymentTx = useMemo(
+    () => txInRange.filter((t) => String(t.type) !== "Charge"),
+    [txInRange],
+  );
+
   // ── 1. Daily Sales Report (grouped by date → department/service) ──
   const dailySalesRows = useMemo(() => {
     const acc: Record<
@@ -209,7 +224,7 @@ const Reports = () => {
         total: number;
       }
     > = {};
-    txInRange.forEach((t) => {
+    chargeTx.forEach((t) => {
       const linkedHead =
         (t as any).chargeRowId && chargeHeadById.get((t as any).chargeRowId);
       const department =
@@ -230,7 +245,7 @@ const Reports = () => {
         a.date.localeCompare(b.date) ||
         a.department.localeCompare(b.department),
     );
-  }, [txInRange, chargeHeadById]);
+  }, [chargeTx, chargeHeadById]);
 
   const dailySalesTotals = useMemo(() => {
     return dailySalesRows.reduce(
@@ -245,7 +260,7 @@ const Reports = () => {
 
   // ── 2. Cashier / Collection Report (one row per settled transaction) ──
   const collectionRows = useMemo(() => {
-    const rows = txInRange
+    const rows = paymentTx
       .filter((t) => t.status !== "pending" && t.status !== "unpaid")
       .map((t) => {
         const voided = (t as any).voided === true;
@@ -283,7 +298,7 @@ const Reports = () => {
       (a, b) =>
         a.date.localeCompare(b.date) || a.method.localeCompare(b.method),
     );
-  }, [txInRange]);
+  }, [paymentTx]);
 
   const collectionTotals = useMemo(() => {
     return collectionRows.reduce(
@@ -309,7 +324,7 @@ const Reports = () => {
         total: number;
       }
     > = {};
-    txInRange.forEach((t) => {
+    chargeTx.forEach((t) => {
       const k = t.memberName || "—";
       if (!acc[k]) acc[k] = { member: k, txns: 0, sales: 0, vat: 0, total: 0 };
       acc[k].txns += 1;
@@ -322,7 +337,7 @@ const Reports = () => {
     return Object.values(acc)
       .map((r) => ({ ...r, share: (r.total / grand) * 100 }))
       .sort((a, b) => b.total - a.total);
-  }, [txInRange]);
+  }, [chargeTx]);
 
   const contributionTotals = useMemo(() => {
     return contributionRows.reduce(
@@ -352,7 +367,7 @@ const Reports = () => {
       string,
       { outletId: string; outlet: string; revenue: number; txns: number }
     > = {};
-    txInRange.forEach((t) => {
+    chargeTx.forEach((t) => {
       if ((t as any).voided) return;
       const id =
         (t as any).outletId || (t as any).outlet_id || "__unassigned__";
@@ -371,7 +386,7 @@ const Reports = () => {
       share: (r.revenue / grand) * 100,
       color: outletPalette[i % outletPalette.length],
     }));
-  }, [txInRange, outletNameById]);
+  }, [chargeTx, outletNameById]);
 
   const revenueTotals = useMemo(
     () => ({
@@ -416,7 +431,7 @@ const Reports = () => {
     };
     const acc: Record<string, { method: string; txns: number; total: number }> =
       {};
-    txInRange.forEach((t) => {
+    paymentTx.forEach((t) => {
       const k = t.method || "other";
       if (!acc[k]) acc[k] = { method: k, txns: 0, total: 0 };
       acc[k].txns += 1;
@@ -434,7 +449,7 @@ const Reports = () => {
         fill: fills[r.method] || "hsl(220, 10%, 55%)",
       }))
       .sort((a, b) => b.total - a.total);
-  }, [txInRange]);
+  }, [paymentTx]);
 
   const paymentTotals = useMemo(
     () => ({

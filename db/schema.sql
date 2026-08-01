@@ -506,8 +506,9 @@ for each row execute function public.tg_recompute_invoice_totals();
 -- 4.14 Charges ------------------------------------------------------------
 create table if not exists public.charges (
   id            uuid primary key default gen_random_uuid(),
-  member_id     uuid not null references public.members(id) on delete cascade,
-  member_name   text not null,
+  -- nullable: walk-in / guest charges carry no member
+  member_id     uuid references public.members(id) on delete cascade,
+  member_name   text,
   charge_head   text not null,
   description   text,
   amount        numeric(12,2) not null default 0,
@@ -520,11 +521,15 @@ create table if not exists public.charges (
   pool_id       uuid,
   outlet_id     uuid references public.outlets(id) on delete restrict,
   module_id     uuid references public.modules(id) on delete restrict,
+  method        text,
+  receipt_no    text,
+  created_by    uuid,
   meta          jsonb not null default '{}'::jsonb,
   paid_at       timestamptz,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
+create index if not exists idx_charges_receipt on public.charges(receipt_no);
 create index if not exists idx_charges_member  on public.charges(member_id);
 create index if not exists idx_charges_status  on public.charges(status);
 create index if not exists idx_charges_booking on public.charges ((meta->>'bookingId'));
@@ -1013,13 +1018,13 @@ create view public.vw_member_ledger with (security_invoker = true) as
 with unified as (
   select
     c.id, c.member_id,
-    null::text                                          as receipt_no,
+    c.receipt_no                                        as receipt_no,
     coalesce(c.paid_at, c.created_at)                   as occurred_at,
     (coalesce(c.paid_at, c.created_at))::date           as occurred_on,
     'Charge'::text                                      as type,
     coalesce(c.description, c.charge_head)              as description,
     c.charge_head                                       as charge_head,
-    null::text                                          as method,
+    c.method                                            as method,
     coalesce(c.amount, 0)                               as gross_amount,
     coalesce(c.vat_amount, 0)                           as vat_amount,
     coalesce(c.discount, 0)                             as discount_amount,
@@ -1064,6 +1069,8 @@ with unified as (
     end                                                 as source
   from public.payments p
   where p.member_id is not null
+    -- charge-typed rows live in `charges`; never double-count a legacy mirror
+    and coalesce(p.meta->>'type', 'Payment') <> 'Charge'
 )
 select u.*,
   sum(case when u.voided then 0 else (u.debit - u.credit) end)
