@@ -619,10 +619,11 @@ const MemberProfile = () => {
             {(() => {
               const s = memberLedger.summary;
               const totalCharged =
-                currentMember?.total_invoiced ?? s.totalCharged;
+                currentMember?.total_charged ?? s.totalCharged;
               const totalPaid = currentMember?.total_paid ?? s.totalPaid;
-              const advance = currentMember?.total_advances ?? s.advance;
-              const netPayable = currentMember?.net_outstanding ?? s.netPayable;
+              const advance = currentMember?.advance_balance ?? s.advance;
+              const netPayable = currentMember?.net_balance ?? s.netPayable;
+
               return (
                 <div className="border-t border-border/50 p-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm bg-muted/20">
                   <div>
