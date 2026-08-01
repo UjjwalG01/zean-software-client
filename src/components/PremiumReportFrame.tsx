@@ -132,6 +132,20 @@ export function PremiumReportFrame({
     });
   }, [inputRows, columns, sortKey, sortDir, sortable]);
 
+  const usePages = paginated && !groupBy;
+  const totalPages = usePages ? Math.max(1, Math.ceil(rows.length / pageSize)) : 1;
+  const currentPage = Math.min(page, totalPages);
+  const visibleRows = usePages
+    ? rows.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+    : rows;
+
+  // Reset to the first page whenever the underlying data or sort changes.
+  useEffect(() => {
+    setPage(1);
+  }, [inputRows, sortKey, sortDir]);
+
+
+
 
 
   const handleExport = () => {
