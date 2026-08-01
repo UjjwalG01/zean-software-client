@@ -299,15 +299,41 @@ export async function listAllMovements(opts: {
 }
 
 // ───── Mutations (write-through to Supabase, refresh local cache) ─────────
+/**
+ * Strips keys the database does not know about yet (e.g. when the v2 inventory
+ * migration has not been applied) so writes degrade instead of failing.
+ */
+function stripUnknownColumn(payload: any, message: string): any | null {
+  const m = message.match(/column "?([a-z_]+)"?/i) || message.match(/'([a-z_]+)' column/i);
+  const col = m?.[1];
+  if (!col || !(col in payload)) return null;
+  const { [col]: _drop, ...rest } = payload;
+  console.warn(`[inventory] column "${col}" missing in DB — retrying without it. Run the inventory v2 migration.`);
+  return rest;
+}
+
 async function dbInsert<T>(table: string, payload: any): Promise<T | null> {
-  const { data, error } = await supabase.from(table).insert(payload).select("*").single();
-  if (error) { console.warn(`[inventory] insert ${table} failed:`, error.message); return null; }
-  return data as T;
+  let body = payload;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const { data, error } = await supabase.from(table).insert(body).select("*").single();
+    if (!error) return data as T;
+    const retry = /column|schema cache/i.test(error.message) ? stripUnknownColumn(body, error.message) : null;
+    if (!retry) { console.warn(`[inventory] insert ${table} failed:`, error.message); return null; }
+    body = retry;
+  }
+  return null;
 }
 async function dbUpdate(table: string, id: string, patch: any): Promise<void> {
-  const { error } = await supabase.from(table).update(patch).eq("id", id);
-  if (error) console.warn(`[inventory] update ${table} failed:`, error.message);
+  let body = patch;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const { error } = await supabase.from(table).update(body).eq("id", id);
+    if (!error) return;
+    const retry = /column|schema cache/i.test(error.message) ? stripUnknownColumn(body, error.message) : null;
+    if (!retry) { console.warn(`[inventory] update ${table} failed:`, error.message); return; }
+    body = retry;
+  }
 }
+
 async function dbDelete(table: string, id: string): Promise<void> {
   const { error } = await supabase.from(table).delete().eq("id", id);
   if (error) console.warn(`[inventory] delete ${table} failed:`, error.message);

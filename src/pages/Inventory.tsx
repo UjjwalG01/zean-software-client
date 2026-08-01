@@ -27,15 +27,19 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/StatCard";
 import { PremiumReportFrame } from "@/components/PremiumReportFrame";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   useInventoryItems,
   useInventoryStores,
   useItemGroups,
+  useInventorySuppliers,
   useInventoryMutations,
 } from "@/hooks/use-inventory";
 import { AddItemModal } from "@/components/inventory/AddItemModal";
 import { AddStockModal } from "@/components/inventory/AddStockModal";
 import { MovementsDrawer } from "@/components/inventory/MovementsDrawer";
+import { StockMovementsLedger } from "@/components/inventory/StockMovementsLedger";
+import { InventoryAnalytics } from "@/components/inventory/InventoryAnalytics";
 import type { InventoryItem } from "@/lib/inventory-store";
 import { toast } from "sonner";
 import {
@@ -43,13 +47,16 @@ import {
   underlineSpecificChars,
 } from "@/lib/string-case-change";
 
+
 export default function Inventory() {
   const qc = useQueryClient();
   const { data: items = [], isFetching } = useInventoryItems();
   const { data: stores = [] } = useInventoryStores();
   const { data: groups = [] } = useItemGroups();
+  const { data: suppliers = [] } = useInventorySuppliers();
   const { removeItem } = useInventoryMutations();
 
+  const [tab, setTab] = useState<"catalog" | "movements" | "analytics">("catalog");
   const [storeFilter, setStoreFilter] = useState<string>("all");
   const [groupFilter, setGroupFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -67,6 +74,9 @@ export default function Inventory() {
     stores.find((s) => s.id === id)?.name || "—";
   const groupName = (id: string) =>
     groups.find((g) => g.id === id)?.name || "—";
+  const supplierName = (id?: string) =>
+    (id && suppliers.find((s) => s.id === id)?.name) || "—";
+
 
   const filtered = useMemo(() => {
     return items.filter((i) => {
@@ -102,6 +112,20 @@ export default function Inventory() {
     (i) => i.active && i.quantity <= i.reorderLevel,
   ).length;
 
+  const statusLabel = (i: InventoryItem) =>
+    i.quantity === 0
+      ? "Out of Stock"
+      : i.quantity <= i.reorderLevel
+        ? "Low Stock"
+        : "In Stock";
+
+  const statusDot = (i: InventoryItem) =>
+    i.quantity === 0
+      ? "bg-destructive"
+      : i.quantity <= i.reorderLevel
+        ? "bg-warning"
+        : "bg-success";
+
   const statusBadge = (i: InventoryItem) => {
     if (i.quantity === 0) return <Badge variant="destructive">Out</Badge>;
     if (i.quantity <= i.reorderLevel)
@@ -113,8 +137,11 @@ export default function Inventory() {
     ...i,
     _store: storeName(i.storeId),
     _group: groupName(i.groupId),
+    _supplier: supplierName(i.supplierId),
+    _status: statusLabel(i),
     _valuation: i.quantity * i.rate,
   }));
+
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -177,11 +204,22 @@ export default function Inventory() {
         </div>
       </div>
 
+      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+        <TabsList>
+          <TabsTrigger value="catalog">Product Catalog</TabsTrigger>
+          <TabsTrigger value="movements">Stock Movements</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="catalog" className="mt-4">
       <PremiumReportFrame
-        title="Current Stock Position"
-        subtitle="Valuation = Quantity × Avg Rate (VAT inclusive)"
+        title="Product Catalog"
+        subtitle="Valuation = Quantity × Avg Rate (VAT inclusive). Click any column header to sort."
         propertyName="............."
+        sortable
+        defaultSortKey="name"
         filters={
+
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div>
               <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -252,19 +290,51 @@ export default function Inventory() {
           </div>
         }
         columns={[
-          { key: "code", label: "Code", width: "100px" },
-          { key: "name", label: "Item" },
-          { key: "_group", label: "Group" },
-          { key: "_store", label: "Store" },
-          { key: "unit", label: "Unit", align: "center", width: "70px" },
+          {
+            key: "name",
+            label: "Name",
+            format: (r) => (
+              <div className="min-w-0">
+                <p className="font-medium truncate">{r.name}</p>
+                {r.description && (
+                  <p className="text-xs text-muted-foreground truncate">
+                    {r.description}
+                  </p>
+                )}
+              </div>
+            ),
+            exportFormat: (r) => r.name,
+          },
+          {
+            key: "code",
+            label: "SKU",
+            width: "120px",
+            format: (r) => (
+              <span className="font-mono text-xs">{r.code}</span>
+            ),
+            exportFormat: (r) => r.code,
+          },
+          { key: "_group", label: "Category", width: "150px" },
           {
             key: "quantity",
             label: "Qty",
             align: "right",
-            width: "80px",
-            format: (r) => <span className="font-medium">{r.quantity}</span>,
-            exportFormat: (r) => String(r.quantity),
+            width: "130px",
+            format: (r) => (
+              <span className="inline-flex items-center gap-2 justify-end">
+                <span
+                  className={`h-2 w-2 rounded-full ${statusDot(r)}`}
+                  title={r._status}
+                />
+                <span className="font-medium">
+                  {r.quantity} {r.unit}
+                </span>
+              </span>
+            ),
+            exportFormat: (r) => `${r.quantity} ${r.unit}`,
           },
+          { key: "_store", label: "Location", width: "160px" },
+          { key: "_supplier", label: "Supplier", width: "160px" },
           {
             key: "rate",
             label: "Rate (NPR)",
@@ -286,18 +356,20 @@ export default function Inventory() {
             exportFormat: (r) => String(Math.round(r._valuation)),
           },
           {
-            key: "status",
+            key: "reorderLevel",
+            label: "Reorder Lvl",
+            align: "right",
+            width: "110px",
+          },
+          {
+            key: "_status",
             label: "Status",
             align: "center",
-            width: "100px",
+            width: "110px",
             format: (r) => statusBadge(r),
-            exportFormat: (r) =>
-              r.quantity === 0
-                ? "Out"
-                : r.quantity <= r.reorderLevel
-                  ? "Low"
-                  : "In Stock",
+            exportFormat: (r) => r._status,
           },
+
           {
             key: "actions",
             label: "Actions",
@@ -357,7 +429,6 @@ export default function Inventory() {
           },
         ]}
         rows={rows}
-        groupBy={{ key: "_store", label: "Store" }}
         footerTotals={{
           label: "Filtered Totals",
           cells: {
@@ -372,6 +443,18 @@ export default function Inventory() {
         exportFilename="inventory_stock"
         emptyMessage="No inventory items match the current filters."
       />
+        </TabsContent>
+
+        <TabsContent value="movements" className="mt-4">
+          <StockMovementsLedger />
+        </TabsContent>
+
+        <TabsContent value="analytics" className="mt-4">
+          <InventoryAnalytics />
+        </TabsContent>
+      </Tabs>
+
+
 
       <AddItemModal
         open={addItemOpen}

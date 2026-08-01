@@ -1,6 +1,6 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import { formatDateTime, nowIso } from "@/lib/tz";
-import { Filter, Download, Printer } from "lucide-react";
+import { Filter, Download, Printer, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { exportTableToCSV, type CSVExportMeta } from "@/lib/print-utils";
@@ -19,6 +19,10 @@ interface Column {
   voided?: (row: any) => boolean; // For conditional styling based on voided status
   format?: (row: any) => ReactNode;
   exportFormat?: (row: any) => string;
+  /** Set false to make the header non-clickable (e.g. an actions column). */
+  sortable?: boolean;
+  /** Custom comparable value; defaults to `row[key]`. */
+  sortValue?: (row: any) => string | number;
 }
 
 interface PremiumReportFrameProps {
@@ -35,9 +39,15 @@ interface PremiumReportFrameProps {
   exportFilename: string;
   exportMeta?: CSVExportMeta;
   collapsibleFilters?: boolean;
+  /** Enables click-to-sort column headers. Default: false. */
+  sortable?: boolean;
+  /** Column key sorted by default when `sortable` is on. */
+  defaultSortKey?: string;
+  defaultSortDir?: "asc" | "desc";
   /** Optional row-click handler that turns body rows into interactive items. */
   onRowClick?: (row: any) => void;
 }
+
 
 /**
  * Reusable premium-styled tabular report:
@@ -53,16 +63,54 @@ export function PremiumReportFrame({
   filters,
   filterSummary,
   columns,
-  rows,
+  rows: inputRows,
   groupBy,
   footerTotals,
   emptyMessage = "No data to display.",
   exportFilename,
   exportMeta,
   collapsibleFilters = true,
+  sortable = false,
+  defaultSortKey,
+  defaultSortDir = "asc",
   onRowClick,
 }: PremiumReportFrameProps) {
   const [showFilters, setShowFilters] = useState(false);
+  const [sortKey, setSortKey] = useState<string | undefined>(defaultSortKey);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">(defaultSortDir);
+
+  const isSortable = (c: Column) =>
+    sortable && c.sortable !== false && c.key !== "actions";
+
+  const toggleSort = (c: Column) => {
+    if (!isSortable(c)) return;
+    if (sortKey === c.key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(c.key);
+      setSortDir("asc");
+    }
+  };
+
+  const rows = useMemo(() => {
+    if (!sortable || !sortKey) return inputRows;
+    const col = columns.find((c) => c.key === sortKey);
+    if (!col) return inputRows;
+    const val = (r: any): string | number => {
+      const v = col.sortValue ? col.sortValue(r) : r[col.key];
+      if (v === null || v === undefined) return "";
+      return typeof v === "number" ? v : String(v).toLowerCase();
+    };
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...inputRows].sort((a, b) => {
+      const av = val(a);
+      const bv = val(b);
+      if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
+      return String(av).localeCompare(String(bv)) * dir;
+    });
+  }, [inputRows, columns, sortKey, sortDir, sortable]);
+
+
 
   const handleExport = () => {
     const headers = columns.map((c) => c.label);
@@ -190,16 +238,42 @@ export function PremiumReportFrame({
               {columns.map((c) => (
                 <th
                   key={c.key}
+                  onClick={() => toggleSort(c)}
+                  aria-sort={
+                    sortKey === c.key
+                      ? sortDir === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : undefined
+                  }
                   className={cn(
                     "px-4 py-3 text-xs uppercase tracking-wider font-semibold",
                     c.align === "right" && "text-right",
                     c.align === "center" && "text-center",
                     !c.align && "text-left",
+                    isSortable(c) &&
+                      "cursor-pointer select-none hover:text-primary transition-colors",
                   )}
                   style={c.width ? { width: c.width } : undefined}
                 >
-                  {c.label}
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1",
+                      c.align === "right" && "flex-row-reverse",
+                    )}
+                  >
+                    {c.label}
+                    {isSortable(c) &&
+                      (sortKey !== c.key ? (
+                        <ChevronsUpDown className="h-3 w-3 opacity-30" />
+                      ) : sortDir === "asc" ? (
+                        <ChevronUp className="h-3 w-3 text-primary" />
+                      ) : (
+                        <ChevronDown className="h-3 w-3 text-primary" />
+                      ))}
+                  </span>
                 </th>
+
               ))}
             </tr>
           </thead>
