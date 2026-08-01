@@ -197,6 +197,9 @@ export function PremiumReportFrame({
     }
   };
 
+  if (apiRef) apiRef.current = { exportCSV: handleExport, print: handlePrint };
+
+
   // Optional grouping
   const grouped: Record<string, any[]> | null = groupBy
     ? rows.reduce((acc: Record<string, any[]>, r) => {
