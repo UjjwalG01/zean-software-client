@@ -56,7 +56,7 @@ export default function Inventory() {
   const { data: stores = [] } = useInventoryStores();
   const { data: groups = [] } = useItemGroups();
   const { data: suppliers = [] } = useInventorySuppliers();
-  const { removeItem } = useInventoryMutations();
+  const { removeItem, createItem } = useInventoryMutations();
 
   const [supplierFilter, setSupplierFilter] = useState<string>("all");
   const [storeFilter, setStoreFilter] = useState<string>("all");
@@ -71,6 +71,42 @@ export default function Inventory() {
     string | undefined
   >();
   const [movementsItemId, setMovementsItemId] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /** Read a CSV file and create every valid row as a new catalog item. */
+  const handleImportFile = async (file: File) => {
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const { drafts, errors, skipped } = parseItemsCsv(
+        text,
+        { stores, groups, suppliers },
+        items,
+      );
+      if (drafts.length === 0) {
+        toast.error(errors[0] || "No importable rows found in the CSV.");
+        return;
+      }
+      for (const draft of drafts) {
+        await createItem.mutateAsync(draft);
+      }
+      toast.success(
+        `Imported ${drafts.length} item(s)${skipped ? ` · ${skipped} skipped` : ""}`,
+      );
+      if (errors.length > 0) {
+        toast.warning(errors.slice(0, 3).join(" "));
+      }
+      qc.invalidateQueries({ queryKey: ["inv"] });
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not import the CSV file.",
+      );
+    } finally {
+      setImporting(false);
+    }
+  };
+
 
   const storeName = (id: string) =>
     stores.find((s) => s.id === id)?.name || "—";
