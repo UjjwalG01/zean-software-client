@@ -672,38 +672,65 @@ create table if not exists public.inv_item_groups (
   created_at  timestamptz not null default now()
 );
 
+create table if not exists public.inv_suppliers (
+  id             uuid primary key default gen_random_uuid(),
+  name           text not null,
+  contact_person text,
+  phone          text,
+  email          text,
+  address        text,
+  active         boolean not null default true,
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
+);
+drop trigger if exists tg_inv_suppliers_touch on public.inv_suppliers;
+create trigger tg_inv_suppliers_touch before update on public.inv_suppliers
+for each row execute function public.tg_touch_updated_at();
+
 create table if not exists public.inv_items (
-  id            uuid primary key default gen_random_uuid(),
-  code          text not null unique,
-  name          text not null,
-  group_id      uuid references public.inv_item_groups(id) on delete set null,
-  store_id      uuid references public.inv_stores(id) on delete set null,
-  unit          text not null default 'pcs',
-  quantity      numeric not null default 0,
-  rate          numeric not null default 0,
-  reorder_level numeric not null default 0,
-  active        boolean not null default true,
-  created_at    timestamptz not null default now(),
-  updated_at    timestamptz not null default now()
+  id               uuid primary key default gen_random_uuid(),
+  code             text not null unique,
+  name             text not null,
+  description      text,
+  group_id         uuid references public.inv_item_groups(id) on delete set null,
+  store_id         uuid references public.inv_stores(id) on delete set null,
+  supplier_id      uuid references public.inv_suppliers(id) on delete set null,
+  unit             text not null default 'pcs',
+  quantity         numeric not null default 0,
+  rate             numeric not null default 0,
+  reorder_level    numeric not null default 0,
+  reorder_quantity numeric not null default 0,
+  active           boolean not null default true,
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
 );
 create index if not exists inv_items_group_idx on public.inv_items(group_id);
 create index if not exists inv_items_store_idx on public.inv_items(store_id);
+create index if not exists inv_items_supplier_idx on public.inv_items(supplier_id);
 drop trigger if exists tg_inv_items_touch on public.inv_items;
 create trigger tg_inv_items_touch before update on public.inv_items
 for each row execute function public.tg_touch_updated_at();
 
 create table if not exists public.inv_movements (
-  id         uuid primary key default gen_random_uuid(),
-  item_id    uuid not null references public.inv_items(id) on delete cascade,
-  type       text not null check (type in ('opening','purchase','issue','adjustment')),
-  quantity   numeric not null,
-  rate       numeric not null default 0,
-  reference  text,
-  note       text,
-  created_at timestamptz not null default now(),
-  created_by uuid references auth.users(id) on delete set null
+  id                uuid primary key default gen_random_uuid(),
+  item_id           uuid not null references public.inv_items(id) on delete cascade,
+  type              text not null check (type in ('opening','purchase','issue','adjustment','transfer')),
+  quantity          numeric not null,
+  rate              numeric not null default 0,
+  reference         text,
+  note              text,
+  supplier_id       uuid references public.inv_suppliers(id) on delete set null,
+  from_store_id     uuid references public.inv_stores(id) on delete set null,
+  to_store_id       uuid references public.inv_stores(id) on delete set null,
+  performed_by_name text,
+  balance_after     numeric,
+  created_at        timestamptz not null default now(),
+  created_by        uuid references auth.users(id) on delete set null
 );
 create index if not exists inv_mov_item_idx on public.inv_movements(item_id, created_at);
+create index if not exists inv_mov_created_idx on public.inv_movements(created_at desc);
+create index if not exists inv_mov_type_created_idx on public.inv_movements(type, created_at desc);
+
 
 -- 4.19 Custom roles + permissions -----------------------------------------
 create table if not exists public.custom_roles (
@@ -1070,7 +1097,7 @@ begin
     'services','members','member_outlet_access','member_packages','employees',
     'bookings','invoices','invoice_items','charges','payments',
     'transaction_payments','charge_heads',
-    'inv_stores','inv_item_groups','inv_items','inv_movements',
+    'inv_stores','inv_item_groups','inv_suppliers','inv_items','inv_movements',
     'custom_roles','role_permissions','user_role_assignments',
     'check_ins','attendance','prepaid_pools',
     'email_templates','email_reminders','audit_logs'
@@ -1128,7 +1155,7 @@ begin
     'employees','invoices','invoice_items',
     'check_ins','attendance','email_templates','email_reminders',
     'transaction_payments','charge_heads',
-    'inv_stores','inv_item_groups','inv_items','inv_movements'
+    'inv_stores','inv_item_groups','inv_suppliers','inv_items','inv_movements'
   ]) loop
     execute format('drop policy if exists "%1$s staff read" on public.%1$s;', t);
     execute format('drop policy if exists "%1$s staff write" on public.%1$s;', t);
@@ -1280,7 +1307,7 @@ begin
     'services','members','member_outlet_access','member_packages','employees',
     'bookings','invoices','invoice_items','charges','payments',
     'transaction_payments','charge_heads',
-    'inv_stores','inv_item_groups','inv_items','inv_movements',
+    'inv_stores','inv_item_groups','inv_suppliers','inv_items','inv_movements',
     'custom_roles','role_permissions','user_role_assignments',
     'check_ins','attendance','prepaid_pools',
     'email_templates','email_reminders','audit_logs'

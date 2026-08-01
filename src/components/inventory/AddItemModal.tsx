@@ -48,6 +48,7 @@ export function AddItemModal({ open, onOpenChange, editing }: Props) {
     quantity: 0,
     rate: 0,
     reorderLevel: 0,
+    reorderQuantity: 0,
     active: true,
   });
 
@@ -62,6 +63,7 @@ export function AddItemModal({ open, onOpenChange, editing }: Props) {
         quantity: editing.quantity,
         rate: editing.rate,
         reorderLevel: editing.reorderLevel,
+        reorderQuantity: editing.reorderQuantity ?? 0,
         active: editing.active,
       });
     } else if (open) {
@@ -74,10 +76,12 @@ export function AddItemModal({ open, onOpenChange, editing }: Props) {
         quantity: 0,
         rate: 0,
         reorderLevel: 0,
+        reorderQuantity: 0,
         active: true,
       });
     }
   }, [editing, open, groups, stores]);
+
 
   const handleSave = async () => {
     if (!form.code || !form.name || !form.groupId || !form.storeId) {
