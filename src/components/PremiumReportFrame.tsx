@@ -63,16 +63,54 @@ export function PremiumReportFrame({
   filters,
   filterSummary,
   columns,
-  rows,
+  rows: inputRows,
   groupBy,
   footerTotals,
   emptyMessage = "No data to display.",
   exportFilename,
   exportMeta,
   collapsibleFilters = true,
+  sortable = false,
+  defaultSortKey,
+  defaultSortDir = "asc",
   onRowClick,
 }: PremiumReportFrameProps) {
   const [showFilters, setShowFilters] = useState(false);
+  const [sortKey, setSortKey] = useState<string | undefined>(defaultSortKey);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">(defaultSortDir);
+
+  const isSortable = (c: Column) =>
+    sortable && c.sortable !== false && c.key !== "actions";
+
+  const toggleSort = (c: Column) => {
+    if (!isSortable(c)) return;
+    if (sortKey === c.key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(c.key);
+      setSortDir("asc");
+    }
+  };
+
+  const rows = useMemo(() => {
+    if (!sortable || !sortKey) return inputRows;
+    const col = columns.find((c) => c.key === sortKey);
+    if (!col) return inputRows;
+    const val = (r: any): string | number => {
+      const v = col.sortValue ? col.sortValue(r) : r[col.key];
+      if (v === null || v === undefined) return "";
+      return typeof v === "number" ? v : String(v).toLowerCase();
+    };
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...inputRows].sort((a, b) => {
+      const av = val(a);
+      const bv = val(b);
+      if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
+      return String(av).localeCompare(String(bv)) * dir;
+    });
+  }, [inputRows, columns, sortKey, sortDir, sortable]);
+
+
 
   const handleExport = () => {
     const headers = columns.map((c) => c.label);
