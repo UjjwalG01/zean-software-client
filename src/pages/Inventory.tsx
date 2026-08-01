@@ -112,6 +112,20 @@ export default function Inventory() {
     (i) => i.active && i.quantity <= i.reorderLevel,
   ).length;
 
+  const statusLabel = (i: InventoryItem) =>
+    i.quantity === 0
+      ? "Out of Stock"
+      : i.quantity <= i.reorderLevel
+        ? "Low Stock"
+        : "In Stock";
+
+  const statusDot = (i: InventoryItem) =>
+    i.quantity === 0
+      ? "bg-destructive"
+      : i.quantity <= i.reorderLevel
+        ? "bg-warning"
+        : "bg-success";
+
   const statusBadge = (i: InventoryItem) => {
     if (i.quantity === 0) return <Badge variant="destructive">Out</Badge>;
     if (i.quantity <= i.reorderLevel)
@@ -123,8 +137,11 @@ export default function Inventory() {
     ...i,
     _store: storeName(i.storeId),
     _group: groupName(i.groupId),
+    _supplier: supplierName(i.supplierId),
+    _status: statusLabel(i),
     _valuation: i.quantity * i.rate,
   }));
+
 
   return (
     <div className="space-y-6 animate-fade-in">
