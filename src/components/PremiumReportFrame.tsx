@@ -1,6 +1,6 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import { formatDateTime, nowIso } from "@/lib/tz";
-import { Filter, Download, Printer } from "lucide-react";
+import { Filter, Download, Printer, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { exportTableToCSV, type CSVExportMeta } from "@/lib/print-utils";
@@ -19,6 +19,10 @@ interface Column {
   voided?: (row: any) => boolean; // For conditional styling based on voided status
   format?: (row: any) => ReactNode;
   exportFormat?: (row: any) => string;
+  /** Set false to make the header non-clickable (e.g. an actions column). */
+  sortable?: boolean;
+  /** Custom comparable value; defaults to `row[key]`. */
+  sortValue?: (row: any) => string | number;
 }
 
 interface PremiumReportFrameProps {
@@ -35,9 +39,15 @@ interface PremiumReportFrameProps {
   exportFilename: string;
   exportMeta?: CSVExportMeta;
   collapsibleFilters?: boolean;
+  /** Enables click-to-sort column headers. Default: false. */
+  sortable?: boolean;
+  /** Column key sorted by default when `sortable` is on. */
+  defaultSortKey?: string;
+  defaultSortDir?: "asc" | "desc";
   /** Optional row-click handler that turns body rows into interactive items. */
   onRowClick?: (row: any) => void;
 }
+
 
 /**
  * Reusable premium-styled tabular report:
