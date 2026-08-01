@@ -194,6 +194,26 @@ export default function Inventory() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) void handleImportFile(file);
+            }}
+          />
+          <Button
+            variant="outline"
+            disabled={importing}
+            onClick={() => fileInputRef.current?.click()}
+            title="Import items from a CSV file"
+          >
+            <Upload className="h-4 w-4 mr-1.5" />
+            {importing ? "Importing…" : "Import CSV"}
+          </Button>
           <Button
             variant="outline"
             accessKey="l"
