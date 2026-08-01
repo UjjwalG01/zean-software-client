@@ -235,31 +235,42 @@ export function PremiumReportFrame({
               className="m-0.5"
             >
               <Filter className="h-4 w-4 mr-1.5 hidden md:flex" />
-              {underlineFirstChar(showFilters ? "Hide Filters" : "Load Report")}
+              {underlineFirstChar(
+                showFilters
+                  ? "Hide Filters"
+                  : hideActions
+                    ? "More Filters"
+                    : "Load Report",
+              )}
             </Button>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            accessKey="p"
-            onClick={handlePrint}
-            disabled={rows.length === 0}
-            className="text-pretty"
-          >
-            <Printer className="h-4 w-4 mr-1.5 hidden md:flex" />
-            {underlineFirstChar("Print")}
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleExport}
-            accessKey="x"
-            disabled={rows.length === 0}
-            className="bg-success hover:bg-success/90 text-white"
-          >
-            <Download className="h-4 w-4 mr-1.5 hidden md:flex" />
-            {underlineSpecificChars("Export Excel", [1])}
-          </Button>
+          {!hideActions && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                accessKey="p"
+                onClick={handlePrint}
+                disabled={rows.length === 0}
+                className="text-pretty"
+              >
+                <Printer className="h-4 w-4 mr-1.5 hidden md:flex" />
+                {underlineFirstChar("Print")}
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleExport}
+                accessKey="x"
+                disabled={rows.length === 0}
+                className="bg-success hover:bg-success/90 text-white"
+              >
+                <Download className="h-4 w-4 mr-1.5 hidden md:flex" />
+                {underlineSpecificChars("Export Excel", [1])}
+              </Button>
+            </>
+          )}
         </div>
+
       </div>
 
       {/* Filter strip */}
