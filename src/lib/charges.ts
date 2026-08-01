@@ -37,49 +37,19 @@ export interface ChargeForBookingInput {
 }
 
 /**
- * Create one pending charge row for a freshly-created booking.
+ * Create one unpaid charge row for a freshly-created booking.
  *
- * Source of truth: the dedicated `charges` table. We also mirror the row in
- * the legacy `transactions` table so the Transactions list UI keeps showing
- * it without a parallel data source. The mirror carries `chargeRowId` so
- * settlement can flip the canonical `charges` row to `paid`.
+ * The charge is the sales/debit side: it raises the member's balance the moment
+ * the booking exists. Money is only recorded when a payment settles the charge.
+ * Routed through `addTransaction`, which writes `type: "Charge"` rows into the
+ * canonical `charges` table.
  */
 export async function createChargeForBooking(add: AddFn, input: ChargeForBookingInput): Promise<string> {
-  const gross = input.amount;
-  const { net, vat } = splitVatFromGross(gross);
-
-
-
-  let chargeRowId: string | undefined;
-  try {
-    const { data, error } = await supabase
-      .from("charges")
-      .insert({
-        member_id: input.memberId,
-        member_name: input.memberName,
-        charge_head: input.chargeHead || String(input.service),
-        description: `${input.service} — ${input.className}`,
-        amount: net,
-        vat_amount: vat,
-        total: gross,
-        status: "unpaid",
-        outlet_id: input.outletId || null,
-        created_by: input.createdBy || null,
-        meta: { type: "booking", bookingId: input.bookingId, outletId: input.outletId || null },
-      })
-      .select("id")
-      .single();
-    if (error) throw error;
-    chargeRowId = data?.id as string;
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.warn("[charges] failed to insert into charges table; legacy mirror only", e);
-  }
-
   return add({
     memberId: input.memberId,
     memberName: input.memberName,
     amount: input.amount,
+    total: input.amount,
     method: "cash" as PaymentMethod, // placeholder — not collected until settlement
     type: "Charge",
     date: today(),
@@ -88,11 +58,11 @@ export async function createChargeForBooking(add: AddFn, input: ChargeForBooking
     status: "pending",
     bookingId: input.bookingId,
     chargeHead: input.chargeHead || String(input.service),
-    chargeRowId,
     outletId: input.outletId,
     createdBy: input.createdBy,
   } as Partial<Transaction>);
 }
+
 
 export interface ManualChargeInput {
   memberId: string;
