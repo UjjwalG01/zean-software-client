@@ -83,6 +83,8 @@ begin
 end $$;
 
 alter table public.inv_movements
+  drop constraint if exists inv_movements_type_chk;
+alter table public.inv_movements
   add constraint inv_movements_type_chk
   check (type in ('opening', 'purchase', 'issue', 'adjustment', 'transfer'));
 
