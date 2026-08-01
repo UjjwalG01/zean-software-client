@@ -149,6 +149,20 @@ export function InventoryReports({
     [registerRows],
   );
 
+  useEffect(() => {
+    onStats?.({
+      items: positionRows.length,
+      quantity: positionTotals.qty,
+      valuation: positionTotals.val,
+      movements: registerRows.length,
+      inQty: registerTotals.inQty,
+      outQty: registerTotals.outQty,
+      movementValue: registerTotals.value,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [positionRows.length, positionTotals, registerRows.length, registerTotals]);
+
+
   const storeSelect = (
     <div>
       <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
