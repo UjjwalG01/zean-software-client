@@ -430,6 +430,39 @@ export function PremiumReportFrame({
           </tbody>
         </table>
       </div>
+
+      {usePages && rows.length > 0 && (
+        <div className="flex items-center justify-between gap-3 px-5 py-3 border-t border-border/50 text-xs text-muted-foreground">
+          <span>
+            Showing {(currentPage - 1) * pageSize + 1}–
+            {Math.min(currentPage * pageSize, rows.length)} of {rows.length}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2"
+              disabled={currentPage <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+            <span className="tabular-nums">
+              Page {currentPage} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2"
+              disabled={currentPage >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
+
   );
 }
