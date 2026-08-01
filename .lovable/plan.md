@@ -1,48 +1,78 @@
-## Phase 1 — Member Profile Schema & Data Sync
+## Inventory Module Overhaul
 
-Align the member read/write path with `db/schema.sql` (JSONB `address`, `emergency_contact`, `physical`, `medical`), add Zod validation, and switch avatar rendering to signed URLs (the `members` bucket is now private per the latest security migration).
+Rebuild the Inventory area into four screens modelled on the reference UI, while keeping the existing premium dark/gold theme (no white/green Stackwise palette), NPR currency, and Kathmandu time via `timeUtils.ts`.
 
-### Current state (audit)
+```text
+/inventory            → Product Catalog (sortable table, filters, row actions)
+/inventory/movements  → Stock Movements ledger (filters + type summary cards)
+/inventory/analytics  → Stock analytics (KPIs, charts, turnover/reorder)
+/setup/suppliers      → Suppliers master (new)
+```
 
-- `src/lib/supabase-services.ts` — `mapMemberRow` / `memberPayload` already read & write the JSONB shapes correctly (permanent/temporary, name/phone/address, chest/height/weight/blood_group, heart_stroke/skin_disease/breathing_difficulty). Good baseline.
-- `src/pages/MemberProfile.tsx` — the edit dialog only exposes a single flat `address` and `emergencyContact` string; physical/medical are not editable here. Reads `member.avatar` as a public URL.
-- `src/pages/AddMember.tsx` — writes flat `permanentAddress`, `temporaryAddress`, `emergencyName`, `emergencyContactNum`, `bloodGroup`, etc. (mapped OK), but has no schema validation; uploads via `getPublicUrl` (broken with private bucket).
-- `src/pages/MembersList.tsx` — renders avatars via `AvatarImage src={m.avatar}` (public URL); breaks now.
-- No Zod schema exists for members.
+---
 
-### Changes
+### Phase 1 — Core catalog, movements & records (higher value, moderate complexity)
 
-1. **New: `src/lib/schemas/member.ts`**
-   - Zod schemas for the four JSONB blocks + top-level member fields.
-   - Export `MemberFormSchema` (full form) and `MemberQuickEditSchema` (name/email/phone/permanent+temporary address/emergency).
-   - Types inferred with `z.infer` — reused by AddMember and MemberProfile.
+**1. Database migration** (`db/migrations/2026-08-01_inventory_v2.sql`, mirrored into `db/schema.sql`)
+- New `inv_suppliers` table (name, contact person, phone, email, address, active) with GRANTs + RLS matching the existing `inv_*` tables.
+- `inv_items`: add `supplier_id`, `description`, `reorder_quantity`.
+- `inv_movements`: add `supplier_id`, `from_store_id`, `to_store_id`, `performed_by_name`, `balance_after`; widen the `type` check to include `transfer`.
+- Indexes on `inv_movements(created_at desc)` and `inv_movements(type, created_at desc)` for the ledger.
 
-2. **New: `src/lib/member-avatar.ts`**
-   - `getMemberAvatarSignedUrl(path, expiresIn=3600)` — resolves the `avatar_url` DB value (which stores the storage path or full public URL) into a signed URL. Falls back to the dicebear placeholder when empty.
-   - `useMemberAvatar(pathOrUrl)` — a small `useQuery` wrapper keyed by path with a 55-minute stale time.
-   - `uploadMemberAvatar(file, memberId)` — replaces `uploadMemberAvatar` in `supabase-services.ts`: uploads to `members/{memberId}/{ts}.{ext}` and returns the **storage path** (not public URL), so the DB stores a stable key that can be re-signed later.
+**2. Data layer** (`src/lib/inventory-store.ts`, `src/hooks/use-inventory.ts`)
+- Supplier CRUD + `useSuppliers` hook.
+- New `useAllMovements()` — loads the global movement feed joined with item/store/supplier names (not per-item only).
+- New mutations: `adjustStock(itemId, delta, reason)` and `transferStock(itemId, fromStore, toStore, qty, ref)`.
+- Every movement writes `balance_after` and the acting user, and also writes an entry to the existing audit-log pipeline (`src/lib/audit-log.ts`) so stock actions are traceable system-wide.
+- All timestamps via `getSystemTimestamp()` from `timeUtils.ts`.
 
-3. **`src/lib/supabase-services.ts`**
-   - `uploadMemberAvatar` returns the storage path only (breaking `getPublicUrl` dependency); update callers accordingly.
-   - `mapMemberRow` unchanged (already schema-aligned) — but `avatar` field is annotated to hold either a storage path or an external URL; consumers must resolve via `getMemberAvatarSignedUrl`.
+**3. Product Catalog page** (rewrite `src/pages/Inventory.tsx`)
+- Header: title, item count, Export CSV, Import (CSV), New Item.
+- Filter bar: search (name/SKU-code), Category (item group), Supplier, Status, Location (store).
+- Table columns — every header click-sortable with asc/desc arrow: Name, Code/SKU, Category, Qty (+ In Stock / Low Stock / Out of Stock dot badge), Location, Supplier, and a row kebab menu (View movements, Add stock, Issue stock, Adjust, Edit, Delete).
+- Row selection checkboxes with a bulk bar (export selected, bulk deactivate).
+- Keeps footer totals (qty + NPR valuation) and the existing `PremiumReportFrame` export/print behaviour.
 
-4. **`src/pages/AddMember.tsx`**
-   - Wrap the form with `react-hook-form` **only where cheap** — actually, keep the existing controlled inputs but validate the full payload with `MemberFormSchema.safeParse` on submit; surface field errors via toast.
-   - Photo upload: after `uploadMemberAvatar` returns the path, store it via `updateMember({ avatar: path })`; preview uses the signed URL hook.
+**4. Add/Edit Item modal** (`AddItemModal.tsx` → side sheet)
+- Restructured into the reference's labelled sections: Basic Info (Name, SKU/code, Description), Classification (Category, Unit of Measure), Stock Settings (Current stock, Reorder point, Reorder quantity), Pricing (Rate, NPR VAT-incl), Assignment (Supplier, Location/Store), Status (Active/Inactive).
 
-5. **`src/pages/MemberProfile.tsx`**
-   - Replace the flat `editForm` with the JSONB-shaped structure: permanent + temporary address, emergency `{name, phone, address}`, and add a Physical (chest/height/weight/blood_group) + Medical (heart_stroke/skin_disease/breathing_difficulty) block.
-   - Validate on save with `MemberQuickEditSchema` (extended for the new fields).
-   - Replace `<AvatarImage src={member.avatar}>` with a signed-URL resolver.
+**5. Stock Movements page** (new `src/pages/InventoryMovements.tsx`)
+- Header: "Stock movements", count, Export CSV, "Log Movement".
+- Filters: Type checkboxes (Received / Issued / Adjusted / Transferred), Item select, Date range (from/to), Performed By.
+- Four summary cards: Total, Received, Issued, Adjustments.
+- Table: Type (icon + label), Item, Quantity (+N green / −N red), Direction (in/out chip), Performed By, Reference, Time (relative, Kathmandu), expandable row showing note, store, balance after.
 
-6. **`src/pages/MembersList.tsx`**
-   - Replace direct `m.avatar` binding with the signed-URL hook / helper. Fallback to initials while loading.
+**6. Log Movement sheet** (`AddStockModal.tsx` generalised)
+- One sheet with Item, Movement Type (Received / Issued / Adjusted / Transferred), Quantity, Rate (received only), From/To store (transfer only), Reference Note; Save Movement / Cancel.
 
-7. **Verification**
-   - `bun run build`
-   - `bunx vitest run` (existing member/booking suites)
-   - Manual grep: no remaining `getPublicUrl('members'...` or `storage.from('members').getPublicUrl` calls.
+**7. Reports integration** (`src/pages/Reports.tsx`)
+- Add an "Inventory" report section: Stock Position (valuation by store/category) and Stock Movement Register (date-ranged, printable/exportable via the existing report frame).
 
-### Out of scope (later phases)
+---
 
-Attendance tables, expiry calc rework, admin password reset flows, ledger inconsistencies, dedup of `use-firestore.ts` / `use-charges.ts` / `supabase-services.ts`, and plan-usage analytics — reserved for Phases 2-6.
+### Phase 2 — Suppliers module & analytics (dependent on Phase 1 data)
+
+**8. Suppliers setup page** (`src/pages/setup/Suppliers.tsx`, route + sidebar entry)
+- CRUD table following the existing `Stores.tsx` / `ItemGroups.tsx` pattern; deletion blocked when items reference the supplier.
+
+**9. Analytics page** (new `src/pages/InventoryAnalytics.tsx`)
+- Tabs: Stock Overview | Suppliers.
+- Filters: date range, Category, Supplier, Location.
+- KPI cards: Total Inventory Value (NPR), Total SKUs, Avg Stock Level, Below Reorder Point.
+- Charts (recharts, existing chart tokens): Items by Category (horizontal bars), Stock Status Distribution (donut with In/Low/Out %), Movement Trends (multi-line by type over the selected range).
+- Turnover & Reorder Analysis: three ranked lists — Fastest Moving, Slowest Moving, Most Reordered (turnover = issued qty ÷ avg stock over the window).
+- Suppliers tab: items supplied, receipts count, total received value, last receipt date per supplier.
+- Export CSV for each block.
+
+**10. Polish**
+- CSV import for items (Phase 1 button wired here if not completed earlier).
+- Low-stock notification badge feeding the existing notification panel.
+- Permission keys for inventory movements/analytics in the RBAC action list.
+
+---
+
+### Technical notes
+- No new global state: all reads go through TanStack Query hooks keyed under `["inv", ...]`; mutations invalidate that prefix.
+- Sorting/filtering happens client-side on the cached item list (dataset is small); the movements ledger is server-paged by date range.
+- Valuation stays `quantity × avg rate` (single rate retained, VAT-inclusive) — no cost/selling split.
+- Every stock-changing action produces both an `inv_movements` row and an `audit_logs` entry, so history is reconstructible.
