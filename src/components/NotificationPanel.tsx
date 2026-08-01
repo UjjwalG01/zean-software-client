@@ -1,10 +1,11 @@
-import { Bell, CalendarDays, UserPlus, AlertTriangle, CheckCircle } from "lucide-react";
+import { Bell, CalendarDays, UserPlus, AlertTriangle, CheckCircle, PackageMinus } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useBookings, useMembers } from "@/hooks/use-firestore";
+import { useInventoryItems } from "@/hooks/use-inventory";
 import { useMemo } from "react";
 import { isToday, parseISO, differenceInDays } from "date-fns";
 import { useNavigate } from "react-router-dom";
@@ -12,7 +13,7 @@ import { getSystemNowDate } from "@/lib/timeUtils";
 
 interface Notification {
   id: string;
-  type: "booking" | "new_member" | "expiring" | "expired";
+  type: "booking" | "new_member" | "expiring" | "expired" | "low_stock";
   title: string;
   message: string;
   icon: typeof Bell;
@@ -23,7 +24,9 @@ interface Notification {
 export function NotificationPanel() {
   const { data: bookings = [] } = useBookings();
   const { data: members = [] } = useMembers();
+  const { data: inventoryItems = [] } = useInventoryItems();
   const navigate = useNavigate();
+
 
   const notifications = useMemo<Notification[]>(() => {
     const items: Notification[] = [];
@@ -96,8 +99,36 @@ export function NotificationPanel() {
       });
     }
 
+    // Inventory: items at or below their reorder point
+    const outOfStock = inventoryItems.filter((i) => i.active && i.quantity <= 0);
+    const lowStock = inventoryItems.filter(
+      (i) => i.active && i.quantity > 0 && i.quantity <= i.reorderLevel,
+    );
+    if (outOfStock.length > 0) {
+      items.push({
+        id: "inventory-out-of-stock",
+        type: "low_stock",
+        title: "Out of Stock",
+        message: `${outOfStock.length} item(s) are out of stock`,
+        icon: PackageMinus,
+        color: "text-destructive",
+        route: "/inventory",
+      });
+    }
+    if (lowStock.length > 0) {
+      items.push({
+        id: "inventory-low-stock",
+        type: "low_stock",
+        title: "Low Stock",
+        message: `${lowStock.length} item(s) at or below reorder level`,
+        icon: PackageMinus,
+        color: "text-warning",
+        route: "/inventory",
+      });
+    }
+
     return items;
-  }, [bookings, members]);
+  }, [bookings, members, inventoryItems]);
 
   return (
     <Popover>

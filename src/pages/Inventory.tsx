@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Package,
@@ -15,6 +15,7 @@ import {
   Warehouse,
   RefreshCw,
   SlidersHorizontal,
+  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,10 +42,12 @@ import { AddStockModal, type LogMovementMode } from "@/components/inventory/AddS
 import { MovementsDrawer } from "@/components/inventory/MovementsDrawer";
 import type { InventoryItem } from "@/lib/inventory-store";
 import { toast } from "sonner";
+import { parseItemsCsv } from "@/lib/inventory-csv";
 import {
   underlineFirstChar,
   underlineSpecificChars,
 } from "@/lib/string-case-change";
+
 
 
 export default function Inventory() {
@@ -53,7 +56,7 @@ export default function Inventory() {
   const { data: stores = [] } = useInventoryStores();
   const { data: groups = [] } = useItemGroups();
   const { data: suppliers = [] } = useInventorySuppliers();
-  const { removeItem } = useInventoryMutations();
+  const { removeItem, createItem } = useInventoryMutations();
 
   const [supplierFilter, setSupplierFilter] = useState<string>("all");
   const [storeFilter, setStoreFilter] = useState<string>("all");
@@ -68,6 +71,42 @@ export default function Inventory() {
     string | undefined
   >();
   const [movementsItemId, setMovementsItemId] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /** Read a CSV file and create every valid row as a new catalog item. */
+  const handleImportFile = async (file: File) => {
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const { drafts, errors, skipped } = parseItemsCsv(
+        text,
+        { stores, groups, suppliers },
+        items,
+      );
+      if (drafts.length === 0) {
+        toast.error(errors[0] || "No importable rows found in the CSV.");
+        return;
+      }
+      for (const draft of drafts) {
+        await createItem.mutateAsync(draft);
+      }
+      toast.success(
+        `Imported ${drafts.length} item(s)${skipped ? ` · ${skipped} skipped` : ""}`,
+      );
+      if (errors.length > 0) {
+        toast.warning(errors.slice(0, 3).join(" "));
+      }
+      qc.invalidateQueries({ queryKey: ["inv"] });
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not import the CSV file.",
+      );
+    } finally {
+      setImporting(false);
+    }
+  };
+
 
   const storeName = (id: string) =>
     stores.find((s) => s.id === id)?.name || "—";
@@ -155,6 +194,26 @@ export default function Inventory() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) void handleImportFile(file);
+            }}
+          />
+          <Button
+            variant="outline"
+            disabled={importing}
+            onClick={() => fileInputRef.current?.click()}
+            title="Import items from a CSV file"
+          >
+            <Upload className="h-4 w-4 mr-1.5" />
+            {importing ? "Importing…" : "Import CSV"}
+          </Button>
           <Button
             variant="outline"
             accessKey="l"
