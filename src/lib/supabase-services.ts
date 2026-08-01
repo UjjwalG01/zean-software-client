@@ -910,7 +910,75 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
 }
 
 
+/**
+ * Update a transaction. Routes to `charges` or `payments` depending on where
+ * the row actually lives. Settling a charge (status → paid/completed) also
+ * books the matching credit row in `payments`, which is what moves the member's
+ * "Total Paid" and net balance.
+ */
 export async function updateTransaction(id: string, data: Partial<Transaction>): Promise<void> {
+  if (await isChargeRow(id)) {
+    const { data: current } = await supabase.from("charges").select("*").eq("id", id).maybeSingle();
+    const wasPaid = current?.status === "paid";
+    const nextStatus = String(data.status ?? "");
+    const settling = nextStatus === "paid" || nextStatus === "completed";
+    const voiding = nextStatus === "voided" || (data as any).voided === true;
+
+    const patch: any = {};
+    if (data.method !== undefined) patch.method = data.method;
+    if (data.description !== undefined) patch.description = data.description;
+    if (data.date !== undefined) patch.paid_at = dayToTimestampInTz(data.date);
+    if (data.amount !== undefined) patch.amount = data.amount;
+    if (data.vat !== undefined) patch.vat_amount = data.vat;
+    if (data.total !== undefined) patch.total = data.total;
+    if ((data as any).discount !== undefined) patch.discount = (data as any).discount;
+    if (data.receiptNo !== undefined) patch.receipt_no = data.receiptNo;
+    if (settling) {
+      patch.status = "paid";
+      patch.paid_at = patch.paid_at || nowIso();
+    } else if (nextStatus === "pending") {
+      patch.status = "unpaid";
+    }
+    if (voiding) {
+      patch.meta = {
+        ...(current?.meta && typeof current.meta === "object" ? current.meta : {}),
+        voided: true,
+        voidReason: (data as any).voidReason || null,
+        voidedAt: (data as any).voidedAt || nowIso(),
+      };
+    }
+
+    const { error } = await supabase.from("charges").update(patch).eq("id", id);
+    if (error) throwDb(error, "charges");
+    await maybeAudit("update", "charge", id, null, data);
+
+    if (settling && !wasPaid && !voiding) {
+      const discount = Number((data as any).discount ?? current?.discount ?? 0);
+      const gross = Number(data.total ?? current?.total ?? 0);
+      const netDue = Math.max(0, gross - discount);
+      if (netDue > 0) {
+        await insertPaymentRow({
+          memberId: current?.member_id || undefined,
+          memberName: current?.member_name || undefined,
+          amount: netDue,
+          total: netDue,
+          discount,
+          method: (data.method || current?.method || "cash") as PaymentMethod,
+          type: "Payment",
+          status: "paid",
+          date: data.date,
+          description: current?.description || current?.charge_head || "Settlement",
+          serviceType: current?.charge_head || undefined,
+          bookingId: current?.meta?.bookingId || undefined,
+          outletId: current?.outlet_id || undefined,
+          chargeRowId: id,
+          isSettlement: true,
+        } as Partial<Transaction>);
+      }
+    }
+    return;
+  }
+
   const patch: any = {};
   if (data.method !== undefined) patch.method = data.method;
   if (data.status !== undefined) patch.status = data.status === "voided" ? "voided" : data.status;
@@ -927,6 +995,7 @@ export async function updateTransaction(id: string, data: Partial<Transaction>):
   if (error) throwDb(error, "payments");
   await maybeAudit("update", "payment", id, null, data);
 }
+
 
 // ─── Services ───────────────────────────────────────────────────────
 export interface FirestoreService {
