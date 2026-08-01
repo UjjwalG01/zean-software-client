@@ -27,7 +27,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/StatCard";
 import { PremiumReportFrame } from "@/components/PremiumReportFrame";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { InventoryTabsNav } from "@/components/inventory/InventoryTabsNav";
 import {
   useInventoryItems,
   useInventoryStores,
@@ -56,7 +56,7 @@ export default function Inventory() {
   const { data: suppliers = [] } = useInventorySuppliers();
   const { removeItem } = useInventoryMutations();
 
-  const [tab, setTab] = useState<"catalog" | "movements" | "analytics">("catalog");
+  const [supplierFilter, setSupplierFilter] = useState<string>("all");
   const [storeFilter, setStoreFilter] = useState<string>("all");
   const [groupFilter, setGroupFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -204,14 +204,9 @@ export default function Inventory() {
         </div>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-        <TabsList>
-          <TabsTrigger value="catalog">Product Catalog</TabsTrigger>
-          <TabsTrigger value="movements">Stock Movements</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-        </TabsList>
+      <InventoryTabsNav />
 
-        <TabsContent value="catalog" className="mt-4">
+
       <PremiumReportFrame
         title="Product Catalog"
         subtitle="Valuation = Quantity × Avg Rate (VAT inclusive). Click any column header to sort."
@@ -220,7 +215,26 @@ export default function Inventory() {
         defaultSortKey="name"
         filters={
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Supplier
+              </label>
+              <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All suppliers</SelectItem>
+                  {suppliers.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div>
               <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
                 Store
@@ -443,16 +457,8 @@ export default function Inventory() {
         exportFilename="inventory_stock"
         emptyMessage="No inventory items match the current filters."
       />
-        </TabsContent>
 
-        <TabsContent value="movements" className="mt-4">
-          <StockMovementsLedger />
-        </TabsContent>
 
-        <TabsContent value="analytics" className="mt-4">
-          <InventoryAnalytics />
-        </TabsContent>
-      </Tabs>
 
 
 
