@@ -27,21 +27,26 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/StatCard";
 import { PremiumReportFrame } from "@/components/PremiumReportFrame";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   useInventoryItems,
   useInventoryStores,
   useItemGroups,
+  useInventorySuppliers,
   useInventoryMutations,
 } from "@/hooks/use-inventory";
 import { AddItemModal } from "@/components/inventory/AddItemModal";
 import { AddStockModal } from "@/components/inventory/AddStockModal";
 import { MovementsDrawer } from "@/components/inventory/MovementsDrawer";
+import { StockMovementsLedger } from "@/components/inventory/StockMovementsLedger";
+import { InventoryAnalytics } from "@/components/inventory/InventoryAnalytics";
 import type { InventoryItem } from "@/lib/inventory-store";
 import { toast } from "sonner";
 import {
   underlineFirstChar,
   underlineSpecificChars,
 } from "@/lib/string-case-change";
+
 
 export default function Inventory() {
   const qc = useQueryClient();
