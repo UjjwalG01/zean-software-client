@@ -186,12 +186,17 @@ export function InventoryReports({
 
   return (
     <div className="space-y-6">
+      {report !== "register" && (
       <PremiumReportFrame
         title="Stock Position"
         subtitle="Current valuation by item, category and store (Quantity × Avg Rate, VAT inclusive)."
         propertyName={propertyName}
         sortable
+        paginated
+        hideActions={hideActions}
+        apiRef={report === "position" ? apiRef : undefined}
         defaultSortKey="name"
+
         filters={
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             {storeSelect}
