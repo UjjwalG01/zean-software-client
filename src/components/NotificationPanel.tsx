@@ -99,8 +99,36 @@ export function NotificationPanel() {
       });
     }
 
+    // Inventory: items at or below their reorder point
+    const outOfStock = inventoryItems.filter((i) => i.active && i.quantity <= 0);
+    const lowStock = inventoryItems.filter(
+      (i) => i.active && i.quantity > 0 && i.quantity <= i.reorderLevel,
+    );
+    if (outOfStock.length > 0) {
+      items.push({
+        id: "inventory-out-of-stock",
+        type: "low_stock",
+        title: "Out of Stock",
+        message: `${outOfStock.length} item(s) are out of stock`,
+        icon: PackageMinus,
+        color: "text-destructive",
+        route: "/inventory",
+      });
+    }
+    if (lowStock.length > 0) {
+      items.push({
+        id: "inventory-low-stock",
+        type: "low_stock",
+        title: "Low Stock",
+        message: `${lowStock.length} item(s) at or below reorder level`,
+        icon: PackageMinus,
+        color: "text-warning",
+        route: "/inventory",
+      });
+    }
+
     return items;
-  }, [bookings, members]);
+  }, [bookings, members, inventoryItems]);
 
   return (
     <Popover>
