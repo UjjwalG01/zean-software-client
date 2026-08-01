@@ -42,10 +42,12 @@ import { AddStockModal, type LogMovementMode } from "@/components/inventory/AddS
 import { MovementsDrawer } from "@/components/inventory/MovementsDrawer";
 import type { InventoryItem } from "@/lib/inventory-store";
 import { toast } from "sonner";
+import { parseItemsCsv } from "@/lib/inventory-csv";
 import {
   underlineFirstChar,
   underlineSpecificChars,
 } from "@/lib/string-case-change";
+
 
 
 export default function Inventory() {
