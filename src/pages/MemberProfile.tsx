@@ -439,7 +439,7 @@ const MemberProfile = () => {
         </div>
       </div>
 
-      {/* Stats Row */}
+      {/* Stats Row — financial SSOT: member_financial_summaries */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
           { label: "Plan", value: member.plan },
@@ -448,18 +448,24 @@ const MemberProfile = () => {
             value: `${formatTimePeriod(member.joinDate, member.expiryDate)}`,
           },
           {
-            label: "Advance",
-            value: formatNPR(currentMember?.total_advances ?? 0),
+            label: "Total Charges",
+            value: formatNPR(currentMember?.total_charged ?? 0),
           },
           {
             label: "Total Paid",
             value: formatNPR(currentMember?.total_paid ?? 0),
           },
-          {
-            label: "Due",
-            value: formatNPR(currentMember?.net_outstanding ?? 0),
-          },
+          (currentMember?.net_balance ?? 0) < 0
+            ? {
+                label: "Advance / Refundable",
+                value: formatNPR(currentMember?.advance_balance ?? 0),
+              }
+            : {
+                label: "Outstanding Due",
+                value: formatNPR(currentMember?.outstanding_due ?? 0),
+              },
         ].map((s) => (
+
           <div key={s.label} className="glass-card rounded-lg p-4 text-center">
             <p className="text-xs text-muted-foreground">{s.label}</p>
             <p className="text-lg font-bold font-display mt-1">{s.value}</p>
