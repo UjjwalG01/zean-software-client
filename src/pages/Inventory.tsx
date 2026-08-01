@@ -395,7 +395,6 @@ export default function Inventory() {
           },
         ]}
         rows={rows}
-        groupBy={{ key: "_store", label: "Store" }}
         footerTotals={{
           label: "Filtered Totals",
           cells: {
@@ -410,6 +409,18 @@ export default function Inventory() {
         exportFilename="inventory_stock"
         emptyMessage="No inventory items match the current filters."
       />
+        </TabsContent>
+
+        <TabsContent value="movements" className="mt-4">
+          <StockMovementsLedger />
+        </TabsContent>
+
+        <TabsContent value="analytics" className="mt-4">
+          <InventoryAnalytics />
+        </TabsContent>
+      </Tabs>
+
+
 
       <AddItemModal
         open={addItemOpen}
