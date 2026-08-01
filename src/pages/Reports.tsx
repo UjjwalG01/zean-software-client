@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { useMemo, lazy, Suspense, useState } from "react";
 import { format, parseISO, startOfMonth, isValid } from "date-fns";
 import { PremiumReportFrame } from "@/components/PremiumReportFrame";
+import { InventoryReports } from "@/components/inventory/InventoryReports";
 import {
   ReconciliationDrawer,
   type ReconciliationSelection,
@@ -413,6 +414,7 @@ const Reports = () => {
           <TabsTrigger value="revenue">Revenue by Outlet</TabsTrigger>
           <TabsTrigger value="growth">Member Growth</TabsTrigger>
           <TabsTrigger value="payments">Payment Methods</TabsTrigger>
+          <TabsTrigger value="inventory">Inventory</TabsTrigger>
         </TabsList>
 
         <TabsContent value="daily">
@@ -854,6 +856,12 @@ const Reports = () => {
               </div>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="inventory">
+          <LoadGate k="inventory">
+            <InventoryReports propertyName={propertyName} />
+          </LoadGate>
         </TabsContent>
       </Tabs>
       <ReconciliationDrawer
