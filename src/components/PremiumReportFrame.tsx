@@ -383,7 +383,7 @@ export function PremiumReportFrame({
                 </>
               ))
             ) : (
-              rows.map((r, i) => (
+              visibleRows.map((r, i) => (
                 <tr
                   key={i}
                   onClick={onRowClick ? () => onRowClick(r) : undefined}
