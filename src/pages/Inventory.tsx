@@ -53,8 +53,10 @@ export default function Inventory() {
   const { data: items = [], isFetching } = useInventoryItems();
   const { data: stores = [] } = useInventoryStores();
   const { data: groups = [] } = useItemGroups();
+  const { data: suppliers = [] } = useInventorySuppliers();
   const { removeItem } = useInventoryMutations();
 
+  const [tab, setTab] = useState<"catalog" | "movements" | "analytics">("catalog");
   const [storeFilter, setStoreFilter] = useState<string>("all");
   const [groupFilter, setGroupFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -72,6 +74,9 @@ export default function Inventory() {
     stores.find((s) => s.id === id)?.name || "—";
   const groupName = (id: string) =>
     groups.find((g) => g.id === id)?.name || "—";
+  const supplierName = (id?: string) =>
+    (id && suppliers.find((s) => s.id === id)?.name) || "—";
+
 
   const filtered = useMemo(() => {
     return items.filter((i) => {
