@@ -1,6 +1,6 @@
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState, type MutableRefObject } from "react";
 import { formatDateTime, nowIso } from "@/lib/tz";
-import { Filter, Download, Printer, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { Filter, Download, Printer, ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { exportTableToCSV, type CSVExportMeta } from "@/lib/print-utils";
@@ -9,6 +9,13 @@ import {
   underlineFirstChar,
   underlineSpecificChars,
 } from "@/lib/string-case-change";
+
+/** Imperative handle exposed to a parent toolbar so it can trigger export/print. */
+export interface ReportFrameApi {
+  exportCSV: () => void;
+  print: () => void;
+}
+
 
 interface Column {
   key: string;
