@@ -77,6 +77,7 @@ export async function createManualCharge(add: AddFn, input: ManualChargeInput): 
     memberId: input.memberId,
     memberName: input.memberName,
     amount: input.amount,
+    total: input.amount,
     method: "cash" as PaymentMethod,
     type: "Charge",
     date: today(),
