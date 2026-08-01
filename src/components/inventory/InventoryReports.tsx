@@ -1,5 +1,8 @@
-import { useMemo, useState } from "react";
-import { PremiumReportFrame } from "@/components/PremiumReportFrame";
+import { useEffect, useMemo, useState, type MutableRefObject } from "react";
+import {
+  PremiumReportFrame,
+  type ReportFrameApi,
+} from "@/components/PremiumReportFrame";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import {
   Select,
@@ -25,6 +28,24 @@ import { formatDateTime } from "@/lib/tz";
 
 interface Props {
   propertyName?: string;
+  /** Render only one of the two reports (used by the categorised Reports page). */
+  report?: "position" | "register" | "both";
+  /** External date range (YYYY-MM-DD) driving the movement register. */
+  dateFrom?: string;
+  dateTo?: string;
+  /** Hide the in-frame Print/Export buttons when a parent toolbar owns them. */
+  hideActions?: boolean;
+  apiRef?: MutableRefObject<ReportFrameApi | null>;
+  /** Reports summary rows back to the parent for KPI cards. */
+  onStats?: (stats: {
+    items: number;
+    quantity: number;
+    valuation: number;
+    movements: number;
+    inQty: number;
+    outQty: number;
+    movementValue: number;
+  }) => void;
 }
 
 /**
@@ -32,7 +53,15 @@ interface Props {
  * 1. Stock Position — valuation by item / store / category (current snapshot).
  * 2. Stock Movement Register — date-ranged ledger, the audit source for stock.
  */
-export function InventoryReports({ propertyName = "" }: Props) {
+export function InventoryReports({
+  propertyName = "",
+  report = "both",
+  dateFrom,
+  dateTo,
+  hideActions = false,
+  apiRef,
+  onStats,
+}: Props) {
   const { data: items = [] } = useInventoryItems();
   const { data: movements = [] } = useAllMovements();
   const { data: stores = [] } = useInventoryStores();
@@ -40,8 +69,13 @@ export function InventoryReports({ propertyName = "" }: Props) {
   const { data: suppliers = [] } = useInventorySuppliers();
 
   const [storeFilter, setStoreFilter] = useState("all");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState(getSystemTodayStr());
+  const [localFrom, setLocalFrom] = useState("");
+  const [localTo, setLocalTo] = useState(getSystemTodayStr());
+  const from = dateFrom ?? localFrom;
+  const to = dateTo ?? localTo;
+  const setFrom = dateFrom === undefined ? setLocalFrom : () => {};
+  const setTo = dateTo === undefined ? setLocalTo : () => {};
+
 
   const storeName = (id?: string) =>
     (id && stores.find((s) => s.id === id)?.name) || "—";
@@ -115,6 +149,20 @@ export function InventoryReports({ propertyName = "" }: Props) {
     [registerRows],
   );
 
+  useEffect(() => {
+    onStats?.({
+      items: positionRows.length,
+      quantity: positionTotals.qty,
+      valuation: positionTotals.val,
+      movements: registerRows.length,
+      inQty: registerTotals.inQty,
+      outQty: registerTotals.outQty,
+      movementValue: registerTotals.value,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [positionRows.length, positionTotals, registerRows.length, registerTotals]);
+
+
   const storeSelect = (
     <div>
       <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -138,12 +186,17 @@ export function InventoryReports({ propertyName = "" }: Props) {
 
   return (
     <div className="space-y-6">
+      {report !== "register" && (
       <PremiumReportFrame
         title="Stock Position"
         subtitle="Current valuation by item, category and store (Quantity × Avg Rate, VAT inclusive)."
         propertyName={propertyName}
         sortable
+        paginated
+        hideActions={hideActions}
+        apiRef={report === "position" ? apiRef : undefined}
         defaultSortKey="name"
+
         filters={
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             {storeSelect}
@@ -197,14 +250,20 @@ export function InventoryReports({ propertyName = "" }: Props) {
         exportFilename="stock_position"
         emptyMessage="No stock items for the selected store."
       />
+      )}
 
+      {report !== "position" && (
       <PremiumReportFrame
         title="Stock Movement Register"
         subtitle="Every received, issued, adjusted and transferred unit in the selected period."
         propertyName={propertyName}
         sortable
+        paginated
+        hideActions={hideActions}
+        apiRef={report === "register" ? apiRef : undefined}
         defaultSortKey="createdAt"
         defaultSortDir="desc"
+
         filters={
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
             {storeSelect}
@@ -278,6 +337,8 @@ export function InventoryReports({ propertyName = "" }: Props) {
         exportFilename="stock_movement_register"
         emptyMessage="No stock movements recorded in this period."
       />
+      )}
     </div>
+
   );
 }

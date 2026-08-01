@@ -1,6 +1,6 @@
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState, type MutableRefObject } from "react";
 import { formatDateTime, nowIso } from "@/lib/tz";
-import { Filter, Download, Printer, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { Filter, Download, Printer, ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { exportTableToCSV, type CSVExportMeta } from "@/lib/print-utils";
@@ -9,6 +9,13 @@ import {
   underlineFirstChar,
   underlineSpecificChars,
 } from "@/lib/string-case-change";
+
+/** Imperative handle exposed to a parent toolbar so it can trigger export/print. */
+export interface ReportFrameApi {
+  exportCSV: () => void;
+  print: () => void;
+}
+
 
 interface Column {
   key: string;
@@ -46,7 +53,16 @@ interface PremiumReportFrameProps {
   defaultSortDir?: "asc" | "desc";
   /** Optional row-click handler that turns body rows into interactive items. */
   onRowClick?: (row: any) => void;
+  /** Paginate the (ungrouped) table body. Default: false. */
+  paginated?: boolean;
+  /** Rows per page when `paginated` is on. Default: 25. */
+  pageSize?: number;
+  /** Hides the built-in Print/Export buttons (parent toolbar owns them). */
+  hideActions?: boolean;
+  /** Receives an imperative handle so a parent toolbar can export/print. */
+  apiRef?: MutableRefObject<ReportFrameApi | null>;
 }
+
 
 
 /**
@@ -74,10 +90,16 @@ export function PremiumReportFrame({
   defaultSortKey,
   defaultSortDir = "asc",
   onRowClick,
+  paginated = false,
+  pageSize = 25,
+  hideActions = false,
+  apiRef,
 }: PremiumReportFrameProps) {
   const [showFilters, setShowFilters] = useState(false);
+  const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<string | undefined>(defaultSortKey);
   const [sortDir, setSortDir] = useState<"asc" | "desc">(defaultSortDir);
+
 
   const isSortable = (c: Column) =>
     sortable && c.sortable !== false && c.key !== "actions";
@@ -109,6 +131,20 @@ export function PremiumReportFrame({
       return String(av).localeCompare(String(bv)) * dir;
     });
   }, [inputRows, columns, sortKey, sortDir, sortable]);
+
+  const usePages = paginated && !groupBy;
+  const totalPages = usePages ? Math.max(1, Math.ceil(rows.length / pageSize)) : 1;
+  const currentPage = Math.min(page, totalPages);
+  const visibleRows = usePages
+    ? rows.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+    : rows;
+
+  // Reset to the first page whenever the underlying data or sort changes.
+  useEffect(() => {
+    setPage(1);
+  }, [inputRows, sortKey, sortDir]);
+
+
 
 
 
@@ -161,6 +197,9 @@ export function PremiumReportFrame({
     }
   };
 
+  if (apiRef) apiRef.current = { exportCSV: handleExport, print: handlePrint };
+
+
   // Optional grouping
   const grouped: Record<string, any[]> | null = groupBy
     ? rows.reduce((acc: Record<string, any[]>, r) => {
@@ -196,31 +235,42 @@ export function PremiumReportFrame({
               className="m-0.5"
             >
               <Filter className="h-4 w-4 mr-1.5 hidden md:flex" />
-              {underlineFirstChar(showFilters ? "Hide Filters" : "Load Report")}
+              {underlineFirstChar(
+                showFilters
+                  ? "Hide Filters"
+                  : hideActions
+                    ? "More Filters"
+                    : "Load Report",
+              )}
             </Button>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            accessKey="p"
-            onClick={handlePrint}
-            disabled={rows.length === 0}
-            className="text-pretty"
-          >
-            <Printer className="h-4 w-4 mr-1.5 hidden md:flex" />
-            {underlineFirstChar("Print")}
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleExport}
-            accessKey="x"
-            disabled={rows.length === 0}
-            className="bg-success hover:bg-success/90 text-white"
-          >
-            <Download className="h-4 w-4 mr-1.5 hidden md:flex" />
-            {underlineSpecificChars("Export Excel", [1])}
-          </Button>
+          {!hideActions && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                accessKey="p"
+                onClick={handlePrint}
+                disabled={rows.length === 0}
+                className="text-pretty"
+              >
+                <Printer className="h-4 w-4 mr-1.5 hidden md:flex" />
+                {underlineFirstChar("Print")}
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleExport}
+                accessKey="x"
+                disabled={rows.length === 0}
+                className="bg-success hover:bg-success/90 text-white"
+              >
+                <Download className="h-4 w-4 mr-1.5 hidden md:flex" />
+                {underlineSpecificChars("Export Excel", [1])}
+              </Button>
+            </>
+          )}
         </div>
+
       </div>
 
       {/* Filter strip */}
@@ -333,7 +383,7 @@ export function PremiumReportFrame({
                 </>
               ))
             ) : (
-              rows.map((r, i) => (
+              visibleRows.map((r, i) => (
                 <tr
                   key={i}
                   onClick={onRowClick ? () => onRowClick(r) : undefined}
@@ -380,6 +430,39 @@ export function PremiumReportFrame({
           </tbody>
         </table>
       </div>
+
+      {usePages && rows.length > 0 && (
+        <div className="flex items-center justify-between gap-3 px-5 py-3 border-t border-border/50 text-xs text-muted-foreground">
+          <span>
+            Showing {(currentPage - 1) * pageSize + 1}–
+            {Math.min(currentPage * pageSize, rows.length)} of {rows.length}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2"
+              disabled={currentPage <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+            <span className="tabular-nums">
+              Page {currentPage} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2"
+              disabled={currentPage >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
+
   );
 }

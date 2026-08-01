@@ -1,12 +1,11 @@
-import { Download } from "lucide-react";
+import { Download, Printer, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNPR } from "@/lib/mock-data";
 import {
   useMembers,
   useTransactions,
-  useBookings,
   useCompanySettings,
 } from "@/hooks/use-firestore";
 import { useCharges } from "@/hooks/use-charges";
@@ -24,16 +23,18 @@ import {
   AreaChart,
   Area,
 } from "recharts";
-import { toast } from "sonner";
-import { useMemo, lazy, Suspense, useState } from "react";
-import { format, parseISO, startOfMonth, isValid } from "date-fns";
-import { PremiumReportFrame } from "@/components/PremiumReportFrame";
+import { useMemo, lazy, Suspense, useState, useRef, useEffect } from "react";
+import { format, startOfMonth } from "date-fns";
+import {
+  PremiumReportFrame,
+  type ReportFrameApi,
+} from "@/components/PremiumReportFrame";
 import { InventoryReports } from "@/components/inventory/InventoryReports";
 import {
   ReconciliationDrawer,
   type ReconciliationSelection,
 } from "@/components/ReconciliationDrawer";
-import { Input } from "@/components/ui/input";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -43,11 +44,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-import {
-  capitalizeFirstLetter,
-  underlineFirstChar,
-} from "@/lib/string-case-change";
+import { cn } from "@/lib/utils";
+import { capitalizeFirstLetter } from "@/lib/string-case-change";
 import { useOutlet } from "@/contexts/OutletContext";
 import { formatInTz, formatMonthShort, toIsoDayInTz } from "@/lib/tz";
 import { getSystemNowDate } from "@/lib/timeUtils";
@@ -55,80 +53,149 @@ import { tooltipStyle } from "@/lib/utils";
 
 const LedgerReport = lazy(() => import("@/components/LedgerReport"));
 
+type CategoryKey = "finance" | "members" | "outlets" | "inventory";
+
+interface ReportDef {
+  key: string;
+  label: string;
+}
+
+const CATEGORIES: { key: CategoryKey; label: string; reports: ReportDef[] }[] = [
+  {
+    key: "finance",
+    label: "Sales & Finance",
+    reports: [
+      { key: "daily", label: "Daily Sales" },
+      { key: "collection", label: "Cashier / Collection" },
+      { key: "contribution", label: "Sales Contribution" },
+      { key: "payments", label: "Payment Methods" },
+    ],
+  },
+  {
+    key: "members",
+    label: "Members",
+    reports: [
+      { key: "ledger", label: "Member Ledger" },
+      { key: "growth", label: "Member Growth" },
+    ],
+  },
+  {
+    key: "outlets",
+    label: "Outlets",
+    reports: [{ key: "revenue", label: "Revenue by Outlet" }],
+  },
+  {
+    key: "inventory",
+    label: "Inventory",
+    reports: [
+      { key: "stock-position", label: "Stock Position" },
+      { key: "stock-register", label: "Stock Movement Register" },
+    ],
+  },
+];
+
+/** Compact KPI tile used above each report table. */
+function KpiCard({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+}) {
+  return (
+    <div className="glass-card rounded-xl px-4 py-3 border border-border/60">
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+        {label}
+      </p>
+      <p className="text-lg md:text-xl font-bold font-display mt-1 text-primary">
+        {value}
+      </p>
+      {hint && (
+        <p className="text-[11px] text-muted-foreground mt-0.5">{hint}</p>
+      )}
+    </div>
+  );
+}
+
 const Reports = () => {
   const { outlets, selected: activeOutlet } = useOutlet();
   const { data: members = [] } = useMembers({ outletId: activeOutlet?.id });
   const { data: transactions = [] } = useTransactions({
     outletId: activeOutlet?.id,
   });
-  const { data: bookings = [] } = useBookings({ outletId: activeOutlet?.id });
   const { data: charges = [] } = useCharges();
   const { data: settings = {} } = useCompanySettings();
   const [showCashierDetails, setShowCashierDetails] = useState(false);
   const [reconSelection, setReconSelection] =
     useState<ReconciliationSelection | null>(null);
 
-  // Map of charge.id → charge_head for cross-referencing payments that came in via a settled_charge_id.
+  // ── Navigation state ──
+  const [category, setCategory] = useState<CategoryKey>("finance");
+  const [report, setReport] = useState<string>("daily");
+  const currentCategory =
+    CATEGORIES.find((c) => c.key === category) || CATEGORIES[0];
+
+  const selectCategory = (key: string) => {
+    const cat = CATEGORIES.find((c) => c.key === key);
+    if (!cat) return;
+    setCategory(cat.key);
+    setReport(cat.reports[0].key);
+  };
+
+  // ── Universal filters ──
+  const today = format(getSystemNowDate(), "yyyy-MM-dd");
+  const monthStart = format(startOfMonth(getSystemNowDate()), "yyyy-MM-dd");
+  const [from, setFrom] = useState(monthStart);
+  const [to, setTo] = useState(today);
+  const [outletFilter, setOutletFilter] = useState("all");
+  const [includeVoided, setIncludeVoided] = useState<"exclude" | "include">(
+    "exclude",
+  );
+
+  // ── Export/print bridge to the active report frame ──
+  const frameApi = useRef<ReportFrameApi | null>(null);
+  useEffect(() => {
+    frameApi.current = null;
+  }, [report]);
+
+  const [invStats, setInvStats] = useState({
+    items: 0,
+    quantity: 0,
+    valuation: 0,
+    movements: 0,
+    inQty: 0,
+    outQty: 0,
+    movementValue: 0,
+  });
+
+  // Map of charge.id → charge_head for cross-referencing payments settled via a charge.
   const chargeHeadById = useMemo(() => {
     const m = new Map<string, string>();
     charges.forEach((c) => m.set(c.id, c.charge_head || ""));
     return m;
   }, [charges]);
 
-  const activeMembers = members.filter((m) => m.status === "Active").length;
-  const totalRevenue = transactions.reduce(
-    (sum, t) => sum + ((t as any).voided ? 0 : t.total),
-    0,
-  );
-
-  // Lazy-load: each sub-tab renders an empty placeholder with a "Load Report" button
-  // until the user clicks it. This keeps the page fast and avoids heavy upfront work.
-  const [loaded, setLoaded] = useState<Record<string, boolean>>({});
-  const loadTab = (k: string) => setLoaded((p) => ({ ...p, [k]: true }));
-  const LoadGate = ({
-    k,
-    children,
-  }: {
-    k: string;
-    children: React.ReactNode;
-  }) =>
-    loaded[k] ? (
-      <>{children}</>
-    ) : (
-      <div className="glass-card rounded-xl p-10 text-center space-y-3">
-        <Button
-          onClick={() => loadTab(k)}
-          variant="secondary"
-          size="sm"
-          accessKey="l"
-          className="bg-white/10 border"
-        >
-          <Download className="h-4 w-4 mr-1.5" />
-          {underlineFirstChar("Load Report")}
-        </Button>
-      </div>
+  const txOutletFiltered = useMemo(() => {
+    if (outletFilter === "all") return transactions;
+    return transactions.filter(
+      (t) =>
+        ((t as any).outletId || (t as any).outlet_id || "__unassigned__") ===
+        outletFilter,
     );
-
-  // ── Daily Sales / Collection / Contribution shared filters ──
-  const today = format(getSystemNowDate(), "yyyy-MM-dd");
-  const monthStart = format(startOfMonth(getSystemNowDate()), "yyyy-MM-dd");
-  const [from, setFrom] = useState(monthStart);
-  const [to, setTo] = useState(today);
-  const [includeVoided, setIncludeVoided] = useState<"exclude" | "include">(
-    "exclude",
-  );
+  }, [transactions, outletFilter]);
 
   const txInRange = useMemo(() => {
-    return transactions.filter((t) => {
+    return txOutletFiltered.filter((t) => {
       if (!t.date) return false;
       const d = t.date;
-      if (d < from || d > to) return false;
+      if (from && d < from) return false;
+      if (to && d > to) return false;
       if (includeVoided === "exclude" && (t as any).voided) return false;
       return true;
     });
-  }, [transactions, from, to, includeVoided]);
-
-  // // console.log("Transactions in range:", txInRange);
+  }, [txOutletFiltered, from, to, includeVoided]);
 
   // ── 1. Daily Sales Report (grouped by date → department/service) ──
   const dailySalesRows = useMemo(() => {
@@ -143,9 +210,6 @@ const Reports = () => {
       }
     > = {};
     txInRange.forEach((t) => {
-      // Department resolution priority: explicit chargeHead on the txn → linked charge_head via settled_charge_id
-      // → service type → fall back to type label. This keeps reports aligned with the post-rewrite schema
-      // where most billed line-items live in the `charges` table and only carry a `chargeRowId` back.
       const linkedHead =
         (t as any).chargeRowId && chargeHeadById.get((t as any).chargeRowId);
       const department =
@@ -263,26 +327,32 @@ const Reports = () => {
   const contributionTotals = useMemo(() => {
     return contributionRows.reduce(
       (a, r) => ({ txns: a.txns + r.txns, total: a.total + r.total }),
-      {
-        txns: 0,
-        total: 0,
-      },
+      { txns: 0, total: 0 },
     );
   }, [contributionRows]);
 
-  // ── Revenue by Outlet (replaces "Revenue by Service") ──
+  // ── Revenue by Outlet ──
   const outletNameById = useMemo(() => {
     const m = new Map<string, string>();
     outlets.forEach((o) => m.set(o.id, o.name));
     return m;
   }, [outlets]);
 
+  const outletPalette = [
+    "hsl(38,92%,50%)",
+    "hsl(280,60%,55%)",
+    "hsl(200,80%,50%)",
+    "hsl(142,71%,45%)",
+    "hsl(15,80%,55%)",
+    "hsl(220,10%,55%)",
+  ];
+
   const revenueByOutlet = useMemo(() => {
     const acc: Record<
       string,
       { outletId: string; outlet: string; revenue: number; txns: number }
     > = {};
-    transactions.forEach((t) => {
+    txInRange.forEach((t) => {
       if ((t as any).voided) return;
       const id =
         (t as any).outletId || (t as any).outlet_id || "__unassigned__";
@@ -294,25 +364,28 @@ const Reports = () => {
       acc[id].revenue += t.total || 0;
       acc[id].txns += 1;
     });
-    return Object.values(acc).sort((a, b) => b.revenue - a.revenue);
-  }, [transactions, outletNameById]);
+    const list = Object.values(acc).sort((a, b) => b.revenue - a.revenue);
+    const grand = list.reduce((s, r) => s + r.revenue, 0) || 1;
+    return list.map((r, i) => ({
+      ...r,
+      share: (r.revenue / grand) * 100,
+      color: outletPalette[i % outletPalette.length],
+    }));
+  }, [txInRange, outletNameById]);
 
-  // console.log("Revenue by Outlet:", revenueByOutlet);
-  // console.log(outletNameById);
+  const revenueTotals = useMemo(
+    () => ({
+      revenue: revenueByOutlet.reduce((s, r) => s + r.revenue, 0),
+      txns: revenueByOutlet.reduce((s, r) => s + r.txns, 0),
+    }),
+    [revenueByOutlet],
+  );
 
-  const outletPalette = [
-    "hsl(38,92%,50%)",
-    "hsl(280,60%,55%)",
-    "hsl(200,80%,50%)",
-    "hsl(142,71%,45%)",
-    "hsl(15,80%,55%)",
-    "hsl(220,10%,55%)",
-  ];
-
+  // ── Member Growth ──
   const memberGrowth = useMemo(() => {
     const monthMap: Record<string, { newMembers: number; total: number }> = {};
     const sorted = [...members].sort((a, b) =>
-      a.joinDate.localeCompare(b.joinDate),
+      (a.joinDate || "").localeCompare(b.joinDate || ""),
     );
     sorted.forEach((m, i) => {
       const month = m.joinDate ? formatMonthShort(m.joinDate) : "Unknown";
@@ -326,46 +399,72 @@ const Reports = () => {
     }));
   }, [members]);
 
-  const paymentMethodsData = useMemo(() => {
-    const counts: Record<string, number> = {};
-    transactions.forEach((t) => {
-      counts[t.method] = (counts[t.method] || 0) + 1;
-    });
-    const total = transactions.length || 1;
+  const activeMembers = members.filter((m) => m.status === "Active").length;
+  const newInRange = members.filter(
+    (m) => m.joinDate && m.joinDate >= from && m.joinDate <= to,
+  ).length;
+
+  // ── Payment Methods ──
+  const paymentMethodRows = useMemo(() => {
     const fills: Record<string, string> = {
       cash: "hsl(38, 92%, 50%)",
       card: "hsl(200, 80%, 50%)",
       esewa: "hsl(142, 71%, 45%)",
       bank_transfer: "hsl(220, 10%, 55%)",
       fonepay: "hsl(280, 60%, 55%)",
-      other: "hsl(15, 80%, 55%)",
+      credit: "hsl(15, 80%, 55%)",
     };
-    return Object.entries(counts).map(([name, count]) => ({
-      name,
-      value: Math.round((count / total) * 100),
-      fill: fills[name] || "hsl(220, 10%, 55%)",
-    }));
-  }, [transactions]);
+    const acc: Record<string, { method: string; txns: number; total: number }> =
+      {};
+    txInRange.forEach((t) => {
+      const k = t.method || "other";
+      if (!acc[k]) acc[k] = { method: k, txns: 0, total: 0 };
+      acc[k].txns += 1;
+      acc[k].total += t.total || 0;
+    });
+    const list = Object.values(acc);
+    const grandTotal = list.reduce((s, r) => s + r.total, 0) || 1;
+    const grandTxns = list.reduce((s, r) => s + r.txns, 0) || 1;
+    return list
+      .map((r) => ({
+        ...r,
+        label: capitalizeFirstLetter(r.method.replace(/_/g, " ")),
+        share: (r.total / grandTotal) * 100,
+        countShare: Math.round((r.txns / grandTxns) * 100),
+        fill: fills[r.method] || "hsl(220, 10%, 55%)",
+      }))
+      .sort((a, b) => b.total - a.total);
+  }, [txInRange]);
 
-  const filters = (
-    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-      <div className="space-y-1.5">
-        <Label className="text-xs">From Date</Label>
-        <Input
-          type="date"
-          value={from}
-          onChange={(e) => setFrom(e.target.value)}
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label className="text-xs">To Date</Label>
-        <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-      </div>
+  const paymentTotals = useMemo(
+    () => ({
+      txns: paymentMethodRows.reduce((s, r) => s + r.txns, 0),
+      total: paymentMethodRows.reduce((s, r) => s + r.total, 0),
+    }),
+    [paymentMethodRows],
+  );
+
+  const propertyName = settings.companyName || ".............";
+
+  const filterSummary = (
+    <>
+      Range: <b>{from}</b> → <b>{to}</b> · Outlet:{" "}
+      <b>
+        {outletFilter === "all"
+          ? "All Outlets"
+          : outletNameById.get(outletFilter) || outletFilter}
+      </b>{" "}
+      · Voided: <b>{includeVoided}</b>
+    </>
+  );
+
+  const extraFilters = (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
       <div className="space-y-1.5">
         <Label className="text-xs">Voided Transactions</Label>
         <Select
           value={includeVoided}
-          onValueChange={(v) => setIncludeVoided(v as any)}
+          onValueChange={(v) => setIncludeVoided(v as "exclude" | "include")}
         >
           <SelectTrigger>
             <SelectValue />
@@ -376,7 +475,7 @@ const Reports = () => {
           </SelectContent>
         </Select>
       </div>
-      <div className="space-y-1.5">
+      <div className="space-y-1.5 sm:col-span-2">
         <Label className="text-xs">&nbsp;</Label>
         <div className="text-xs text-muted-foreground py-2">
           {txInRange.length} transactions in range
@@ -385,373 +484,529 @@ const Reports = () => {
     </div>
   );
 
-  const filterSummary = (
-    <>
-      Range: <b>{from}</b> → <b>{to}</b> · Voided: <b>{includeVoided}</b>
-    </>
-  );
+  const kpis: { label: string; value: string; hint?: string }[] = (() => {
+    switch (report) {
+      case "daily":
+        return [
+          { label: "Net Sales", value: formatNPR(dailySalesTotals.sales) },
+          { label: "VAT Payable", value: formatNPR(dailySalesTotals.vat) },
+          { label: "Total Sales", value: formatNPR(dailySalesTotals.total) },
+          {
+            label: "Departments",
+            value: String(
+              new Set(dailySalesRows.map((r) => r.department)).size,
+            ),
+            hint: `${dailySalesRows.length} rows`,
+          },
+        ];
+      case "collection":
+        return [
+          { label: "Settled Txns", value: String(collectionTotals.count) },
+          { label: "Billed", value: formatNPR(collectionTotals.billed) },
+          { label: "Discount", value: formatNPR(collectionTotals.discount) },
+          { label: "Collected", value: formatNPR(collectionTotals.collected) },
+        ];
+      case "contribution":
+        return [
+          { label: "Members Billed", value: String(contributionRows.length) },
+          { label: "Transactions", value: String(contributionTotals.txns) },
+          { label: "Total Revenue", value: formatNPR(contributionTotals.total) },
+          {
+            label: "Top Member",
+            value: contributionRows[0]?.member || "—",
+            hint: contributionRows[0]
+              ? `${contributionRows[0].share.toFixed(1)}% share`
+              : undefined,
+          },
+        ];
+      case "payments":
+        return [
+          { label: "Methods Used", value: String(paymentMethodRows.length) },
+          { label: "Transactions", value: String(paymentTotals.txns) },
+          { label: "Total Value", value: formatNPR(paymentTotals.total) },
+          {
+            label: "Top Method",
+            value: paymentMethodRows[0]?.label || "—",
+            hint: paymentMethodRows[0]
+              ? `${paymentMethodRows[0].share.toFixed(1)}% of value`
+              : undefined,
+          },
+        ];
+      case "growth":
+        return [
+          { label: "Total Members", value: String(members.length) },
+          { label: "Active", value: String(activeMembers) },
+          { label: "Joined in Range", value: String(newInRange) },
+          { label: "Months Tracked", value: String(memberGrowth.length) },
+        ];
+      case "revenue":
+        return [
+          { label: "Outlets", value: String(revenueByOutlet.length) },
+          { label: "Transactions", value: String(revenueTotals.txns) },
+          { label: "Total Revenue", value: formatNPR(revenueTotals.revenue) },
+          {
+            label: "Top Outlet",
+            value: revenueByOutlet[0]?.outlet || "—",
+            hint: revenueByOutlet[0]
+              ? `${revenueByOutlet[0].share.toFixed(1)}% share`
+              : undefined,
+          },
+        ];
+      case "stock-position":
+        return [
+          { label: "Items", value: String(invStats.items) },
+          { label: "Total Quantity", value: String(invStats.quantity) },
+          {
+            label: "Stock Valuation",
+            value: formatNPR(Math.round(invStats.valuation)),
+          },
+        ];
+      case "stock-register":
+        return [
+          { label: "Movements", value: String(invStats.movements) },
+          { label: "Units In", value: String(invStats.inQty) },
+          { label: "Units Out", value: String(invStats.outQty) },
+          {
+            label: "Movement Value",
+            value: formatNPR(Math.round(invStats.movementValue)),
+          },
+        ];
+      default:
+        return [];
+    }
+  })();
 
-  const propertyName = settings.companyName || ".............";
+  const supportsActions = report !== "ledger";
 
   return (
-    <div className="animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl mb-4 font-bold font-display">Reports</h1>
+    <div className="animate-fade-in space-y-4">
+      <div>
+        <h1 className="text-2xl font-bold font-display">Reports</h1>
+        <p className="text-sm text-muted-foreground">
+          Category-based reporting across sales, members, outlets and stock.
+        </p>
+      </div>
+
+      {/* Category tabs */}
+      <Tabs value={category} onValueChange={selectCategory}>
+        <TabsList className="bg-muted/50 flex-wrap h-auto">
+          {CATEGORIES.map((c) => (
+            <TabsTrigger key={c.key} value={c.key}>
+              {c.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+
+      {/* Report pill selector */}
+      <div className="flex flex-wrap gap-2">
+        {currentCategory.reports.map((r) => (
+          <button
+            key={r.key}
+            type="button"
+            onClick={() => setReport(r.key)}
+            className={cn(
+              "px-3.5 py-1.5 rounded-full text-xs font-medium border transition-colors",
+              report === r.key
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-muted/30 border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/60",
+            )}
+          >
+            {r.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Universal filter + action bar */}
+      <div className="glass-card rounded-xl border border-border/60 px-4 py-3 flex flex-col lg:flex-row lg:items-end gap-3 justify-between">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="space-y-1">
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Date Range
+            </Label>
+            <DateRangeFilter
+              from={from}
+              to={to}
+              onChange={(r) => {
+                setFrom(r.from);
+                setTo(r.to);
+              }}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Outlet
+            </Label>
+            <Select value={outletFilter} onValueChange={setOutletFilter}>
+              <SelectTrigger className="h-9 w-[190px] bg-muted/50 border-0 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Outlets</SelectItem>
+                {outlets.map((o) => (
+                  <SelectItem key={o.id} value={o.id}>
+                    {o.name}
+                  </SelectItem>
+                ))}
+                <SelectItem value="__unassigned__">Unassigned</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {report === "collection" && (
+            <div className="flex items-center gap-2 pb-2">
+              <Label
+                htmlFor="cashier-details"
+                className="text-xs text-muted-foreground"
+              >
+                Show Details
+              </Label>
+              <Switch
+                id="cashier-details"
+                checked={showCashierDetails}
+                onCheckedChange={setShowCashierDetails}
+              />
+            </div>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!supportsActions}
+            onClick={() => frameApi.current?.print()}
+          >
+            <Printer className="h-4 w-4 mr-1.5" />
+            Print / PDF
+          </Button>
+          <Button
+            size="sm"
+            disabled={!supportsActions}
+            onClick={() => frameApi.current?.exportCSV()}
+            className="bg-success hover:bg-success/90 text-white"
+          >
+            <Download className="h-4 w-4 mr-1.5" />
+            Export CSV
+          </Button>
         </div>
       </div>
 
-      <Tabs
-        defaultValue="daily"
-        className="space-y-4"
-        onValueChange={(v) => setLoaded((p) => ({ ...p, [v]: p[v] }))}
-      >
-        <TabsList className="bg-muted/50 flex-wrap h-auto">
-          <TabsTrigger value="daily">Daily Sales</TabsTrigger>
-          <TabsTrigger value="collection">Cashier / Collection</TabsTrigger>
-          <TabsTrigger value="contribution">Sales Contribution</TabsTrigger>
-          <TabsTrigger value="ledger">Member Ledger</TabsTrigger>
-          <TabsTrigger value="revenue">Revenue by Outlet</TabsTrigger>
-          <TabsTrigger value="growth">Member Growth</TabsTrigger>
-          <TabsTrigger value="payments">Payment Methods</TabsTrigger>
-          <TabsTrigger value="inventory">Inventory</TabsTrigger>
-        </TabsList>
+      {/* KPI cards */}
+      {kpis.length > 0 && (
+        <div
+          className={cn(
+            "grid gap-3",
+            kpis.length === 3
+              ? "grid-cols-1 sm:grid-cols-3"
+              : "grid-cols-2 lg:grid-cols-4",
+          )}
+        >
+          {kpis.map((k) => (
+            <KpiCard key={k.label} {...k} />
+          ))}
+        </div>
+      )}
 
-        <TabsContent value="daily">
-          <LoadGate k="daily">
-            <PremiumReportFrame
-              title="Daily Sales Report"
-              subtitle="Sales by date and department"
-              propertyName={propertyName}
-              filters={filters}
-              filterSummary={filterSummary}
-              exportFilename={`daily-sales-${from}_to_${to}.csv`}
-              exportMeta={{
-                dateRange: `${from} → ${to}`,
-                filters: { Voided: includeVoided },
-              }}
-              groupBy={{ key: "department", label: "Department" }}
-              columns={[
-                { key: "department", label: "Department" },
-                {
-                  key: "sales",
-                  label: "Sales (Net)",
-                  align: "right",
-                  format: (r) => formatNPR(r.sales),
-                  exportFormat: (r) => String(r.sales),
-                },
-                {
-                  key: "vat",
-                  label: "VAT Payable",
-                  align: "right",
-                  format: (r) => formatNPR(r.vat),
-                  exportFormat: (r) => String(r.vat),
-                },
-                {
-                  key: "total",
-                  label: "Total Sales",
-                  align: "right",
-                  format: (r) => formatNPR(r.total),
-                  exportFormat: (r) => String(r.total),
-                },
-              ]}
-              rows={dailySalesRows}
-              footerTotals={{
-                label: "Grand Total",
-                cells: {
-                  sales: formatNPR(dailySalesTotals.sales),
-                  vat: formatNPR(dailySalesTotals.vat),
-                  total: formatNPR(dailySalesTotals.total),
-                },
-              }}
-              onRowClick={(r) =>
-                setReconSelection({ date: r.date, department: r.department })
-              }
-            />
-          </LoadGate>
-        </TabsContent>
+      {/* Report body */}
+      {report === "daily" && (
+        <PremiumReportFrame
+          title="Daily Sales Report"
+          subtitle="Sales by date and department"
+          propertyName={propertyName}
+          filters={extraFilters}
+          filterSummary={filterSummary}
+          hideActions
+          apiRef={frameApi}
+          sortable
+          exportFilename={`daily-sales-${from}_to_${to}.csv`}
+          exportMeta={{
+            dateRange: `${from} → ${to}`,
+            filters: { Voided: includeVoided },
+          }}
+          groupBy={{ key: "department", label: "Department" }}
+          columns={[
+            { key: "department", label: "Department" },
+            {
+              key: "sales",
+              label: "Sales (Net)",
+              align: "right",
+              format: (r) => formatNPR(r.sales),
+              exportFormat: (r) => String(r.sales),
+            },
+            {
+              key: "vat",
+              label: "VAT Payable",
+              align: "right",
+              format: (r) => formatNPR(r.vat),
+              exportFormat: (r) => String(r.vat),
+            },
+            {
+              key: "total",
+              label: "Total Sales",
+              align: "right",
+              format: (r) => formatNPR(r.total),
+              exportFormat: (r) => String(r.total),
+            },
+          ]}
+          rows={dailySalesRows}
+          footerTotals={{
+            label: "Grand Total",
+            cells: {
+              sales: formatNPR(dailySalesTotals.sales),
+              vat: formatNPR(dailySalesTotals.vat),
+              total: formatNPR(dailySalesTotals.total),
+            },
+          }}
+          onRowClick={(r) =>
+            setReconSelection({ date: r.date, department: r.department })
+          }
+        />
+      )}
 
-        <TabsContent value="collection">
-          <LoadGate k="collection">
-            <div className="space-y-3">
-              <div className="flex items-center justify-end gap-2 px-1">
-                <Label
-                  htmlFor="cashier-details"
-                  className="text-xs text-muted-foreground"
-                >
-                  Show Details
-                </Label>
-                <Switch
-                  id="cashier-details"
-                  checked={showCashierDetails}
-                  onCheckedChange={setShowCashierDetails}
-                />
-              </div>
-              <PremiumReportFrame
-                title="Cashier / Collection Report"
-                subtitle="One row per settled transaction"
-                propertyName={propertyName}
-                filters={filters}
-                filterSummary={filterSummary}
-                exportFilename={`collection-${from}_to_${to}.csv`}
-                exportMeta={{ dateRange: `${from} → ${to}` }}
-                columns={[
-                  { key: "date", label: "Date" },
-                  { key: "memberName", label: "Member" },
-                  { key: "receiptNo", label: "Receipt No" },
-                  { key: "method", label: "Method" },
-                  ...(showCashierDetails
-                    ? [
-                        {
-                          key: "billed",
-                          label: "Billed Amount",
-                          align: "right" as const,
-                          format: (r: any) => formatNPR(r.billed),
-                          exportFormat: (r: any) => String(r.billed),
-                        },
-                        {
-                          key: "discount",
-                          label: "Discount",
-                          align: "right" as const,
-                          format: (r: any) => formatNPR(r.discount),
-                          exportFormat: (r: any) => String(r.discount),
-                        },
-                        {
-                          key: "collected",
-                          label: "Collected",
-                          align: "right" as const,
-                          format: (r: any) => formatNPR(r.collected),
-                          exportFormat: (r: any) => String(r.collected),
-                        },
-                        { key: "user", label: "User" },
-                      ]
-                    : [
-                        {
-                          key: "collected",
-                          label: "Net Amount",
-                          align: "right" as const,
-                          format: (r: any) => formatNPR(r.collected),
-                          exportFormat: (r: any) => String(r.collected),
-                        },
-                      ]),
+      {report === "collection" && (
+        <PremiumReportFrame
+          title="Cashier / Collection Report"
+          subtitle="One row per settled transaction"
+          propertyName={propertyName}
+          filters={extraFilters}
+          filterSummary={filterSummary}
+          hideActions
+          apiRef={frameApi}
+          sortable
+          paginated
+          exportFilename={`collection-${from}_to_${to}.csv`}
+          exportMeta={{ dateRange: `${from} → ${to}` }}
+          columns={[
+            { key: "date", label: "Date" },
+            { key: "memberName", label: "Member" },
+            { key: "receiptNo", label: "Receipt No" },
+            { key: "method", label: "Method" },
+            ...(showCashierDetails
+              ? [
                   {
-                    key: "settledAt",
-                    label: "Settled At",
+                    key: "billed",
+                    label: "Billed Amount",
                     align: "right" as const,
+                    format: (r: any) => formatNPR(r.billed),
+                    exportFormat: (r: any) => String(r.billed),
                   },
-                ]}
-                rows={collectionRows}
-                footerTotals={{
-                  label: "Grand Total",
-                  cells: showCashierDetails
-                    ? {
-                        billed: formatNPR(collectionTotals.billed),
-                        discount: formatNPR(collectionTotals.discount),
-                        collected: formatNPR(collectionTotals.collected),
-                      }
-                    : {
-                        collected: formatNPR(collectionTotals.collected),
-                      },
-                }}
-              />
-            </div>
-          </LoadGate>
-        </TabsContent>
+                  {
+                    key: "discount",
+                    label: "Discount",
+                    align: "right" as const,
+                    format: (r: any) => formatNPR(r.discount),
+                    exportFormat: (r: any) => String(r.discount),
+                  },
+                  {
+                    key: "collected",
+                    label: "Collected",
+                    align: "right" as const,
+                    format: (r: any) => formatNPR(r.collected),
+                    exportFormat: (r: any) => String(r.collected),
+                  },
+                  { key: "user", label: "User" },
+                ]
+              : [
+                  {
+                    key: "collected",
+                    label: "Net Amount",
+                    align: "right" as const,
+                    format: (r: any) => formatNPR(r.collected),
+                    exportFormat: (r: any) => String(r.collected),
+                  },
+                ]),
+            {
+              key: "settledAt",
+              label: "Settled At",
+              align: "right" as const,
+            },
+          ]}
+          rows={collectionRows}
+          footerTotals={{
+            label: "Grand Total",
+            cells: showCashierDetails
+              ? {
+                  billed: formatNPR(collectionTotals.billed),
+                  discount: formatNPR(collectionTotals.discount),
+                  collected: formatNPR(collectionTotals.collected),
+                }
+              : {
+                  collected: formatNPR(collectionTotals.collected),
+                },
+          }}
+        />
+      )}
 
-        <TabsContent value="contribution">
-          <LoadGate k="contribution">
-            <PremiumReportFrame
-              title="Sales Contribution"
-              subtitle="Revenue per member with contribution share"
-              propertyName={propertyName}
-              filters={filters}
-              filterSummary={filterSummary}
-              exportFilename={`contribution-${from}_to_${to}.csv`}
-              exportMeta={{ dateRange: `${from} → ${to}` }}
-              columns={[
-                { key: "member", label: "Member" },
-                { key: "txns", label: "Txns", align: "right" },
-                {
-                  key: "sales",
-                  label: "Sales (Net)",
-                  align: "right",
-                  format: (r) => formatNPR(r.sales),
-                  exportFormat: (r) => String(r.sales),
-                },
-                {
-                  key: "vat",
-                  label: "VAT",
-                  align: "right",
-                  format: (r) => formatNPR(r.vat),
-                  exportFormat: (r) => String(r.vat),
-                },
-                {
-                  key: "total",
-                  label: "Total Revenue",
-                  align: "right",
-                  format: (r) => formatNPR(r.total),
-                  exportFormat: (r) => String(r.total),
-                },
-                {
-                  key: "share",
-                  label: "Contribution %",
-                  align: "right",
-                  format: (r) => `${r.share.toFixed(2)}%`,
-                  exportFormat: (r) => r.share.toFixed(2),
-                },
-              ]}
-              rows={contributionRows}
-              footerTotals={{
-                label: "Grand Total",
-                cells: {
-                  txns: String(contributionTotals.txns),
-                  total: formatNPR(contributionTotals.total),
-                  share: "100.00%",
-                },
-              }}
-            />
-          </LoadGate>
-        </TabsContent>
+      {report === "contribution" && (
+        <PremiumReportFrame
+          title="Sales Contribution"
+          subtitle="Revenue per member with contribution share"
+          propertyName={propertyName}
+          filters={extraFilters}
+          filterSummary={filterSummary}
+          hideActions
+          apiRef={frameApi}
+          sortable
+          paginated
+          exportFilename={`contribution-${from}_to_${to}.csv`}
+          exportMeta={{ dateRange: `${from} → ${to}` }}
+          columns={[
+            { key: "member", label: "Member" },
+            { key: "txns", label: "Txns", align: "right" },
+            {
+              key: "sales",
+              label: "Sales (Net)",
+              align: "right",
+              format: (r) => formatNPR(r.sales),
+              exportFormat: (r) => String(r.sales),
+            },
+            {
+              key: "vat",
+              label: "VAT",
+              align: "right",
+              format: (r) => formatNPR(r.vat),
+              exportFormat: (r) => String(r.vat),
+            },
+            {
+              key: "total",
+              label: "Total Revenue",
+              align: "right",
+              format: (r) => formatNPR(r.total),
+              exportFormat: (r) => String(r.total),
+            },
+            {
+              key: "share",
+              label: "Contribution %",
+              align: "right",
+              format: (r) => `${r.share.toFixed(2)}%`,
+              exportFormat: (r) => r.share.toFixed(2),
+            },
+          ]}
+          rows={contributionRows}
+          footerTotals={{
+            label: "Grand Total",
+            cells: {
+              txns: String(contributionTotals.txns),
+              total: formatNPR(contributionTotals.total),
+              share: "100.00%",
+            },
+          }}
+        />
+      )}
 
-        <TabsContent value="ledger">
-          <Suspense fallback={<Skeleton className="h-96 rounded-xl" />}>
-            <LedgerReport />
-          </Suspense>
-        </TabsContent>
-
-        {/* Revenue By Outlet Report */}
-        <TabsContent value="revenue">
-          <LoadGate k="revenue">
-            <div className="space-y-4">
-              <div className="glass-card rounded-xl p-5">
-                <h3 className="font-semibold font-display mb-4">
-                  Revenue by Outlet
-                </h3>
-                {revenueByOutlet.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-12">
-                    No transaction data yet
-                  </p>
-                ) : (
-                  <ResponsiveContainer width="100%" height={360}>
-                    <BarChart data={revenueByOutlet}>
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        stroke="hsl(224, 15%, 18%)"
-                      />
-                      <XAxis
-                        dataKey="outlet"
-                        tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 12 }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 12 }}
-                        axisLine={false}
-                        tickLine={false}
-                        tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
-                      />
-                      <Tooltip
-                        contentStyle={tooltipStyle}
-                        formatter={(v: number) => [formatNPR(v), "Revenue"]}
-                      />
-                      <Bar dataKey="revenue" radius={[4, 4, 0, 0]}>
-                        {revenueByOutlet.map((_, i) => (
-                          <Cell
-                            key={i}
-                            fill={outletPalette[i % outletPalette.length]}
-                          />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-              <div className="glass-card rounded-xl overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/40 text-xs text-muted-foreground">
-                    <tr>
-                      <th className="text-left px-4 py-2">Outlet</th>
-                      <th className="text-right px-4 py-2">Transactions</th>
-                      <th className="text-right px-4 py-2">Revenue (NPR)</th>
-                      <th className="text-right px-4 py-2">Share</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {revenueByOutlet.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={4}
-                          className="px-4 py-8 text-center text-muted-foreground"
-                        >
-                          No data
-                        </td>
-                      </tr>
-                    ) : (
-                      <>
-                        {revenueByOutlet.map((r, i) => {
-                          const grand =
-                            revenueByOutlet.reduce(
-                              (s, x) => s + x.revenue,
-                              0,
-                            ) || 1;
-                          return (
-                            <tr
-                              key={r.outletId}
-                              className="border-t border-border/40"
-                            >
-                              <td className="px-4 py-2 font-medium flex items-center gap-2">
-                                <span
-                                  className="h-2.5 w-2.5 rounded-full"
-                                  style={{
-                                    background:
-                                      outletPalette[i % outletPalette.length],
-                                  }}
-                                />
-                                {r.outlet}
-                              </td>
-                              <td className="px-4 py-2 text-right">{r.txns}</td>
-                              <td className="px-4 py-2 text-right font-semibold">
-                                {formatNPR(r.revenue)}
-                              </td>
-                              <td className="px-4 py-2 text-right text-muted-foreground">
-                                {((r.revenue / grand) * 100).toFixed(1)}%
-                              </td>
-                            </tr>
-                          );
-                        })}
-                        <tr className="border-t border-border/60 bg-muted/30 font-bold">
-                          <td className="px-4 py-2">Grand Total</td>
-                          <td className="px-4 py-2 text-right">
-                            {revenueByOutlet.reduce((s, r) => s + r.txns, 0)}
-                          </td>
-                          <td className="px-4 py-2 text-right">
-                            {formatNPR(
-                              revenueByOutlet.reduce(
-                                (s, r) => s + r.revenue,
-                                0,
-                              ),
-                            )}
-                          </td>
-                          <td className="px-4 py-2 text-right">100%</td>
-                        </tr>
-                      </>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </LoadGate>
-        </TabsContent>
-
-        <TabsContent value="growth">
+      {report === "payments" && (
+        <div className="space-y-4">
           <div className="glass-card rounded-xl p-5">
-            <h3 className="font-semibold font-display mb-4">Member Growth</h3>
+            <h3 className="font-semibold font-display mb-4">
+              Payment Methods Distribution
+            </h3>
+            {paymentMethodRows.length === 0 ? (
+              <p className="text-center text-muted-foreground py-12">
+                No payment data in this range
+              </p>
+            ) : (
+              <div className="flex flex-col lg:flex-row items-center justify-center gap-8">
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={paymentMethodRows}
+                      innerRadius={75}
+                      outerRadius={120}
+                      paddingAngle={3}
+                      dataKey="total"
+                      nameKey="label"
+                      stroke="none"
+                    >
+                      {paymentMethodRows.map((entry, i) => (
+                        <Cell key={i} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={tooltipStyle}
+                      formatter={(v: number) => [formatNPR(v)]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="space-y-3 min-w-[200px]">
+                  {paymentMethodRows.map((item) => (
+                    <div key={item.method} className="flex items-center gap-3">
+                      <span
+                        className="h-3 w-3 rounded-full shrink-0"
+                        style={{ background: item.fill }}
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        {item.label}
+                      </span>
+                      <span className="ml-auto font-bold text-sm">
+                        {item.share.toFixed(1)}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <PremiumReportFrame
+            title="Payment Methods Breakdown"
+            propertyName={propertyName}
+            filterSummary={filterSummary}
+            hideActions
+            apiRef={frameApi}
+            sortable
+            defaultSortKey="total"
+            defaultSortDir="desc"
+            exportFilename={`payment-methods-${from}_to_${to}.csv`}
+            exportMeta={{ dateRange: `${from} → ${to}` }}
+            columns={[
+              { key: "label", label: "Method" },
+              { key: "txns", label: "Transactions", align: "right" },
+              {
+                key: "total",
+                label: "Value (NPR)",
+                align: "right",
+                format: (r) => formatNPR(r.total),
+                exportFormat: (r) => String(Math.round(r.total)),
+              },
+              {
+                key: "share",
+                label: "Share",
+                align: "right",
+                format: (r) => `${r.share.toFixed(1)}%`,
+                exportFormat: (r) => r.share.toFixed(1),
+              },
+            ]}
+            rows={paymentMethodRows}
+            footerTotals={{
+              label: "Grand Total",
+              cells: {
+                txns: String(paymentTotals.txns),
+                total: formatNPR(paymentTotals.total),
+                share: "100.0%",
+              },
+            }}
+            emptyMessage="No payments recorded in this period."
+          />
+        </div>
+      )}
+
+      {report === "ledger" && (
+        <Suspense fallback={<Skeleton className="h-96 rounded-xl" />}>
+          <LedgerReport />
+        </Suspense>
+      )}
+
+      {report === "growth" && (
+        <div className="space-y-4">
+          <div className="glass-card rounded-xl p-5">
+            <h3 className="font-semibold font-display mb-4 flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              Member Growth
+            </h3>
             {memberGrowth.length === 0 ? (
               <p className="text-center text-muted-foreground py-12">
                 No member data yet
               </p>
             ) : (
-              <ResponsiveContainer width="100%" height={400}>
+              <ResponsiveContainer width="100%" height={340}>
                 <AreaChart data={memberGrowth}>
                   <defs>
                     <linearGradient id="growthGrad" x1="0" y1="0" x2="0" y2="1">
@@ -803,67 +1058,137 @@ const Reports = () => {
               </ResponsiveContainer>
             )}
           </div>
-        </TabsContent>
+          <PremiumReportFrame
+            title="Member Growth by Month"
+            propertyName={propertyName}
+            hideActions
+            apiRef={frameApi}
+            sortable
+            paginated
+            defaultSortKey="month"
+            exportFilename="member-growth.csv"
+            columns={[
+              { key: "month", label: "Month" },
+              { key: "newMembers", label: "New Members", align: "right" },
+              { key: "total", label: "Cumulative Members", align: "right" },
+            ]}
+            rows={memberGrowth}
+            emptyMessage="No member data yet."
+          />
+        </div>
+      )}
 
-        <TabsContent value="payments">
+      {report === "revenue" && (
+        <div className="space-y-4">
           <div className="glass-card rounded-xl p-5">
             <h3 className="font-semibold font-display mb-4">
-              Payment Methods Distribution
+              Revenue by Outlet
             </h3>
-            {paymentMethodsData.length === 0 ? (
+            {revenueByOutlet.length === 0 ? (
               <p className="text-center text-muted-foreground py-12">
-                No payment data yet
+                No transaction data in this range
               </p>
             ) : (
-              <div className="flex flex-col lg:flex-row items-center justify-center gap-8">
-                <ResponsiveContainer width="100%" height={350}>
-                  <PieChart>
-                    {/* {console.log(paymentMethodsData)} */}
-                    <Pie
-                      data={paymentMethodsData}
-                      innerRadius={80}
-                      outerRadius={130}
-                      paddingAngle={3}
-                      dataKey="value"
-                      stroke="none"
-                    >
-                      {paymentMethodsData.map((entry, i) => (
-                        <Cell key={i} fill={entry.fill} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={tooltipStyle}
-                      formatter={(v: number) => [`${v}%`]}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="space-y-4 min-w-[180px]">
-                  {paymentMethodsData.map((item) => (
-                    <div key={item.name} className="flex items-center gap-3">
-                      <span
-                        className="h-3 w-3 rounded-full shrink-0"
-                        style={{ background: item.fill }}
-                      />
-                      <span className="text-sm text-muted-foreground">
-                        {capitalizeFirstLetter(item.name)}
-                      </span>
-                      <span className="ml-auto font-bold text-sm">
-                        {item.value}%
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart data={revenueByOutlet}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="hsl(224, 15%, 18%)"
+                  />
+                  <XAxis
+                    dataKey="outlet"
+                    tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 12 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 12 }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                  />
+                  <Tooltip
+                    contentStyle={tooltipStyle}
+                    formatter={(v: number) => [formatNPR(v), "Revenue"]}
+                  />
+                  <Bar dataKey="revenue" radius={[4, 4, 0, 0]}>
+                    {revenueByOutlet.map((r, i) => (
+                      <Cell key={i} fill={r.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             )}
           </div>
-        </TabsContent>
+          <PremiumReportFrame
+            title="Revenue by Outlet"
+            propertyName={propertyName}
+            filterSummary={filterSummary}
+            hideActions
+            apiRef={frameApi}
+            sortable
+            paginated
+            defaultSortKey="revenue"
+            defaultSortDir="desc"
+            exportFilename={`revenue-by-outlet-${from}_to_${to}.csv`}
+            exportMeta={{ dateRange: `${from} → ${to}` }}
+            columns={[
+              {
+                key: "outlet",
+                label: "Outlet",
+                format: (r) => (
+                  <span className="flex items-center gap-2 font-medium">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ background: r.color }}
+                    />
+                    {r.outlet}
+                  </span>
+                ),
+                exportFormat: (r) => r.outlet,
+              },
+              { key: "txns", label: "Transactions", align: "right" },
+              {
+                key: "revenue",
+                label: "Revenue (NPR)",
+                align: "right",
+                format: (r) => formatNPR(r.revenue),
+                exportFormat: (r) => String(Math.round(r.revenue)),
+              },
+              {
+                key: "share",
+                label: "Share",
+                align: "right",
+                format: (r) => `${r.share.toFixed(1)}%`,
+                exportFormat: (r) => r.share.toFixed(1),
+              },
+            ]}
+            rows={revenueByOutlet}
+            footerTotals={{
+              label: "Grand Total",
+              cells: {
+                txns: String(revenueTotals.txns),
+                revenue: formatNPR(revenueTotals.revenue),
+                share: "100.0%",
+              },
+            }}
+            emptyMessage="No outlet revenue in this period."
+          />
+        </div>
+      )}
 
-        <TabsContent value="inventory">
-          <LoadGate k="inventory">
-            <InventoryReports propertyName={propertyName} />
-          </LoadGate>
-        </TabsContent>
-      </Tabs>
+      {(report === "stock-position" || report === "stock-register") && (
+        <InventoryReports
+          propertyName={propertyName}
+          report={report === "stock-position" ? "position" : "register"}
+          dateFrom={from}
+          dateTo={to}
+          hideActions
+          apiRef={frameApi}
+          onStats={setInvStats}
+        />
+      )}
+
       <ReconciliationDrawer
         open={reconSelection !== null}
         onOpenChange={(o) => !o && setReconSelection(null)}
