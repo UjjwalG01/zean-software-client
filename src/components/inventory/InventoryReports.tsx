@@ -1,5 +1,8 @@
-import { useMemo, useState } from "react";
-import { PremiumReportFrame } from "@/components/PremiumReportFrame";
+import { useEffect, useMemo, useState, type MutableRefObject } from "react";
+import {
+  PremiumReportFrame,
+  type ReportFrameApi,
+} from "@/components/PremiumReportFrame";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import {
   Select,
@@ -25,6 +28,24 @@ import { formatDateTime } from "@/lib/tz";
 
 interface Props {
   propertyName?: string;
+  /** Render only one of the two reports (used by the categorised Reports page). */
+  report?: "position" | "register" | "both";
+  /** External date range (YYYY-MM-DD) driving the movement register. */
+  dateFrom?: string;
+  dateTo?: string;
+  /** Hide the in-frame Print/Export buttons when a parent toolbar owns them. */
+  hideActions?: boolean;
+  apiRef?: MutableRefObject<ReportFrameApi | null>;
+  /** Reports summary rows back to the parent for KPI cards. */
+  onStats?: (stats: {
+    items: number;
+    quantity: number;
+    valuation: number;
+    movements: number;
+    inQty: number;
+    outQty: number;
+    movementValue: number;
+  }) => void;
 }
 
 /**
@@ -32,7 +53,15 @@ interface Props {
  * 1. Stock Position — valuation by item / store / category (current snapshot).
  * 2. Stock Movement Register — date-ranged ledger, the audit source for stock.
  */
-export function InventoryReports({ propertyName = "" }: Props) {
+export function InventoryReports({
+  propertyName = "",
+  report = "both",
+  dateFrom,
+  dateTo,
+  hideActions = false,
+  apiRef,
+  onStats,
+}: Props) {
   const { data: items = [] } = useInventoryItems();
   const { data: movements = [] } = useAllMovements();
   const { data: stores = [] } = useInventoryStores();
@@ -40,8 +69,13 @@ export function InventoryReports({ propertyName = "" }: Props) {
   const { data: suppliers = [] } = useInventorySuppliers();
 
   const [storeFilter, setStoreFilter] = useState("all");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState(getSystemTodayStr());
+  const [localFrom, setLocalFrom] = useState("");
+  const [localTo, setLocalTo] = useState(getSystemTodayStr());
+  const from = dateFrom ?? localFrom;
+  const to = dateTo ?? localTo;
+  const setFrom = dateFrom === undefined ? setLocalFrom : () => {};
+  const setTo = dateTo === undefined ? setLocalTo : () => {};
+
 
   const storeName = (id?: string) =>
     (id && stores.find((s) => s.id === id)?.name) || "—";
