@@ -204,11 +204,22 @@ export default function Inventory() {
         </div>
       </div>
 
+      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+        <TabsList>
+          <TabsTrigger value="catalog">Product Catalog</TabsTrigger>
+          <TabsTrigger value="movements">Stock Movements</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="catalog" className="mt-4">
       <PremiumReportFrame
-        title="Current Stock Position"
-        subtitle="Valuation = Quantity × Avg Rate (VAT inclusive)"
+        title="Product Catalog"
+        subtitle="Valuation = Quantity × Avg Rate (VAT inclusive). Click any column header to sort."
         propertyName="............."
+        sortable
+        defaultSortKey="name"
         filters={
+
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div>
               <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
