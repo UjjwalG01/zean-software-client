@@ -47,6 +47,15 @@ export function buildMemberLedger(
     return true;
   });
 
+  // Charges settled by a real payment row must NOT also synthesize a credit —
+  // the payment itself is the credit. Only legacy charges flagged `paid` with
+  // no matching payment row get a synthetic settlement line.
+  const settledByPayment = new Set(
+    memberTx
+      .filter((t) => t.type !== "Charge" && (t as any).chargeRowId)
+      .map((t) => String((t as any).chargeRowId)),
+  );
+
   const unified: UnifiedRow[] = [];
 
   for (const c of memberCharges) {
@@ -64,7 +73,7 @@ export function buildMemberLedger(
       chargeHead: c.charge_head,
       source: isBooking ? "booking" : "manual",
     });
-    if (!voided && c.status === "paid" && c.paid_at) {
+    if (!voided && c.status === "paid" && c.paid_at && !settledByPayment.has(c.id)) {
       unified.push({
         date: c.paid_at.slice(0, 10),
         description: `Settlement — ${c.charge_head}`,
