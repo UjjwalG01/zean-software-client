@@ -1097,7 +1097,7 @@ begin
     'services','members','member_outlet_access','member_packages','employees',
     'bookings','invoices','invoice_items','charges','payments',
     'transaction_payments','charge_heads',
-    'inv_stores','inv_item_groups','inv_items','inv_movements',
+    'inv_stores','inv_item_groups','inv_suppliers','inv_items','inv_movements',
     'custom_roles','role_permissions','user_role_assignments',
     'check_ins','attendance','prepaid_pools',
     'email_templates','email_reminders','audit_logs'
@@ -1155,7 +1155,7 @@ begin
     'employees','invoices','invoice_items',
     'check_ins','attendance','email_templates','email_reminders',
     'transaction_payments','charge_heads',
-    'inv_stores','inv_item_groups','inv_items','inv_movements'
+    'inv_stores','inv_item_groups','inv_suppliers','inv_items','inv_movements'
   ]) loop
     execute format('drop policy if exists "%1$s staff read" on public.%1$s;', t);
     execute format('drop policy if exists "%1$s staff write" on public.%1$s;', t);
@@ -1307,7 +1307,7 @@ begin
     'services','members','member_outlet_access','member_packages','employees',
     'bookings','invoices','invoice_items','charges','payments',
     'transaction_payments','charge_heads',
-    'inv_stores','inv_item_groups','inv_items','inv_movements',
+    'inv_stores','inv_item_groups','inv_suppliers','inv_items','inv_movements',
     'custom_roles','role_permissions','user_role_assignments',
     'check_ins','attendance','prepaid_pools',
     'email_templates','email_reminders','audit_logs'
