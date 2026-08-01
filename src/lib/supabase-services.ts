@@ -749,29 +749,83 @@ function mapPaymentRow(r: any): Transaction {
   } as Transaction;
 }
 
-export async function getTransactions(): Promise<Transaction[]> {
-  const { data, error } = await supabase.from("payments").select("*").order("paid_at", { ascending: false });
-  if (error) {
-    console.warn("[payments] read failed:", error.message);
-    return [];
-  }
-  return (data || []).map(mapPaymentRow);
+/**
+ * Map a row of the canonical `charges` table (the debit / sales side) into the
+ * legacy `Transaction` shape consumed by the UI.
+ */
+function mapChargeRow(r: any): Transaction {
+  const meta = r.meta && typeof r.meta === "object" ? r.meta : {};
+  const isVoided = meta.voided === true;
+  return {
+    id: r.id,
+    memberId: r.member_id || "",
+    memberName: r.member_name || "",
+    amount: Number(r.amount || 0),
+    vat: Number(r.vat_amount || 0),
+    total: Number(r.total || 0),
+    method: (r.method || "cash") as PaymentMethod,
+    type: "Charge",
+    date: dateOnly(r.paid_at || r.created_at),
+    description: r.description || r.charge_head || "",
+    receiptNo: r.receipt_no || "",
+    serviceType: r.charge_head || undefined,
+    status: (isVoided ? "voided" : r.status === "paid" ? "paid" : "pending") as any,
+    bookingId: meta.bookingId || undefined,
+    voided: isVoided,
+    voidReason: meta.voidReason || undefined,
+    chargeHead: r.charge_head || undefined,
+    // A charge row is its own canonical charge reference.
+    chargeRowId: r.id,
+    discount: Number(r.discount || 0),
+    outletId: r.outlet_id || undefined,
+    createdBy: r.created_by || undefined,
+  } as Transaction;
 }
 
-export async function addTransaction(data: Partial<Transaction>): Promise<string> {
+/**
+ * Unified transaction feed.
+ *
+ * Debits come from `charges` (created the moment a booking / POS order / manual
+ * charge is raised — this is "sales"), credits come from `payments` (created
+ * only when money is actually collected). Legacy `Charge`-typed payment mirrors
+ * are filtered out so nothing is counted twice.
+ */
+export async function getTransactions(): Promise<Transaction[]> {
+  const [paymentsRes, chargesRes] = await Promise.all([
+    supabase.from("payments").select("*").order("paid_at", { ascending: false }),
+    supabase.from("charges").select("*").order("created_at", { ascending: false }),
+  ]);
+
+  if (paymentsRes.error) console.warn("[payments] read failed:", paymentsRes.error.message);
+  if (chargesRes.error) console.warn("[charges] read failed:", chargesRes.error.message);
+
+  const payments = (paymentsRes.data || [])
+    .filter((r: any) => (r?.meta?.type || "Payment") !== "Charge")
+    .map(mapPaymentRow);
+  const charges = (chargesRes.data || []).map(mapChargeRow);
+
+  return [...charges, ...payments].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+}
+
+/** True when `id` belongs to the `charges` table (rather than `payments`). */
+async function isChargeRow(id: string): Promise<boolean> {
+  const { data } = await supabase.from("charges").select("id").eq("id", id).maybeSingle();
+  return !!data;
+}
+
+/** Insert a credit-side row into `payments`. */
+async function insertPaymentRow(data: Partial<Transaction>): Promise<string> {
   const gross = Number(data.amount || 0);
   const breakdown = shouldBreakdownVat(data.type as any, (data as any).isSettlement);
   const split = breakdown ? splitVatFromGross(gross) : { net: gross, vat: 0 };
-  const net = split.net;
-  const vat = split.vat;
 
   const status = data.status === "pending" ? "pending" : "paid";
   const insertRow: any = {
     receipt_no: data.receiptNo || `${INVOICE_PREFIX}-${Date.now()}`,
     member_id: data.memberId || null,
     member_name: data.memberName || null,
-    amount: net,
-    vat_amount: vat,
+    amount: split.net,
+    vat_amount: split.vat,
     total: gross,
     discount: Number((data as any).discount || 0),
     method: data.method || "cash",
@@ -796,6 +850,65 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
   await maybeAudit("create", "payment", row.id, null, data);
   return row.id;
 }
+
+/**
+ * Write a transaction.
+ *
+ * `type === "Charge"` → `charges` (sales / due). Money is NOT considered
+ * received; the member's balance goes up until a payment settles it.
+ * Anything else → `payments` (money received).
+ * A charge explicitly flagged as already paid also books the matching payment.
+ */
+export async function addTransaction(data: Partial<Transaction>): Promise<string> {
+  const isCharge = String(data.type || "") === "Charge";
+  if (!isCharge) return insertPaymentRow(data);
+
+  const gross = Number(data.total || data.amount || 0);
+  const { net, vat } = splitVatFromGross(gross);
+  const settled = data.status === "paid" || (data.status as any) === "completed";
+
+  const chargeRow: any = {
+    member_id: data.memberId || null,
+    member_name: data.memberName || null,
+    charge_head: (data as any).chargeHead || data.serviceType || "Charge",
+    description: data.description || (data as any).className || "",
+    amount: net,
+    vat_amount: vat,
+    total: gross,
+    discount: Number((data as any).discount || 0),
+    status: settled ? "paid" : "unpaid",
+    method: data.method || null,
+    receipt_no: data.receiptNo || `CHG-${Date.now()}`,
+    paid_at: settled ? (data.date ? dayToTimestampInTz(data.date) : nowIso()) : null,
+    created_at: data.date ? dayToTimestampInTz(data.date) : nowIso(),
+    outlet_id: (data as any).outletId || null,
+    created_by: (data as any).createdBy || null,
+    meta: {
+      type: (data as any).bookingId ? "booking" : "manual",
+      bookingId: (data as any).bookingId || null,
+      bookingIds: (data as any).bookingIds || null,
+      outletId: (data as any).outletId || null,
+    },
+  };
+
+  const { data: row, error } = await supabase.from("charges").insert(chargeRow).select("id").single();
+  if (error) throwDb(error, "charges");
+  await maybeAudit("create", "charge", row.id, null, data);
+
+  if (settled) {
+    await insertPaymentRow({
+      ...data,
+      type: "Payment",
+      status: "paid",
+      amount: gross,
+      chargeRowId: row.id,
+      isSettlement: true,
+    } as Partial<Transaction>);
+  }
+
+  return row.id;
+}
+
 
 export async function updateTransaction(id: string, data: Partial<Transaction>): Promise<void> {
   const patch: any = {};
