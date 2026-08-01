@@ -184,6 +184,7 @@ const Bookings_Page = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [membershipListOpen, setMembershipListOpen] = useState(false);
 
+  const { user } = useAuth();
   const { data: bookings = [], isLoading } = useBookings();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -621,7 +622,9 @@ const Bookings_Page = () => {
 
       // 🌟 4. Ledger Entries & Payments
       let chargeId = "";
-      if (finalPrice > 0 && !isGuestBooking) {
+      // Every booking — member or walk-in guest — posts a charge (sales/debit).
+      // Money is only recorded later, when the charge is settled by a payment.
+      if (finalPrice > 0) {
         try {
           const { createChargeForBooking } = await import("@/lib/charges");
           chargeId = await createChargeForBooking(
@@ -635,6 +638,7 @@ const Bookings_Page = () => {
               amount: finalPrice,
               chargeHead: selectedService.type,
               outletId: selectedOutlet?.id,
+              createdBy: user?.id || undefined,
             },
           );
         } catch (e) {
@@ -644,7 +648,7 @@ const Bookings_Page = () => {
 
       toast.success(
         isGuestBooking
-          ? "Guest booking created!"
+          ? "Guest booking created — charge posted, pending payment."
           : "Booking created! Charge added to account balance.",
       );
       setDialogOpen(false);
@@ -790,7 +794,6 @@ const Bookings_Page = () => {
       // 3. Post Ledger Charge Entry
       if (finalAmount > 0) {
         try {
-          const { user } = useAuth();
           const { createChargeForBooking } = await import("@/lib/charges");
           await createChargeForBooking(
             (d) => addTransactionMutation.mutateAsync(d) as Promise<string>,
@@ -803,7 +806,7 @@ const Bookings_Page = () => {
               amount: finalAmount,
               chargeHead: "Membership",
               outletId: selectedOutlet?.id,
-              createdBy: user?.id || null,
+              createdBy: user?.id || undefined,
             },
           );
         } catch (e) {
