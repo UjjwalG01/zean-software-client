@@ -290,19 +290,51 @@ export default function Inventory() {
           </div>
         }
         columns={[
-          { key: "code", label: "Code", width: "100px" },
-          { key: "name", label: "Item" },
-          { key: "_group", label: "Group" },
-          { key: "_store", label: "Store" },
-          { key: "unit", label: "Unit", align: "center", width: "70px" },
+          {
+            key: "name",
+            label: "Name",
+            format: (r) => (
+              <div className="min-w-0">
+                <p className="font-medium truncate">{r.name}</p>
+                {r.description && (
+                  <p className="text-xs text-muted-foreground truncate">
+                    {r.description}
+                  </p>
+                )}
+              </div>
+            ),
+            exportFormat: (r) => r.name,
+          },
+          {
+            key: "code",
+            label: "SKU",
+            width: "120px",
+            format: (r) => (
+              <span className="font-mono text-xs">{r.code}</span>
+            ),
+            exportFormat: (r) => r.code,
+          },
+          { key: "_group", label: "Category", width: "150px" },
           {
             key: "quantity",
             label: "Qty",
             align: "right",
-            width: "80px",
-            format: (r) => <span className="font-medium">{r.quantity}</span>,
-            exportFormat: (r) => String(r.quantity),
+            width: "130px",
+            format: (r) => (
+              <span className="inline-flex items-center gap-2 justify-end">
+                <span
+                  className={`h-2 w-2 rounded-full ${statusDot(r)}`}
+                  title={r._status}
+                />
+                <span className="font-medium">
+                  {r.quantity} {r.unit}
+                </span>
+              </span>
+            ),
+            exportFormat: (r) => `${r.quantity} ${r.unit}`,
           },
+          { key: "_store", label: "Location", width: "160px" },
+          { key: "_supplier", label: "Supplier", width: "160px" },
           {
             key: "rate",
             label: "Rate (NPR)",
@@ -324,18 +356,20 @@ export default function Inventory() {
             exportFormat: (r) => String(Math.round(r._valuation)),
           },
           {
-            key: "status",
+            key: "reorderLevel",
+            label: "Reorder Lvl",
+            align: "right",
+            width: "110px",
+          },
+          {
+            key: "_status",
             label: "Status",
             align: "center",
-            width: "100px",
+            width: "110px",
             format: (r) => statusBadge(r),
-            exportFormat: (r) =>
-              r.quantity === 0
-                ? "Out"
-                : r.quantity <= r.reorderLevel
-                  ? "Low"
-                  : "In Stock",
+            exportFormat: (r) => r._status,
           },
+
           {
             key: "actions",
             label: "Actions",
