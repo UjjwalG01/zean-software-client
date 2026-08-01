@@ -1073,15 +1073,30 @@ from unified u;
 
 drop view if exists public.member_financial_summaries cascade;
 create view public.member_financial_summaries with (security_invoker = true) as
+with agg as (
+  select
+    member_id,
+    coalesce(sum(case when not voided and type = 'Charge'  then net_amount end), 0)     as total_charged,
+    -- every credit-side row counts as money received, advances included
+    coalesce(sum(case when not voided and type <> 'Charge' then credit end), 0)         as total_paid,
+    coalesce(sum(case when not voided                      then discount_amount end), 0) as total_discounts,
+    coalesce(sum(case when not voided and type = 'Advance' then credit end), 0)         as total_advances
+  from public.vw_member_ledger
+  group by member_id
+)
 select
   member_id,
-  coalesce(sum(case when not voided and type = 'Charge'                    then net_amount end), 0) as total_invoiced,
-  coalesce(sum(case when not voided and type not in ('Charge','Advance')   then credit     end), 0) as total_paid,
-  coalesce(sum(case when not voided                                        then discount_amount end), 0) as total_discounts,
-  coalesce(sum(case when not voided and type = 'Advance'                   then credit     end), 0) as total_advances,
-  coalesce(sum(case when voided then 0 else (debit - credit) end), 0)                              as net_outstanding
-from public.vw_member_ledger
-group by member_id;
+  total_charged,
+  total_paid,
+  total_discounts,
+  total_advances,
+  (total_charged - total_paid)            as net_balance,
+  greatest(total_charged - total_paid, 0) as outstanding_due,
+  greatest(total_paid - total_charged, 0) as advance_balance,
+  total_charged                           as total_invoiced,   -- legacy alias
+  (total_charged - total_paid)            as net_outstanding   -- legacy alias
+from agg;
+
 
 -- Legacy alias — synonym for payments (some UI still selects transactions.*)
 create or replace view public.transactions with (security_invoker = true) as

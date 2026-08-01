@@ -71,11 +71,12 @@ export function QuickBalanceModal({ open, onOpenChange, member }: Props) {
       else manualCharges += gross;
     }
 
-    const totalCharged = Number(financials?.total_invoiced ?? 0);
+    const totalCharged = Number(financials?.total_charged ?? 0);
     const totalPaid = Number(financials?.total_paid ?? 0);
-    const advance = Number(financials?.total_advances ?? 0);
+    const advance = Number(financials?.advance_balance ?? 0);
     const discountTotal = Number(financials?.total_discounts ?? 0);
-    const netPayable = Number(financials?.net_outstanding ?? 0);
+    const netPayable = Number(financials?.net_balance ?? 0);
+
 
     const status: DerivedStatus =
       netPayable < 0
