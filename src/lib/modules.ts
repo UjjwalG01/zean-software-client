@@ -31,6 +31,7 @@ export const FALLBACK_MODULES: AppModule[] = [
   ["Plans & Services","plans","/setup/plans",230],
   ["Stores","stores","/setup/stores",240],
   ["Item Groups","item-groups","/setup/item-groups",250],
+  ["Suppliers","suppliers","/setup/suppliers",255],
   ["Charge Heads","charge-heads","/setup/charge-heads",260],
   ["Users & Roles","users","/setup/users",270],
   ["Email Templates","email-templates","/setup/email-templates",280],
@@ -91,5 +92,5 @@ export async function getModuleIdBySlug(slug: string): Promise<string | null> {
 /** SETUP-group slugs (used by RolesManager grouping). */
 export const SETUP_SLUGS = new Set([
   "general","outlets","service-types","plans","stores","item-groups",
-  "charge-heads","users","email-templates","settings",
+  "charge-heads","suppliers","users","email-templates","settings",
 ]);

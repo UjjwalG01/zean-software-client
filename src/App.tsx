@@ -29,6 +29,9 @@ import OutletsPage from "./pages/setup/Outlets";
 import ServiceTypesPage from "./pages/setup/ServiceTypes";
 import Inventory from "./pages/Inventory";
 import StoresPage from "./pages/setup/Stores";
+import SuppliersPage from "./pages/setup/Suppliers";
+import InventoryMovementsPage from "./pages/InventoryMovements";
+import InventoryAnalyticsPage from "./pages/InventoryAnalytics";
 import ItemGroupsPage from "./pages/setup/ItemGroups";
 import ChargeHeadsPage from "./pages/setup/ChargeHeads";
 import AuditLogs from "./pages/AuditLogs";
@@ -171,6 +174,18 @@ const App = () => (
                             element={<Settings />}
                           />
                           <Route path="/inventory" element={<Inventory />} />
+                          <Route
+                            path="/inventory/movements"
+                            element={<InventoryMovementsPage />}
+                          />
+                          <Route
+                            path="/inventory/analytics"
+                            element={<InventoryAnalyticsPage />}
+                          />
+                          <Route
+                            path="/setup/suppliers"
+                            element={<SuppliersPage />}
+                          />
                           <Route
                             path="/setup/stores"
                             element={<StoresPage />}

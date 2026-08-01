@@ -14,6 +14,7 @@ import {
   Coins,
   Warehouse,
   RefreshCw,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +28,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/StatCard";
 import { PremiumReportFrame } from "@/components/PremiumReportFrame";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { InventoryTabsNav } from "@/components/inventory/InventoryTabsNav";
 import {
   useInventoryItems,
   useInventoryStores,
@@ -36,10 +37,8 @@ import {
   useInventoryMutations,
 } from "@/hooks/use-inventory";
 import { AddItemModal } from "@/components/inventory/AddItemModal";
-import { AddStockModal } from "@/components/inventory/AddStockModal";
+import { AddStockModal, type LogMovementMode } from "@/components/inventory/AddStockModal";
 import { MovementsDrawer } from "@/components/inventory/MovementsDrawer";
-import { StockMovementsLedger } from "@/components/inventory/StockMovementsLedger";
-import { InventoryAnalytics } from "@/components/inventory/InventoryAnalytics";
 import type { InventoryItem } from "@/lib/inventory-store";
 import { toast } from "sonner";
 import {
@@ -56,7 +55,7 @@ export default function Inventory() {
   const { data: suppliers = [] } = useInventorySuppliers();
   const { removeItem } = useInventoryMutations();
 
-  const [tab, setTab] = useState<"catalog" | "movements" | "analytics">("catalog");
+  const [supplierFilter, setSupplierFilter] = useState<string>("all");
   const [storeFilter, setStoreFilter] = useState<string>("all");
   const [groupFilter, setGroupFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -64,7 +63,7 @@ export default function Inventory() {
 
   const [addItemOpen, setAddItemOpen] = useState(false);
   const [editing, setEditing] = useState<InventoryItem | null>(null);
-  const [stockMode, setStockMode] = useState<"purchase" | "issue" | null>(null);
+  const [stockMode, setStockMode] = useState<LogMovementMode | null>(null);
   const [stockDefaultItemId, setStockDefaultItemId] = useState<
     string | undefined
   >();
@@ -81,6 +80,7 @@ export default function Inventory() {
   const filtered = useMemo(() => {
     return items.filter((i) => {
       if (storeFilter !== "all" && i.storeId !== storeFilter) return false;
+      if (supplierFilter !== "all" && i.supplierId !== supplierFilter) return false;
       if (groupFilter !== "all" && i.groupId !== groupFilter) return false;
       if (
         statusFilter === "low" &&
@@ -99,7 +99,7 @@ export default function Inventory() {
       }
       return true;
     });
-  }, [items, storeFilter, groupFilter, statusFilter, search]);
+  }, [items, storeFilter, supplierFilter, groupFilter, statusFilter, search]);
 
   const totals = useMemo(() => {
     const qty = filtered.reduce((s, i) => s + i.quantity, 0);
@@ -204,14 +204,9 @@ export default function Inventory() {
         </div>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-        <TabsList>
-          <TabsTrigger value="catalog">Product Catalog</TabsTrigger>
-          <TabsTrigger value="movements">Stock Movements</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-        </TabsList>
+      <InventoryTabsNav />
 
-        <TabsContent value="catalog" className="mt-4">
+
       <PremiumReportFrame
         title="Product Catalog"
         subtitle="Valuation = Quantity × Avg Rate (VAT inclusive). Click any column header to sort."
@@ -220,7 +215,26 @@ export default function Inventory() {
         defaultSortKey="name"
         filters={
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Supplier
+              </label>
+              <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All suppliers</SelectItem>
+                  {suppliers.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div>
               <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
                 Store
@@ -399,6 +413,28 @@ export default function Inventory() {
                 <Button
                   variant="ghost"
                   size="icon"
+                  title="Issue stock"
+                  onClick={() => {
+                    setStockDefaultItemId(r.id);
+                    setStockMode("issue");
+                  }}
+                >
+                  <PackageMinus className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Adjust stock"
+                  onClick={() => {
+                    setStockDefaultItemId(r.id);
+                    setStockMode("adjustment");
+                  }}
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
                   title="Edit"
                   onClick={() => {
                     setEditing(r);
@@ -443,16 +479,8 @@ export default function Inventory() {
         exportFilename="inventory_stock"
         emptyMessage="No inventory items match the current filters."
       />
-        </TabsContent>
 
-        <TabsContent value="movements" className="mt-4">
-          <StockMovementsLedger />
-        </TabsContent>
 
-        <TabsContent value="analytics" className="mt-4">
-          <InventoryAnalytics />
-        </TabsContent>
-      </Tabs>
 
 
 
