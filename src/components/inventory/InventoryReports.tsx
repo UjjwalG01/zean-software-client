@@ -337,6 +337,8 @@ export function InventoryReports({
         exportFilename="stock_movement_register"
         emptyMessage="No stock movements recorded in this period."
       />
+      )}
     </div>
+
   );
 }
