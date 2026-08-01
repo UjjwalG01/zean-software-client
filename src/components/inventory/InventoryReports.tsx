@@ -250,14 +250,20 @@ export function InventoryReports({
         exportFilename="stock_position"
         emptyMessage="No stock items for the selected store."
       />
+      )}
 
+      {report !== "position" && (
       <PremiumReportFrame
         title="Stock Movement Register"
         subtitle="Every received, issued, adjusted and transferred unit in the selected period."
         propertyName={propertyName}
         sortable
+        paginated
+        hideActions={hideActions}
+        apiRef={report === "register" ? apiRef : undefined}
         defaultSortKey="createdAt"
         defaultSortDir="desc"
+
         filters={
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
             {storeSelect}
