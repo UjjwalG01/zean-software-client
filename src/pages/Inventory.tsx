@@ -14,6 +14,7 @@ import {
   Coins,
   Warehouse,
   RefreshCw,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,10 +37,8 @@ import {
   useInventoryMutations,
 } from "@/hooks/use-inventory";
 import { AddItemModal } from "@/components/inventory/AddItemModal";
-import { AddStockModal } from "@/components/inventory/AddStockModal";
+import { AddStockModal, type LogMovementMode } from "@/components/inventory/AddStockModal";
 import { MovementsDrawer } from "@/components/inventory/MovementsDrawer";
-import { StockMovementsLedger } from "@/components/inventory/StockMovementsLedger";
-import { InventoryAnalytics } from "@/components/inventory/InventoryAnalytics";
 import type { InventoryItem } from "@/lib/inventory-store";
 import { toast } from "sonner";
 import {
@@ -64,7 +63,7 @@ export default function Inventory() {
 
   const [addItemOpen, setAddItemOpen] = useState(false);
   const [editing, setEditing] = useState<InventoryItem | null>(null);
-  const [stockMode, setStockMode] = useState<"purchase" | "issue" | null>(null);
+  const [stockMode, setStockMode] = useState<LogMovementMode | null>(null);
   const [stockDefaultItemId, setStockDefaultItemId] = useState<
     string | undefined
   >();
@@ -81,6 +80,7 @@ export default function Inventory() {
   const filtered = useMemo(() => {
     return items.filter((i) => {
       if (storeFilter !== "all" && i.storeId !== storeFilter) return false;
+      if (supplierFilter !== "all" && i.supplierId !== supplierFilter) return false;
       if (groupFilter !== "all" && i.groupId !== groupFilter) return false;
       if (
         statusFilter === "low" &&
@@ -99,7 +99,7 @@ export default function Inventory() {
       }
       return true;
     });
-  }, [items, storeFilter, groupFilter, statusFilter, search]);
+  }, [items, storeFilter, supplierFilter, groupFilter, statusFilter, search]);
 
   const totals = useMemo(() => {
     const qty = filtered.reduce((s, i) => s + i.quantity, 0);
@@ -409,6 +409,28 @@ export default function Inventory() {
                   }}
                 >
                   <PackagePlus className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Issue stock"
+                  onClick={() => {
+                    setStockDefaultItemId(r.id);
+                    setStockMode("issue");
+                  }}
+                >
+                  <PackageMinus className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Adjust stock"
+                  onClick={() => {
+                    setStockDefaultItemId(r.id);
+                    setStockMode("adjustment");
+                  }}
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
                 </Button>
                 <Button
                   variant="ghost"
