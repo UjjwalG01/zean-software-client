@@ -62,13 +62,6 @@ import { getUserAssignedOutlets } from "@/lib/supabase-roles";
 import { Checkbox } from "@/components/ui/checkbox";
 import { logAudit } from "@/lib/audit-log";
 
-const roleColors: Record<UserRole, string> = {
-  admin: "bg-primary/20 text-primary",
-  manager: "bg-blue-500/20 text-blue-400",
-  staff: "bg-emerald-500/20 text-emerald-400",
-  viewer: "bg-muted text-muted-foreground",
-};
-
 const DEFAULT_TEMP_PASSWORD = "12345678";
 
 const UsersPage = () => {
@@ -164,6 +157,7 @@ const UsersPage = () => {
         email: form.email,
         password: form.password,
         fullName: form.fullName,
+        username: form.username,
       };
       setOpen(false);
       reset();
@@ -256,6 +250,14 @@ const UsersPage = () => {
       toast.error("Passwords do not match");
       return;
     }
+
+    // Ensure target user ID is valid
+    const userId = resetTarget.id || resetTarget.uid;
+    if (!userId) {
+      toast.error("Invalid user selection");
+      return;
+    }
+
     setResetting(true);
     try {
       const { data, error } = await supabase.functions.invoke(
@@ -264,8 +266,15 @@ const UsersPage = () => {
           body: { userId: resetTarget.id, newPassword: resetPwd },
         },
       );
-      if (error || (data as any)?.error)
-        throw new Error(error?.message || (data as any)?.error);
+      // Prioritize specific error message returned inside data
+      if ((data as any)?.error) {
+        throw new Error((data as any).error);
+      }
+      if (error) {
+        throw new Error(
+          error.message || "Failed to call reset password function",
+        );
+      }
       toast.success(
         `Password reset for ${resetTarget.fullName}. They'll be prompted to change it at next login.`,
       );
@@ -737,7 +746,7 @@ const UsersPage = () => {
                         <TableRow key={u.id}>
                           <TableCell>
                             <div>
-                              <p className="font-medium text-sm">
+                              <p className="font-medium text-sm uppercase">
                                 {u.fullName}
                               </p>
                               <p className="text-xs text-muted-foreground">
@@ -759,7 +768,7 @@ const UsersPage = () => {
                               }
                             >
                               <SelectTrigger
-                                className={`h-8 w-[160px] text-[11px] border-0 ${colorClass} text-white/60 hover:bg-opacity-100`}
+                                className={`h-8 focus:outline-none focus:ring-0 w-[160px] text-[11px] hover:bg-opacity-100`}
                               >
                                 <SelectValue placeholder="Unassigned" />
                               </SelectTrigger>
@@ -773,7 +782,11 @@ const UsersPage = () => {
                                   customRoles
                                     .filter((r) => r.active)
                                     .map((r) => (
-                                      <SelectItem key={r.id} value={r.id}>
+                                      <SelectItem
+                                        key={r.id}
+                                        className="text-xs text-muted-foreground"
+                                        value={r.id}
+                                      >
                                         {r.name}
                                       </SelectItem>
                                     ))

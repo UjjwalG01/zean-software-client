@@ -341,7 +341,7 @@ export default function LedgerReport() {
               <AccordionItem
                 key={m.memberId}
                 value={m.memberId}
-                className="border-b border-border/40 last:border-b-0"
+                className="border-b border-border/40 last:border-b-0 bg-muted/60"
               >
                 <AccordionTrigger className="px-5 py-3 hover:no-underline hover:bg-muted/30 [&>svg]:ml-2">
                   <div className="grid grid-cols-12 gap-2 items-center text-sm w-full pr-2">

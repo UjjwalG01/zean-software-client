@@ -148,6 +148,7 @@ export interface AuditRow {
   id: string;
   created_at: string; // Synced with schema database column
   actor_email: string | null;
+  username: string;
   user_full_name: string | null;
   module: string | null;
   action: string;
@@ -194,7 +195,8 @@ export async function listAuditLogs(filters: {
       action: r.action,
       entity_id: r.entity_id,
       outlet_name: r.outlet_name,
-      description: descriptionText
+      description: descriptionText,
+      username: r.username,
     };
   }) as AuditRow[];
 

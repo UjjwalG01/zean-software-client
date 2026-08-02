@@ -2,17 +2,20 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "Authorization, authorization, apikey, x-client-info, Content-Type, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+Deno.serve(async (req: any) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
 
   const url = new URL(req.url);
+  const pathname = url.pathname.replace(/\/+$/, "");
 
   // 1. ROUTE TO PASSWORD RESET
-  if (url.pathname.endsWith("/admin-reset-password")) {
+  if (pathname === "" || pathname === "/" || pathname.endsWith("/admin-reset-password")) {
     if (req.method !== "POST") {
       return new Response(JSON.stringify({ error: "Method not allowed" }), {
         status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -43,8 +46,14 @@ async function handleAdminResetPassword(req: Request) {
       });
     }
 
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    if (!SUPABASE_URL)
+      throw new Error("SUPABASE_URL is required");
+
+    const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!SERVICE)
+      throw new Error("SUPABASE_SERVICE_ROLE_KEY is required");
+
     const token = authHeader.replace("Bearer ", "");
 
     const admin = createClient(SUPABASE_URL, SERVICE, {
@@ -62,7 +71,7 @@ async function handleAdminResetPassword(req: Request) {
       .from("user_roles")
       .select("role")
       .eq("user_id", caller.id)
-      .eq("role", "admin")
+      .ilike("role", "admin%") // Matches 'admin', 'Administrator', 'ADMIN', etc.
       .maybeSingle();
 
     if (roleErr || !roleRow) {
@@ -76,14 +85,14 @@ async function handleAdminResetPassword(req: Request) {
     const newPassword = String(body.newPassword || "");
 
     if (!userId || newPassword.length < 8) {
-      return new Response(JSON.stringify({ error: "userId and newPassword (>=8 chars) are required" }), {
+      return new Response(JSON.stringify({ error: "userId and New Password (>=8 chars) are required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const { error: updErr } = await admin.auth.admin.updateUserById(userId, { password: newPassword });
     if (updErr) {
-      return new Response(JSON.stringify({ error: updErr.message }), {
+      return new Response(JSON.stringify({ error: `Error occured: ${updErr.message}` }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

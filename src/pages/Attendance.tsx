@@ -123,7 +123,7 @@ const Attendance = () => {
       await logAudit({
         module: "attendance",
         entityType: "attendance",
-        action: "marke",
+        action: "update",
         entityId: String(attendanceId || memberId),
         outletId: "No Outlet", // Attendance maps globally or inherits from active database sessions
         newValue: {
@@ -228,9 +228,9 @@ const Attendance = () => {
       await logAudit({
         module: "attendance",
         entityType: "attendance",
-        action: "marke",
+        action: "update",
         entityId: String(attendanceId || member.id),
-        outletId: "No Outlet",
+        outletId: "General",
         newValue: {
           memberId: member.id,
           memberName: parsed.name || member.name,

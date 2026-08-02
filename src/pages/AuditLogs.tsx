@@ -61,17 +61,19 @@ const AuditLogs = () => {
       });
 
       const optimizedRows = (data || []).map((row: AuditRow) => {
-        const username =
+        const user_full_name =
           row.user_full_name || row.actor_email?.split("@")[0] || "System User";
         const fallbackModule =
           row.module && row.module !== "—" ? row.module : "General";
         const fallbackOutlet = row.outlet_name || "Outlet";
+        const username = row.username || user_full_name;
 
         return {
           ...row,
-          actor_email: username, // Overwrite with clear display name string logic
+          user_full_name, // Overwrite with clear display name string logic
           module: fallbackModule,
           outlet_name: fallbackOutlet,
+          username,
           // created_at: ``,
         };
       });
@@ -229,25 +231,20 @@ const AuditLogs = () => {
                       ? format(new Date(r.created_at), "yyyy-MM-dd HH:mm:ss")
                       : "—"}
                   </TableCell>
-                  <TableCell className="text-sm font-medium text-slate-100">
-                    {r.actor_email}
+                  <TableCell className="text-sm font-medium">
+                    {r.user_full_name}
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] uppercase font-mono"
-                    >
+                    <Badge variant="secondary" className="text-[10px]">
                       {r.module || "General"}
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge className="text-[10px] bg-primary/20 text-primary border-0 font-bold uppercase">
+                    <span className="text-xs border-0 uppercase">
                       {r.action}
-                    </Badge>
+                    </span>
                   </TableCell>
-                  <TableCell className="text-xs text-slate-300">
-                    {r.outlet_name}
-                  </TableCell>
+                  <TableCell className="text-xs">{r.outlet_name}</TableCell>
                   <TableCell
                     className="text-[11px] max-w-[420px] text-muted-foreground truncate"
                     title={r.description}

@@ -328,7 +328,7 @@ const Dashboard = () => {
       <div className="glass-card rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-primary" />
+            {/* <Clock className="h-4 w-4 text-primary" /> */}
             <h3 className="font-semibold font-display">Today's Bookings</h3>
             <Badge variant="secondary" className="text-[10px]">
               {todaysBookings.length}
@@ -427,7 +427,7 @@ const Dashboard = () => {
 
         <div className="glass-card rounded-xl p-5">
           <div className="flex items-center gap-2 mb-4">
-            <AlertTriangle className="h-4 w-4 text-warning" />
+            {/* <AlertTriangle className="h-4 w-4 text-warning" /> */}
             <h3 className="font-semibold font-display">Expiry Alerts</h3>
             <Badge variant="destructive" className="ml-auto text-[10px]">
               {expiryAlerts.length}

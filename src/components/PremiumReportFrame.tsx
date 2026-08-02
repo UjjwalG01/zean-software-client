@@ -123,7 +123,7 @@ export function PremiumReportFrame({
     : null;
 
   return (
-    <div className="glass-card rounded-xl overflow-hidden border border-border/60 bg-card">
+    <div className="glass-card shadow-2xl rounded-xl overflow-hidden border border-border/60">
       {/* Header band */}
       <div className=" px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-1 md:gap-3">
         <div>
@@ -132,7 +132,7 @@ export function PremiumReportFrame({
           </h2>
 
           {filterSummary && (
-            <div className="py-1 text-xs italic text-muted-foreground">
+            <div className="py-1 text-xs text-muted-foreground">
               {filterSummary}
             </div>
           )}
@@ -167,7 +167,7 @@ export function PremiumReportFrame({
             onClick={handleExport}
             accessKey="x"
             disabled={rows.length === 0}
-            className="bg-success hover:bg-success/90 text-white"
+            className="bg-success cursor-pointer hover:bg-success/90 text-white"
           >
             <Download className="h-4 w-4 mr-1.5 hidden md:flex" />
             {underlineSpecificChars("Export Excel", [1])}
@@ -183,7 +183,7 @@ export function PremiumReportFrame({
       )}
 
       {/* Table */}
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto shadow-md">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-y-[1px]">
@@ -205,7 +205,7 @@ export function PremiumReportFrame({
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr>
+              <tr className="border-y-[1px] bg-muted">
                 <td
                   colSpan={columns.length}
                   className="px-4 py-12 text-center text-muted-foreground text-sm"
@@ -218,7 +218,7 @@ export function PremiumReportFrame({
                 <>
                   <tr
                     key={`g-${groupKey}`}
-                    className="bg-[hsl(214,100%,94%)] dark:bg-primary/10"
+                    className="bg-[hsl(214,100%,94%)] dark:bg-primary/10 border-y-[1px]"
                   >
                     <td
                       colSpan={columns.length}
