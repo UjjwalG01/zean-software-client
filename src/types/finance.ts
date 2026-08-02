@@ -35,13 +35,24 @@ export interface MemberLedgerRow {
 
 export interface MemberFinancialSummary {
   member_id: string;
-  total_invoiced: number;
+  /** Every non-voided charge: bookings, POS sales, packages, subscriptions. */
+  total_charged: number;
+  /** Every non-voided credit: cash/card/online/bank payments + advances. */
   total_paid: number;
   total_discounts: number;
   total_advances: number;
-  /** Signed. Positive = member owes; negative = member is owed (overpaid/refund). */
+  /** Signed. Positive = member owes; negative = member holds advance credit. */
+  net_balance: number;
+  /** max(net_balance, 0) — what the member still owes. */
+  outstanding_due: number;
+  /** max(-net_balance, 0) — refundable / spendable advance credit. */
+  advance_balance: number;
+  /** @deprecated alias of `total_charged`. */
+  total_invoiced: number;
+  /** @deprecated alias of `net_balance`. */
   net_outstanding: number;
 }
+
 
 // ─── Client-derived ledger shapes (buildMemberLedger fallback) ──────
 export type LedgerStatus = "Settled" | "Partial" | "Unpaid" | "Overpaid";

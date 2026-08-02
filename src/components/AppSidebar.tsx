@@ -18,6 +18,7 @@ import {
   Warehouse,
   Layers,
   ScrollText,
+  Truck,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -87,6 +88,12 @@ const setupItems = [
     key: "plans",
   },
   { title: "Stores", url: "/setup/stores", icon: Warehouse, key: "stores" },
+  {
+    title: "Suppliers",
+    url: "/setup/suppliers",
+    icon: Truck,
+    key: "suppliers",
+  },
   {
     title: "Item Groups",
     url: "/setup/item-groups",

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Package,
@@ -14,6 +14,8 @@ import {
   Coins,
   Warehouse,
   RefreshCw,
+  SlidersHorizontal,
+  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,29 +29,36 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/StatCard";
 import { PremiumReportFrame } from "@/components/PremiumReportFrame";
+import { InventoryTabsNav } from "@/components/inventory/InventoryTabsNav";
 import {
   useInventoryItems,
   useInventoryStores,
   useItemGroups,
+  useInventorySuppliers,
   useInventoryMutations,
 } from "@/hooks/use-inventory";
 import { AddItemModal } from "@/components/inventory/AddItemModal";
-import { AddStockModal } from "@/components/inventory/AddStockModal";
+import { AddStockModal, type LogMovementMode } from "@/components/inventory/AddStockModal";
 import { MovementsDrawer } from "@/components/inventory/MovementsDrawer";
 import type { InventoryItem } from "@/lib/inventory-store";
 import { toast } from "sonner";
+import { parseItemsCsv } from "@/lib/inventory-csv";
 import {
   underlineFirstChar,
   underlineSpecificChars,
 } from "@/lib/string-case-change";
+
+
 
 export default function Inventory() {
   const qc = useQueryClient();
   const { data: items = [], isFetching } = useInventoryItems();
   const { data: stores = [] } = useInventoryStores();
   const { data: groups = [] } = useItemGroups();
-  const { removeItem } = useInventoryMutations();
+  const { data: suppliers = [] } = useInventorySuppliers();
+  const { removeItem, createItem } = useInventoryMutations();
 
+  const [supplierFilter, setSupplierFilter] = useState<string>("all");
   const [storeFilter, setStoreFilter] = useState<string>("all");
   const [groupFilter, setGroupFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -57,20 +66,60 @@ export default function Inventory() {
 
   const [addItemOpen, setAddItemOpen] = useState(false);
   const [editing, setEditing] = useState<InventoryItem | null>(null);
-  const [stockMode, setStockMode] = useState<"purchase" | "issue" | null>(null);
+  const [stockMode, setStockMode] = useState<LogMovementMode | null>(null);
   const [stockDefaultItemId, setStockDefaultItemId] = useState<
     string | undefined
   >();
   const [movementsItemId, setMovementsItemId] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /** Read a CSV file and create every valid row as a new catalog item. */
+  const handleImportFile = async (file: File) => {
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const { drafts, errors, skipped } = parseItemsCsv(
+        text,
+        { stores, groups, suppliers },
+        items,
+      );
+      if (drafts.length === 0) {
+        toast.error(errors[0] || "No importable rows found in the CSV.");
+        return;
+      }
+      for (const draft of drafts) {
+        await createItem.mutateAsync(draft);
+      }
+      toast.success(
+        `Imported ${drafts.length} item(s)${skipped ? ` · ${skipped} skipped` : ""}`,
+      );
+      if (errors.length > 0) {
+        toast.warning(errors.slice(0, 3).join(" "));
+      }
+      qc.invalidateQueries({ queryKey: ["inv"] });
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not import the CSV file.",
+      );
+    } finally {
+      setImporting(false);
+    }
+  };
+
 
   const storeName = (id: string) =>
     stores.find((s) => s.id === id)?.name || "—";
   const groupName = (id: string) =>
     groups.find((g) => g.id === id)?.name || "—";
+  const supplierName = (id?: string) =>
+    (id && suppliers.find((s) => s.id === id)?.name) || "—";
+
 
   const filtered = useMemo(() => {
     return items.filter((i) => {
       if (storeFilter !== "all" && i.storeId !== storeFilter) return false;
+      if (supplierFilter !== "all" && i.supplierId !== supplierFilter) return false;
       if (groupFilter !== "all" && i.groupId !== groupFilter) return false;
       if (
         statusFilter === "low" &&
@@ -89,7 +138,7 @@ export default function Inventory() {
       }
       return true;
     });
-  }, [items, storeFilter, groupFilter, statusFilter, search]);
+  }, [items, storeFilter, supplierFilter, groupFilter, statusFilter, search]);
 
   const totals = useMemo(() => {
     const qty = filtered.reduce((s, i) => s + i.quantity, 0);
@@ -102,6 +151,20 @@ export default function Inventory() {
     (i) => i.active && i.quantity <= i.reorderLevel,
   ).length;
 
+  const statusLabel = (i: InventoryItem) =>
+    i.quantity === 0
+      ? "Out of Stock"
+      : i.quantity <= i.reorderLevel
+        ? "Low Stock"
+        : "In Stock";
+
+  const statusDot = (i: InventoryItem) =>
+    i.quantity === 0
+      ? "bg-destructive"
+      : i.quantity <= i.reorderLevel
+        ? "bg-warning"
+        : "bg-success";
+
   const statusBadge = (i: InventoryItem) => {
     if (i.quantity === 0) return <Badge variant="destructive">Out</Badge>;
     if (i.quantity <= i.reorderLevel)
@@ -113,8 +176,11 @@ export default function Inventory() {
     ...i,
     _store: storeName(i.storeId),
     _group: groupName(i.groupId),
+    _supplier: supplierName(i.supplierId),
+    _status: statusLabel(i),
     _valuation: i.quantity * i.rate,
   }));
+
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -128,6 +194,26 @@ export default function Inventory() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) void handleImportFile(file);
+            }}
+          />
+          <Button
+            variant="outline"
+            disabled={importing}
+            onClick={() => fileInputRef.current?.click()}
+            title="Import items from a CSV file"
+          >
+            <Upload className="h-4 w-4 mr-1.5" />
+            {importing ? "Importing…" : "Import CSV"}
+          </Button>
           <Button
             variant="outline"
             accessKey="l"
@@ -177,12 +263,37 @@ export default function Inventory() {
         </div>
       </div>
 
+      <InventoryTabsNav />
+
+
       <PremiumReportFrame
-        title="Current Stock Position"
-        subtitle="Valuation = Quantity × Avg Rate (VAT inclusive)"
+        title="Product Catalog"
+        subtitle="Valuation = Quantity × Avg Rate (VAT inclusive). Click any column header to sort."
         propertyName="............."
+        sortable
+        defaultSortKey="name"
         filters={
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Supplier
+              </label>
+              <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All suppliers</SelectItem>
+                  {suppliers.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div>
               <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
                 Store
@@ -252,19 +363,51 @@ export default function Inventory() {
           </div>
         }
         columns={[
-          { key: "code", label: "Code", width: "100px" },
-          { key: "name", label: "Item" },
-          { key: "_group", label: "Group" },
-          { key: "_store", label: "Store" },
-          { key: "unit", label: "Unit", align: "center", width: "70px" },
+          {
+            key: "name",
+            label: "Name",
+            format: (r) => (
+              <div className="min-w-0">
+                <p className="font-medium truncate">{r.name}</p>
+                {r.description && (
+                  <p className="text-xs text-muted-foreground truncate">
+                    {r.description}
+                  </p>
+                )}
+              </div>
+            ),
+            exportFormat: (r) => r.name,
+          },
+          {
+            key: "code",
+            label: "SKU",
+            width: "120px",
+            format: (r) => (
+              <span className="font-mono text-xs">{r.code}</span>
+            ),
+            exportFormat: (r) => r.code,
+          },
+          { key: "_group", label: "Category", width: "150px" },
           {
             key: "quantity",
             label: "Qty",
             align: "right",
-            width: "80px",
-            format: (r) => <span className="font-medium">{r.quantity}</span>,
-            exportFormat: (r) => String(r.quantity),
+            width: "130px",
+            format: (r) => (
+              <span className="inline-flex items-center gap-2 justify-end">
+                <span
+                  className={`h-2 w-2 rounded-full ${statusDot(r)}`}
+                  title={r._status}
+                />
+                <span className="font-medium">
+                  {r.quantity} {r.unit}
+                </span>
+              </span>
+            ),
+            exportFormat: (r) => `${r.quantity} ${r.unit}`,
           },
+          { key: "_store", label: "Location", width: "160px" },
+          { key: "_supplier", label: "Supplier", width: "160px" },
           {
             key: "rate",
             label: "Rate (NPR)",
@@ -286,18 +429,20 @@ export default function Inventory() {
             exportFormat: (r) => String(Math.round(r._valuation)),
           },
           {
-            key: "status",
+            key: "reorderLevel",
+            label: "Reorder Lvl",
+            align: "right",
+            width: "110px",
+          },
+          {
+            key: "_status",
             label: "Status",
             align: "center",
-            width: "100px",
+            width: "110px",
             format: (r) => statusBadge(r),
-            exportFormat: (r) =>
-              r.quantity === 0
-                ? "Out"
-                : r.quantity <= r.reorderLevel
-                  ? "Low"
-                  : "In Stock",
+            exportFormat: (r) => r._status,
           },
+
           {
             key: "actions",
             label: "Actions",
@@ -323,6 +468,28 @@ export default function Inventory() {
                   }}
                 >
                   <PackagePlus className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Issue stock"
+                  onClick={() => {
+                    setStockDefaultItemId(r.id);
+                    setStockMode("issue");
+                  }}
+                >
+                  <PackageMinus className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Adjust stock"
+                  onClick={() => {
+                    setStockDefaultItemId(r.id);
+                    setStockMode("adjustment");
+                  }}
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
                 </Button>
                 <Button
                   variant="ghost"
@@ -357,7 +524,6 @@ export default function Inventory() {
           },
         ]}
         rows={rows}
-        groupBy={{ key: "_store", label: "Store" }}
         footerTotals={{
           label: "Filtered Totals",
           cells: {
@@ -372,6 +538,10 @@ export default function Inventory() {
         exportFilename="inventory_stock"
         emptyMessage="No inventory items match the current filters."
       />
+
+
+
+
 
       <AddItemModal
         open={addItemOpen}
