@@ -244,29 +244,6 @@ export function PremiumReportFrame({
               )}
             </Button>
           )}
-<<<<<<< HEAD
-          <Button
-            variant="outline"
-            size="sm"
-            accessKey="p"
-            onClick={handlePrint}
-            disabled={rows.length === 0}
-            className="text-pretty"
-          >
-            <Printer className="h-4 w-4 mr-1.5 hidden md:flex" />
-            {underlineFirstChar("Print")}
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleExport}
-            accessKey="x"
-            disabled={rows.length === 0}
-            className="bg-success cursor-pointer hover:bg-success/90 text-white"
-          >
-            <Download className="h-4 w-4 mr-1.5 hidden md:flex" />
-            {underlineSpecificChars("Export Excel", [1])}
-          </Button>
-=======
           {!hideActions && (
             <>
               <Button
@@ -285,14 +262,13 @@ export function PremiumReportFrame({
                 onClick={handleExport}
                 accessKey="x"
                 disabled={rows.length === 0}
-                className="bg-success hover:bg-success/90 text-white"
+                className="bg-success cursor-pointer hover:bg-success/90 text-white"
               >
                 <Download className="h-4 w-4 mr-1.5 hidden md:flex" />
                 {underlineSpecificChars("Export Excel", [1])}
               </Button>
             </>
           )}
->>>>>>> e635e00672ebc927ec44eb5c60a1610fd515a28b
         </div>
 
       </div>
