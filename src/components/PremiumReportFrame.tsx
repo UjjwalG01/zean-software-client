@@ -253,7 +253,6 @@ export function PremiumReportFrame({
               )}
             </Button>
           )}
-
           {!hideActions && (
             <>
               <Button
@@ -272,7 +271,7 @@ export function PremiumReportFrame({
                 onClick={handleExport}
                 accessKey="x"
                 disabled={rows.length === 0}
-                className="bg-success hover:bg-success/90 text-white"
+                className="bg-success cursor-pointer hover:bg-success/90 text-white"
               >
                 <Download className="h-4 w-4 mr-1.5 hidden md:flex" />
                 {underlineSpecificChars("Export Excel", [1])}
