@@ -144,7 +144,7 @@ export default function OutletsPage() {
     mutationFn: deleteOutlet,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["outlets"] });
-      toast.success("Deleted");
+      toast.error("Cannot delete this outlet.");
     },
   });
 
@@ -260,7 +260,7 @@ export default function OutletsPage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => {
-                          if (confirm(`Delete ${o.name}?`))
+                          if (confirm(`Do you want to delete ${o.name}?`))
                             delMutation.mutate(o.id);
                         }}
                       >

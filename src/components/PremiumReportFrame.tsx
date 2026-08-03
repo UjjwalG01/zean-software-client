@@ -1,6 +1,21 @@
-import { ReactNode, useEffect, useMemo, useState, type MutableRefObject } from "react";
+import {
+  ReactNode,
+  useEffect,
+  useMemo,
+  useState,
+  type MutableRefObject,
+} from "react";
 import { formatDateTime, nowIso } from "@/lib/tz";
-import { Filter, Download, Printer, ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Filter,
+  Download,
+  Printer,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { exportTableToCSV, type CSVExportMeta } from "@/lib/print-utils";
@@ -15,7 +30,6 @@ export interface ReportFrameApi {
   exportCSV: () => void;
   print: () => void;
 }
-
 
 interface Column {
   key: string;
@@ -63,8 +77,6 @@ interface PremiumReportFrameProps {
   apiRef?: MutableRefObject<ReportFrameApi | null>;
 }
 
-
-
 /**
  * Reusable premium-styled tabular report:
  * - Blue header banner with title + actions
@@ -100,7 +112,6 @@ export function PremiumReportFrame({
   const [sortKey, setSortKey] = useState<string | undefined>(defaultSortKey);
   const [sortDir, setSortDir] = useState<"asc" | "desc">(defaultSortDir);
 
-
   const isSortable = (c: Column) =>
     sortable && c.sortable !== false && c.key !== "actions";
 
@@ -127,13 +138,16 @@ export function PremiumReportFrame({
     return [...inputRows].sort((a, b) => {
       const av = val(a);
       const bv = val(b);
-      if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
+      if (typeof av === "number" && typeof bv === "number")
+        return (av - bv) * dir;
       return String(av).localeCompare(String(bv)) * dir;
     });
   }, [inputRows, columns, sortKey, sortDir, sortable]);
 
   const usePages = paginated && !groupBy;
-  const totalPages = usePages ? Math.max(1, Math.ceil(rows.length / pageSize)) : 1;
+  const totalPages = usePages
+    ? Math.max(1, Math.ceil(rows.length / pageSize))
+    : 1;
   const currentPage = Math.min(page, totalPages);
   const visibleRows = usePages
     ? rows.slice((currentPage - 1) * pageSize, currentPage * pageSize)
@@ -143,10 +157,6 @@ export function PremiumReportFrame({
   useEffect(() => {
     setPage(1);
   }, [inputRows, sortKey, sortDir]);
-
-
-
-
 
   const handleExport = () => {
     const headers = columns.map((c) => c.label);
@@ -199,7 +209,6 @@ export function PremiumReportFrame({
 
   if (apiRef) apiRef.current = { exportCSV: handleExport, print: handlePrint };
 
-
   // Optional grouping
   const grouped: Record<string, any[]> | null = groupBy
     ? rows.reduce((acc: Record<string, any[]>, r) => {
@@ -244,29 +253,7 @@ export function PremiumReportFrame({
               )}
             </Button>
           )}
-<<<<<<< HEAD
-          <Button
-            variant="outline"
-            size="sm"
-            accessKey="p"
-            onClick={handlePrint}
-            disabled={rows.length === 0}
-            className="text-pretty"
-          >
-            <Printer className="h-4 w-4 mr-1.5 hidden md:flex" />
-            {underlineFirstChar("Print")}
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleExport}
-            accessKey="x"
-            disabled={rows.length === 0}
-            className="bg-success cursor-pointer hover:bg-success/90 text-white"
-          >
-            <Download className="h-4 w-4 mr-1.5 hidden md:flex" />
-            {underlineSpecificChars("Export Excel", [1])}
-          </Button>
-=======
+
           {!hideActions && (
             <>
               <Button
@@ -292,9 +279,7 @@ export function PremiumReportFrame({
               </Button>
             </>
           )}
->>>>>>> e635e00672ebc927ec44eb5c60a1610fd515a28b
         </div>
-
       </div>
 
       {/* Filter strip */}
@@ -347,7 +332,6 @@ export function PremiumReportFrame({
                       ))}
                   </span>
                 </th>
-
               ))}
             </tr>
           </thead>
@@ -487,6 +471,5 @@ export function PremiumReportFrame({
         </div>
       )}
     </div>
-
   );
 }

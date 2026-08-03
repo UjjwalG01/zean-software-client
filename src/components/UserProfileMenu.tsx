@@ -20,6 +20,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { changePassword, signOut } from "@/lib/auth-service";
+import { useCurrentAppUser } from "@/hooks/use-app-users";
 
 export function UserProfileMenu() {
   const { user } = useAuthContext();
@@ -30,6 +31,8 @@ export function UserProfileMenu() {
   const [newPwd, setNewPwd] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const { data: currentUser } = useCurrentAppUser();
 
   const displayName =
     user?.user_metadata?.display_name || user?.email?.split("@")[0] || "Client";
