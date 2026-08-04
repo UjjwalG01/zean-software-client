@@ -77,7 +77,7 @@ import {
 } from "@/lib/string-case-change";
 import { methodColors } from "@/lib/utils";
 
-import { INVOICE_PREFIX } from "@/lib/settings";
+
 import { splitVatFromGross } from "@/lib/vat";
 
 import { logAudit } from "@/lib/audit-log";
@@ -372,37 +372,9 @@ const Transactions = () => {
       );
     }
 
-    const isGuestFlow = searchParams.get("guest") === "1";
-    if (!charge && (memberId || isGuestFlow)) {
-      const amountStr = searchParams.get("amount");
-      const serviceStr = searchParams.get("service") || "Service";
-      const classNameStr = searchParams.get("className") || "";
-      const memberNameStr = searchParams.get("memberName") || "";
-      if (amountStr) {
-        charge = {
-          id: `TEMP-${Date.now()}`,
-          memberId: memberId || "",
-          memberName: memberNameStr,
-          amount: Number(amountStr),
-          vat: splitVatFromGross(Number(amountStr)).vat,
-          total: Number(amountStr),
+    // NOTE: no synthetic "TEMP-" charge is ever fabricated here — `charges.id`
+    // is a uuid, and inventing one would insert a duplicate bill on settle.
 
-          method: "cash",
-          type: "Charge",
-          date: getSystemTodayStr(),
-          description: `${serviceStr} — ${classNameStr}`,
-          receiptNo: `${INVOICE_PREFIX}-${Date.now()}`,
-          status: "pending",
-          bookingId: bookingId || undefined,
-          outletId: searchParams.get("outletId") || undefined,
-          isGuest: isGuestFlow || undefined,
-          createdBy: user?.id,
-          guestName: isGuestFlow
-            ? memberNameStr.replace(/^Guest\s*·\s*/i, "")
-            : undefined,
-        } as any;
-      }
-    }
 
     if (charge) {
       openSettle(charge, true);
@@ -1213,16 +1185,15 @@ function SettleModalBody({
             .update({ status: "unpaid", method: "credit", discount })
             .eq("id", chargeRowId);
         }
-        if (!settleTxn.id.startsWith("TEMP-")) {
-          await updateTransactionMutation.mutateAsync({
-            id: settleTxn.id,
-            data: {
-              status: "pending",
-              method: "credit" as PaymentMethod,
-              discount,
-            } as any,
-          });
-        }
+        await updateTransactionMutation.mutateAsync({
+          id: settleTxn.id,
+          data: {
+            status: "pending",
+            method: "credit" as PaymentMethod,
+            discount,
+          } as any,
+        });
+
         // Increment member.due_amount by netDue.
         const { data: memberRow } = await supabase
           .from("members")
