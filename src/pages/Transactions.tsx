@@ -1148,8 +1148,16 @@ function SettleModalBody({
   const netPayableValue = Math.max(0, (settleTxn.total || 0) - activeDiscount);
 
   const handleSettle = async () => {
+    // Hard guard: no double-click, no second settlement on the same bill.
+    if (submitting) return;
+    if (isResettlement) {
+      toast.error("This bill is already settled. Void the payment to re-settle.");
+      return;
+    }
+    setSubmitting(true);
     const discount = Math.max(0, Number(settleDiscount) || 0);
     const netDue = Math.max(0, (settleTxn.total || 0) - discount);
+
 
     // "Credit" / Pay Later — reserved for registered members only.
     const isCredit = settleMethod === ("credit" as PaymentMethod);
