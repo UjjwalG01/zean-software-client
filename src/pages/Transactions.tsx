@@ -1204,28 +1204,10 @@ function SettleModalBody({
           .from("members")
           .update({ due_amount: currentDue + netDue })
           .eq("id", settleTxn.memberId);
-      } else if (settleTxn.id.startsWith("TEMP-")) {
-        await addTransactionMutation.mutateAsync({
-          memberId: settleTxn.memberId,
-          memberName: settleTxn.memberName,
-          amount: netDue,
-          vat: settleTxn.vat,
-          total: netDue,
-          discount,
-          method: settleMethod,
-          type: settleTxn.serviceType || "Charge",
-          date: getSystemTodayStr(),
-          description: settleTxn.description,
-          receiptNo: settleTxn.receiptNo,
-          status: "completed",
-          bookingId: settleTxn.bookingId,
-          outletId: (settleTxn as any).outletId,
-          isSettlement: true,
-        } as any);
       } else {
-        // The service layer flips the canonical charge row to `paid` AND books
-        // the matching credit row in `payments` — that is what increases the
-        // member's "Total Paid" and settles the net balance.
+        // One atomic server call: locks the charge, refuses a duplicate
+        // settlement, books the single credit row in `payments` and closes
+        // every booking attached to the bill (including bundled POS orders).
         await updateTransactionMutation.mutateAsync({
           id: settleTxn.id,
           data: {
@@ -1237,16 +1219,7 @@ function SettleModalBody({
         });
       }
 
-      if (settleTxn.bookingId && !isCredit) {
-        await updateBookingMutation.mutateAsync({
-          id: settleTxn.bookingId,
-          data: {
-            status: "completed",
-            settledAt: getSystemTimestamp(),
-            paymentMethod: settleMethod,
-          } as any,
-        });
-      }
+
 
       qc.invalidateQueries({ queryKey: ["bookings"] });
       qc.invalidateQueries({ queryKey: ["transactions"] });
