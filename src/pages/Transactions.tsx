@@ -187,9 +187,41 @@ const Transactions = () => {
     "other",
   ]);
 
+  /**
+   * One bill = one row.
+   *
+   * A settled charge produces two database rows (the debit in `charges` and the
+   * credit in `payments`). The list renders only the charge, enriched with the
+   * settlement's method / paid date / payment id, so the same amount never
+   * appears twice. Standalone payments (advances, direct sales) keep their row.
+   */
+  const billRows = useMemo(() => {
+    const settlementByCharge = new Map<string, any>();
+    for (const t of transactions as any[]) {
+      const chargeId = t.chargeRowId;
+      if (t.type !== "Charge" && chargeId && !t.voided) {
+        settlementByCharge.set(String(chargeId), t);
+      }
+    }
+    return (transactions as any[])
+      .filter((t) => t.type === "Charge" || !t.chargeRowId)
+      .map((t) => {
+        if (t.type !== "Charge") return t;
+        const s = settlementByCharge.get(String(t.id));
+        if (!s) return t;
+        return {
+          ...t,
+          method: s.method || t.method,
+          discount: Number(s.discount ?? t.discount ?? 0),
+          settlementId: s.id,
+          settledOn: s.date,
+        };
+      });
+  }, [transactions]);
+
   const filtered = useMemo(() => {
-    console.log(transactions);
-    const list = transactions.filter((t) => {
+    const list = billRows.filter((t) => {
+
       const matchSearch =
         t.memberName.toLowerCase().includes(search.toLowerCase()) ||
         t.receiptNo.toLowerCase().includes(search.toLowerCase()) ||
@@ -216,7 +248,8 @@ const Transactions = () => {
       return String(bv).localeCompare(String(av));
     });
   }, [
-    transactions,
+    billRows,
+
     search,
     methodFilter,
     typeFilter,
@@ -679,26 +712,56 @@ const Transactions = () => {
                             >
                               <Printer className="h-3.5 w-3.5" />
                             </Button>
+                            {/* A settled bill can never be settled twice — the
+                                only way back is voiding its payment, which
+                                re-opens the charge and its bookings. */}
                             {(() => {
-                              const isSameDay =
-                                toIsoDayInTz(t.date) === getSystemTodayStr();
+                              const settlementId = (t as any).settlementId;
                               return (
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-7 w-7"
+                                  className="h-7 w-7 text-destructive"
                                   title={
-                                    isSameDay
-                                      ? "Resettle"
-                                      : "Resettlement only allowed on same day"
+                                    settlementId
+                                      ? "Void payment"
+                                      : "No settlement payment linked"
                                   }
-                                  disabled={!isSameDay}
-                                  onClick={() => openSettle(t)}
+                                  disabled={
+                                    !settlementId ||
+                                    updateTransactionMutation.isPending
+                                  }
+                                  onClick={async () => {
+                                    if (
+                                      !window.confirm(
+                                        "Void this settlement? The bill returns to Pending.",
+                                      )
+                                    )
+                                      return;
+                                    try {
+                                      await updateTransactionMutation.mutateAsync({
+                                        id: settlementId,
+                                        data: {
+                                          status: "voided",
+                                          voided: true,
+                                          voidReason: "Voided from transactions",
+                                        } as any,
+                                      });
+                                      toast.success("Settlement voided");
+                                    } catch (err) {
+                                      toast.error(
+                                        err instanceof Error
+                                          ? err.message
+                                          : "Failed to void settlement",
+                                      );
+                                    }
+                                  }}
                                 >
                                   <RotateCcw className="h-3.5 w-3.5" />
                                 </Button>
                               );
                             })()}
+
                           </>
                         ) : (
                           <Button
@@ -1091,6 +1154,9 @@ function SettleModalBody({
   const [settleNote, setSettleNote] = useState("");
   const [settleDiscount, setSettleDiscount] = useState<string>("");
   const [pendingSettle, setPendingSettle] = useState(false);
+  /** Blocks concurrent submissions (double-click → double settlement). */
+  const [submitting, setSubmitting] = useState(false);
+
 
   useEffect(() => {
     if (settleTxn) {
@@ -1115,8 +1181,16 @@ function SettleModalBody({
   const netPayableValue = Math.max(0, (settleTxn.total || 0) - activeDiscount);
 
   const handleSettle = async () => {
+    // Hard guard: no double-click, no second settlement on the same bill.
+    if (submitting) return;
+    if (isResettlement) {
+      toast.error("This bill is already settled. Void the payment to re-settle.");
+      return;
+    }
+    setSubmitting(true);
     const discount = Math.max(0, Number(settleDiscount) || 0);
     const netDue = Math.max(0, (settleTxn.total || 0) - discount);
+
 
     // "Credit" / Pay Later — reserved for registered members only.
     const isCredit = settleMethod === ("credit" as PaymentMethod);
@@ -1160,28 +1234,10 @@ function SettleModalBody({
           .from("members")
           .update({ due_amount: currentDue + netDue })
           .eq("id", settleTxn.memberId);
-      } else if (settleTxn.id.startsWith("TEMP-")) {
-        await addTransactionMutation.mutateAsync({
-          memberId: settleTxn.memberId,
-          memberName: settleTxn.memberName,
-          amount: netDue,
-          vat: settleTxn.vat,
-          total: netDue,
-          discount,
-          method: settleMethod,
-          type: settleTxn.serviceType || "Charge",
-          date: getSystemTodayStr(),
-          description: settleTxn.description,
-          receiptNo: settleTxn.receiptNo,
-          status: "completed",
-          bookingId: settleTxn.bookingId,
-          outletId: (settleTxn as any).outletId,
-          isSettlement: true,
-        } as any);
       } else {
-        // The service layer flips the canonical charge row to `paid` AND books
-        // the matching credit row in `payments` — that is what increases the
-        // member's "Total Paid" and settles the net balance.
+        // One atomic server call: locks the charge, refuses a duplicate
+        // settlement, books the single credit row in `payments` and closes
+        // every booking attached to the bill (including bundled POS orders).
         await updateTransactionMutation.mutateAsync({
           id: settleTxn.id,
           data: {
@@ -1193,16 +1249,7 @@ function SettleModalBody({
         });
       }
 
-      if (settleTxn.bookingId && !isCredit) {
-        await updateBookingMutation.mutateAsync({
-          id: settleTxn.bookingId,
-          data: {
-            status: "completed",
-            settledAt: getSystemTimestamp(),
-            paymentMethod: settleMethod,
-          } as any,
-        });
-      }
+
 
       qc.invalidateQueries({ queryKey: ["bookings"] });
       qc.invalidateQueries({ queryKey: ["transactions"] });
@@ -1249,10 +1296,15 @@ function SettleModalBody({
         );
       }
       onClose();
-    } catch {
-      toast.error("Failed to process payment updates");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to process payment updates",
+      );
+    } finally {
+      setSubmitting(false);
     }
   };
+
 
   return (
     <div className="space-y-4">

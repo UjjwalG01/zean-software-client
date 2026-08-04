@@ -213,6 +213,7 @@ const Reports = () => {
   );
 
   // ── 1. Daily Sales Report (grouped by date → department/service) ──
+  // Sales are charges (debits), settled or not. Math: Total − Discount = Net.
   const dailySalesRows = useMemo(() => {
     const acc: Record<
       string,
@@ -222,6 +223,8 @@ const Reports = () => {
         sales: number;
         vat: number;
         total: number;
+        discount: number;
+        net: number;
       }
     > = {};
     chargeTx.forEach((t) => {
@@ -234,11 +237,22 @@ const Reports = () => {
         (t.type === "Charge" ? "Misc Charges" : "Membership");
       const key = `${t.date}::${department}`;
       if (!acc[key])
-        acc[key] = { date: t.date, department, sales: 0, vat: 0, total: 0 };
+        acc[key] = {
+          date: t.date,
+          department,
+          sales: 0,
+          vat: 0,
+          total: 0,
+          discount: 0,
+          net: 0,
+        };
       const sign = (t as any).voided ? -1 : 1;
+      const discount = Number((t as any).discount || 0);
       acc[key].sales += sign * (t.amount || 0);
       acc[key].vat += sign * (t.vat || 0);
       acc[key].total += sign * (t.total || 0);
+      acc[key].discount += sign * discount;
+      acc[key].net += sign * Math.max(0, (t.total || 0) - discount);
     });
     return Object.values(acc).sort(
       (a, b) =>
@@ -253,10 +267,13 @@ const Reports = () => {
         sales: a.sales + r.sales,
         vat: a.vat + r.vat,
         total: a.total + r.total,
+        discount: a.discount + r.discount,
+        net: a.net + r.net,
       }),
-      { sales: 0, vat: 0, total: 0 },
+      { sales: 0, vat: 0, total: 0, discount: 0, net: 0 },
     );
   }, [dailySalesRows]);
+
 
   // ── 2. Cashier / Collection Report (one row per settled transaction) ──
   const collectionRows = useMemo(() => {
@@ -506,13 +523,13 @@ const Reports = () => {
           { label: "Net Sales", value: formatNPR(dailySalesTotals.sales) },
           { label: "VAT Payable", value: formatNPR(dailySalesTotals.vat) },
           { label: "Total Sales", value: formatNPR(dailySalesTotals.total) },
+          { label: "Discount", value: formatNPR(dailySalesTotals.discount) },
           {
-            label: "Departments",
-            value: String(
-              new Set(dailySalesRows.map((r) => r.department)).size,
-            ),
-            hint: `${dailySalesRows.length} rows`,
+            label: "Net (Collectible)",
+            value: formatNPR(dailySalesTotals.net),
+            hint: "Total Sales − Discount",
           },
+
         ];
       case "collection":
         return [
@@ -761,6 +778,20 @@ const Reports = () => {
               format: (r) => formatNPR(r.total),
               exportFormat: (r) => String(r.total),
             },
+            {
+              key: "discount",
+              label: "Discount",
+              align: "right",
+              format: (r) => formatNPR(r.discount),
+              exportFormat: (r) => String(r.discount),
+            },
+            {
+              key: "net",
+              label: "Net (Collectible)",
+              align: "right",
+              format: (r) => formatNPR(r.net),
+              exportFormat: (r) => String(r.net),
+            },
           ]}
           rows={dailySalesRows}
           footerTotals={{
@@ -769,8 +800,11 @@ const Reports = () => {
               sales: formatNPR(dailySalesTotals.sales),
               vat: formatNPR(dailySalesTotals.vat),
               total: formatNPR(dailySalesTotals.total),
+              discount: formatNPR(dailySalesTotals.discount),
+              net: formatNPR(dailySalesTotals.net),
             },
           }}
+
           onRowClick={(r) =>
             setReconSelection({ date: r.date, department: r.department })
           }
