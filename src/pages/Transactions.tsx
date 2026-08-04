@@ -1185,16 +1185,15 @@ function SettleModalBody({
             .update({ status: "unpaid", method: "credit", discount })
             .eq("id", chargeRowId);
         }
-        if (!settleTxn.id.startsWith("TEMP-")) {
-          await updateTransactionMutation.mutateAsync({
-            id: settleTxn.id,
-            data: {
-              status: "pending",
-              method: "credit" as PaymentMethod,
-              discount,
-            } as any,
-          });
-        }
+        await updateTransactionMutation.mutateAsync({
+          id: settleTxn.id,
+          data: {
+            status: "pending",
+            method: "credit" as PaymentMethod,
+            discount,
+          } as any,
+        });
+
         // Increment member.due_amount by netDue.
         const { data: memberRow } = await supabase
           .from("members")
