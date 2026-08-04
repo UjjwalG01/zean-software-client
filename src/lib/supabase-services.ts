@@ -894,20 +894,24 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
     },
   };
 
+  // Always land the debit first as `unpaid`; settlement (if any) goes through
+  // the atomic RPC so the credit row and booking lifecycle stay in lockstep.
+  chargeRow.status = "unpaid";
+  chargeRow.paid_at = null;
+
   const { data: row, error } = await supabase.from("charges").insert(chargeRow).select("id").single();
   if (error) throwDb(error, "charges");
   await maybeAudit("create", "charge", row.id, null, data);
 
   if (settled) {
-    await insertPaymentRow({
-      ...data,
-      type: "Payment",
-      status: "paid",
-      amount: gross,
-      chargeRowId: row.id,
-      isSettlement: true,
-    } as Partial<Transaction>);
+    await settleCharge(row.id, {
+      method: (data.method || "cash") as string,
+      discount: Number((data as any).discount || 0),
+      paidOn: data.date,
+      note: data.description,
+    });
   }
+
 
   return row.id;
 }
