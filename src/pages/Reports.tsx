@@ -523,13 +523,13 @@ const Reports = () => {
           { label: "Net Sales", value: formatNPR(dailySalesTotals.sales) },
           { label: "VAT Payable", value: formatNPR(dailySalesTotals.vat) },
           { label: "Total Sales", value: formatNPR(dailySalesTotals.total) },
+          { label: "Discount", value: formatNPR(dailySalesTotals.discount) },
           {
-            label: "Departments",
-            value: String(
-              new Set(dailySalesRows.map((r) => r.department)).size,
-            ),
-            hint: `${dailySalesRows.length} rows`,
+            label: "Net (Collectible)",
+            value: formatNPR(dailySalesTotals.net),
+            hint: "Total Sales − Discount",
           },
+
         ];
       case "collection":
         return [
