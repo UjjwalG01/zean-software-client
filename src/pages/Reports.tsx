@@ -213,6 +213,7 @@ const Reports = () => {
   );
 
   // ── 1. Daily Sales Report (grouped by date → department/service) ──
+  // Sales are charges (debits), settled or not. Math: Total − Discount = Net.
   const dailySalesRows = useMemo(() => {
     const acc: Record<
       string,
@@ -222,6 +223,8 @@ const Reports = () => {
         sales: number;
         vat: number;
         total: number;
+        discount: number;
+        net: number;
       }
     > = {};
     chargeTx.forEach((t) => {
@@ -234,11 +237,22 @@ const Reports = () => {
         (t.type === "Charge" ? "Misc Charges" : "Membership");
       const key = `${t.date}::${department}`;
       if (!acc[key])
-        acc[key] = { date: t.date, department, sales: 0, vat: 0, total: 0 };
+        acc[key] = {
+          date: t.date,
+          department,
+          sales: 0,
+          vat: 0,
+          total: 0,
+          discount: 0,
+          net: 0,
+        };
       const sign = (t as any).voided ? -1 : 1;
+      const discount = Number((t as any).discount || 0);
       acc[key].sales += sign * (t.amount || 0);
       acc[key].vat += sign * (t.vat || 0);
       acc[key].total += sign * (t.total || 0);
+      acc[key].discount += sign * discount;
+      acc[key].net += sign * Math.max(0, (t.total || 0) - discount);
     });
     return Object.values(acc).sort(
       (a, b) =>
@@ -253,10 +267,13 @@ const Reports = () => {
         sales: a.sales + r.sales,
         vat: a.vat + r.vat,
         total: a.total + r.total,
+        discount: a.discount + r.discount,
+        net: a.net + r.net,
       }),
-      { sales: 0, vat: 0, total: 0 },
+      { sales: 0, vat: 0, total: 0, discount: 0, net: 0 },
     );
   }, [dailySalesRows]);
+
 
   // ── 2. Cashier / Collection Report (one row per settled transaction) ──
   const collectionRows = useMemo(() => {
