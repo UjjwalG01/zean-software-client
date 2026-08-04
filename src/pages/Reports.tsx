@@ -778,6 +778,20 @@ const Reports = () => {
               format: (r) => formatNPR(r.total),
               exportFormat: (r) => String(r.total),
             },
+            {
+              key: "discount",
+              label: "Discount",
+              align: "right",
+              format: (r) => formatNPR(r.discount),
+              exportFormat: (r) => String(r.discount),
+            },
+            {
+              key: "net",
+              label: "Net (Collectible)",
+              align: "right",
+              format: (r) => formatNPR(r.net),
+              exportFormat: (r) => String(r.net),
+            },
           ]}
           rows={dailySalesRows}
           footerTotals={{
@@ -786,8 +800,11 @@ const Reports = () => {
               sales: formatNPR(dailySalesTotals.sales),
               vat: formatNPR(dailySalesTotals.vat),
               total: formatNPR(dailySalesTotals.total),
+              discount: formatNPR(dailySalesTotals.discount),
+              net: formatNPR(dailySalesTotals.net),
             },
           }}
+
           onRowClick={(r) =>
             setReconSelection({ date: r.date, department: r.department })
           }
