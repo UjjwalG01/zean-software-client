@@ -1266,10 +1266,15 @@ function SettleModalBody({
         );
       }
       onClose();
-    } catch {
-      toast.error("Failed to process payment updates");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to process payment updates",
+      );
+    } finally {
+      setSubmitting(false);
     }
   };
+
 
   return (
     <div className="space-y-4">
