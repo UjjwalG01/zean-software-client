@@ -248,7 +248,8 @@ const Transactions = () => {
       return String(bv).localeCompare(String(av));
     });
   }, [
-    transactions,
+    billRows,
+
     search,
     methodFilter,
     typeFilter,
