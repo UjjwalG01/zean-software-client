@@ -712,26 +712,56 @@ const Transactions = () => {
                             >
                               <Printer className="h-3.5 w-3.5" />
                             </Button>
+                            {/* A settled bill can never be settled twice — the
+                                only way back is voiding its payment, which
+                                re-opens the charge and its bookings. */}
                             {(() => {
-                              const isSameDay =
-                                toIsoDayInTz(t.date) === getSystemTodayStr();
+                              const settlementId = (t as any).settlementId;
                               return (
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-7 w-7"
+                                  className="h-7 w-7 text-destructive"
                                   title={
-                                    isSameDay
-                                      ? "Resettle"
-                                      : "Resettlement only allowed on same day"
+                                    settlementId
+                                      ? "Void payment"
+                                      : "No settlement payment linked"
                                   }
-                                  disabled={!isSameDay}
-                                  onClick={() => openSettle(t)}
+                                  disabled={
+                                    !settlementId ||
+                                    updateTransactionMutation.isPending
+                                  }
+                                  onClick={async () => {
+                                    if (
+                                      !window.confirm(
+                                        "Void this settlement? The bill returns to Pending.",
+                                      )
+                                    )
+                                      return;
+                                    try {
+                                      await updateTransactionMutation.mutateAsync({
+                                        id: settlementId,
+                                        data: {
+                                          status: "voided",
+                                          voided: true,
+                                          voidReason: "Voided from transactions",
+                                        } as any,
+                                      });
+                                      toast.success("Settlement voided");
+                                    } catch (err) {
+                                      toast.error(
+                                        err instanceof Error
+                                          ? err.message
+                                          : "Failed to void settlement",
+                                      );
+                                    }
+                                  }}
                                 >
                                   <RotateCcw className="h-3.5 w-3.5" />
                                 </Button>
                               );
                             })()}
+
                           </>
                         ) : (
                           <Button
