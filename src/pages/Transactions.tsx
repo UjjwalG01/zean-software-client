@@ -187,9 +187,41 @@ const Transactions = () => {
     "other",
   ]);
 
+  /**
+   * One bill = one row.
+   *
+   * A settled charge produces two database rows (the debit in `charges` and the
+   * credit in `payments`). The list renders only the charge, enriched with the
+   * settlement's method / paid date / payment id, so the same amount never
+   * appears twice. Standalone payments (advances, direct sales) keep their row.
+   */
+  const billRows = useMemo(() => {
+    const settlementByCharge = new Map<string, any>();
+    for (const t of transactions as any[]) {
+      const chargeId = t.chargeRowId;
+      if (t.type !== "Charge" && chargeId && !t.voided) {
+        settlementByCharge.set(String(chargeId), t);
+      }
+    }
+    return (transactions as any[])
+      .filter((t) => t.type === "Charge" || !t.chargeRowId)
+      .map((t) => {
+        if (t.type !== "Charge") return t;
+        const s = settlementByCharge.get(String(t.id));
+        if (!s) return t;
+        return {
+          ...t,
+          method: s.method || t.method,
+          discount: Number(s.discount ?? t.discount ?? 0),
+          settlementId: s.id,
+          settledOn: s.date,
+        };
+      });
+  }, [transactions]);
+
   const filtered = useMemo(() => {
-    console.log(transactions);
-    const list = transactions.filter((t) => {
+    const list = billRows.filter((t) => {
+
       const matchSearch =
         t.memberName.toLowerCase().includes(search.toLowerCase()) ||
         t.receiptNo.toLowerCase().includes(search.toLowerCase()) ||
