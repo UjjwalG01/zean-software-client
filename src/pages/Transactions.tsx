@@ -77,7 +77,7 @@ import {
 } from "@/lib/string-case-change";
 import { methodColors } from "@/lib/utils";
 
-import { INVOICE_PREFIX } from "@/lib/settings";
+
 import { splitVatFromGross } from "@/lib/vat";
 
 import { logAudit } from "@/lib/audit-log";
