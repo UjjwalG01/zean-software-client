@@ -914,18 +914,74 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
 
 
 /**
+ * Settle a charge atomically (server side).
+ *
+ * The `settle_charge` RPC locks the charge row, refuses a second settlement,
+ * inserts the single credit row in `payments` and closes every booking carried
+ * by the charge. A partial unique index on `payments.settled_charge_id`
+ * guarantees a duplicate can never land, even under concurrent clicks.
+ */
+export async function settleCharge(
+  chargeId: string,
+  opts: { method?: string; discount?: number; paidOn?: string; note?: string } = {},
+): Promise<string> {
+  const { data, error } = await supabase.rpc("settle_charge", {
+    p_charge_id: chargeId,
+    p_method: opts.method || "cash",
+    p_discount: Number(opts.discount || 0),
+    p_paid_on: opts.paidOn || null,
+    p_note: opts.note || null,
+  });
+  if (error) {
+    if (/ALREADY_SETTLED/i.test(error.message)) {
+      throw new Error("This bill is already settled. Void it first to re-settle.");
+    }
+    if (/CHARGE_VOIDED/i.test(error.message)) {
+      throw new Error("This charge is voided and cannot be settled.");
+    }
+    if (/duplicate key|payments_one_live_settlement/i.test(error.message)) {
+      throw new Error("A settlement already exists for this bill.");
+    }
+    throwDb(error, "settle_charge");
+  }
+  await maybeAudit("update", "charge", chargeId, null, { settled: true, ...opts });
+  return String(data);
+}
+
+/** Void a settlement payment and re-open its charge + bookings. */
+export async function voidPayment(paymentId: string, reason?: string): Promise<void> {
+  const { error } = await supabase.rpc("void_payment", {
+    p_payment_id: paymentId,
+    p_reason: reason || null,
+  });
+  if (error) {
+    if (/ALREADY_VOIDED/i.test(error.message)) throw new Error("This payment is already voided.");
+    throwDb(error, "void_payment");
+  }
+  await maybeAudit("update", "payment", paymentId, null, { voided: true, reason });
+}
+
+/**
  * Update a transaction. Routes to `charges` or `payments` depending on where
- * the row actually lives. Settling a charge (status → paid/completed) also
- * books the matching credit row in `payments`, which is what moves the member's
- * "Total Paid" and net balance.
+ * the row actually lives. Settling a charge is delegated to the `settle_charge`
+ * RPC so the credit row and the booking lifecycle move in one transaction.
  */
 export async function updateTransaction(id: string, data: Partial<Transaction>): Promise<void> {
   if (await isChargeRow(id)) {
     const { data: current } = await supabase.from("charges").select("*").eq("id", id).maybeSingle();
-    const wasPaid = current?.status === "paid";
     const nextStatus = String(data.status ?? "");
     const settling = nextStatus === "paid" || nextStatus === "completed";
     const voiding = nextStatus === "voided" || (data as any).voided === true;
+
+    if (settling && !voiding) {
+      await settleCharge(id, {
+        method: (data.method || current?.method || "cash") as string,
+        discount: Number((data as any).discount ?? current?.discount ?? 0),
+        paidOn: data.date,
+        note: data.description,
+      });
+      return;
+    }
 
     const patch: any = {};
     if (data.method !== undefined) patch.method = data.method;
@@ -936,12 +992,7 @@ export async function updateTransaction(id: string, data: Partial<Transaction>):
     if (data.total !== undefined) patch.total = data.total;
     if ((data as any).discount !== undefined) patch.discount = (data as any).discount;
     if (data.receiptNo !== undefined) patch.receipt_no = data.receiptNo;
-    if (settling) {
-      patch.status = "paid";
-      patch.paid_at = patch.paid_at || nowIso();
-    } else if (nextStatus === "pending") {
-      patch.status = "unpaid";
-    }
+    if (nextStatus === "pending") patch.status = "unpaid";
     if (voiding) {
       patch.meta = {
         ...(current?.meta && typeof current.meta === "object" ? current.meta : {}),
@@ -954,33 +1005,15 @@ export async function updateTransaction(id: string, data: Partial<Transaction>):
     const { error } = await supabase.from("charges").update(patch).eq("id", id);
     if (error) throwDb(error, "charges");
     await maybeAudit("update", "charge", id, null, data);
-
-    if (settling && !wasPaid && !voiding) {
-      const discount = Number((data as any).discount ?? current?.discount ?? 0);
-      const gross = Number(data.total ?? current?.total ?? 0);
-      const netDue = Math.max(0, gross - discount);
-      if (netDue > 0) {
-        await insertPaymentRow({
-          memberId: current?.member_id || undefined,
-          memberName: current?.member_name || undefined,
-          amount: netDue,
-          total: netDue,
-          discount,
-          method: (data.method || current?.method || "cash") as PaymentMethod,
-          type: "Payment",
-          status: "paid",
-          date: data.date,
-          description: current?.description || current?.charge_head || "Settlement",
-          serviceType: current?.charge_head || undefined,
-          bookingId: current?.meta?.bookingId || undefined,
-          outletId: current?.outlet_id || undefined,
-          chargeRowId: id,
-          isSettlement: true,
-        } as Partial<Transaction>);
-      }
-    }
     return;
   }
+
+  // Payment rows: voiding goes through the RPC so the charge re-opens too.
+  if (String(data.status ?? "") === "voided" || (data as any).voided === true) {
+    await voidPayment(id, (data as any).voidReason);
+    return;
+  }
+
 
   const patch: any = {};
   if (data.method !== undefined) patch.method = data.method;
