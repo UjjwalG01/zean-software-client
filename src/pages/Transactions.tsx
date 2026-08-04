@@ -1124,6 +1124,9 @@ function SettleModalBody({
   const [settleNote, setSettleNote] = useState("");
   const [settleDiscount, setSettleDiscount] = useState<string>("");
   const [pendingSettle, setPendingSettle] = useState(false);
+  /** Blocks concurrent submissions (double-click → double settlement). */
+  const [submitting, setSubmitting] = useState(false);
+
 
   useEffect(() => {
     if (settleTxn) {
