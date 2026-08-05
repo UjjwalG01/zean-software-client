@@ -9,6 +9,11 @@ import {
   Building2,
   X,
   Clock,
+  BadgeCheck,
+  ShieldCheck,
+  Diamond,
+  Gem,
+  Swords,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -956,14 +961,24 @@ const PlansServices = () => {
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <TierBadge tier={plan.tier as any} />
+                        <TierBadge tier={plan.tier as any} className="" />
                         {plan.autoDiscount && (
                           <Badge variant="outline" className="text-[10px]">
                             <Percent className="h-2.5 w-2.5 mr-0.5" /> Auto
                           </Badge>
                         )}
                       </div>
-                      <Crown className="h-4 w-4 text-primary/60" />
+                      {plan.tier === "Basic" ? (
+                        <Crown className="h-4 w-4 text-primary/60" />
+                      ) : plan.tier === "Premium" ? (
+                        <ShieldCheck className="h-6 w-6 text-primary/60" />
+                      ) : plan.tier === "Gold" ? (
+                        <Diamond className="h-6 w-6 text-primary/60" />
+                      ) : plan.tier === "Diamond" ? (
+                        <Gem className="h-6 w-6 text-primary/60" />
+                      ) : (
+                        <Swords className="h-6 w-6 text-primary/60" />
+                      )}
                     </div>
                     <div>
                       <p className="text-sm font-medium truncate">

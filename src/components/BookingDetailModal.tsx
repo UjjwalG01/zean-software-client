@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
+import { useAuth } from "@/hooks/use-auth";
 import type { Booking, ServiceType } from "@/lib/mock-data";
 import {
   useUpdateBooking,
@@ -40,7 +41,6 @@ import { nowIso } from "@/lib/tz";
 import { getSystemNowDate } from "@/lib/timeUtils";
 
 import { serviceColors } from "@/lib/utils";
-import { useAuth } from "@/hooks/use-auth";
 
 interface BookingDetailModalProps {
   booking: Booking | null;
@@ -82,6 +82,7 @@ export function BookingDetailModal({
   readOnly = false,
 }: BookingDetailModalProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const updateBooking = useUpdateBooking();
   const updateTransaction = useUpdateTransaction();
   const { data: transactions = [] } = useTransactions();
@@ -95,7 +96,7 @@ export function BookingDetailModal({
   if (!b) return null;
 
   // 🌟 FIX: Normalize status checks to lowercase to safeguard against database/local casing mismatches
-  const rawStatus = localStatus || b.status || "";
+  const rawStatus = b.status || localStatus || "";
   const displayStatus =
     rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1).toLowerCase();
   const currentStatusClean = rawStatus.toLowerCase();
@@ -108,10 +109,10 @@ export function BookingDetailModal({
 
   const isCancelled = currentStatusClean === "cancelled";
   const isCompleted = currentStatusClean === "completed";
+  const canCancel = !isReadOnlyService && !isCompleted && !isCancelled;
 
   const canEdit =
     !isReadOnlyService && isFutureBooking(b) && !isCompleted && !isCancelled;
-  const canCancel = !isReadOnlyService && !isCompleted && !isCancelled;
 
   const isStrictlyFuture = (() => {
     const today = getSystemNowDate();
@@ -166,6 +167,7 @@ export function BookingDetailModal({
       toast.error("Please provide a cancellation reason");
       return;
     }
+
     try {
       await updateBooking.mutateAsync({
         id: b.id,
@@ -173,22 +175,24 @@ export function BookingDetailModal({
           status: "cancelled",
           cancelReason,
           cancelledAt: nowIso(),
-          createdBy: useAuth().user?.id || null,
+          createdBy: user?.id || null,
         } as any,
       });
       const linkedCharges = transactions.filter(
         (t) =>
           t.bookingId === b.id && t.type === "Charge" && t.status === "pending",
       );
+
+      console.log("CH", linkedCharges);
       for (const c of linkedCharges) {
         await updateTransaction.mutateAsync({
           id: c.id,
           data: {
-            status: "voided",
+            status: "cancelled",
             voided: true,
             voidedAt: nowIso(),
             voidReason: cancelReason,
-            createdBy: useAuth().user?.id || null,
+            createdBy: user?.id || null,
           } as any,
         });
         const chargeRowId = (c as any).chargeRowId as string | undefined;
@@ -200,6 +204,7 @@ export function BookingDetailModal({
             await supabase
               .from("charges")
               .update({
+                status: "cancelled",
                 meta: {
                   voided: true,
                   cancelled: true,
@@ -269,7 +274,10 @@ export function BookingDetailModal({
       companyAddress: settings.companyAddress || "",
       companyPhone: settings.companyPhone || "",
       companyEmail: settings.companyEmail || "",
-      companyLogoUrl: (settings as any).extras?.logoUrl || (settings as any).logo_url || (settings as any).companyLogoUrl,
+      companyLogoUrl:
+        (settings as any).extras?.logoUrl ||
+        (settings as any).logo_url ||
+        (settings as any).companyLogoUrl,
       vatNo: settings.panNumber || settings.vatNo || "",
       guestName: b.memberName,
       billNo: linkedTxn?.receiptNo || `BK-${b.id.slice(0, 8)}`,

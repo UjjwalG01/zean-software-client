@@ -36,6 +36,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { capitalizeFirstLetter } from "@/lib/string-case-change";
 
 interface TransactionDetailModalProps {
   transaction: Transaction | null;
@@ -82,7 +83,10 @@ export function TransactionDetailModal({
       companyAddress: (settings as any).companyAddress,
       companyPhone: (settings as any).companyPhone,
       companyEmail: (settings as any).companyEmail,
-      companyLogoUrl: (settings as any).extras?.logoUrl || (settings as any).logo_url || (settings as any).companyLogoUrl,
+      companyLogoUrl:
+        (settings as any).extras?.logoUrl ||
+        (settings as any).logo_url ||
+        (settings as any).companyLogoUrl,
       paymentMethod: t.method,
       remarks: t.description,
       guestName: t.memberName,
@@ -111,9 +115,9 @@ export function TransactionDetailModal({
     });
 
   const handlePrint = () => printHTML(buildReceiptHTML());
+
   const handleDownload = () =>
     downloadHTML(buildReceiptHTML(), `receipt-${t.receiptNo}.html`);
-
 
   const handleVoid = async () => {
     if (!voidReason.trim()) {
@@ -176,62 +180,99 @@ export function TransactionDetailModal({
         </DialogHeader>
 
         <div className="space-y-5">
-          <div className="rounded-lg border border-border/50 bg-muted/30 p-4 text-center">
-            <p className="text-xs text-muted-foreground">Receipt No.</p>
-            <p className="font-mono text-lg font-bold text-primary">
-              {t.receiptNo}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">{t.date}</p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
+          <div className="rounded-lg border border-border/50 bg-muted/30 p-4 flex justify-between items-center">
             <div>
-              <p className="text-xs text-muted-foreground mb-1">Member</p>
-              <p className="font-medium text-sm">{t.memberName}</p>
+              <p className="text-xs text-muted-foreground">Receipt No.</p>
+              <p className="font-mono text-lg font-bold text-primary">
+                {t.receiptNo}
+              </p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-muted-foreground mb-1">Type</p>
-              <Badge variant="outline" className="text-xs">
-                {t.type}
+              <p className="text-xs text-muted-foreground mt-1">{t.date}</p>
+              <p className="text-xs text-muted-foreground">Payment Method</p>
+
+              <Badge
+                className={`text-[10px] border-0 py-1 ${t.status === "pending" || t.status === "voided" ? "bg-muted text-muted-foreground" : methodColors[t.method] || ""}`}
+              >
+                {t.status === "pending" || t.status === "voided"
+                  ? "None"
+                  : capitalizeFirstLetter(t.method)}
               </Badge>
             </div>
           </div>
 
-          <Separator />
+          <div className="">
+            {/* <div className="flex justify-between align-baseline"> */}
+            {/* <p className="text-sm text-muted-foreground mb-1">Member </p> */}
+            <p className="font-medium text-md">
+              Member: {capitalizeFirstLetter(t.memberName)}
+            </p>
+            {/* </div>
+            <div className="text-right"> */}
+            {/* <p className="text-xs text-muted-foreground mb-1">Type</p> */}
+            {/* <Badge variant="outline" className="text-xs">
+                {t.type}
+              </Badge> */}
+            {/* </div> */}
+          </div>
+
+          {/* <Separator /> */}
 
           <div className="space-y-3">
-            <p className="font-semibold text-sm font-display">
+            {/* <p className="font-semibold text-sm font-display">
               Amount Breakdown
-            </p>
+            </p> */}
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">
-                  Subtotal (before VAT)
+                <span className=" text-muted-foreground">
+                  {capitalizeFirstLetter(t.description)} -{" "}
+                  <Badge
+                    variant="secondary"
+                    className="text-[10px] border-0 px-2 py-0"
+                  >
+                    <span className="text-[8px]">{t.type}</span>
+                  </Badge>
                 </span>
                 <span>{formatNPR(t.amount)}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                {/* 🌟 FIX: Made the VAT label percentage reflect current configurations dynamically */}
-                <span className="text-muted-foreground">
-                  VAT ({activeVatRate}%)
-                </span>
-                <span>{formatNPR(t.vat)}</span>
-              </div>
+
+              {t.vat > 0 && (
+                <div className="flex justify-between text-sm">
+                  {/* 🌟 FIX: Made the VAT label percentage reflect current configurations dynamically */}
+                  <span className="text-muted-foreground">
+                    VAT ({activeVatRate}%)
+                  </span>
+                  <span>{formatNPR(t.vat)}</span>
+                </div>
+              )}
 
               <Separator />
-              <div className="flex justify-between text-sm font-bold">
-                <span>Total Gross Amount</span>
-                <span className="text-primary">{formatNPR(t.total)}</span>
+              <div className="flex justify-between text-sm">
+                <span>Total Amount</span>
+                <span>{formatNPR(t.total)}</span>
               </div>
             </div>
           </div>
 
-          <Separator />
+          {/* <Separator /> */}
 
           <div className="space-y-3">
             <p className="font-semibold text-sm font-display">
-              Payment Details
+              Payment Details{" "}
+              {t.status === "pending" || t.status === "voided" ? (
+                <Badge className="text-[10px] bg-amber-500/20 text-amber-400 border-0 capitalize">
+                  {t.status}
+                </Badge>
+              ) : (
+                <Badge
+                  variant="default"
+                  className="text-[10px] py-0 bg-success/20 text-success border-0"
+                >
+                  Paid
+                </Badge>
+              )}
             </p>
+
             <div className="space-y-2">
               {/* Discount Line-Item breakdown indicator */}
               {discountAmount > 0 && (
@@ -242,6 +283,7 @@ export function TransactionDetailModal({
                   </span>
                 </div>
               )}
+
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Paid Amount</span>
                 <span className="text-success font-medium font-mono">
@@ -250,32 +292,9 @@ export function TransactionDetailModal({
                     : formatNPR(paidAmount)}
                 </span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Payment Method</span>
-                <Badge
-                  className={`text-[10px] border-0 ${t.status === "pending" || t.status === "voided" ? "bg-muted text-muted-foreground" : methodColors[t.method] || ""}`}
-                >
-                  {t.status === "pending" || t.status === "voided"
-                    ? "None"
-                    : t.method}
-                </Badge>
-              </div>
 
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Status</span>
-                {t.status === "pending" || t.status === "voided" ? (
-                  <Badge className="text-[10px] bg-amber-500/20 text-amber-400 border-0 capitalize">
-                    {t.status}
-                  </Badge>
-                ) : (
-                  <Badge
-                    variant="default"
-                    className="text-[10px] bg-success/20 text-success border-0"
-                  >
-                    Paid
-                  </Badge>
-                )}
-              </div>
+              {/* <Separator /> */}
+
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Balance Due</span>
                 {t.status === "pending" || t.status === "unpaid" ? (

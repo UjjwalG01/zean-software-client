@@ -190,9 +190,8 @@ export function generateStandardReceiptHTML(options: {
 
 
   const summaryRowsPayment = `
-    <tr class="sep"><td colspan="2"></td></tr>
-    <tr><td>Subtotal (before VAT)</td><td class="right">NPR ${o.subtotal.toFixed(2)}</td></tr>
-    <tr><td>VAT (${activeVatRate}%)</td><td class="right">NPR ${o.vatAmount.toFixed(2)}</td></tr>
+    ${activeVatRate > 0 ? `<tr><td>Subtotal</td><td class="right">NPR ${o.subtotal.toFixed(2)}</td></tr>` : ""}
+    ${activeVatRate > 0 ? `<tr><td>VAT (${activeVatRate}%)</td><td class="right">NPR ${o.vatAmount.toFixed(2)}</td></tr>` : ""}
     ${previousBalance > 0 ? `<tr><td>Previous Balance (due)</td><td class="right">NPR ${previousBalance.toFixed(2)}</td></tr>` : ""}
     <tr class="sep"><td colspan="2"></td></tr>
     <tr class="bold"><td>Grand Total</td><td class="right">NPR ${grossDue.toFixed(2)}</td></tr>
@@ -216,7 +215,7 @@ export function generateStandardReceiptHTML(options: {
     ? ""
     : `
     <table class="items">
-      <thead><tr><th>Fee Description</th><th class="right">Amount</th></tr></thead>
+      <thead><tr><th>Charge Description</th><th class="right">Amount</th></tr></thead>
       <tbody>${itemRows}</tbody>
     </table>`;
 
