@@ -18,6 +18,7 @@ import { logAudit as _logAudit } from "./audit-log";
 import { INVOICE_PREFIX } from "./settings";
 import { splitVatFromGross, shouldBreakdownVat } from "./vat";
 import { CheckInRecord } from "@/hooks/use-firestore";
+import { generateNextBillNumber } from "./helper";
 
 
 const avatarUrl = (seed: string) =>
@@ -824,7 +825,7 @@ async function insertPaymentRow(data: Partial<Transaction>): Promise<string> {
 
   const status = data.status === "pending" ? "pending" : "paid";
   const insertRow: any = {
-    receipt_no: data.receiptNo || `${INVOICE_PREFIX}-${Date.now()}`,
+    receipt_no: data.receiptNo || generateNextBillNumber("FPC"),
     member_id: data.memberId || null,
     member_name: data.memberName || null,
     amount: split.net,
@@ -881,7 +882,7 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
     discount: Number((data as any).discount || 0),
     status: settled ? "paid" : "unpaid",
     method: data.method || null,
-    receipt_no: data.receiptNo || `CHG-${Date.now()}`,
+    receipt_no: data.receiptNo || generateNextBillNumber("CHG"),
     paid_at: settled ? (data.date ? dayToTimestampInTz(data.date) : nowIso()) : null,
     created_at: data.date ? dayToTimestampInTz(data.date) : nowIso(),
     outlet_id: (data as any).outletId || null,

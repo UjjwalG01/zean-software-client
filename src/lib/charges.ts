@@ -9,6 +9,7 @@
 //
 // All writes go through useAddTransaction / useUpdateTransaction so we stay
 // consistent with the existing Firestore/Supabase storage layer.
+import { generateNextBillNumber } from "./helper";
 import type { Transaction, PaymentMethod, ServiceType } from "./mock-data";
 
 import { getSystemTodayStr } from "./timeUtils";
@@ -20,7 +21,7 @@ type AddFn = (data: Partial<Transaction>) => Promise<string>;
 type UpdateFn = (args: { id: string; data: Partial<Transaction> }) => Promise<unknown>;
 
 const today = () => getSystemTodayStr();
-const receipt = (prefix: string) => `${prefix}-${Date.now()}`;
+// const receipt = (prefix: string) => `${prefix}-${Date.now()}`;
 
 export interface ChargeForBookingInput {
   memberId: string;
@@ -52,7 +53,7 @@ export async function createChargeForBooking(add: AddFn, input: ChargeForBooking
     type: "Charge",
     date: today(),
     description: `${input.service} — ${input.className}`,
-    receiptNo: receipt("CHG"),
+    receiptNo: generateNextBillNumber("CHG"),
     status: "pending",
     bookingId: input.bookingId,
     chargeHead: input.chargeHead || String(input.service),
@@ -82,7 +83,7 @@ export async function createManualCharge(add: AddFn, input: ManualChargeInput): 
     type: "Charge",
     date: today(),
     description: `${input.chargeHead}${input.note ? ` — ${input.note}` : ""}`,
-    receiptNo: receipt("CHG"),
+    receiptNo: generateNextBillNumber("CHG"),
     status: "pending",
     chargeHead: input.chargeHead,
     outletId: input.outletId,
@@ -107,7 +108,7 @@ export async function applyAdvance(
     type: "Advance",
     date: today(),
     description: input.note ? `Advance — ${input.note}` : "Advance Payment",
-    receiptNo: receipt("ADV"),
+    receiptNo: generateNextBillNumber("ADV"),
     status: "paid",
     outletId: input.outletId,
     createdBy: input.createdBy,

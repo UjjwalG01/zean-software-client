@@ -195,7 +195,7 @@ const Forecast = () => {
                     const displayStatus =
                       b.status === "voided" || b.status === "cancelled"
                         ? "Cancelled"
-                        : b.bookingStatus || b.status || "Unknown";
+                        : b.status || b.bookingStatus || "Unknown";
                     const normalizedStatus = String(displayStatus)
                       .toLowerCase()
                       .trim();

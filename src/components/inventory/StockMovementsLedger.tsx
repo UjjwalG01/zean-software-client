@@ -63,10 +63,7 @@ export function StockMovementsLedger() {
   const [performedBy, setPerformedBy] = useState<string>("all");
   const [search, setSearch] = useState("");
 
-  const itemById = useMemo(
-    () => new Map(items.map((i) => [i.id, i])),
-    [items],
-  );
+  const itemById = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
   const storeName = (id?: string) =>
     (id && stores.find((s) => s.id === id)?.name) || "—";
 
@@ -88,12 +85,22 @@ export function StockMovementsLedger() {
       if (search) {
         const q = search.toLowerCase();
         const it = itemById.get(m.itemId);
-        const hay = `${it?.name || ""} ${it?.code || ""} ${m.reference || ""} ${m.note || ""}`.toLowerCase();
+        const hay =
+          `${it?.name || ""} ${it?.code || ""} ${m.reference || ""} ${m.note || ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [movements, typeFilter, itemFilter, performedBy, from, to, search, itemById]);
+  }, [
+    movements,
+    typeFilter,
+    itemFilter,
+    performedBy,
+    from,
+    to,
+    search,
+    itemById,
+  ]);
 
   const summary = useMemo(() => {
     let inQty = 0;
@@ -112,7 +119,14 @@ export function StockMovementsLedger() {
       }
     }
     const transfers = filtered.filter((m) => m.type === "transfer").length;
-    return { inQty, outQty, inValue, outValue, transfers, count: filtered.length };
+    return {
+      inQty,
+      outQty,
+      inValue,
+      outValue,
+      transfers,
+      count: filtered.length,
+    };
   }, [filtered]);
 
   const rows = filtered.map((m) => {
@@ -144,25 +158,25 @@ export function StockMovementsLedger() {
           label="Stock In"
           value={`${summary.inQty}`}
           sub={`NPR ${Math.round(summary.inValue).toLocaleString()}`}
-          icon={<ArrowDownLeft className="h-5 w-5 text-success" />}
+          icon={<ArrowDownLeft className="h-5 w-5" />}
         />
         <SummaryCard
           label="Stock Out"
           value={`${summary.outQty}`}
           sub={`NPR ${Math.round(summary.outValue).toLocaleString()}`}
-          icon={<ArrowUpRight className="h-5 w-5 text-destructive" />}
+          icon={<ArrowUpRight className="h-5 w-5" />}
         />
         <SummaryCard
           label="Transfers"
           value={`${summary.transfers}`}
           sub="Between stores"
-          icon={<Repeat className="h-5 w-5 text-primary" />}
+          icon={<Repeat className="h-5 w-5" />}
         />
         <SummaryCard
           label="Total Movements"
           value={`${summary.count}`}
           sub="Matching filters"
-          icon={<Layers className="h-5 w-5 text-primary" />}
+          icon={<Layers className="h-5 w-5" />}
         />
       </div>
 
@@ -358,7 +372,7 @@ function SummaryCard({
         <p className="text-2xl font-bold font-display">{value}</p>
         <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>
       </div>
-      <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+      <div className="h-10 w-10 rounded-xl bg-muted flex items-center justify-center">
         {icon}
       </div>
     </div>

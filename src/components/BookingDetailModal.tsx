@@ -41,6 +41,7 @@ import { nowIso } from "@/lib/tz";
 import { getSystemNowDate } from "@/lib/timeUtils";
 
 import { serviceColors } from "@/lib/utils";
+import { DEFAULT_VAT_RATE, getActiveVatRate } from "@/lib/vat";
 
 interface BookingDetailModalProps {
   booking: Booking | null;
@@ -154,6 +155,7 @@ export function BookingDetailModal({
       bookingId: b.id,
       amount,
       locked: "1",
+      status: b.status || "completed",
     });
     if (linkedCharge) params.set("chargeId", linkedCharge.id);
     navigate(`/transactions?${params.toString()}`);
@@ -183,7 +185,6 @@ export function BookingDetailModal({
           t.bookingId === b.id && t.type === "Charge" && t.status === "pending",
       );
 
-      console.log("CH", linkedCharges);
       for (const c of linkedCharges) {
         await updateTransaction.mutateAsync({
           id: c.id,
@@ -255,7 +256,7 @@ export function BookingDetailModal({
     const activeVatRate =
       settings.vatRate !== undefined && settings.vatRate !== null
         ? n(settings.vatRate)
-        : 13;
+        : getActiveVatRate() || DEFAULT_VAT_RATE;
 
     const vatMultiplier = activeVatRate / 100;
 

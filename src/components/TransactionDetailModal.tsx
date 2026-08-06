@@ -37,6 +37,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { capitalizeFirstLetter } from "@/lib/string-case-change";
+import { DEFAULT_VAT_RATE, getActiveVatRate } from "@/lib/vat";
+import { generateNextBillNumber } from "@/lib/helper";
 
 interface TransactionDetailModalProps {
   transaction: Transaction | null;
@@ -59,11 +61,13 @@ export function TransactionDetailModal({
 
   const companyName = settings.companyName || ".............";
 
+  console.log(generateNextBillNumber("ADV"));
+
   // 🌟 FIX: Determine active VAT percentage dynamically from settings (supports 0 or any positive entry)
   const activeVatRate =
     settings.vatRate !== undefined && settings.vat_rate !== null
       ? Number(settings.vat_rate)
-      : 13;
+      : getActiveVatRate() || DEFAULT_VAT_RATE;
 
   // Calculate actual paid volume net of any applied discounts
   const discountAmount = Number((t as any).discount) || 0;
@@ -171,10 +175,9 @@ export function TransactionDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="sm:max-w-[480px] md:max-w-[600px] ">
         <DialogHeader>
           <DialogTitle className="font-display flex items-center gap-2">
-            <Receipt className="h-5 w-5 text-primary" />
             Transaction Details
           </DialogTitle>
         </DialogHeader>
@@ -183,45 +186,20 @@ export function TransactionDetailModal({
           <div className="rounded-lg border border-border/50 bg-muted/30 p-4 flex justify-between items-center">
             <div>
               <p className="text-xs text-muted-foreground">Receipt No.</p>
-              <p className="font-mono text-lg font-bold text-primary">
-                {t.receiptNo}
-              </p>
+              <p className="font-mono text-lg font-bold">{t.receiptNo}</p>
             </div>
             <div className="text-right">
               <p className="text-xs text-muted-foreground mt-1">{t.date}</p>
-              <p className="text-xs text-muted-foreground">Payment Method</p>
-
-              <Badge
-                className={`text-[10px] border-0 py-1 ${t.status === "pending" || t.status === "voided" ? "bg-muted text-muted-foreground" : methodColors[t.method] || ""}`}
-              >
-                {t.status === "pending" || t.status === "voided"
-                  ? "None"
-                  : capitalizeFirstLetter(t.method)}
-              </Badge>
             </div>
           </div>
 
           <div className="">
-            {/* <div className="flex justify-between align-baseline"> */}
-            {/* <p className="text-sm text-muted-foreground mb-1">Member </p> */}
             <p className="font-medium text-md">
               Member: {capitalizeFirstLetter(t.memberName)}
             </p>
-            {/* </div>
-            <div className="text-right"> */}
-            {/* <p className="text-xs text-muted-foreground mb-1">Type</p> */}
-            {/* <Badge variant="outline" className="text-xs">
-                {t.type}
-              </Badge> */}
-            {/* </div> */}
           </div>
 
-          {/* <Separator /> */}
-
           <div className="space-y-3">
-            {/* <p className="font-semibold text-sm font-display">
-              Amount Breakdown
-            </p> */}
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className=" text-muted-foreground">
@@ -254,10 +232,8 @@ export function TransactionDetailModal({
             </div>
           </div>
 
-          {/* <Separator /> */}
-
           <div className="space-y-3">
-            <p className="font-semibold text-sm font-display">
+            <span className="font-semibold text-sm font-display">
               Payment Details{" "}
               {t.status === "pending" || t.status === "voided" ? (
                 <Badge className="text-[10px] bg-amber-500/20 text-amber-400 border-0 capitalize">
@@ -271,12 +247,12 @@ export function TransactionDetailModal({
                   Paid
                 </Badge>
               )}
-            </p>
+            </span>
 
             <div className="space-y-2">
               {/* Discount Line-Item breakdown indicator */}
               {discountAmount > 0 && (
-                <div className="flex justify-between text-sm text-destructive">
+                <div className="flex justify-between text-sm text-muted-foreground">
                   <span>Discount Applied</span>
                   <span className="font-medium">
                     -{formatNPR(discountAmount)}
@@ -292,8 +268,6 @@ export function TransactionDetailModal({
                     : formatNPR(paidAmount)}
                 </span>
               </div>
-
-              {/* <Separator /> */}
 
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Balance Due</span>
@@ -317,11 +291,26 @@ export function TransactionDetailModal({
           {t.description && (
             <>
               <Separator />
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">
-                  Description
-                </p>
-                <p className="text-sm">{t.description}</p>
+              <div className="flex justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    Description
+                  </p>
+                  <p className="text-sm">{t.description}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">
+                    Payment Method
+                  </p>
+                  <Badge
+                    variant="outline"
+                    className={`text-[11px] border-1 py-1 }`}
+                  >
+                    {t.status === "pending" || t.status === "voided"
+                      ? "None"
+                      : capitalizeFirstLetter(t.method)}
+                  </Badge>
+                </div>
               </div>
             </>
           )}
@@ -332,33 +321,33 @@ export function TransactionDetailModal({
             </div>
           )}
 
+          <Separator />
+
           {t.status === "pending" ? (
             <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-300 text-center">
               Bill cannot be printed until this transaction is settled. Settle
               it from the Transactions list first.
             </div>
           ) : isVoided ? null : (
-            <div className="flex gap-2 pt-2">
+            <div className="flex justify-end gap-2 pt-1">
               <Button
                 variant="outline"
                 size="sm"
-                className="flex-1"
+                className=""
                 onClick={handlePrint}
               >
-                <Printer className="h-4 w-4 mr-1" />
                 Print
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                className="flex-1"
+                className="rounded-xl"
                 onClick={handleDownload}
               >
-                <Download className="h-4 w-4 mr-1" />
-                Download PDF
+                Download
               </Button>
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={() => {
                   setVoidReason("");
@@ -366,9 +355,8 @@ export function TransactionDetailModal({
                   setVoidOpen(true);
                 }}
                 disabled={voiding}
-                className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                className="text-destructive border-destructive/40 hover:bg-destructive/90 hover:text-white"
               >
-                <Ban className="h-4 w-4 mr-1" />
                 {voiding ? "Voiding…" : "Void"}
               </Button>
             </div>

@@ -134,7 +134,7 @@ export function generateStandardReceiptHTML(options: {
   const isRefund = netPayable < 0;
   const isFullyPaid = !isRefund && paid >= netPayable - 0.01;
   const isOverpaid = !isRefund && paid > netPayable + 0.01;
-  const activeVatRate = o.vatRate !== undefined ? o.vatRate : 13;
+  const activeVatRate = o.vatRate !== undefined ? o.vatRate : 0;
 
   const statusLabel = isRefund || isOverpaid
     ? "OVERPAID"
@@ -215,7 +215,7 @@ export function generateStandardReceiptHTML(options: {
     ? ""
     : `
     <table class="items">
-      <thead><tr><th>Charge Description</th><th class="right">Amount</th></tr></thead>
+      <thead><tr><th>Description</th><th class="right">Amount</th></tr></thead>
       <tbody>${itemRows}</tbody>
     </table>`;
 

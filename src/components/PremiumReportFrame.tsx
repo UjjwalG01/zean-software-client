@@ -357,7 +357,7 @@ export function PremiumReportFrame({
                     >
                       {groupBy?.label ? `${groupBy.label}: ` : ""}
                       {groupKey}{" "}
-                      <span className="opacity-60 font-normal normal-case">
+                      <span className="opacity-60 font-normal uppercase">
                         ({groupRows.length})
                       </span>
                     </td>

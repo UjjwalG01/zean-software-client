@@ -10,9 +10,16 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { formatNPR, type Transaction } from "@/lib/mock-data";
-import { formatDateTime } from "@/lib/tz";
+import { formatDate, formatDateTime } from "@/lib/tz";
 import { cn } from "@/lib/utils";
 
 export interface ReconciliationSelection {
@@ -96,7 +103,7 @@ export function ReconciliationDrawer({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full sm:max-w-3xl p-0 flex flex-col"
+        className="w-full sm:max-w-3xl p-0 flex flex-col "
       >
         <SheetHeader className="px-6 pt-6 pb-4 border-b border-border/60">
           <SheetTitle className="text-xl font-display">
@@ -106,10 +113,10 @@ export function ReconciliationDrawer({
             {selection ? (
               <>
                 <span className="font-medium text-foreground">
-                  {selection.department}
+                  {selection.date}
                 </span>
                 <span className="mx-2 opacity-50">·</span>
-                <span>{selection.date}</span>
+                <span>{selection.department}</span>
               </>
             ) : (
               "Select a row to inspect"
@@ -159,7 +166,7 @@ export function ReconciliationDrawer({
                         className={cn(voided && "opacity-60 line-through")}
                       >
                         <TableCell className="whitespace-nowrap text-xs">
-                          {formatDateTime(r.createdAt || r.date)}
+                          {formatDate(r.createdAt || r.date)}
                         </TableCell>
                         <TableCell>
                           <Link
@@ -167,16 +174,19 @@ export function ReconciliationDrawer({
                             className="text-primary hover:underline"
                             onClick={() => onOpenChange(false)}
                           >
-                            <div className="font-medium leading-tight">
+                            <div className="font-medium leading-tight truncate">
                               {r.memberName}
                             </div>
-                            <div className="text-[10px] text-muted-foreground">
+                            {/* <div className="text-[10px] text-muted-foreground">
                               {r.memberId}
-                            </div>
+                            </div> */}
                           </Link>
                         </TableCell>
                         <TableCell className="max-w-[220px]">
-                          <div className="text-sm truncate" title={r.description}>
+                          <div
+                            className="text-sm truncate"
+                            title={r.description}
+                          >
                             {r.description || r.chargeHead || r.type}
                           </div>
                           <div className="text-[10px] text-muted-foreground">

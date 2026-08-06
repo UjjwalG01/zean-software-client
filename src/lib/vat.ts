@@ -11,7 +11,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabase"; // Adjust this path to your actual supabase client init file
 
-const DEFAULT_VAT_RATE = 0;
+export const DEFAULT_VAT_RATE = 0;
 let activeVatRate = DEFAULT_VAT_RATE;
 
 
@@ -105,6 +105,8 @@ export interface VatSplit {
  */
 export function splitVatFromGross(gross: number): VatSplit {
   const rate = activeVatRate;
+  if (activeVatRate < 0) return { gross, net: gross, vat: 0, rate };
+
   const mult = 1 + rate / 100;
   const safeGross = Number.isFinite(gross) ? Number(gross) : 0;
   const net = mult > 0 ? Math.round((safeGross / mult) * 100) / 100 : safeGross;

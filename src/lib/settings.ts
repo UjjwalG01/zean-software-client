@@ -2,6 +2,7 @@ export const INVOICE_PREFIX = "FPC";
 
 export const SOFTWARE_NAME = "ZEAN SOFTWARE";
 
+export const FISCAL_YEAR = "8283";
 // // A configuration map to translate UI names to system logic rules
 // export const DURATION_RULES = {
 //   "1 Month": { months: 1, priceKey: "1-month" },

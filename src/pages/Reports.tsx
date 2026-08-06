@@ -50,6 +50,8 @@ import { useOutlet } from "@/contexts/OutletContext";
 import { formatInTz, formatMonthShort, toIsoDayInTz } from "@/lib/tz";
 import { getSystemNowDate } from "@/lib/timeUtils";
 import { tooltipStyle } from "@/lib/utils";
+import { useAppUsers, useCurrentAppUser } from "@/hooks/use-app-users";
+import { getAppUserById } from "@/lib/supabase-users";
 
 const LedgerReport = lazy(() => import("@/components/LedgerReport"));
 
@@ -60,39 +62,40 @@ interface ReportDef {
   label: string;
 }
 
-const CATEGORIES: { key: CategoryKey; label: string; reports: ReportDef[] }[] = [
-  {
-    key: "finance",
-    label: "Sales & Finance",
-    reports: [
-      { key: "daily", label: "Daily Sales" },
-      { key: "collection", label: "Cashier / Collection" },
-      { key: "contribution", label: "Sales Contribution" },
-      { key: "payments", label: "Payment Methods" },
-    ],
-  },
-  {
-    key: "members",
-    label: "Members",
-    reports: [
-      { key: "ledger", label: "Member Ledger" },
-      { key: "growth", label: "Member Growth" },
-    ],
-  },
-  {
-    key: "outlets",
-    label: "Outlets",
-    reports: [{ key: "revenue", label: "Revenue by Outlet" }],
-  },
-  {
-    key: "inventory",
-    label: "Inventory",
-    reports: [
-      { key: "stock-position", label: "Stock Position" },
-      { key: "stock-register", label: "Stock Movement Register" },
-    ],
-  },
-];
+const CATEGORIES: { key: CategoryKey; label: string; reports: ReportDef[] }[] =
+  [
+    {
+      key: "finance",
+      label: "Sales & Finance",
+      reports: [
+        { key: "daily", label: "Daily Sales" },
+        { key: "collection", label: "Cashier / Collection" },
+        { key: "contribution", label: "Sales Contribution" },
+        { key: "payments", label: "Payment Methods" },
+      ],
+    },
+    {
+      key: "members",
+      label: "Members",
+      reports: [
+        { key: "ledger", label: "Member Ledger" },
+        { key: "growth", label: "Member Growth" },
+      ],
+    },
+    {
+      key: "outlets",
+      label: "Outlets",
+      reports: [{ key: "revenue", label: "Revenue by Outlet" }],
+    },
+    {
+      key: "inventory",
+      label: "Inventory",
+      reports: [
+        { key: "stock-position", label: "Stock Position" },
+        { key: "stock-register", label: "Stock Movement Register" },
+      ],
+    },
+  ];
 
 /** Compact KPI tile used above each report table. */
 function KpiCard({
@@ -225,6 +228,8 @@ const Reports = () => {
         total: number;
         discount: number;
         net: number;
+        createdBy?: string;
+        createdAt?: string;
       }
     > = {};
     chargeTx.forEach((t) => {
@@ -274,7 +279,6 @@ const Reports = () => {
     );
   }, [dailySalesRows]);
 
-
   // ── 2. Cashier / Collection Report (one row per settled transaction) ──
   const collectionRows = useMemo(() => {
     const rows = paymentTx
@@ -282,8 +286,13 @@ const Reports = () => {
       .map((t) => {
         const voided = (t as any).voided === true;
         const discount = Number((t as any).discount || 0);
-        const billed = Number(t.total || 0);
-        const collected = Number(t.total || 0) - discount;
+        const collected = Number(t.total || 0);
+        const billed = collected + discount;
+        const userId =
+          (t as any).createdBy || (t as any).created_by || (t as any).cashier;
+        const time =
+          (t as any).created_at || (t as any).paid_at || (t as any).paidAt;
+
         return {
           date: toIsoDayInTz(t.date),
           memberName: capitalizeFirstLetter(t.memberName),
@@ -298,11 +307,7 @@ const Reports = () => {
             (t as any).created_by ||
             (t as any).cashier ||
             "—",
-          settledAt: (t as any).settledAt
-            ? formatInTz((t as any).settledAt, { timeStyle: "short" })
-            : (t as any).createdAt
-              ? formatInTz((t as any).createdAt, { timeStyle: "short" })
-              : formatInTz(t.date, { timeStyle: "short" }),
+          settledAt: time,
           voided,
           rowClass: voided ? "line-through text-red-500/80" : "",
           status:
@@ -525,11 +530,10 @@ const Reports = () => {
           { label: "Total Sales", value: formatNPR(dailySalesTotals.total) },
           { label: "Discount", value: formatNPR(dailySalesTotals.discount) },
           {
-            label: "Net (Collectible)",
+            label: "Net Collection",
             value: formatNPR(dailySalesTotals.net),
             hint: "Total Sales − Discount",
           },
-
         ];
       case "collection":
         return [
@@ -542,7 +546,10 @@ const Reports = () => {
         return [
           { label: "Members Billed", value: String(contributionRows.length) },
           { label: "Transactions", value: String(contributionTotals.txns) },
-          { label: "Total Revenue", value: formatNPR(contributionTotals.total) },
+          {
+            label: "Total Revenue",
+            value: formatNPR(contributionTotals.total),
+          },
           {
             label: "Top Member",
             value: contributionRows[0]?.member || "—",
@@ -804,7 +811,6 @@ const Reports = () => {
               net: formatNPR(dailySalesTotals.net),
             },
           }}
-
           onRowClick={(r) =>
             setReconSelection({ date: r.date, department: r.department })
           }
@@ -1158,9 +1164,15 @@ const Reports = () => {
                   />
                   <Tooltip
                     contentStyle={tooltipStyle}
+                    cursor={false}
                     formatter={(v: number) => [formatNPR(v), "Revenue"]}
                   />
-                  <Bar dataKey="revenue" radius={[4, 4, 0, 0]}>
+                  <Bar
+                    dataKey="revenue"
+                    barSize={95}
+                    maxBarSize={95}
+                    radius={[4, 4, 0, 0]}
+                  >
                     {revenueByOutlet.map((r, i) => (
                       <Cell key={i} fill={r.color} />
                     ))}
