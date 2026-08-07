@@ -670,8 +670,30 @@ export async function addBooking(data: Partial<Booking> & { outletId?: string })
   return row.id;
 }
 
+/** Bookings in these lifecycle states are terminal — nothing may change them. */
+export const TERMINAL_BOOKING_STATUSES = ["completed", "cancelled"] as const;
+
+export function isTerminalBookingStatus(status: unknown): boolean {
+  return (TERMINAL_BOOKING_STATUSES as readonly string[]).includes(
+    String(status ?? "").toLowerCase(),
+  );
+}
+
 export async function updateBooking(id: string, data: Partial<Record<string, any>>): Promise<void> {
   const patch: Record<string, any> = { updated_at: nowIso() };
+
+  // 0. Terminal guard — a completed or cancelled booking is immutable.
+  //    Reversal only ever happens through `void_payment`, server side.
+  const { data: existing } = await supabase
+    .from("bookings")
+    .select("status, original_rate, rate")
+    .eq("id", id)
+    .maybeSingle();
+  if (existing && isTerminalBookingStatus((existing as any).status)) {
+    throw new Error(
+      `This booking is ${String((existing as any).status).toLowerCase()} and can no longer be modified.`,
+    );
+  }
 
   // 1. Scalar Direct Mappings
   if (data.memberId !== undefined) patch.member_id = data.memberId || null;
@@ -688,12 +710,22 @@ export async function updateBooking(id: string, data: Partial<Record<string, any
   if (data.instructor !== undefined) patch.instructor = data.instructor || null;
   if (data.notes !== undefined) patch.notes = data.notes || null;
   if (data.service !== undefined) patch.service_type = data.service || null;
-  if (data.originalRate !== undefined) patch.original_rate = Number(data.originalRate || 0);
-  if (data.rate !== undefined) patch.rate = Number(data.rate || 0);
-  if (data.discountAmount !== undefined) patch.discount_amount = Number(data.discountAmount || 0);
+
+  // Rate split routed through the global money controller.
+  const nextList = data.originalRate ?? data.original_rate;
+  const nextRate = data.rate;
+  if (nextList !== undefined || nextRate !== undefined) {
+    const list = Number(nextList ?? (existing as any)?.original_rate ?? nextRate ?? 0);
+    const charged = Number(nextRate ?? (existing as any)?.rate ?? list);
+    const rates = buildBookingRates(list, charged);
+    patch.original_rate = rates.original_rate;
+    patch.rate = rates.rate;
+    patch.discount_amount = rates.discount_amount;
+  }
   if (data.discountReason !== undefined) patch.discount_reason = data.discountReason || null;
   if (data.cancelReason !== undefined) patch.cancel_reason = data.cancelReason || null;
   if (data.cancelledAt !== undefined) patch.cancelled_at = data.cancelledAt || null;
+
 
   // 2. Safe Timestamp Computations (Avoids shifting existing values)
   if (data.date !== undefined || data.startTime !== undefined || data.endTime !== undefined) {
