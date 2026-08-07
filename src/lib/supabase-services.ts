@@ -894,6 +894,16 @@ async function insertPaymentRow(data: Partial<Transaction>): Promise<string> {
   );
 
   const status = data.status === "pending" ? "pending" : "paid";
+  const isSettlement = Boolean((data as any).isSettlement || (data as any).chargeRowId);
+  const declaredType = String(data.type || "Payment").toLowerCase();
+  const kind = isSettlement
+    ? "settlement"
+    : declaredType === "advance"
+      ? "advance"
+      : declaredType === "refund"
+        ? "refund"
+        : "payment";
+
   const insertRow: any = {
     receipt_no: data.receiptNo || generateNextBillNumber("FPC"),
     member_id: data.memberId || null,
@@ -906,16 +916,22 @@ async function insertPaymentRow(data: Partial<Transaction>): Promise<string> {
     paid_at: data.date ? dayToTimestampInTz(data.date) : nowIso(),
     created_at: nowIso(),
     status,
-    outlet_id: (data as any).outletId || null,
+    // First-class columns (mirrored into `meta` only for legacy readers).
+    kind,
+    charge_head: (data as any).chargeHead || data.serviceType || null,
+    linked_booking_id: data.bookingId || null,
     settled_charge_id: (data as any).chargeRowId || null,
+    voided: false,
+    outlet_id: (data as any).outletId || null,
     created_by: (data as any).createdBy || null,
     meta: {
       type: data.type || "Payment",
       bookingId: data.bookingId || null,
       chargeRowId: (data as any).chargeRowId || null,
-      isSettlement: (data as any).isSettlement || false,
+      isSettlement,
     },
   };
+
 
   const { data: row, error } = await supabase.from("payments").insert(insertRow).select("id").single();
   if (error) throwDb(error, "payments");
