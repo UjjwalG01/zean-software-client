@@ -9,6 +9,7 @@ import {
   useCompanySettings,
 } from "@/hooks/use-firestore";
 import { useCharges } from "@/hooks/use-charges";
+import { readSaleAmounts } from "@/lib/money";
 import {
   BarChart,
   Bar,
@@ -252,12 +253,14 @@ const Reports = () => {
           net: 0,
         };
       const sign = (t as any).voided ? -1 : 1;
-      const discount = Number((t as any).discount || 0);
-      acc[key].sales += sign * (t.amount || 0);
-      acc[key].vat += sign * (t.vat || 0);
-      acc[key].total += sign * (t.total || 0);
+      // Sales side of the money model: amount + VAT = amt_after_vat (billed).
+      // Collection = billed − discount. Never recompute VAT here.
+      const { amount, vatAmount, amtAfterVat, discount, total } = readSaleAmounts(t);
+      acc[key].sales += sign * amount;
+      acc[key].vat += sign * vatAmount;
+      acc[key].total += sign * amtAfterVat;
       acc[key].discount += sign * discount;
-      acc[key].net += sign * Math.max(0, (t.total || 0) - discount);
+      acc[key].net += sign * total;
     });
     return Object.values(acc).sort(
       (a, b) =>
@@ -285,9 +288,7 @@ const Reports = () => {
       .filter((t) => t.status !== "pending" && t.status !== "unpaid")
       .map((t) => {
         const voided = (t as any).voided === true;
-        const discount = Number((t as any).discount || 0);
-        const collected = Number(t.total || 0);
-        const billed = collected + discount;
+        const { amtAfterVat: billed, discount, total: collected } = readSaleAmounts(t);
         const userId =
           (t as any).createdBy || (t as any).created_by || (t as any).cashier;
         const time =
