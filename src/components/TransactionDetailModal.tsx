@@ -39,6 +39,7 @@ import {
 import { capitalizeFirstLetter } from "@/lib/string-case-change";
 import { DEFAULT_VAT_RATE, getActiveVatRate } from "@/lib/vat";
 import { generateNextBillNumber } from "@/lib/helper";
+import { readSaleAmounts } from "@/lib/money";
 
 interface TransactionDetailModalProps {
   transaction: Transaction | null;
@@ -69,9 +70,15 @@ export function TransactionDetailModal({
       ? Number(settings.vat_rate)
       : getActiveVatRate() || DEFAULT_VAT_RATE;
 
-  // Calculate actual paid volume net of any applied discounts
-  const discountAmount = Number((t as any).discount) || 0;
-  const paidAmount = Math.max(0, t.total - discountAmount);
+  /**
+   * Canonical amounts (SSOT):
+   *   amtAfterVat = billed  →  discount  →  total = collected.
+   * Never subtract the discount twice — `total` is already net of it.
+   */
+  const amounts = readSaleAmounts(t as any);
+  const discountAmount = amounts.discount;
+  const billedAmount = amounts.amtAfterVat;
+  const paidAmount = amounts.total;
 
   const balanceAmount = 0;
   const isVoided = t.voided || t.status === "voided";
@@ -101,15 +108,15 @@ export function TransactionDetailModal({
         {
           description: t.description || "Subscription / Services",
           quantity: 1,
-          rate: t.amount,
-          amount: t.amount,
+          rate: amounts.amount,
+          amount: amounts.amount,
         },
       ],
-      subtotal: t.amount,
-      taxableAmount: t.amount,
-      vatAmount: t.vat,
+      subtotal: amounts.amount,
+      taxableAmount: amounts.amount,
+      vatAmount: amounts.vatAmount,
       vatRate: activeVatRate,
-      grandTotal: t.total,
+      grandTotal: billedAmount,
       discount: discountAmount,
       paidAmount:
         t.status === "pending" || t.status === "voided" ? 0 : paidAmount,
@@ -211,7 +218,7 @@ export function TransactionDetailModal({
                     <span className="text-[8px]">{t.type}</span>
                   </Badge>
                 </span>
-                <span>{formatNPR(t.amount)}</span>
+                <span>{formatNPR(amounts.amount)}</span>
               </div>
 
               {t.vat > 0 && (
@@ -220,14 +227,14 @@ export function TransactionDetailModal({
                   <span className="text-muted-foreground">
                     VAT ({activeVatRate}%)
                   </span>
-                  <span>{formatNPR(t.vat)}</span>
+                  <span>{formatNPR(amounts.vatAmount)}</span>
                 </div>
               )}
 
               <Separator />
               <div className="flex justify-between text-sm">
                 <span>Total Amount</span>
-                <span>{formatNPR(t.total)}</span>
+                <span>{formatNPR(billedAmount)}</span>
               </div>
             </div>
           </div>
@@ -272,7 +279,7 @@ export function TransactionDetailModal({
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Balance Due</span>
                 {t.status === "pending" || t.status === "unpaid" ? (
-                  formatNPR(t.total)
+                  formatNPR(billedAmount)
                 ) : (
                   <span
                     className={
