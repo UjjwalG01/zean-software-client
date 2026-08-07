@@ -879,18 +879,28 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
   if (!isCharge) return insertPaymentRow(data);
 
   const gross = Number(data.total || data.amount || 0);
-  const { net, vat } = splitVatFromGross(gross);
   const settled = data.status === "paid" || (data.status as any) === "completed";
+  // A charge is raised at full billed value — discounts belong to settlement.
+  const money = toMoneyColumns(buildAmounts({ gross }));
+
+  // Idempotency: never raise a second live charge for the same booking.
+  const bookingId = (data as any).bookingId || null;
+  if (bookingId) {
+    const { data: existing } = await supabase
+      .from("charges")
+      .select("id, meta")
+      .eq("meta->>bookingId", bookingId)
+      .limit(1)
+      .maybeSingle();
+    if (existing && !(existing as any).meta?.voided) return (existing as any).id;
+  }
 
   const chargeRow: any = {
     member_id: data.memberId || null,
     member_name: data.memberName || null,
     charge_head: (data as any).chargeHead || data.serviceType || "Charge",
     description: data.description || (data as any).className || "",
-    amount: net,
-    vat_amount: vat,
-    total: gross,
-    discount: Number((data as any).discount || 0),
+    ...money,
     status: settled ? "paid" : "unpaid",
     method: data.method || null,
     receipt_no: data.receiptNo || generateNextBillNumber("CHG"),
@@ -899,8 +909,8 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
     outlet_id: (data as any).outletId || null,
     created_by: (data as any).createdBy || null,
     meta: {
-      type: (data as any).bookingId ? "booking" : "manual",
-      bookingId: (data as any).bookingId || null,
+      type: bookingId ? "booking" : "manual",
+      bookingId,
       bookingIds: (data as any).bookingIds || null,
       outletId: (data as any).outletId || null,
     },
@@ -910,10 +920,13 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
   // the atomic RPC so the credit row and booking lifecycle stay in lockstep.
   chargeRow.status = "unpaid";
   chargeRow.paid_at = null;
+  chargeRow.discount = 0;
+  chargeRow.total = chargeRow.amt_after_vat;
 
   const { data: row, error } = await supabase.from("charges").insert(chargeRow).select("id").single();
   if (error) throwDb(error, "charges");
   await maybeAudit("create", "charge", row.id, null, data);
+
 
   if (settled) {
     await settleCharge(row.id, {
