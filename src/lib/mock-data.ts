@@ -107,9 +107,15 @@ export interface Transaction {
   id: string;
   memberId: string;
   memberName: string;
+  /** Excluding VAT. */
   amount: number;
+  /** VAT on `amount`. */
   vat: number;
+  /** amount + vat — the billed amount (DB: `amt_after_vat`). */
+  amtAfterVat?: number;
+  /** amt_after_vat - discount — net payable / collected. */
   total: number;
+
   method: PaymentMethod;
   type: "Payment" | "Advance" | "Renewal" | "Registration" | "Charge" | "Refund";
   date: string;

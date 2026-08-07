@@ -16,7 +16,9 @@ import { toIsoDayInTz, dayToTimestampInTz, nowIso, getAppTimezone, wallTimeToUtc
 import { getSystemTodayStr, getSystemNowDate } from "./timeUtils";
 import { logAudit as _logAudit } from "./audit-log";
 import { INVOICE_PREFIX } from "./settings";
-import { splitVatFromGross, shouldBreakdownVat } from "./vat";
+import { shouldBreakdownVat } from "./vat";
+import { buildAmounts, toMoneyColumns, buildBookingRates } from "./money";
+
 import { CheckInRecord } from "@/hooks/use-firestore";
 import { generateNextBillNumber } from "./helper";
 
@@ -646,9 +648,16 @@ export async function addBooking(data: Partial<Booking> & { outletId?: string })
     end_at: endTs,
     start_time: startTs,
     end_time: endTs,
-    original_rate: (data as any).originalRate ?? null,
-    rate: (data as any).rate ?? null,
-    discount_amount: (data as any).discountAmount ?? 0,
+    ...(() => {
+      // Rates are split once, by the global money controller.
+      // POS (health/fitness) never discounts at booking time → rate = original.
+      const d = data as any;
+      const list = d.originalRate ?? d.original_rate ?? d.rate ?? 0;
+      const charged = d.rate ?? list;
+      return buildBookingRates(Number(list), Number(charged));
+    })(),
+
+
     discount_reason: (data as any).discountReason || null,
     status: data.status || "pending",
     booking_status: displayBookingStatusToDb(data.bookingStatus || "confirmed"),
@@ -661,8 +670,30 @@ export async function addBooking(data: Partial<Booking> & { outletId?: string })
   return row.id;
 }
 
+/** Bookings in these lifecycle states are terminal — nothing may change them. */
+export const TERMINAL_BOOKING_STATUSES = ["completed", "cancelled"] as const;
+
+export function isTerminalBookingStatus(status: unknown): boolean {
+  return (TERMINAL_BOOKING_STATUSES as readonly string[]).includes(
+    String(status ?? "").toLowerCase(),
+  );
+}
+
 export async function updateBooking(id: string, data: Partial<Record<string, any>>): Promise<void> {
   const patch: Record<string, any> = { updated_at: nowIso() };
+
+  // 0. Terminal guard — a completed or cancelled booking is immutable.
+  //    Reversal only ever happens through `void_payment`, server side.
+  const { data: existing } = await supabase
+    .from("bookings")
+    .select("status, original_rate, rate")
+    .eq("id", id)
+    .maybeSingle();
+  if (existing && isTerminalBookingStatus((existing as any).status)) {
+    throw new Error(
+      `This booking is ${String((existing as any).status).toLowerCase()} and can no longer be modified.`,
+    );
+  }
 
   // 1. Scalar Direct Mappings
   if (data.memberId !== undefined) patch.member_id = data.memberId || null;
@@ -679,12 +710,22 @@ export async function updateBooking(id: string, data: Partial<Record<string, any
   if (data.instructor !== undefined) patch.instructor = data.instructor || null;
   if (data.notes !== undefined) patch.notes = data.notes || null;
   if (data.service !== undefined) patch.service_type = data.service || null;
-  if (data.originalRate !== undefined) patch.original_rate = Number(data.originalRate || 0);
-  if (data.rate !== undefined) patch.rate = Number(data.rate || 0);
-  if (data.discountAmount !== undefined) patch.discount_amount = Number(data.discountAmount || 0);
+
+  // Rate split routed through the global money controller.
+  const nextList = data.originalRate ?? data.original_rate;
+  const nextRate = data.rate;
+  if (nextList !== undefined || nextRate !== undefined) {
+    const list = Number(nextList ?? (existing as any)?.original_rate ?? nextRate ?? 0);
+    const charged = Number(nextRate ?? (existing as any)?.rate ?? list);
+    const rates = buildBookingRates(list, charged);
+    patch.original_rate = rates.original_rate;
+    patch.rate = rates.rate;
+    patch.discount_amount = rates.discount_amount;
+  }
   if (data.discountReason !== undefined) patch.discount_reason = data.discountReason || null;
   if (data.cancelReason !== undefined) patch.cancel_reason = data.cancelReason || null;
   if (data.cancelledAt !== undefined) patch.cancelled_at = data.cancelledAt || null;
+
 
   // 2. Safe Timestamp Computations (Avoids shifting existing values)
   if (data.date !== undefined || data.startTime !== undefined || data.endTime !== undefined) {
@@ -730,6 +771,7 @@ function mapPaymentRow(r: any): Transaction {
     memberName: r.member_name || "",
     amount: Number(r.amount || 0),
     vat: Number(r.vat_amount || 0),
+    amtAfterVat: Number(r.amt_after_vat ?? (Number(r.amount || 0) + Number(r.vat_amount || 0))),
     total: Number(r.total || 0),
     method: (r.method || "cash") as PaymentMethod,
     type: meta.type || "Payment",
@@ -766,6 +808,7 @@ function mapChargeRow(r: any): Transaction {
     memberName: r.member_name || "",
     amount: Number(r.amount || 0),
     vat: Number(r.vat_amount || 0),
+    amtAfterVat: Number(r.amt_after_vat ?? (Number(r.amount || 0) + Number(r.vat_amount || 0))),
     total: Number(r.total || 0),
     method: (r.method || "cash") as PaymentMethod,
     type: "Charge",
@@ -821,17 +864,21 @@ async function isChargeRow(id: string): Promise<boolean> {
 async function insertPaymentRow(data: Partial<Transaction>): Promise<string> {
   const gross = Number(data.amount || 0);
   const breakdown = shouldBreakdownVat(data.type as any, (data as any).isSettlement);
-  const split = breakdown ? splitVatFromGross(gross) : { net: gross, vat: 0 };
+  const money = toMoneyColumns(
+    buildAmounts({
+      gross,
+      discount: Number((data as any).discount || 0),
+      breakdownVat: breakdown,
+    }),
+  );
 
   const status = data.status === "pending" ? "pending" : "paid";
   const insertRow: any = {
     receipt_no: data.receiptNo || generateNextBillNumber("FPC"),
     member_id: data.memberId || null,
     member_name: data.memberName || null,
-    amount: split.net,
-    vat_amount: split.vat,
-    total: gross,
-    discount: Number((data as any).discount || 0),
+    ...money,
+
     method: data.method || "cash",
     service_type: data.serviceType || null,
     description: data.description || "",
@@ -868,18 +915,28 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
   if (!isCharge) return insertPaymentRow(data);
 
   const gross = Number(data.total || data.amount || 0);
-  const { net, vat } = splitVatFromGross(gross);
   const settled = data.status === "paid" || (data.status as any) === "completed";
+  // A charge is raised at full billed value — discounts belong to settlement.
+  const money = toMoneyColumns(buildAmounts({ gross }));
+
+  // Idempotency: never raise a second live charge for the same booking.
+  const bookingId = (data as any).bookingId || null;
+  if (bookingId) {
+    const { data: existing } = await supabase
+      .from("charges")
+      .select("id, meta")
+      .eq("meta->>bookingId", bookingId)
+      .limit(1)
+      .maybeSingle();
+    if (existing && !(existing as any).meta?.voided) return (existing as any).id;
+  }
 
   const chargeRow: any = {
     member_id: data.memberId || null,
     member_name: data.memberName || null,
     charge_head: (data as any).chargeHead || data.serviceType || "Charge",
     description: data.description || (data as any).className || "",
-    amount: net,
-    vat_amount: vat,
-    total: gross,
-    discount: Number((data as any).discount || 0),
+    ...money,
     status: settled ? "paid" : "unpaid",
     method: data.method || null,
     receipt_no: data.receiptNo || generateNextBillNumber("CHG"),
@@ -888,8 +945,8 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
     outlet_id: (data as any).outletId || null,
     created_by: (data as any).createdBy || null,
     meta: {
-      type: (data as any).bookingId ? "booking" : "manual",
-      bookingId: (data as any).bookingId || null,
+      type: bookingId ? "booking" : "manual",
+      bookingId,
       bookingIds: (data as any).bookingIds || null,
       outletId: (data as any).outletId || null,
     },
@@ -899,10 +956,13 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
   // the atomic RPC so the credit row and booking lifecycle stay in lockstep.
   chargeRow.status = "unpaid";
   chargeRow.paid_at = null;
+  chargeRow.discount = 0;
+  chargeRow.total = chargeRow.amt_after_vat;
 
   const { data: row, error } = await supabase.from("charges").insert(chargeRow).select("id").single();
   if (error) throwDb(error, "charges");
   await maybeAudit("create", "charge", row.id, null, data);
+
 
   if (settled) {
     await settleCharge(row.id, {

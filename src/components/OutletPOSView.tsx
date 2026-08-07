@@ -819,13 +819,21 @@ function CurrentBookingsPanel({
       .slice(0, 30);
   }, [outletScoped, transactions]);
 
-  const renderCards = (list: Booking[], variant: "active" | "cancelled") => {
+  const completed = useMemo(() => {
+    return outletScoped
+      .filter((b) => String((b as any).status || "").toLowerCase().trim() === "completed")
+      .slice(0, 30);
+  }, [outletScoped]);
+
+  const renderCards = (list: Booking[], variant: "active" | "cancelled" | "completed") => {
     if (list.length === 0) {
       return (
         <div className="text-xs text-muted-foreground text-center py-6 border border-dashed border-border rounded-lg">
           {variant === "active"
             ? "No active bookings for this outlet"
-            : "No cancelled bookings"}
+            : variant === "completed"
+              ? "No completed bookings"
+              : "No cancelled bookings"}
         </div>
       );
     }
@@ -833,6 +841,8 @@ function CurrentBookingsPanel({
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         {list.map((b) => {
           const isCancelled = variant === "cancelled";
+          // Completed and cancelled bookings are terminal — view only.
+          const isTerminal = variant !== "active";
 
           return (
             <div
@@ -841,7 +851,9 @@ function CurrentBookingsPanel({
                 "rounded-lg border p-3 flex flex-col gap-2",
                 isCancelled
                   ? "border-destructive/30 bg-destructive/5 opacity-80"
-                  : "border-border bg-muted/20",
+                  : variant === "completed"
+                    ? "border-emerald-500/30 bg-emerald-500/5 opacity-90"
+                    : "border-border bg-muted/20",
               )}
             >
               <div className="flex items-start justify-between gap-2">
@@ -860,10 +872,14 @@ function CurrentBookingsPanel({
                     isCancelled && "border-destructive/40 text-destructive",
                   )}
                 >
-                  {isCancelled ? "Cancelled" : b.startTime || "--:--"}
+                  {isCancelled
+                    ? "Cancelled"
+                    : variant === "completed"
+                      ? "Completed"
+                      : b.startTime || "--:--"}
                 </Badge>
               </div>
-              {isCancelled ? (
+              {isTerminal ? (
                 <Button
                   size="sm"
                   variant="outline"
@@ -923,6 +939,12 @@ function CurrentBookingsPanel({
               {active.length}
             </Badge>
           </TabsTrigger>
+          <TabsTrigger value="completed" className="text-xs">
+            Completed
+            <Badge variant="outline" className="ml-2 text-[10px]">
+              {completed.length}
+            </Badge>
+          </TabsTrigger>
           <TabsTrigger value="cancelled" className="text-xs">
             Cancelled
             <Badge variant="outline" className="ml-2 text-[10px]">
@@ -932,6 +954,9 @@ function CurrentBookingsPanel({
         </TabsList>
         <TabsContent value="active">
           {renderCards(active, "active")}
+        </TabsContent>
+        <TabsContent value="completed">
+          {renderCards(completed, "completed")}
         </TabsContent>
         <TabsContent value="cancelled">
           {renderCards(cancelled, "cancelled")}
