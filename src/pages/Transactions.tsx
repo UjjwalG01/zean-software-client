@@ -1147,10 +1147,19 @@ function SettleModalBody({
   }, [settleTxn]);
 
   const isResettlement = settleTxn && statusLabel(settleTxn) === "Settled";
-  const activeDiscount = isResettlement
+  /**
+   * Billed amount = amount + VAT (DB: `amt_after_vat`). Discount is ALWAYS
+   * subtracted from the billed amount — never from the pre-VAT base — so
+   * Sales − Discount = Collection holds across the ledger and reports.
+   */
+  const billedAmount = Number(
+    (settleTxn as any).amtAfterVat ?? settleTxn.total ?? 0,
+  );
+  const rawDiscount = isResettlement
     ? Number((settleTxn as any).discount) || 0
     : Number(settleDiscount) || 0;
-  const netPayableValue = Math.max(0, (settleTxn.total || 0) - activeDiscount);
+  const activeDiscount = Math.min(Math.max(0, rawDiscount), billedAmount);
+  const netPayableValue = Math.max(0, billedAmount - activeDiscount);
 
   const handleSettle = async () => {
     // Hard guard: no double-click, no second settlement on the same bill.
@@ -1159,10 +1168,11 @@ function SettleModalBody({
       toast.error("This bill is already settled. Void the payment to re-settle.");
       return;
     }
-    setSubmitting(true);
-    const discount = Math.max(0, Number(settleDiscount) || 0);
-    const netDue = Math.max(0, (settleTxn.total || 0) - discount);
-
+    const discount = Math.min(
+      Math.max(0, Number(settleDiscount) || 0),
+      billedAmount,
+    );
+    const netDue = Math.max(0, billedAmount - discount);
 
     // "Credit" / Pay Later — reserved for registered members only.
     const isCredit = settleMethod === ("credit" as PaymentMethod);
@@ -1173,6 +1183,7 @@ function SettleModalBody({
       );
       return;
     }
+    setSubmitting(true);
 
     try {
       if (isCredit) {
