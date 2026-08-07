@@ -124,6 +124,31 @@ export function readAmtAfterVat(r: MoneyRowLike): number {
   return num(r.total) + num(r.discount);
 }
 
+/**
+ * Read the canonical amount quintet off any persisted row (charge, payment or
+ * mapped UI transaction), without ever recomputing VAT. Reports, charts and
+ * receipts must read amounts through this function only.
+ */
+export function readSaleAmounts(r: MoneyRowLike): Amounts {
+  const amtAfterVat = readAmtAfterVat(r);
+  const discount = round2(Math.min(Math.max(0, num(r.discount)), amtAfterVat));
+  const vatAmount = round2(num(r.vat_amount ?? r.vat));
+  const amount = round2(
+    r.amount !== null && r.amount !== undefined
+      ? num(r.amount)
+      : amtAfterVat - vatAmount,
+  );
+  return {
+    amount,
+    vatAmount,
+    amtAfterVat,
+    discount,
+    total: round2(amtAfterVat - discount),
+    vatRate: getActiveVatRate(),
+  };
+}
+
+
 export interface SalesTotals {
   /** Sum of `amount` (excl. VAT). */
   amount: number;
