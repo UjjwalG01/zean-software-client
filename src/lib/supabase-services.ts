@@ -956,12 +956,13 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
     created_at: data.date ? dayToTimestampInTz(data.date) : nowIso(),
     outlet_id: (data as any).outletId || null,
     created_by: (data as any).createdBy || null,
+    booking_id: bookingId,
+    voided: false,
     meta: {
       type: bookingId ? "booking" : "manual",
-      bookingId,
       bookingIds: (data as any).bookingIds || null,
-      outletId: (data as any).outletId || null,
     },
+
   };
 
   // Always land the debit first as `unpaid`; settlement (if any) goes through
