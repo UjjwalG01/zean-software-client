@@ -1072,13 +1072,11 @@ export async function updateTransaction(id: string, data: Partial<Transaction>):
     if (data.receiptNo !== undefined) patch.receipt_no = data.receiptNo;
     if (nextStatus === "pending") patch.status = "unpaid";
     if (voiding) {
-      patch.meta = {
-        ...(current?.meta && typeof current.meta === "object" ? current.meta : {}),
-        voided: true,
-        voidReason: (data as any).voidReason || null,
-        voidedAt: (data as any).voidedAt || nowIso(),
-      };
+      patch.voided = true;
+      patch.void_reason = (data as any).voidReason || null;
+      patch.voided_at = (data as any).voidedAt || nowIso();
     }
+
 
     const { error } = await supabase.from("charges").update(patch).eq("id", id);
     if (error) throwDb(error, "charges");
