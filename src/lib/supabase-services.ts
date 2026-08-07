@@ -808,7 +808,8 @@ function mapPaymentRow(r: any): Transaction {
  */
 function mapChargeRow(r: any): Transaction {
   const meta = r.meta && typeof r.meta === "object" ? r.meta : {};
-  const isVoided = meta.voided === true;
+  // First-class columns win; `meta` is only a legacy fallback.
+  const isVoided = r.voided === true || meta.voided === true;
   return {
     id: r.id,
     memberId: r.member_id || "",
@@ -824,9 +825,10 @@ function mapChargeRow(r: any): Transaction {
     receiptNo: r.receipt_no || "",
     serviceType: r.charge_head || undefined,
     status: (isVoided ? "voided" : r.status === "paid" ? "paid" : "pending") as any,
-    bookingId: meta.bookingId || undefined,
+    bookingId: r.booking_id || meta.bookingId || undefined,
     voided: isVoided,
-    voidReason: meta.voidReason || undefined,
+    voidReason: r.void_reason || meta.voidReason || undefined,
+
     chargeHead: r.charge_head || undefined,
     // A charge row is its own canonical charge reference.
     chargeRowId: r.id,
@@ -931,12 +933,15 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
   if (bookingId) {
     const { data: existing } = await supabase
       .from("charges")
-      .select("id, meta")
-      .eq("meta->>bookingId", bookingId)
+      .select("id, voided, meta")
+      .eq("booking_id", bookingId)
       .limit(1)
       .maybeSingle();
-    if (existing && !(existing as any).meta?.voided) return (existing as any).id;
+    if (existing && !(existing as any).voided && !(existing as any).meta?.voided) {
+      return (existing as any).id;
+    }
   }
+
 
   const chargeRow: any = {
     member_id: data.memberId || null,
@@ -951,12 +956,13 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
     created_at: data.date ? dayToTimestampInTz(data.date) : nowIso(),
     outlet_id: (data as any).outletId || null,
     created_by: (data as any).createdBy || null,
+    booking_id: bookingId,
+    voided: false,
     meta: {
       type: bookingId ? "booking" : "manual",
-      bookingId,
       bookingIds: (data as any).bookingIds || null,
-      outletId: (data as any).outletId || null,
     },
+
   };
 
   // Always land the debit first as `unpaid`; settlement (if any) goes through
@@ -1066,13 +1072,11 @@ export async function updateTransaction(id: string, data: Partial<Transaction>):
     if (data.receiptNo !== undefined) patch.receipt_no = data.receiptNo;
     if (nextStatus === "pending") patch.status = "unpaid";
     if (voiding) {
-      patch.meta = {
-        ...(current?.meta && typeof current.meta === "object" ? current.meta : {}),
-        voided: true,
-        voidReason: (data as any).voidReason || null,
-        voidedAt: (data as any).voidedAt || nowIso(),
-      };
+      patch.voided = true;
+      patch.void_reason = (data as any).voidReason || null;
+      patch.voided_at = (data as any).voidedAt || nowIso();
     }
+
 
     const { error } = await supabase.from("charges").update(patch).eq("id", id);
     if (error) throwDb(error, "charges");

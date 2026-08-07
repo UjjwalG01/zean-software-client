@@ -521,9 +521,15 @@ create table if not exists public.charges (
   pool_id       uuid,
   outlet_id     uuid references public.outlets(id) on delete restrict,
   module_id     uuid references public.modules(id) on delete restrict,
+  -- first-class booking link (replaces meta->>'bookingId')
+  booking_id    uuid references public.bookings(id) on delete set null,
+  voided        boolean not null default false,
+  void_reason   text,
+  voided_at     timestamptz,
   method        text,
   receipt_no    text,
   created_by    uuid,
+  -- free-form extras only (POS line snapshots, bookingIds arrays, …)
   meta          jsonb not null default '{}'::jsonb,
   paid_at       timestamptz,
   created_at    timestamptz not null default now(),
@@ -532,9 +538,12 @@ create table if not exists public.charges (
 create index if not exists idx_charges_receipt on public.charges(receipt_no);
 create index if not exists idx_charges_member  on public.charges(member_id);
 create index if not exists idx_charges_status  on public.charges(status);
-create index if not exists idx_charges_booking on public.charges ((meta->>'bookingId'));
+create index if not exists idx_charges_booking_id on public.charges(booking_id);
+create unique index if not exists uq_charges_live_booking
+  on public.charges(booking_id) where booking_id is not null and not voided;
 create index if not exists idx_charges_head    on public.charges(charge_head);
 create index if not exists idx_charges_outlet_created on public.charges(outlet_id, created_at desc);
+
 
 drop trigger if exists trg_charges_touch on public.charges;
 create trigger trg_charges_touch before update on public.charges
