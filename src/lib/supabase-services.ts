@@ -558,7 +558,19 @@ export function displayBookingStatusToDb(value: unknown): string {
   return "confirmed";
 }
 
-const LIFECYCLE_VALUES = ["pending", "confirmed", "completed", "cancelled", "no_show"] as const;
+/**
+ * Lifecycle values allowed on `bookings.status` (db enum `public.status`),
+ * plus the legacy values still present on older rows.
+ */
+const LIFECYCLE_VALUES = [
+  "pending",
+  "confirmed",
+  "completed",
+  "cancelled",
+  "amended",
+  "voided",
+  "no_show",
+] as const;
 
 export function dbLifecycleStatusToDisplay(raw: unknown): string {
   const s = String(raw ?? "").toLowerCase();
@@ -572,11 +584,6 @@ export function assertLifecycle(raw: unknown): string | undefined {
   return (LIFECYCLE_VALUES as readonly string[]).includes(s) ? s : undefined;
 }
 
-function dbPaymentStatusToDisplay(raw: unknown): string {
-  const s = String(raw || "").toLowerCase();
-  const validFinancialStatuses = ["pending", "unpaid", "paid", "voided", "settled", "overpaid"];
-  return validFinancialStatuses.includes(s) ? s : "pending";
-}
 
 
 function mapBookingRow(r: any): Booking {
