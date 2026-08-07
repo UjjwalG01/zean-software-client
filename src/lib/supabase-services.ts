@@ -646,9 +646,14 @@ export async function addBooking(data: Partial<Booking> & { outletId?: string })
     end_at: endTs,
     start_time: startTs,
     end_time: endTs,
-    original_rate: (data as any).originalRate ?? null,
-    rate: (data as any).rate ?? null,
-    discount_amount: (data as any).discountAmount ?? 0,
+    ...(() => {
+      // Rates are split once, by the global money controller.
+      // POS (health/fitness) never discounts at booking time → rate = original.
+      const list = (data as any).originalRate ?? (data as any).rate ?? 0;
+      const charged = (data as any).rate ?? list;
+      return buildBookingRates(Number(list), Number(charged));
+    })(),
+
     discount_reason: (data as any).discountReason || null,
     status: data.status || "pending",
     booking_status: displayBookingStatusToDb(data.bookingStatus || "confirmed"),
