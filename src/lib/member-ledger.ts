@@ -59,8 +59,9 @@ export function buildMemberLedger(
   const unified: UnifiedRow[] = [];
 
   for (const c of memberCharges) {
-    const voided = !!c.meta?.voided;
-    const isBooking = c.meta?.type === "booking";
+    const voided = (c as any).voided === true || !!c.meta?.voided;
+    const isBooking = !!(c as any).booking_id || c.meta?.type === "booking";
+
     unified.push({
       date: (c.created_at || "").slice(0, 10),
       description: c.description || (isBooking ? `Booking — ${c.charge_head}` : c.charge_head),
