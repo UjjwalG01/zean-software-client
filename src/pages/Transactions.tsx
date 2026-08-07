@@ -261,7 +261,7 @@ const Transactions = () => {
   const activeForTotals = filtered.filter((t) => statusLabel(t) !== "Voided");
   const totalAmount = activeForTotals.reduce(
     (sum, t) =>
-      sum + Math.max(0, (t.total || 0) - (Number((t as any).discount) || 0)),
+      sum + Math.max(0, t.total || 0),
     0,
   );
 
@@ -330,7 +330,8 @@ const Transactions = () => {
       grandTotal: gross,
       previousBalance,
       discount: extras?.discount || 0,
-      paidAmount: gross,
+      // `gross` is the billed amount (amt_after_vat); collected = billed − discount.
+      paidAmount: Math.max(0, gross - (extras?.discount || 0)),
       attendant: "user",
       paymentMethod: extras?.paymentMethod || "cash",
       paperSize: (settings.bill_paperSize as "A4" | "A5" | "80mm") || "A5",
@@ -667,7 +668,7 @@ const Transactions = () => {
                                   t.memberName,
                                   t.receiptNo,
                                   t.description,
-                                  t.total,
+                                  readAmtAfterVat(t as any),
                                   new Date(t.date),
                                   {
                                     memberId: t.memberId,
@@ -1266,7 +1267,7 @@ function SettleModalBody({
           settleTxn.memberName,
           settleTxn.receiptNo,
           settleTxn.description,
-          netDue,
+          billedAmount,
           getSystemNowDate(),
           {
             memberId: settleTxn.memberId,
