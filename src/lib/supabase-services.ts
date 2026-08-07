@@ -651,10 +651,12 @@ export async function addBooking(data: Partial<Booking> & { outletId?: string })
     ...(() => {
       // Rates are split once, by the global money controller.
       // POS (health/fitness) never discounts at booking time → rate = original.
-      const list = (data as any).originalRate ?? (data as any).rate ?? 0;
-      const charged = (data as any).rate ?? list;
+      const d = data as any;
+      const list = d.originalRate ?? d.original_rate ?? d.rate ?? 0;
+      const charged = d.rate ?? list;
       return buildBookingRates(Number(list), Number(charged));
     })(),
+
 
     discount_reason: (data as any).discountReason || null,
     status: data.status || "pending",
