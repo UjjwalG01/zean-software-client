@@ -1129,8 +1129,16 @@ export async function updateTransaction(id: string, data: Partial<Transaction>):
   if ((data as any).voidedAt !== undefined) patch.voided_at = (data as any).voidedAt;
   if (data.amount !== undefined) patch.amount = data.amount;
   if (data.vat !== undefined) patch.vat_amount = data.vat;
+  if ((data as any).amtAfterVat !== undefined) patch.amt_after_vat = (data as any).amtAfterVat;
+  else if (data.amount !== undefined || data.vat !== undefined)
+    patch.amt_after_vat = Number(data.amount || 0) + Number(data.vat || 0);
   if (data.total !== undefined) patch.total = data.total;
   if ((data as any).discount !== undefined) patch.discount = (data as any).discount;
+  if ((data as any).chargeHead !== undefined) patch.charge_head = (data as any).chargeHead;
+  if (data.bookingId !== undefined) patch.linked_booking_id = data.bookingId || null;
+  if ((data as any).chargeRowId !== undefined)
+    patch.settled_charge_id = (data as any).chargeRowId || null;
+
   const { error } = await supabase.from("payments").update(patch).eq("id", id);
   if (error) throwDb(error, "payments");
   await maybeAudit("update", "payment", id, null, data);
