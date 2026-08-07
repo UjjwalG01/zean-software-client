@@ -611,7 +611,7 @@ function mapBookingRow(r: any): Booking {
     date: dateOnly(r.start_at ?? r.start_time),
     startTime: timeOnly(r.start_time ?? r.start_at),
     endTime: timeOnly(r.end_time ?? r.end_at),
-    status: dbPaymentStatusToDisplay(r.status),
+    status: dbLifecycleStatusToDisplay(r.status),
     bookingStatus: dbBookingStatusToDisplay(r.booking_status),
     originalRate: Number(r.original_rate ?? 0),
     rate: Number(r.rate ?? 0),
