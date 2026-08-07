@@ -933,12 +933,15 @@ export async function addTransaction(data: Partial<Transaction>): Promise<string
   if (bookingId) {
     const { data: existing } = await supabase
       .from("charges")
-      .select("id, meta")
-      .eq("meta->>bookingId", bookingId)
+      .select("id, voided, meta")
+      .eq("booking_id", bookingId)
       .limit(1)
       .maybeSingle();
-    if (existing && !(existing as any).meta?.voided) return (existing as any).id;
+    if (existing && !(existing as any).voided && !(existing as any).meta?.voided) {
+      return (existing as any).id;
+    }
   }
+
 
   const chargeRow: any = {
     member_id: data.memberId || null,
