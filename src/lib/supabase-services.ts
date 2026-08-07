@@ -828,17 +828,21 @@ async function isChargeRow(id: string): Promise<boolean> {
 async function insertPaymentRow(data: Partial<Transaction>): Promise<string> {
   const gross = Number(data.amount || 0);
   const breakdown = shouldBreakdownVat(data.type as any, (data as any).isSettlement);
-  const split = breakdown ? splitVatFromGross(gross) : { net: gross, vat: 0 };
+  const money = toMoneyColumns(
+    buildAmounts({
+      gross,
+      discount: Number((data as any).discount || 0),
+      breakdownVat: breakdown,
+    }),
+  );
 
   const status = data.status === "pending" ? "pending" : "paid";
   const insertRow: any = {
     receipt_no: data.receiptNo || generateNextBillNumber("FPC"),
     member_id: data.memberId || null,
     member_name: data.memberName || null,
-    amount: split.net,
-    vat_amount: split.vat,
-    total: gross,
-    discount: Number((data as any).discount || 0),
+    ...money,
+
     method: data.method || "cash",
     service_type: data.serviceType || null,
     description: data.description || "",
