@@ -770,8 +770,18 @@ export async function deleteBooking(id: string): Promise<void> {
 
 // ─── Transactions / Payments ────────────────────────────────────────
 function mapPaymentRow(r: any): Transaction {
+  // First-class columns win; `meta` is only a legacy fallback.
   const meta = r.meta && typeof r.meta === "object" ? r.meta : {};
   const isVoided = r.voided === true || r.status === "voided";
+  const kind = String(r.kind || "");
+  const type =
+    kind === "advance"
+      ? "Advance"
+      : kind === "refund"
+        ? "Refund"
+        : kind === "settlement" || kind === "payment"
+          ? "Payment"
+          : meta.type || "Payment";
   return {
     id: r.id,
     memberId: r.member_id || "",
@@ -781,26 +791,26 @@ function mapPaymentRow(r: any): Transaction {
     amtAfterVat: Number(r.amt_after_vat ?? (Number(r.amount || 0) + Number(r.vat_amount || 0))),
     total: Number(r.total || 0),
     method: (r.method || "cash") as PaymentMethod,
-    type: meta.type || "Payment",
+    type,
     date: dateOnly(r.paid_at),
     description: r.description || "",
     receiptNo: r.receipt_no || "",
     serviceType: r.service_type || undefined,
     status: (isVoided ? "voided" : r.status === "pending" ? "pending" : "paid") as any,
-    bookingId: meta.bookingId || undefined,
+    bookingId: r.linked_booking_id || meta.bookingId || undefined,
     voided: isVoided,
-    voidReason: r.void_reason || undefined,
+    voidReason: r.void_reason || meta.voidReason || undefined,
     voidedAt: r.voided_at || undefined,
     chargeHead: r.charge_head || undefined,
     chargeRowId: r.settled_charge_id || meta.chargeRowId || undefined,
     isSettlement:
-      r.kind === "settlement" || !!r.settled_charge_id || meta.isSettlement === true,
+      kind === "settlement" || !!r.settled_charge_id || meta.isSettlement === true,
     discount: Number(r.discount || 0),
     outletId: r.outlet_id || undefined,
     createdBy: r.created_by || undefined,
-
   } as Transaction;
 }
+
 
 /**
  * Map a row of the canonical `charges` table (the debit / sales side) into the
