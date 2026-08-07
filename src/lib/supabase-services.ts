@@ -808,7 +808,8 @@ function mapPaymentRow(r: any): Transaction {
  */
 function mapChargeRow(r: any): Transaction {
   const meta = r.meta && typeof r.meta === "object" ? r.meta : {};
-  const isVoided = meta.voided === true;
+  // First-class columns win; `meta` is only a legacy fallback.
+  const isVoided = r.voided === true || meta.voided === true;
   return {
     id: r.id,
     memberId: r.member_id || "",
@@ -824,9 +825,10 @@ function mapChargeRow(r: any): Transaction {
     receiptNo: r.receipt_no || "",
     serviceType: r.charge_head || undefined,
     status: (isVoided ? "voided" : r.status === "paid" ? "paid" : "pending") as any,
-    bookingId: meta.bookingId || undefined,
+    bookingId: r.booking_id || meta.bookingId || undefined,
     voided: isVoided,
-    voidReason: meta.voidReason || undefined,
+    voidReason: r.void_reason || meta.voidReason || undefined,
+
     chargeHead: r.charge_head || undefined,
     // A charge row is its own canonical charge reference.
     chargeRowId: r.id,
