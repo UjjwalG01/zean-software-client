@@ -866,8 +866,10 @@ export async function getTransactions(): Promise<Transaction[]> {
   if (chargesRes.error) console.warn("[charges] read failed:", chargesRes.error.message);
 
   const payments = (paymentsRes.data || [])
-    .filter((r: any) => (r?.meta?.type || "Payment") !== "Charge")
+    // Legacy mirrors: pre-`kind` rows that duplicated a charge.
+    .filter((r: any) => (r?.kind ? r.kind !== "charge" : (r?.meta?.type || "Payment") !== "Charge"))
     .map(mapPaymentRow);
+
   const charges = (chargesRes.data || []).map(mapChargeRow);
 
   return [...charges, ...payments].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
