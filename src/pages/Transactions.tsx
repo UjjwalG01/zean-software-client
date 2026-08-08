@@ -681,14 +681,25 @@ const Transactions = () => {
                         onClick={(e) => e.stopPropagation()}
                       >
                         {sl === "Pending" ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs"
-                            onClick={() => openSettle(t)}
-                          >
-                            Settle
-                          </Button>
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title="Preview provisional bill"
+                              onClick={() => previewBill(t)}
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => openSettle(t)}
+                            >
+                              Settle
+                            </Button>
+                          </>
                         ) : sl === "Settled" ? (
                           <>
                             <Button
