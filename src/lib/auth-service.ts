@@ -33,9 +33,15 @@ export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) throw new Error(error.message);
 
-  // Clear any persistent browser indicators to guarantee complete context drops
+  // Clear any persistent browser indicators to guarantee complete context
+  // drops — but keep the installation license, which belongs to the machine
+  // and not to the signed-in user.
+  const preserved = Object.keys(localStorage)
+    .filter((k) => k.startsWith("zean.license."))
+    .map((k) => [k, localStorage.getItem(k)] as const);
   localStorage.clear();
   sessionStorage.clear();
+  for (const [k, v] of preserved) if (v !== null) localStorage.setItem(k, v);
 }
 
 /**
