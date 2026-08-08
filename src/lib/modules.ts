@@ -36,6 +36,7 @@ export const FALLBACK_MODULES: AppModule[] = [
   ["Users & Roles","users","/setup/users",270],
   ["Email Templates","email-templates","/setup/email-templates",280],
   ["Settings","settings","/setup/settings",290],
+  ["Help","help","/setup/help",300],
 ].map(([name, slug, route, order]) => ({
   id: slug as string,
   name: name as string,
