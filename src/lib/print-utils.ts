@@ -309,7 +309,7 @@ export function generateStandardReceiptHTML(options: {
     </div>
     ${o.remarks ? `<div class="remarks">Remarks: ${escHtml(o.remarks)}</div>` : ""}
     <hr class="divider" />
-    <div class="thanks">Thank you for the payment!!!</div>
+    ${isProvisional ? `<div class="thanks">PROVISIONAL BILL — preview only. Not a tax invoice; no payment has been recorded.</div>` : `<div class="thanks">Thank you for the payment!!!</div>`}
   </div>
   <div class="signature">Authorized Signature: <span class="line"></span></div>
   </div>
