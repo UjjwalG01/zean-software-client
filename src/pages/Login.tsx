@@ -12,6 +12,7 @@ import {
   KeyRound,
   ArrowLeft,
   ArrowRight,
+  Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { LicensedFooter } from "@/components/LicensedFooter";
@@ -264,6 +265,22 @@ const Login = () => {
                   {licenseMessage(license)}
                 </div>
               )}
+              {license?.status === "active" && (
+                <div className="mt-4 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-[11px] text-muted-foreground space-y-0.5">
+                  <p className="text-primary font-semibold">
+                    {license.expiresAt
+                      ? `${license.daysLeft} day${license.daysLeft === 1 ? "" : "s"} remaining`
+                      : "Perpetual license"}
+                  </p>
+                  {license.expiresAt && (
+                    <p>
+                      Valid until{" "}
+                      {new Date(license.expiresAt).toLocaleDateString()}
+                    </p>
+                  )}
+                  <p className="capitalize">Tier: {license.tier}</p>
+                </div>
+              )}
               <p className="text-[11px] text-muted-foreground/70 mt-3">
                 Property: {propertyName}
               </p>
@@ -291,19 +308,43 @@ const Login = () => {
                   />
                 </div>
 
-                {/* Action to switch back to Login */}
-                {!licenseBlocked && (
-                  <div className="mt-2 text-right flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setMode("login")}
-                      className="text-xs inline-flex text-primary hover:underline transition-colors cursor-pointer align-bottom items-center pt-1 gap-1"
-                    >
-                      <ArrowLeft className="h-3 w-3 mr-1" />
-                      Back to Login
-                    </button>
+                <div className="space-y-2 pt-1">
+                  <Label
+                    htmlFor="maxOutlets"
+                    className="text-sm text-muted-foreground"
+                  >
+                    Max Outlets
+                  </Label>
+                  <div className="relative">
+                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="maxOutlets"
+                      readOnly
+                      value={
+                        license?.status === "active"
+                          ? String(license.maxOutlets)
+                          : "—"
+                      }
+                      className="pl-10 bg-muted/30 border-border/50 h-11 cursor-not-allowed"
+                    />
                   </div>
-                )}
+                  <p className="text-[10px] text-muted-foreground/60">
+                    Set by administration — updates automatically when the key
+                    is verified.
+                  </p>
+                </div>
+
+                {/* Action to switch back to Login */}
+                <div className="mt-2 text-right flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMode("login")}
+                    className="text-xs inline-flex text-primary hover:underline transition-colors cursor-pointer align-bottom items-center pt-1 gap-1"
+                  >
+                    <ArrowLeft className="h-3 w-3 mr-1" />
+                    Back to Login
+                  </button>
+                </div>
               </div>
 
 

@@ -45,6 +45,7 @@ import { setActiveVatRate } from "@/lib/vat";
 import { useCompanySettings } from "@/hooks/use-firestore";
 import { TitleSync } from "./components/TitleSync";
 import { useLicense } from "@/hooks/use-license";
+import { runDailyExpiryCheck } from "@/lib/license";
 
 const queryClient = new QueryClient();
 
@@ -57,6 +58,8 @@ function SupabaseProbe() {
         r.error || "",
       );
     });
+    // Once-a-day guard: flips `is_active` off when the window has closed.
+    void runDailyExpiryCheck();
   }, []);
   return null;
 }

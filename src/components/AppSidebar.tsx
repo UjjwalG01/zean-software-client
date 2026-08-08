@@ -37,6 +37,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useMyPermissions, canView } from "@/hooks/use-permissions";
+import { LicenseStatusBadge } from "@/components/LicenseStatusBadge";
 
 export const softwareName = "ZEAN";
 export const softwareVersion = "2.0.1";
@@ -254,7 +255,8 @@ export function AppSidebar() {
 
       <SidebarFooter className="p-4">
         {!collapsed && (
-          <div className="rounded-lg border border-border/50 bg-muted/30 p-3">
+          <div className="rounded-lg border border-border/50 bg-muted/30 p-3 space-y-1.5">
+            <LicenseStatusBadge />
             <p className="text-xs text-muted-foreground">
               Version {softwareVersion}
             </p>
