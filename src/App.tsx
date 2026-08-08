@@ -174,6 +174,7 @@ const App = () => (
                             path="/setup/settings"
                             element={<Settings />}
                           />
+                          <Route path="/setup/help" element={<Help />} />
                           <Route path="/inventory" element={<Inventory />} />
                           <Route
                             path="/inventory/movements"
