@@ -17,11 +17,18 @@ import { toast } from "sonner";
 import { LicensedFooter } from "@/components/LicensedFooter";
 import { SOFTWARE_NAME } from "@/lib/settings";
 import { useCompanySettings } from "@/hooks/use-firestore";
+import { useLicense } from "@/hooks/use-license";
+import { licenseMessage } from "@/lib/license";
 
 const Login = () => {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const { data: settings = {} } = useCompanySettings();
+  const {
+    state: license,
+    loading: licenseLoading,
+    activate,
+  } = useLicense();
 
   // Mode toggle state: 'login' | 'renew'
   const [mode, setMode] = useState<"login" | "renew">("login");
@@ -36,6 +43,11 @@ const Login = () => {
   const [renewLoading, setRenewLoading] = useState(false);
 
   const propertyName = settings.companyName || ".............";
+  const licenseBlocked = !licenseLoading && license?.status !== "active";
+  const licenseWarning =
+    license?.status === "active" && license.daysLeft <= 14
+      ? `License expires in ${license.daysLeft} day${license.daysLeft === 1 ? "" : "s"}.`
+      : null;
 
   useEffect(() => {
     if (params.get("deactivated") === "1") {
@@ -43,8 +55,19 @@ const Login = () => {
     }
   }, [params]);
 
+  // A blocked installation can only proceed through the renewal form.
+  useEffect(() => {
+    if (licenseBlocked) setMode("renew");
+  }, [licenseBlocked]);
+
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (licenseBlocked) {
+      toast.error(licenseMessage(license!));
+      setMode("renew");
+      return;
+    }
     if (!email || !password) {
       toast.error("Please enter email and password");
       return;
@@ -73,29 +96,24 @@ const Login = () => {
 
   const handleRenewLicense = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!licenseKey.trim()) {
+    const key = licenseKey.trim();
+    if (!key) {
       toast.error("Please enter a valid license key");
       return;
     }
 
     setRenewLoading(true);
     try {
-      // Send the license key and property details to your API endpoint
-      // const response = await fetch("/api/license/renew", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({
-      //     licenseKey: licenseKey.trim(),
-      //     propertyName,
-      //   }),
-      // });
-
-      // if (!response.ok) {
-      //   const errorData = await response.json().catch(() => ({}));
-      //   throw new Error(errorData.message || "Failed to renew license");
-      // }
-
-      toast.success("License renewed successfully!");
+      const result = await activate(key);
+      if (result.status !== "active") {
+        toast.error(licenseMessage(result));
+        return;
+      }
+      toast.success(
+        result.expiresAt
+          ? `License activated — valid until ${new Date(result.expiresAt).toLocaleDateString()}`
+          : "License activated",
+      );
       setLicenseKey("");
       setMode("login");
     } catch (err: any) {
@@ -106,6 +124,7 @@ const Login = () => {
       setRenewLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center dark:gradient-dark relative overflow-hidden">
@@ -141,7 +160,13 @@ const Login = () => {
               <p className="text-muted-foreground text-sm mt-1">
                 Sign in to your account
               </p>
+              {licenseWarning && (
+                <div className="mt-4 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs text-primary">
+                  {licenseWarning}
+                </div>
+              )}
             </div>
+
 
             <form onSubmit={handleLogin} className="space-y-5">
               <div className="space-y-2">
@@ -234,6 +259,14 @@ const Login = () => {
               <p className="text-muted-foreground text-xs mt-1">
                 Please enter the License Key provided by administration.
               </p>
+              {licenseBlocked && license && (
+                <div className="mt-4 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                  {licenseMessage(license)}
+                </div>
+              )}
+              <p className="text-[11px] text-muted-foreground/70 mt-3">
+                Property: {propertyName}
+              </p>
             </div>
 
             <form onSubmit={handleRenewLicense} className="space-y-5">
@@ -249,27 +282,30 @@ const Login = () => {
                   <Input
                     id="licenseKey"
                     type="text"
-                    maxLength={16}
-                    placeholder="xxxx-xxxx-xxxx-xxxx"
+                    maxLength={19}
+                    placeholder="VFCM-XXXX-XXXX-XXXX"
                     className="pl-10 bg-muted/50 border-border/50 h-11 uppercase tracking-widest"
                     value={licenseKey}
-                    onChange={(e) => setLicenseKey(e.target.value)}
+                    onChange={(e) => setLicenseKey(e.target.value.toUpperCase())}
                     required
                   />
                 </div>
 
                 {/* Action to switch back to Login */}
-                <div className="mt-2 text-right flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setMode("login")}
-                    className="text-xs inline-flex text-primary hover:underline transition-colors cursor-pointer align-bottom items-center pt-1 gap-1"
-                  >
-                    <ArrowLeft className="h-3 w-3 mr-1" />
-                    Back to Login
-                  </button>
-                </div>
+                {!licenseBlocked && (
+                  <div className="mt-2 text-right flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setMode("login")}
+                      className="text-xs inline-flex text-primary hover:underline transition-colors cursor-pointer align-bottom items-center pt-1 gap-1"
+                    >
+                      <ArrowLeft className="h-3 w-3 mr-1" />
+                      Back to Login
+                    </button>
+                  </div>
+                )}
               </div>
+
 
               <Button
                 type="submit"
