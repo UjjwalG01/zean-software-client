@@ -6,6 +6,7 @@
  */
 
 import { supabase } from "./supabase";
+import { getSystemTodayStr } from "./timeUtils";
 
 export const LICENSE_CONTRACT_VERSION = "1.0.0";
 export const LICENSE_ROW_ID = "00000000-0000-0000-0000-000000000001";
