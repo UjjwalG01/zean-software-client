@@ -44,6 +44,7 @@ import { setAppTimezone } from "@/lib/tz";
 import { setActiveVatRate } from "@/lib/vat";
 import { useCompanySettings } from "@/hooks/use-firestore";
 import { TitleSync } from "./components/TitleSync";
+import { useLicense } from "@/hooks/use-license";
 
 const queryClient = new QueryClient();
 
@@ -74,8 +75,9 @@ function TimezoneSync() {
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, loading, appUser } = useAuthContext();
+  const { state: license, loading: licenseLoading } = useLicense();
 
-  if (loading) {
+  if (loading || licenseLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center gradient-dark">
         <div className="text-center space-y-4">
@@ -88,6 +90,12 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  // A lapsed / missing / suspended license locks the app down to the login
+  // page, where the renewal form lives.
+  if (license && license.status !== "active") {
+    return <Navigate to={`/login?license=${license.status}`} replace />;
   }
 
   // Block deactivated users from reaching any protected page.
@@ -104,6 +112,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     </>
   );
 }
+
 
 const App = () => (
   <ThemeProvider
