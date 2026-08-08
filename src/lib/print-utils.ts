@@ -138,14 +138,24 @@ export function generateStandardReceiptHTML(options: {
   const isOverpaid = !isRefund && paid > netPayable + 0.01;
   const activeVatRate = o.vatRate !== undefined ? o.vatRate : 0;
 
-  const statusLabel = isRefund || isOverpaid
-    ? "OVERPAID"
-    : isFullyPaid
-      ? "CLEARED"
-      : paid > 0
-        ? "PARTIAL"
-        : (o.status || "PENDING").toUpperCase();
-  const statusColor = isRefund || isOverpaid ? "#b45309" : isFullyPaid ? "#16a34a" : "#dc2626";
+  const isProvisional = o.provisional === true;
+
+  const statusLabel = isProvisional
+    ? "UNPAID · PROVISIONAL"
+    : isRefund || isOverpaid
+      ? "OVERPAID"
+      : isFullyPaid
+        ? "CLEARED"
+        : paid > 0
+          ? "PARTIAL"
+          : (o.status || "PENDING").toUpperCase();
+  const statusColor = isProvisional
+    ? "#b45309"
+    : isRefund || isOverpaid
+      ? "#b45309"
+      : isFullyPaid
+        ? "#16a34a"
+        : "#dc2626";
 
   const sizeCss = (() => {
     switch (paperSize) {
