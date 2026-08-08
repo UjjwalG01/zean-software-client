@@ -147,6 +147,8 @@ const Transactions = () => {
   const [dateFrom, setDateFrom] = useState(todayStr);
   const [dateTo, setDateTo] = useState(todayStr);
   const [page, setPage] = useState(1);
+  /** HTML of the provisional (preview-only) bill currently shown. */
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const PAGE_SIZE = 25;
 
   const { selected: activeOutlet, outlets: availableOutlets } = useOutlet();
