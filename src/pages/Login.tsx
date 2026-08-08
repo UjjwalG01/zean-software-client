@@ -12,6 +12,7 @@ import {
   KeyRound,
   ArrowLeft,
   ArrowRight,
+  Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { LicensedFooter } from "@/components/LicensedFooter";
