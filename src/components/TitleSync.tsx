@@ -27,6 +27,8 @@ export function TitleSync() {
       "/setup/item-groups": "Item Groups",
       "/setup/charge-heads": "Charge Heads",
       "/setup/settings": "System Settings",
+      "/setup/suppliers": "Suppliers",
+      "/setup/help": "Help Center",
       "/login": "Login",
     };
 
