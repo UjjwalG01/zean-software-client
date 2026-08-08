@@ -37,6 +37,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useMyPermissions, canView } from "@/hooks/use-permissions";
+import { LicenseStatusBadge } from "@/components/LicenseStatusBadge";
 
 export const softwareName = "ZEAN";
 export const softwareVersion = "2.0.1";
