@@ -276,7 +276,7 @@ const Transactions = () => {
     return filtered.slice(start, start + PAGE_SIZE);
   }, [filtered, page]);
 
-  const printBill = (
+  const buildBillHTML = (
     memberName: string,
     receiptNo: string,
     desc: string,
@@ -288,6 +288,8 @@ const Transactions = () => {
       head?: string;
       excludeTxnId?: string;
       paymentMethod?: string; // 🌟 Pass method down dynamically
+      /** Preview-only provisional bill: nothing is settled or mutated. */
+      provisional?: boolean;
     },
   ) => {
     const companyName = settings.companyName || ".............";
