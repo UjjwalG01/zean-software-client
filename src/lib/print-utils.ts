@@ -119,6 +119,8 @@ export function generateStandardReceiptHTML(options: {
   attendant?: string;
   paperSize?: BillPaperSize;
   kind?: BillKind;
+  /** Renders a non-binding "provisional bill" preview (no payment recorded). */
+  provisional?: boolean;
 }): string {
   const o = options;
   const paperSize: BillPaperSize = o.paperSize || "A5";
@@ -136,14 +138,24 @@ export function generateStandardReceiptHTML(options: {
   const isOverpaid = !isRefund && paid > netPayable + 0.01;
   const activeVatRate = o.vatRate !== undefined ? o.vatRate : 0;
 
-  const statusLabel = isRefund || isOverpaid
-    ? "OVERPAID"
-    : isFullyPaid
-      ? "CLEARED"
-      : paid > 0
-        ? "PARTIAL"
-        : (o.status || "PENDING").toUpperCase();
-  const statusColor = isRefund || isOverpaid ? "#b45309" : isFullyPaid ? "#16a34a" : "#dc2626";
+  const isProvisional = o.provisional === true;
+
+  const statusLabel = isProvisional
+    ? "UNPAID · PROVISIONAL"
+    : isRefund || isOverpaid
+      ? "OVERPAID"
+      : isFullyPaid
+        ? "CLEARED"
+        : paid > 0
+          ? "PARTIAL"
+          : (o.status || "PENDING").toUpperCase();
+  const statusColor = isProvisional
+    ? "#b45309"
+    : isRefund || isOverpaid
+      ? "#b45309"
+      : isFullyPaid
+        ? "#16a34a"
+        : "#dc2626";
 
   const sizeCss = (() => {
     switch (paperSize) {
@@ -179,7 +191,11 @@ export function generateStandardReceiptHTML(options: {
   })();
 
   const isThermal = paperSize === "80mm";
-  const titleText = kind === "advance" ? "ADVANCE RECEIPT" : "PAYMENT RECEIPT";
+  const titleText = isProvisional
+    ? "PROVISIONAL BILL"
+    : kind === "advance"
+      ? "ADVANCE RECEIPT"
+      : "PAYMENT RECEIPT";
 
   const itemRows = o.items
     .map(
@@ -293,7 +309,7 @@ export function generateStandardReceiptHTML(options: {
     </div>
     ${o.remarks ? `<div class="remarks">Remarks: ${escHtml(o.remarks)}</div>` : ""}
     <hr class="divider" />
-    <div class="thanks">Thank you for the payment!!!</div>
+    ${isProvisional ? `<div class="thanks">PROVISIONAL BILL — preview only. Not a tax invoice; no payment has been recorded.</div>` : `<div class="thanks">Thank you for the payment!!!</div>`}
   </div>
   <div class="signature">Authorized Signature: <span class="line"></span></div>
   </div>

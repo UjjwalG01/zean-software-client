@@ -8,6 +8,7 @@ import {
   FileText,
   Printer,
   RotateCcw,
+  Eye,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -147,6 +148,8 @@ const Transactions = () => {
   const [dateFrom, setDateFrom] = useState(todayStr);
   const [dateTo, setDateTo] = useState(todayStr);
   const [page, setPage] = useState(1);
+  /** HTML of the provisional (preview-only) bill currently shown. */
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const PAGE_SIZE = 25;
 
   const { selected: activeOutlet, outlets: availableOutlets } = useOutlet();
@@ -276,7 +279,7 @@ const Transactions = () => {
     return filtered.slice(start, start + PAGE_SIZE);
   }, [filtered, page]);
 
-  const printBill = (
+  const buildBillHTML = (
     memberName: string,
     receiptNo: string,
     desc: string,
@@ -288,6 +291,8 @@ const Transactions = () => {
       head?: string;
       excludeTxnId?: string;
       paymentMethod?: string; // 🌟 Pass method down dynamically
+      /** Preview-only provisional bill: nothing is settled or mutated. */
+      provisional?: boolean;
     },
   ) => {
     const companyName = settings.companyName || ".............";
@@ -332,13 +337,41 @@ const Transactions = () => {
       previousBalance,
       discount: extras?.discount || 0,
       // `gross` is the billed amount (amt_after_vat); collected = billed − discount.
-      paidAmount: Math.max(0, gross - (extras?.discount || 0)),
+      paidAmount: extras?.provisional
+        ? 0
+        : Math.max(0, gross - (extras?.discount || 0)),
       attendant: "user",
       paymentMethod: extras?.paymentMethod || "cash",
       paperSize: (settings.bill_paperSize as "A4" | "A5" | "80mm") || "A5",
       kind: "payment",
+      provisional: extras?.provisional === true,
     });
-    printHTML(html);
+    return html;
+  };
+
+  /** Prints a final receipt. */
+  const printBill = (...args: Parameters<typeof buildBillHTML>) =>
+    printHTML(buildBillHTML(...args));
+
+  /** Opens the read-only provisional bill preview (no data is changed). */
+  const previewBill = (t: Transaction) => {
+    setPreviewHtml(
+      buildBillHTML(
+        t.memberName,
+        t.receiptNo,
+        t.description,
+        readAmtAfterVat(t as any),
+        new Date(t.date),
+        {
+          memberId: t.memberId,
+          discount: Number((t as any).discount) || 0,
+          head: (t as any).serviceType || t.type || "Services",
+          excludeTxnId: t.id,
+          paymentMethod: t.method,
+          provisional: true,
+        },
+      ),
+    );
   };
 
   const openSettle = (t: Transaction, settlement = false) => {
@@ -504,6 +537,43 @@ const Transactions = () => {
       />
       <RecordChargeModal open={chargeOpen} onOpenChange={setChargeOpen} />
 
+      {/* Provisional bill preview — read-only, never mutates a transaction. */}
+      <Dialog
+        open={previewHtml !== null}
+        onOpenChange={(o) => !o && setPreviewHtml(null)}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-display">
+              Provisional Bill Preview
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground -mt-2">
+            Preview only — this does not settle the bill or change any
+            transaction status.
+          </p>
+          <div className="rounded-lg border border-border bg-muted/30 overflow-hidden">
+            <iframe
+              title="Provisional bill preview"
+              srcDoc={previewHtml ?? ""}
+              className="w-full h-[60vh] bg-background"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setPreviewHtml(null)}>
+              Close
+            </Button>
+            <Button
+              onClick={() => previewHtml && printHTML(previewHtml)}
+              className="gap-2"
+            >
+              <Printer className="h-4 w-4" />
+              Print Preview
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
         <div className="relative flex-1 justify-center min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -649,14 +719,25 @@ const Transactions = () => {
                         onClick={(e) => e.stopPropagation()}
                       >
                         {sl === "Pending" ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs"
-                            onClick={() => openSettle(t)}
-                          >
-                            Settle
-                          </Button>
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title="Preview provisional bill"
+                              onClick={() => previewBill(t)}
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => openSettle(t)}
+                            >
+                              Settle
+                            </Button>
+                          </>
                         ) : sl === "Settled" ? (
                           <>
                             <Button

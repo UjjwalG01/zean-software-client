@@ -19,6 +19,7 @@ import {
   Layers,
   ScrollText,
   Truck,
+  HelpCircle,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -69,25 +70,11 @@ const mainItems = [
 
 const setupItems = [
   {
-    title: "General Setup",
-    url: "/setup/general",
-    icon: Wrench,
-    key: "general",
-  },
-  { title: "Outlets", url: "/setup/outlets", icon: Building2, key: "outlets" },
-  {
-    title: "Service Types",
-    url: "/setup/service-types",
-    icon: Tag,
-    key: "service-types",
-  },
-  {
     title: "Plans & Services",
     url: "/setup/plans",
     icon: Dumbbell,
     key: "plans",
   },
-  { title: "Stores", url: "/setup/stores", icon: Warehouse, key: "stores" },
   {
     title: "Suppliers",
     url: "/setup/suppliers",
@@ -106,19 +93,37 @@ const setupItems = [
     icon: Tag,
     key: "charge-heads",
   },
-  { title: "Users & Roles", url: "/setup/users", icon: UserCog, key: "users" },
   {
     title: "Email Templates",
     url: "/setup/email-templates",
     icon: Mail,
     key: "email-templates",
   },
+];
+
+const adminItems = [
+  {
+    title: "General Setup",
+    url: "/setup/general",
+    icon: Wrench,
+    key: "general",
+  },
+  { title: "Outlets", url: "/setup/outlets", icon: Building2, key: "outlets" },
+  {
+    title: "Service Types",
+    url: "/setup/service-types",
+    icon: Tag,
+    key: "service-types",
+  },
+  { title: "Stores", url: "/setup/stores", icon: Warehouse, key: "stores" },
+  { title: "Users & Roles", url: "/setup/users", icon: UserCog, key: "users" },
   {
     title: "Settings",
     url: "/setup/settings",
     icon: Settings,
     key: "settings",
   },
+  { title: "Help", url: "/setup/help", icon: HelpCircle, key: "help" },
 ];
 
 export function AppSidebar() {
@@ -138,6 +143,9 @@ export function AppSidebar() {
   );
   const visibleSetup = setupItems.filter((i) =>
     canView(myPerms, i.key, isPermsLoading),
+  );
+  const visibleAdmin = adminItems.filter(
+    (i) => i.key === "help" || canView(myPerms, i.key, isPermsLoading),
   );
 
   return (
@@ -196,6 +204,33 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {visibleSetup.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.url)}
+                    tooltip={item.title}
+                  >
+                    <NavLink
+                      to={item.url}
+                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {!collapsed && <span>{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/60">
+            Admin
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {visibleAdmin.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
