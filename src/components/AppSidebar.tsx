@@ -144,6 +144,9 @@ export function AppSidebar() {
   const visibleSetup = setupItems.filter((i) =>
     canView(myPerms, i.key, isPermsLoading),
   );
+  const visibleAdmin = adminItems.filter(
+    (i) => i.key === "help" || canView(myPerms, i.key, isPermsLoading),
+  );
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
