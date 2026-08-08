@@ -119,6 +119,8 @@ export function generateStandardReceiptHTML(options: {
   attendant?: string;
   paperSize?: BillPaperSize;
   kind?: BillKind;
+  /** Renders a non-binding "provisional bill" preview (no payment recorded). */
+  provisional?: boolean;
 }): string {
   const o = options;
   const paperSize: BillPaperSize = o.paperSize || "A5";
