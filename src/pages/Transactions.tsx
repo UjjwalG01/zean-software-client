@@ -537,6 +537,43 @@ const Transactions = () => {
       />
       <RecordChargeModal open={chargeOpen} onOpenChange={setChargeOpen} />
 
+      {/* Provisional bill preview — read-only, never mutates a transaction. */}
+      <Dialog
+        open={previewHtml !== null}
+        onOpenChange={(o) => !o && setPreviewHtml(null)}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-display">
+              Provisional Bill Preview
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground -mt-2">
+            Preview only — this does not settle the bill or change any
+            transaction status.
+          </p>
+          <div className="rounded-lg border border-border bg-muted/30 overflow-hidden">
+            <iframe
+              title="Provisional bill preview"
+              srcDoc={previewHtml ?? ""}
+              className="w-full h-[60vh] bg-background"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setPreviewHtml(null)}>
+              Close
+            </Button>
+            <Button
+              onClick={() => previewHtml && printHTML(previewHtml)}
+              className="gap-2"
+            >
+              <Printer className="h-4 w-4" />
+              Print Preview
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
         <div className="relative flex-1 justify-center min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
