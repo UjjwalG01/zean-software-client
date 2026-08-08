@@ -63,6 +63,11 @@ const Login = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (licenseBlocked) {
+      toast.error(licenseMessage(license!));
+      setMode("renew");
+      return;
+    }
     if (!email || !password) {
       toast.error("Please enter email and password");
       return;
@@ -91,29 +96,24 @@ const Login = () => {
 
   const handleRenewLicense = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!licenseKey.trim()) {
+    const key = licenseKey.trim();
+    if (!key) {
       toast.error("Please enter a valid license key");
       return;
     }
 
     setRenewLoading(true);
     try {
-      // Send the license key and property details to your API endpoint
-      // const response = await fetch("/api/license/renew", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({
-      //     licenseKey: licenseKey.trim(),
-      //     propertyName,
-      //   }),
-      // });
-
-      // if (!response.ok) {
-      //   const errorData = await response.json().catch(() => ({}));
-      //   throw new Error(errorData.message || "Failed to renew license");
-      // }
-
-      toast.success("License renewed successfully!");
+      const result = await activate(key);
+      if (result.status !== "active") {
+        toast.error(licenseMessage(result));
+        return;
+      }
+      toast.success(
+        result.expiresAt
+          ? `License activated — valid until ${new Date(result.expiresAt).toLocaleDateString()}`
+          : "License activated",
+      );
       setLicenseKey("");
       setMode("login");
     } catch (err: any) {
@@ -124,6 +124,7 @@ const Login = () => {
       setRenewLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center dark:gradient-dark relative overflow-hidden">
