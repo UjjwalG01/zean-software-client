@@ -57,6 +57,8 @@ function SupabaseProbe() {
         r.error || "",
       );
     });
+    // Once-a-day guard: flips `is_active` off when the window has closed.
+    void runDailyExpiryCheck();
   }, []);
   return null;
 }
