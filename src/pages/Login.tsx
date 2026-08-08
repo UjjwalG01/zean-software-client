@@ -17,11 +17,18 @@ import { toast } from "sonner";
 import { LicensedFooter } from "@/components/LicensedFooter";
 import { SOFTWARE_NAME } from "@/lib/settings";
 import { useCompanySettings } from "@/hooks/use-firestore";
+import { useLicense } from "@/hooks/use-license";
+import { licenseMessage } from "@/lib/license";
 
 const Login = () => {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const { data: settings = {} } = useCompanySettings();
+  const {
+    state: license,
+    loading: licenseLoading,
+    activate,
+  } = useLicense();
 
   // Mode toggle state: 'login' | 'renew'
   const [mode, setMode] = useState<"login" | "renew">("login");
@@ -36,12 +43,23 @@ const Login = () => {
   const [renewLoading, setRenewLoading] = useState(false);
 
   const propertyName = settings.companyName || ".............";
+  const licenseBlocked = !licenseLoading && license?.status !== "active";
+  const licenseWarning =
+    license?.status === "active" && license.daysLeft <= 14
+      ? `License expires in ${license.daysLeft} day${license.daysLeft === 1 ? "" : "s"}.`
+      : null;
 
   useEffect(() => {
     if (params.get("deactivated") === "1") {
       toast.error("User deactivated");
     }
   }, [params]);
+
+  // A blocked installation can only proceed through the renewal form.
+  useEffect(() => {
+    if (licenseBlocked) setMode("renew");
+  }, [licenseBlocked]);
+
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
