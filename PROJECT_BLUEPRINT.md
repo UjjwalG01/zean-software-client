@@ -113,6 +113,18 @@ Routes declared in `src/App.tsx` (wrapped by `RouteGuard` + `AppLayout`):
    `advance` (headed "ADVANCE RECEIPT", no breakdown). Paper size (`A4`,
    `A5`, `80mm`) is admin-controlled in `GeneralSetup` and stored on
    `companySettings.bill_paperSize`.
+5. **Provisional bill preview.** Pending transactions expose a preview (eye)
+   action in `Transactions.tsx` that renders the same receipt through
+   `generateStandardReceiptHTML({ provisional: true })`. It is titled
+   "PROVISIONAL BILL", shows `UNPAID · PROVISIONAL`, reports zero paid, and
+   never mutates a transaction, charge or booking status.
+6. **Navigation groups.** `AppSidebar.tsx` renders three groups: **Main**
+   (Dashboard, Members, Bookings, Attendance, Transactions, Inventory,
+   Reports, Forecast, Audit Logs), **Setup** (Plans & Services, Suppliers,
+   Item Groups, Charge Heads, Email Templates) and **Admin** (General Setup,
+   Outlets, Service Types, Stores, Users & Roles, Settings, Help). `/setup/help`
+   (`src/pages/Help.tsx`) is a static in-app user guide and is exempt from
+   `RouteGuard` permission checks.
 
 ---
 
