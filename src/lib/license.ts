@@ -104,12 +104,28 @@ function daysUntil(expiresAt: string | null): number {
   );
 }
 
+function activeStateFromRow(row: LicenseRow, key: string): LicenseState {
+  writeCache(key, row.expires_at);
+  return {
+    status: "active",
+    tier: row.tier ?? "standard",
+    maxOutlets: row.max_outlets ?? 1,
+    clientName: row.client_name,
+    expiresAt: row.expires_at,
+    daysLeft: daysUntil(row.expires_at),
+  };
+}
+
 /**
  * Evaluates a key against the deployed license row.
  * Enforces all five matching rules from the integration contract.
+ *
+ * @param options.ignoreInactive - activation path only: a key entered by the
+ * client re-arms `is_active`, so a suspended row is not a hard failure.
  */
 export async function checkLicense(
   enteredKey: string | null,
+  options: { ignoreInactive?: boolean } = {},
 ): Promise<LicenseState> {
   const key = (enteredKey || "").trim();
   if (!key) return { status: "unlicensed" };
@@ -139,20 +155,14 @@ export async function checkLicense(
   if (!row) return { status: "unlicensed" };
   // Exact, case-sensitive comparison — includes the VFCM- prefix.
   if (key !== row.license_key) return { status: "invalid_key" };
-  if (row.is_active === false) return { status: "suspended" };
   if (row.expires_at && new Date(row.expires_at).getTime() <= Date.now()) {
     return { status: "expired", expiresAt: row.expires_at };
   }
+  if (row.is_active === false && !options.ignoreInactive) {
+    return { status: "suspended" };
+  }
 
-  writeCache(key, row.expires_at);
-  return {
-    status: "active",
-    tier: row.tier ?? "standard",
-    maxOutlets: row.max_outlets ?? 1,
-    clientName: row.client_name,
-    expiresAt: row.expires_at,
-    daysLeft: daysUntil(row.expires_at),
-  };
+  return activeStateFromRow(row, key);
 }
 
 /** Validates the currently stored key for this installation. */
@@ -161,15 +171,70 @@ export function checkStoredLicense(): Promise<LicenseState> {
 }
 
 /**
- * Called by the Renew License form. Persists the key only when it resolves to
- * an active license.
+ * Called by the Renew License form. Persists the key and re-arms `is_active`
+ * when the key matches a license whose window is still open.
  */
 export async function activateLicense(
   enteredKey: string,
 ): Promise<LicenseState> {
-  const state = await checkLicense(enteredKey);
-  if (state.status === "active") storeLicenseKey(enteredKey);
+  const state = await checkLicense(enteredKey, { ignoreInactive: true });
+  if (state.status !== "active") return state;
+
+  storeLicenseKey(enteredKey);
+  // Client-side activation flips the master switch back on (contract v1.0.0
+  // allows the client app to update its own license row).
+  const { error } = await supabase
+    .from("system_license")
+    .update({ is_active: true, updated_at: new Date().toISOString() })
+    .eq("id", LICENSE_ROW_ID);
+  if (error) return { status: "error", message: error.message };
+  markExpiryCheckRan();
   return state;
+}
+
+/* ------------------------------------------------------------------ */
+/* Daily expiry enforcement                                            */
+/* ------------------------------------------------------------------ */
+
+const EXPIRY_CHECK_KEY = "zean.license.lastExpiryCheck";
+
+function markExpiryCheckRan(): void {
+  try {
+    localStorage.setItem(EXPIRY_CHECK_KEY, getSystemTodayStr());
+  } catch {
+    /* noop */
+  }
+}
+
+function expiryCheckRanToday(): boolean {
+  try {
+    return localStorage.getItem(EXPIRY_CHECK_KEY) === getSystemTodayStr();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Runs at most once per (Kathmandu) calendar day: if the license window has
+ * closed, `is_active` is flipped to false so every surface — including the
+ * master panel — sees a consistent lapsed state.
+ */
+export async function runDailyExpiryCheck(): Promise<void> {
+  if (expiryCheckRanToday()) return;
+  try {
+    const row = await fetchLicenseRow();
+    markExpiryCheckRan();
+    if (!row || row.is_active === false) return;
+    const lapsed =
+      !!row.expires_at && new Date(row.expires_at).getTime() <= Date.now();
+    if (!lapsed) return;
+    await supabase
+      .from("system_license")
+      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .eq("id", LICENSE_ROW_ID);
+  } catch {
+    /* offline — retry on the next app load */
+  }
 }
 
 /** Human-readable message for a non-active state. */
