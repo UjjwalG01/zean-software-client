@@ -28,6 +28,7 @@ import EmailTemplates from "./pages/EmailTemplates";
 import OutletsPage from "./pages/setup/Outlets";
 import ServiceTypesPage from "./pages/setup/ServiceTypes";
 import Inventory from "./pages/Inventory";
+import Help from "./pages/Help";
 import StoresPage from "./pages/setup/Stores";
 import SuppliersPage from "./pages/setup/Suppliers";
 import InventoryMovementsPage from "./pages/InventoryMovements";
