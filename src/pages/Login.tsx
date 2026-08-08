@@ -264,6 +264,22 @@ const Login = () => {
                   {licenseMessage(license)}
                 </div>
               )}
+              {license?.status === "active" && (
+                <div className="mt-4 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-[11px] text-muted-foreground space-y-0.5">
+                  <p className="text-primary font-semibold">
+                    {license.expiresAt
+                      ? `${license.daysLeft} day${license.daysLeft === 1 ? "" : "s"} remaining`
+                      : "Perpetual license"}
+                  </p>
+                  {license.expiresAt && (
+                    <p>
+                      Valid until{" "}
+                      {new Date(license.expiresAt).toLocaleDateString()}
+                    </p>
+                  )}
+                  <p className="capitalize">Tier: {license.tier}</p>
+                </div>
+              )}
               <p className="text-[11px] text-muted-foreground/70 mt-3">
                 Property: {propertyName}
               </p>
