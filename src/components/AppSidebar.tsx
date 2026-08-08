@@ -69,25 +69,11 @@ const mainItems = [
 
 const setupItems = [
   {
-    title: "General Setup",
-    url: "/setup/general",
-    icon: Wrench,
-    key: "general",
-  },
-  { title: "Outlets", url: "/setup/outlets", icon: Building2, key: "outlets" },
-  {
-    title: "Service Types",
-    url: "/setup/service-types",
-    icon: Tag,
-    key: "service-types",
-  },
-  {
     title: "Plans & Services",
     url: "/setup/plans",
     icon: Dumbbell,
     key: "plans",
   },
-  { title: "Stores", url: "/setup/stores", icon: Warehouse, key: "stores" },
   {
     title: "Suppliers",
     url: "/setup/suppliers",
@@ -106,19 +92,37 @@ const setupItems = [
     icon: Tag,
     key: "charge-heads",
   },
-  { title: "Users & Roles", url: "/setup/users", icon: UserCog, key: "users" },
   {
     title: "Email Templates",
     url: "/setup/email-templates",
     icon: Mail,
     key: "email-templates",
   },
+];
+
+const adminItems = [
+  {
+    title: "General Setup",
+    url: "/setup/general",
+    icon: Wrench,
+    key: "general",
+  },
+  { title: "Outlets", url: "/setup/outlets", icon: Building2, key: "outlets" },
+  {
+    title: "Service Types",
+    url: "/setup/service-types",
+    icon: Tag,
+    key: "service-types",
+  },
+  { title: "Stores", url: "/setup/stores", icon: Warehouse, key: "stores" },
+  { title: "Users & Roles", url: "/setup/users", icon: UserCog, key: "users" },
   {
     title: "Settings",
     url: "/setup/settings",
     icon: Settings,
     key: "settings",
   },
+  { title: "Help", url: "/setup/help", icon: HelpCircle, key: "help" },
 ];
 
 export function AppSidebar() {
