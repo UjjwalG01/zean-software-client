@@ -43,6 +43,8 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
   const { data: myPerms, isLoading } = useMyPermissions();
 
   if (isLoading) return <>{children}</>;
+  // Help is documentation only and is available to every signed-in user.
+  if (pathname.startsWith("/setup/help")) return <>{children}</>;
   const key = pageKeyForPath(pathname);
   if (canView(myPerms, key)) return <>{children}</>;
 
