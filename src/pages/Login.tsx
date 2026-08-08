@@ -253,6 +253,14 @@ const Login = () => {
               <p className="text-muted-foreground text-xs mt-1">
                 Please enter the License Key provided by administration.
               </p>
+              {licenseBlocked && license && (
+                <div className="mt-4 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                  {licenseMessage(license)}
+                </div>
+              )}
+              <p className="text-[11px] text-muted-foreground/70 mt-3">
+                Property: {propertyName}
+              </p>
             </div>
 
             <form onSubmit={handleRenewLicense} className="space-y-5">
@@ -268,27 +276,30 @@ const Login = () => {
                   <Input
                     id="licenseKey"
                     type="text"
-                    maxLength={16}
-                    placeholder="xxxx-xxxx-xxxx-xxxx"
+                    maxLength={19}
+                    placeholder="VFCM-XXXX-XXXX-XXXX"
                     className="pl-10 bg-muted/50 border-border/50 h-11 uppercase tracking-widest"
                     value={licenseKey}
-                    onChange={(e) => setLicenseKey(e.target.value)}
+                    onChange={(e) => setLicenseKey(e.target.value.toUpperCase())}
                     required
                   />
                 </div>
 
                 {/* Action to switch back to Login */}
-                <div className="mt-2 text-right flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setMode("login")}
-                    className="text-xs inline-flex text-primary hover:underline transition-colors cursor-pointer align-bottom items-center pt-1 gap-1"
-                  >
-                    <ArrowLeft className="h-3 w-3 mr-1" />
-                    Back to Login
-                  </button>
-                </div>
+                {!licenseBlocked && (
+                  <div className="mt-2 text-right flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setMode("login")}
+                      className="text-xs inline-flex text-primary hover:underline transition-colors cursor-pointer align-bottom items-center pt-1 gap-1"
+                    >
+                      <ArrowLeft className="h-3 w-3 mr-1" />
+                      Back to Login
+                    </button>
+                  </div>
+                )}
               </div>
+
 
               <Button
                 type="submit"
