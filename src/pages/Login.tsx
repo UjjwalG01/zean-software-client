@@ -307,19 +307,43 @@ const Login = () => {
                   />
                 </div>
 
-                {/* Action to switch back to Login */}
-                {!licenseBlocked && (
-                  <div className="mt-2 text-right flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setMode("login")}
-                      className="text-xs inline-flex text-primary hover:underline transition-colors cursor-pointer align-bottom items-center pt-1 gap-1"
-                    >
-                      <ArrowLeft className="h-3 w-3 mr-1" />
-                      Back to Login
-                    </button>
+                <div className="space-y-2 pt-1">
+                  <Label
+                    htmlFor="maxOutlets"
+                    className="text-sm text-muted-foreground"
+                  >
+                    Max Outlets
+                  </Label>
+                  <div className="relative">
+                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="maxOutlets"
+                      readOnly
+                      value={
+                        license?.status === "active"
+                          ? String(license.maxOutlets)
+                          : "—"
+                      }
+                      className="pl-10 bg-muted/30 border-border/50 h-11 cursor-not-allowed"
+                    />
                   </div>
-                )}
+                  <p className="text-[10px] text-muted-foreground/60">
+                    Set by administration — updates automatically when the key
+                    is verified.
+                  </p>
+                </div>
+
+                {/* Action to switch back to Login */}
+                <div className="mt-2 text-right flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMode("login")}
+                    className="text-xs inline-flex text-primary hover:underline transition-colors cursor-pointer align-bottom items-center pt-1 gap-1"
+                  >
+                    <ArrowLeft className="h-3 w-3 mr-1" />
+                    Back to Login
+                  </button>
+                </div>
               </div>
 
 
