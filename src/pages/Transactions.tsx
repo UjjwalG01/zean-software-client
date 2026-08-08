@@ -334,13 +334,41 @@ const Transactions = () => {
       previousBalance,
       discount: extras?.discount || 0,
       // `gross` is the billed amount (amt_after_vat); collected = billed − discount.
-      paidAmount: Math.max(0, gross - (extras?.discount || 0)),
+      paidAmount: extras?.provisional
+        ? 0
+        : Math.max(0, gross - (extras?.discount || 0)),
       attendant: "user",
       paymentMethod: extras?.paymentMethod || "cash",
       paperSize: (settings.bill_paperSize as "A4" | "A5" | "80mm") || "A5",
       kind: "payment",
+      provisional: extras?.provisional === true,
     });
-    printHTML(html);
+    return html;
+  };
+
+  /** Prints a final receipt. */
+  const printBill = (...args: Parameters<typeof buildBillHTML>) =>
+    printHTML(buildBillHTML(...args));
+
+  /** Opens the read-only provisional bill preview (no data is changed). */
+  const previewBill = (t: Transaction) => {
+    setPreviewHtml(
+      buildBillHTML(
+        t.memberName,
+        t.receiptNo,
+        t.description,
+        readAmtAfterVat(t as any),
+        new Date(t.date),
+        {
+          memberId: t.memberId,
+          discount: Number((t as any).discount) || 0,
+          head: (t as any).serviceType || t.type || "Services",
+          excludeTxnId: t.id,
+          paymentMethod: t.method,
+          provisional: true,
+        },
+      ),
+    );
   };
 
   const openSettle = (t: Transaction, settlement = false) => {
