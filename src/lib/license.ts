@@ -166,9 +166,36 @@ export async function checkLicense(
   return activeStateFromRow(row, key);
 }
 
-/** Validates the currently stored key for this installation. */
-export function checkStoredLicense(): Promise<LicenseState> {
-  return checkLicense(getStoredLicenseKey());
+/**
+ * Resolves the property-wide license directly from the shared database row.
+ *
+ * A verified renewal belongs to the property, not to one browser. The locally
+ * stored key is retained only for offline fallback; it is never required when
+ * the shared row is reachable and already active.
+ */
+export async function checkStoredLicense(): Promise<LicenseState> {
+  try {
+    const row = await fetchLicenseRow();
+    if (!row) return { status: "unlicensed" };
+    if (row.expires_at && new Date(row.expires_at).getTime() <= Date.now()) {
+      return { status: "expired", expiresAt: row.expires_at };
+    }
+    if (row.is_active === false) return { status: "suspended" };
+
+    // Cache the server-verified property license so this device can tolerate a
+    // brief outage on subsequent loads. Do not make this cache a prerequisite
+    // for other devices.
+    storeLicenseKey(row.license_key);
+    return activeStateFromRow(row, row.license_key);
+  } catch (error: unknown) {
+    const storedKey = getStoredLicenseKey();
+    if (storedKey) return checkLicense(storedKey);
+    return {
+      status: "error",
+      message:
+        error instanceof Error ? error.message : "Unable to verify the license.",
+    };
+  }
 }
 
 /**
