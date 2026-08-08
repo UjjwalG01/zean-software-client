@@ -40,6 +40,7 @@ import { capitalizeFirstLetter } from "@/lib/string-case-change";
 import { DEFAULT_VAT_RATE, getActiveVatRate } from "@/lib/vat";
 import { generateNextBillNumber } from "@/lib/helper";
 import { readSaleAmounts } from "@/lib/money";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 interface TransactionDetailModalProps {
   transaction: Transaction | null;
@@ -179,6 +180,8 @@ export function TransactionDetailModal({
       setVoiding(false);
     }
   };
+
+  const { user, appUser, loading: authLoading } = useAuthContext();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -353,19 +356,22 @@ export function TransactionDetailModal({
               >
                 Download
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setVoidReason("");
-                  setVoidConfirmText("");
-                  setVoidOpen(true);
-                }}
-                disabled={voiding}
-                className="text-destructive border-destructive/40 hover:bg-destructive/90 hover:text-white"
-              >
-                {voiding ? "Voiding…" : "Void"}
-              </Button>
+
+              {appUser?.role === "admin" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setVoidReason("");
+                    setVoidConfirmText("");
+                    setVoidOpen(true);
+                  }}
+                  disabled={voiding}
+                  className="text-destructive hover:bg-destructive/90 hover:text-white"
+                >
+                  {voiding ? "Voiding…" : "Void"}
+                </Button>
+              )}
             </div>
           )}
         </div>

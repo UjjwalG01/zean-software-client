@@ -236,7 +236,9 @@ export function generateStandardReceiptHTML(options: {
     .body-pad { padding: ${isThermal ? "4mm" : "8mm"} ${sizeCss.padX} 0; position: relative; z-index: 1; }
     .row { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
     .row .label { color: #6b7280; font-weight: 600; min-width: ${isThermal ? "60px" : "80px"}; display: inline-block; }
-    .row .val { color: #111827; font-weight: 600; }
+    .row .val { color: #111827; font-weight: 600;}
+    .bill-cover {display: flex; gap: 6px}
+    .row .sm-bill { font-size: ${isThermal ? "9px" : "10px"}; color: #6b7280; font-weight: 500; }
     .divider { border: none; border-top: 1px ${isThermal ? "dashed #94a3b8" : "solid #e5e7eb"}; margin: 7px 0 9px; }
     .member-block { margin: 6px 0 10px; }
     .member-block .row { margin-bottom: 5px; }
@@ -266,16 +268,16 @@ export function generateStandardReceiptHTML(options: {
     <h1>${escHtml(o.companyName)}</h1>
     ${o.companyTagline ? `<div class="tagline">${escHtml(o.companyTagline)}</div>` : ""}
     <div class="contact">
-      ${o.companyAddress ? `<span>${escHtml(o.companyAddress)}</span>` : ""}
-      ${o.companyPhone ? `<span>|</span><span>${escHtml(o.companyPhone)}</span>` : ""}
-      ${o.companyEmail ? `<span>|</span><span>${escHtml(o.companyEmail)}</span>` : ""}
+    ${o.companyPhone ? `<span>${escHtml(o.companyPhone)}</span>` : ""}
+    ${o.companyEmail ? `<span>|</span><span>${escHtml(o.companyEmail)}</span><br>` : ""}
+    ${o.companyAddress ? `<span></span><span>${escHtml(o.companyAddress)}</span>` : ""}
     </div>
   </div>
   <div class="title-bar">${titleText}</div>
   <div class="body-pad">
     <div class="row">
-      <div><span class="label">Receipt No:</span> <span class="val">${escHtml(o.billNo)}</span></div>
-      <div><span class="label">Date:</span> <span class="val">${escHtml(o.billDate)}</span></div>
+      <div className="bill-cover"><span class="label">Receipt No:</span><span class="val sm-bill">${escHtml(o.billNo)}</span></div>
+      <div className="bill-cover"><span class="label">Date:</span><span class="val sm-bill">${escHtml(o.billDate)}</span></div>
     </div>
     <hr class="divider" />
     <div class="member-block">
@@ -305,7 +307,21 @@ export function generateStandardReceiptHTML(options: {
 
 
 export function printHTML(html: string) {
-  const win = window.open("", "_blank", "width=600,height=800");
+  // Define dynamic size as percentages of total screen size (e.g., 80% width, 85% height)
+  const targetWidth = Math.round(window.screen.width * 0.8);
+  const targetHeight = Math.round(window.screen.height * 0.85);
+
+  // Set minimum bounds so it doesn't get too tiny on smaller displays
+  const width = Math.max(500, targetWidth);
+  const height = Math.max(600, targetHeight);
+
+  // Calculate screen center coordinates
+  const left = Math.max(0, Math.round((window.screen.width - width) / 2));
+  const top = Math.max(0, Math.round((window.screen.height - height) / 2));
+
+  const windowFeatures = `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`;
+
+  const win = window.open("", "_blank", windowFeatures);
   if (!win) return;
   win.document.write(html);
   win.document.close();
