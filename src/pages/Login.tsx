@@ -160,7 +160,13 @@ const Login = () => {
               <p className="text-muted-foreground text-sm mt-1">
                 Sign in to your account
               </p>
+              {licenseWarning && (
+                <div className="mt-4 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs text-primary">
+                  {licenseWarning}
+                </div>
+              )}
             </div>
+
 
             <form onSubmit={handleLogin} className="space-y-5">
               <div className="space-y-2">
