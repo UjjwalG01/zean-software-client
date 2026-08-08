@@ -191,7 +191,11 @@ export function generateStandardReceiptHTML(options: {
   })();
 
   const isThermal = paperSize === "80mm";
-  const titleText = kind === "advance" ? "ADVANCE RECEIPT" : "PAYMENT RECEIPT";
+  const titleText = isProvisional
+    ? "PROVISIONAL BILL"
+    : kind === "advance"
+      ? "ADVANCE RECEIPT"
+      : "PAYMENT RECEIPT";
 
   const itemRows = o.items
     .map(
