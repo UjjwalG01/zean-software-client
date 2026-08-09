@@ -300,14 +300,14 @@ const Transactions = () => {
 
     const previousBalance = extras?.memberId
       ? transactions
-          .filter(
-            (t) =>
-              t.memberId === extras.memberId &&
-              t.type === "Charge" &&
-              t.status === "pending" &&
-              t.id !== extras.excludeTxnId,
-          )
-          .reduce((s, t) => s + (t.total || 0), 0)
+        .filter(
+          (t) =>
+            t.memberId === extras.memberId &&
+            t.type === "Charge" &&
+            t.status === "pending" &&
+            t.id !== extras.excludeTxnId,
+        )
+        .reduce((s, t) => s + (t.total || 0), 0)
       : 0;
 
     const html = generateStandardReceiptHTML({

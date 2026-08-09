@@ -256,10 +256,10 @@ export function AppSidebar() {
       <SidebarFooter className="p-4">
         {!collapsed && (
           <div className="rounded-lg border border-border/50 bg-muted/30 p-3 space-y-1.5">
-            <LicenseStatusBadge />
             <p className="text-xs text-muted-foreground">
               Version {softwareVersion}
             </p>
+            <LicenseStatusBadge />
             <p className="text-[10px] text-muted-foreground/60">
               © {new Date().getFullYear()} {softwareName} Software
             </p>

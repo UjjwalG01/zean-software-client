@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
@@ -41,6 +41,7 @@ import {
   type Outlet,
 } from "@/lib/supabase-outlets";
 import { useCompanySettings } from "@/hooks/use-firestore";
+import { useLicense } from "@/hooks/use-license";
 
 const COUNTRIES = [
   "Nepal",
@@ -61,23 +62,23 @@ const FK_RELATIONS: {
   label: string;
   help: string;
 }[] = [
-  {
-    key: "services",
-    label: "Services",
-    help: "Services created under this outlet",
-  },
-  {
-    key: "bookings",
-    label: "Bookings",
-    help: "Member bookings made against this outlet",
-  },
-  { key: "members", label: "Members", help: "Members assigned to this outlet" },
-  {
-    key: "transactions",
-    label: "Transactions",
-    help: "Payments collected for this outlet",
-  },
-];
+    {
+      key: "services",
+      label: "Services",
+      help: "Services created under this outlet",
+    },
+    {
+      key: "bookings",
+      label: "Bookings",
+      help: "Member bookings made against this outlet",
+    },
+    { key: "members", label: "Members", help: "Members assigned to this outlet" },
+    {
+      key: "transactions",
+      label: "Transactions",
+      help: "Payments collected for this outlet",
+    },
+  ];
 
 const emptyForm: Partial<Outlet> = {
   name: "",
@@ -102,16 +103,17 @@ export default function OutletsPage() {
     queryFn: getServiceTypes,
   });
   const { data: settings = {} } = useCompanySettings();
+  const { state: license } = useLicense();
 
-  const maxOutletsRaw = settings.maxOutlets || "unlimited";
-  const maxOutlets =
-    maxOutletsRaw === "unlimited"
-      ? Infinity
-      : Number(maxOutletsRaw) || Infinity;
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Outlet | null>(null);
   const [form, setForm] = useState<Partial<Outlet>>(emptyForm);
+
+
+  const maxOutlets = license?.status === "active"
+    ? Number(license?.maxOutlets) || settings.maxOutlets
+    : 0;
 
   const reset = () => {
     setEditing(null);
@@ -195,8 +197,8 @@ export default function OutletsPage() {
             reset();
             setOpen(true);
           }}
-          className="gradient-gold text-primary-foreground"
-          disabled={outlets.length >= maxOutlets}
+          className="gradient-gold text-primary-foreground disabled:cursor-not-allowed"
+          disabled={outlets.length >= maxOutlets || maxOutlets <= 0}
         >
           <Plus className="h-4 w-4 mr-1" /> Add Outlet
         </Button>
@@ -288,9 +290,9 @@ export default function OutletsPage() {
                           style={
                             sd?.color
                               ? {
-                                  color: sd.color,
-                                  borderColor: `${sd.color}66`,
-                                }
+                                color: sd.color,
+                                borderColor: `${sd.color}66`,
+                              }
                               : undefined
                           }
                         >

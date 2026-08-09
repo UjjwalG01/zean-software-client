@@ -148,11 +148,10 @@ const Login = () => {
         <div className="relative">
           {/* ================= LOGIN CARD ================= */}
           <div
-            className={`glass-card rounded-2xl p-8 border border-border/50 transition-all duration-500 ease-in-out ${
-              mode === "login"
+            className={`glass-card rounded-2xl p-8 border border-border/50 transition-all duration-500 ease-in-out ${mode === "login"
                 ? "opacity-100 scale-100 pointer-events-auto relative z-10"
                 : "opacity-0 scale-95 pointer-events-none absolute inset-0 z-0"
-            }`}
+              }`}
           >
             <div className="mb-6">
               <h2 className="text-xl font-semibold font-display text-foreground">
@@ -247,11 +246,10 @@ const Login = () => {
 
           {/* ================= RENEW LICENSE CARD ================= */}
           <div
-            className={`glass-card rounded-2xl p-8 border border-border/50 transition-all duration-500 ease-in-out ${
-              mode === "renew"
+            className={`glass-card rounded-2xl p-8 border border-border/50 transition-all duration-500 ease-in-out ${mode === "renew"
                 ? "opacity-100 scale-100 pointer-events-auto relative z-10"
                 : "opacity-0 scale-95 pointer-events-none absolute inset-0 z-0"
-            }`}
+              }`}
           >
             <div className="mb-6">
               <h2 className="text-xl font-semibold font-display text-foreground">
@@ -316,7 +314,7 @@ const Login = () => {
                     Max Outlets
                   </Label>
                   <div className="relative">
-                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Building2 className="absolute left-3 top-1/2 ring-offset-0 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="maxOutlets"
                       readOnly

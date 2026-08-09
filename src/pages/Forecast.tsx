@@ -179,14 +179,21 @@ const Forecast = () => {
                   {day.totalBookings} booking(s)
                 </Badge>
               </div>
-              <Table>
+              <Table className="w-full table-fixed">
+                <colgroup>
+                  <col style={{ width: "25%" }} />
+                  <col style={{ width: "20%" }} />
+                  <col style={{ width: "15%" }} />
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "10%" }} />
+                </colgroup>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead>Member</TableHead>
                     <TableHead>Class</TableHead>
-                    <TableHead>Service</TableHead>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead className="hidden md:flex">Service</TableHead>
+                    <TableHead className="text-right">Time</TableHead>
+                    <TableHead className="text-right">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -196,35 +203,27 @@ const Forecast = () => {
                       b.status === "voided" || b.status === "cancelled"
                         ? "Cancelled"
                         : b.status || b.bookingStatus || "Unknown";
-                    const normalizedStatus = String(displayStatus)
-                      .toLowerCase()
-                      .trim();
-                    const badgeVariant =
-                      normalizedStatus === "confirmed"
-                        ? "default"
-                        : normalizedStatus === "waitlisted"
-                          ? "secondary"
-                          : "destructive";
+
 
                     return (
                       <TableRow key={b.id}>
-                        <TableCell className="font-medium text-sm">
+                        <TableCell className="font-medium text-sm truncate">
                           {b.memberName || "Guest"}
                         </TableCell>
                         <TableCell className="text-sm">
                           {b.className || "—"}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden md:flex">
                           <Badge variant="secondary" className="text-[10px]">
                             {b.service}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
+                        <TableCell align="right" className="text-sm text-muted-foreground truncate">
                           {b.startTime || "--:--"} – {b.endTime || "--:--"}
                         </TableCell>
-                        <TableCell>
+                        <TableCell align="right">
                           <Badge
-                            variant={badgeVariant}
+                            variant="outline"
                             className="text-[10px] capitalize"
                           >
                             {displayStatus}
