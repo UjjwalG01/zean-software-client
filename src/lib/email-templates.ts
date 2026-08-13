@@ -232,7 +232,7 @@ export async function sendEmailViaResend(opts: {
       .split("\n")
       .map((l) => (l.length === 0 ? "<br/>" : `<p style="margin:0 0 8px">${escapeHtml(l)}</p>`))
       .join("");
-    const { data, error } = await supabase.functions.invoke("resend-email", {
+    const { data, error } = await supabase.functions.invoke("send-email", {
       body: {
         to,
         subject,
