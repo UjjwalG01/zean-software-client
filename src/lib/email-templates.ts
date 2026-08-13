@@ -243,7 +243,26 @@ export async function sendEmailViaResend(opts: {
         recipientName,
       },
     });
-    if (error) return { ok: false, channel: "resend", error: error.message };
+    if (error) {
+      // Edge Function non-2xx responses surface as a generic message — read the real body.
+      let detail = error.message;
+      try {
+        const ctx = (error as any)?.context;
+        if (ctx && typeof ctx.text === "function") {
+          const raw = await ctx.text();
+          if (raw) {
+            try {
+              detail = JSON.parse(raw)?.error || raw;
+            } catch {
+              detail = raw;
+            }
+          }
+        }
+      } catch {
+        /* keep generic message */
+      }
+      return { ok: false, channel: "resend", error: detail };
+    }
     if (data && data.ok === false) return { ok: false, channel: "resend", error: data.error || "send failed" };
     return { ok: true, channel: "resend" };
   } catch (e: any) {
