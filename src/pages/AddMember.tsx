@@ -340,6 +340,21 @@ const AddMember = () => {
       setCreatedId(id);
       setCreatedName(fullName);
 
+      // Welcome email — only when the "New Registration" notification switch
+      // and the `welcome` template are both enabled. Never blocks registration.
+      if (!isEdit && f.email) {
+        const { sendTemplatedEmail } = await import("@/lib/email-automation");
+        void sendTemplatedEmail("welcome", {
+          to: f.email,
+          recipientName: fullName,
+          data: { memberCode },
+        }).then((r) => {
+          if (r.sent) toast.success(`Welcome email sent to ${f.email}`);
+          else if (r.reason === "send-failed")
+            toast.error(`Welcome email failed: ${r.error || "unknown error"}`);
+        });
+      }
+
       if (isEdit) {
         navigate(`/members/${id}`);
       } else {

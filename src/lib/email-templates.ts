@@ -220,18 +220,23 @@ export async function sendEmailViaResend(opts: {
   to: string;
   subject: string;
   body: string;
+  html?: string;
   fromEmail?: string;
   fromName?: string;
   templateKey?: ReminderTemplateKey;
   recipientName?: string;
+  /** When true, never open the mail client as a fallback (background/automated sends). */
+  silent?: boolean;
 }): Promise<{ ok: boolean; channel: "resend" | "mailto"; error?: string }> {
-  const { to, subject, body, fromEmail, fromName, templateKey, recipientName } = opts;
+  const { to, subject, body, fromEmail, fromName, templateKey, recipientName, silent } = opts;
   try {
     const { supabase } = await import("./supabase");
-    const html = body
-      .split("\n")
-      .map((l) => (l.length === 0 ? "<br/>" : `<p style="margin:0 0 8px">${escapeHtml(l)}</p>`))
-      .join("");
+    const html =
+      opts.html ||
+      body
+        .split("\n")
+        .map((l) => (l.length === 0 ? "<br/>" : `<p style="margin:0 0 8px">${escapeHtml(l)}</p>`))
+        .join("");
     const { data, error } = await supabase.functions.invoke("send-email", {
       body: {
         to,
@@ -266,6 +271,7 @@ export async function sendEmailViaResend(opts: {
     if (data && data.ok === false) return { ok: false, channel: "resend", error: data.error || "send failed" };
     return { ok: true, channel: "resend" };
   } catch (e: any) {
+    if (silent) return { ok: false, channel: "resend", error: e?.message || String(e) };
     openMailtoReminder({ to, subject, body });
     return { ok: false, channel: "mailto", error: e?.message || String(e) };
   }
