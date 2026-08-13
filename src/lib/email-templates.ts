@@ -271,6 +271,7 @@ export async function sendEmailViaResend(opts: {
     if (data && data.ok === false) return { ok: false, channel: "resend", error: data.error || "send failed" };
     return { ok: true, channel: "resend" };
   } catch (e: any) {
+    if (silent) return { ok: false, channel: "resend", error: e?.message || String(e) };
     openMailtoReminder({ to, subject, body });
     return { ok: false, channel: "mailto", error: e?.message || String(e) };
   }
