@@ -220,12 +220,15 @@ export async function sendEmailViaResend(opts: {
   to: string;
   subject: string;
   body: string;
+  html?: string;
   fromEmail?: string;
   fromName?: string;
   templateKey?: ReminderTemplateKey;
   recipientName?: string;
+  /** When true, never open the mail client as a fallback (background/automated sends). */
+  silent?: boolean;
 }): Promise<{ ok: boolean; channel: "resend" | "mailto"; error?: string }> {
-  const { to, subject, body, fromEmail, fromName, templateKey, recipientName } = opts;
+  const { to, subject, body, fromEmail, fromName, templateKey, recipientName, silent } = opts;
   try {
     const { supabase } = await import("./supabase");
     const html = body
