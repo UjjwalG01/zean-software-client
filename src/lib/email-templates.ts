@@ -231,10 +231,12 @@ export async function sendEmailViaResend(opts: {
   const { to, subject, body, fromEmail, fromName, templateKey, recipientName, silent } = opts;
   try {
     const { supabase } = await import("./supabase");
-    const html = body
-      .split("\n")
-      .map((l) => (l.length === 0 ? "<br/>" : `<p style="margin:0 0 8px">${escapeHtml(l)}</p>`))
-      .join("");
+    const html =
+      opts.html ||
+      body
+        .split("\n")
+        .map((l) => (l.length === 0 ? "<br/>" : `<p style="margin:0 0 8px">${escapeHtml(l)}</p>`))
+        .join("");
     const { data, error } = await supabase.functions.invoke("send-email", {
       body: {
         to,
