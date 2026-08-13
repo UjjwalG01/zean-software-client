@@ -347,7 +347,7 @@ const AddMember = () => {
         void sendTemplatedEmail("welcome", {
           to: f.email,
           recipientName: fullName,
-          data: { tier: f.tier || f.membershipType || "" },
+          data: { memberCode },
         }).then((r) => {
           if (r.sent) toast.success(`Welcome email sent to ${f.email}`);
           else if (r.reason === "send-failed")
