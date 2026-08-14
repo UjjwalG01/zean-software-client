@@ -1,4 +1,4 @@
-# VitaFit Club — Database Reference
+# Zean Software — Database Reference
 
 This is the single source of truth for collection / table names used across
 the app. Firestore is the active backend; the equivalent Prisma schema for

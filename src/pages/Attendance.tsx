@@ -154,7 +154,7 @@ const Attendance = () => {
     }
   };
 
-  // Resolve a scanned QR payload to a member using the strict VitaFit Pass
+  // Resolve a scanned QR payload to a member using the strict Zean Software Pass
   // pipeline: JSON parse → VAF check → DB verification → attendance insert.
   const handleScanned = async (raw: string) => {
     // ── 1. JSON parse guard ────────────────────────────────────────────
@@ -177,9 +177,9 @@ const Attendance = () => {
       return;
     }
 
-    // ── 2. VAF (VitaFit Pass) signature check ──────────────────────────
+    // ── 2. VAF (Zean Software Pass) signature check ──────────────────────────
     if (parsed.vaf !== "vitafit-pass") {
-      toast.error("Unrecognized pass type. Please use a valid VitaFit pass.");
+      toast.error("Unrecognized pass type. Please use a valid Zean Software pass.");
       return;
     }
 
@@ -193,9 +193,9 @@ const Attendance = () => {
     const member = members.find((m) => {
       const codeOnRecord = String(
         (m as any).memberCode ||
-          (m as any).member_code ||
-          (m as any).code ||
-          "",
+        (m as any).member_code ||
+        (m as any).code ||
+        "",
       ).toUpperCase();
       return m.id === parsed.uid && codeOnRecord === expectedCode;
     });
@@ -317,7 +317,7 @@ const Attendance = () => {
       filterMember === "all"
         ? "All Members"
         : activeMembers.find((m) => m.id === filterMember)?.name ||
-          filterMember;
+        filterMember;
     exportTableToCSV(headers, rows, `attendance-${filterMonth}.csv`, {
       propertyName: settings.companyName || ".............",
       reportTitle: "Attendance Report",
@@ -344,7 +344,7 @@ const Attendance = () => {
         {/* Action Buttons Toolbar */}
         <div className="flex items-center gap-3">
           {/* Mobile App Pair QR Button */}
-          <MobileAppConnectModal propertyName="VitaFit Club" />
+          <MobileAppConnectModal propertyName="Zean Software" />
 
           {/* Other existing buttons... */}
 

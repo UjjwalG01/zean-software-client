@@ -1,4 +1,4 @@
-# VitaFit Club — Project Blueprint & Context Mind Map
+# Zean Software — Project Blueprint & Context Mind Map
 
 A single-document knowledge transfer for handing this codebase to another AI
 assistant or engineer. Everything below reflects the current, green-build state
@@ -397,15 +397,15 @@ the outlet POS layout.
 
 ### Direct financial columns on `public.members`
 
-| Column | Type | Purpose |
-| --- | --- | --- |
-| `opening_balance` | `numeric(12,2)` | Legacy carry-over balance at member creation. |
-| `total_paid` | `numeric(12,2)` | Lifetime total collected from this member (cash/card/fonepay/etc). |
-| `due_amount` | `numeric(12,2)` | Outstanding balance the member owes (incremented on Credit sales). |
-| `discount` | `numeric(12,2)` | Cumulative discounts granted. |
-| `services` | `text[]` | Enrolled service tags mirrored from the packages picker. |
-| `preferences` | `jsonb` (**array**) | Favorite activities — strictly a JSON array. |
-| `extras` | `jsonb` (**object**) | Free-form: `plan`, `membershipYears`, `autoRenew`, `logoUrl`, and any other dynamic keys. |
+| Column            | Type                 | Purpose                                                                                   |
+| ----------------- | -------------------- | ----------------------------------------------------------------------------------------- |
+| `opening_balance` | `numeric(12,2)`      | Legacy carry-over balance at member creation.                                             |
+| `total_paid`      | `numeric(12,2)`      | Lifetime total collected from this member (cash/card/fonepay/etc).                        |
+| `due_amount`      | `numeric(12,2)`      | Outstanding balance the member owes (incremented on Credit sales).                        |
+| `discount`        | `numeric(12,2)`      | Cumulative discounts granted.                                                             |
+| `services`        | `text[]`             | Enrolled service tags mirrored from the packages picker.                                  |
+| `preferences`     | `jsonb` (**array**)  | Favorite activities — strictly a JSON array.                                              |
+| `extras`          | `jsonb` (**object**) | Free-form: `plan`, `membershipYears`, `autoRenew`, `logoUrl`, and any other dynamic keys. |
 
 Roll-up SSOT stays the SQL views `vw_member_ledger` +
 `member_financial_summaries` (consumed via `useMemberLedger` /

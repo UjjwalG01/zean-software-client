@@ -158,7 +158,7 @@ const Dashboard = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold font-display">{greeting}</h1>
-          <p className="text-muted-foreground text-sm mt-1">
+          <p className="text-muted-foreground text-sm mt-1 hidden md:block">
             {format(today, "EEEE, MMMM d, yyyy")} · Here's what's happening at{" "}
             <i>{SOFTWARE_NAME}</i> today.
           </p>
