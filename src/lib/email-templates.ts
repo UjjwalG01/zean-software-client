@@ -220,19 +220,24 @@ export async function sendEmailViaResend(opts: {
   to: string;
   subject: string;
   body: string;
+  html?: string;
   fromEmail?: string;
   fromName?: string;
   templateKey?: ReminderTemplateKey;
   recipientName?: string;
+  /** When true, never open the mail client as a fallback (background/automated sends). */
+  silent?: boolean;
 }): Promise<{ ok: boolean; channel: "resend" | "mailto"; error?: string }> {
-  const { to, subject, body, fromEmail, fromName, templateKey, recipientName } = opts;
+  const { to, subject, body, fromEmail, fromName, templateKey, recipientName, silent } = opts;
   try {
     const { supabase } = await import("./supabase");
-    const html = body
-      .split("\n")
-      .map((l) => (l.length === 0 ? "<br/>" : `<p style="margin:0 0 8px">${escapeHtml(l)}</p>`))
-      .join("");
-    const { data, error } = await supabase.functions.invoke("resend-email", {
+    const html =
+      opts.html ||
+      body
+        .split("\n")
+        .map((l) => (l.length === 0 ? "<br/>" : `<p style="margin:0 0 8px">${escapeHtml(l)}</p>`))
+        .join("");
+    const { data, error } = await supabase.functions.invoke("send-email", {
       body: {
         to,
         subject,
@@ -243,10 +248,30 @@ export async function sendEmailViaResend(opts: {
         recipientName,
       },
     });
-    if (error) return { ok: false, channel: "resend", error: error.message };
+    if (error) {
+      // Edge Function non-2xx responses surface as a generic message — read the real body.
+      let detail = error.message;
+      try {
+        const ctx = (error as any)?.context;
+        if (ctx && typeof ctx.text === "function") {
+          const raw = await ctx.text();
+          if (raw) {
+            try {
+              detail = JSON.parse(raw)?.error || raw;
+            } catch {
+              detail = raw;
+            }
+          }
+        }
+      } catch {
+        /* keep generic message */
+      }
+      return { ok: false, channel: "resend", error: detail };
+    }
     if (data && data.ok === false) return { ok: false, channel: "resend", error: data.error || "send failed" };
     return { ok: true, channel: "resend" };
   } catch (e: any) {
+    if (silent) return { ok: false, channel: "resend", error: e?.message || String(e) };
     openMailtoReminder({ to, subject, body });
     return { ok: false, channel: "mailto", error: e?.message || String(e) };
   }
