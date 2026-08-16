@@ -37,9 +37,9 @@ Deno.serve(async (req) => {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-  const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-  const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+  const VITE_SUPABASE_URL = Deno.env.get("VITE_SUPABASE_URL")!;
+  const VITE_SUPABASE_PUBLISHABLE_KEY = Deno.env.get("SUPABASE_VITE_SUPABASE_PUBLISHABLE_KEY")!;
+  const userClient = createClient(VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: authHeader } },
   });
   const { data: userData, error: userErr } = await userClient.auth.getUser(
@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
 
   // ─── AuthZ: caller must be staff/admin ────────────────────────────────────
   const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const adminClient = createClient(SUPABASE_URL, SERVICE_ROLE ?? ANON_KEY, {
+  const adminClient = createClient(VITE_SUPABASE_URL, SERVICE_ROLE ?? VITE_SUPABASE_PUBLISHABLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const callerId = userData.user.id;
@@ -114,8 +114,8 @@ Deno.serve(async (req) => {
       .join("");
 
   const supa = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY")!,
+    Deno.env.get("VITE_SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_VITE_SUPABASE_PUBLISHABLE_KEY")!,
   );
 
   let status: "sent" | "failed" = "sent";
@@ -156,8 +156,8 @@ Deno.serve(async (req) => {
       error_message: errorMessage ?? null,
     })
     .then(
-      () => {},
-      () => {},
+      () => { },
+      () => { },
     );
 
   return new Response(JSON.stringify({ ok: status === "sent", status, error: errorMessage }), {
