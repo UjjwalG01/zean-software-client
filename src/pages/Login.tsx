@@ -20,6 +20,7 @@ import { SOFTWARE_NAME } from "@/lib/settings";
 import { useCompanySettings } from "@/hooks/use-firestore";
 import { useLicense } from "@/hooks/use-license";
 import { licenseMessage } from "@/lib/license";
+import LogoSVG from "@/components/ui/Logo";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -136,8 +137,9 @@ const Login = () => {
       <div className="w-full max-w-md mx-4 relative z-10">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl gradient-gold mb-4">
-            <Crown className="h-8 w-8 text-primary-foreground" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl gradient-gold- mb-4">
+            <LogoSVG className="text-primary-foreground  h-full w-full" />
+            {/* <Crown className="h-8 w-8 text-primary-foreground" /> */}
           </div>
           <h1 className="text-3xl font-bold font-display text-gradient-gold">
             {SOFTWARE_NAME}
@@ -149,8 +151,8 @@ const Login = () => {
           {/* ================= LOGIN CARD ================= */}
           <div
             className={`glass-card rounded-2xl p-8 border border-border/50 transition-all duration-500 ease-in-out ${mode === "login"
-                ? "opacity-100 scale-100 pointer-events-auto relative z-10"
-                : "opacity-0 scale-95 pointer-events-none absolute inset-0 z-0"
+              ? "opacity-100 scale-100 pointer-events-auto relative z-10"
+              : "opacity-0 scale-95 pointer-events-none absolute inset-0 z-0"
               }`}
           >
             <div className="mb-6">
@@ -247,8 +249,8 @@ const Login = () => {
           {/* ================= RENEW LICENSE CARD ================= */}
           <div
             className={`glass-card rounded-2xl p-8 border border-border/50 transition-all duration-500 ease-in-out ${mode === "renew"
-                ? "opacity-100 scale-100 pointer-events-auto relative z-10"
-                : "opacity-0 scale-95 pointer-events-none absolute inset-0 z-0"
+              ? "opacity-100 scale-100 pointer-events-auto relative z-10"
+              : "opacity-0 scale-95 pointer-events-none absolute inset-0 z-0"
               }`}
           >
             <div className="mb-6">

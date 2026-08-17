@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useMyPermissions, canView } from "@/hooks/use-permissions";
 import { LicenseStatusBadge } from "@/components/LicenseStatusBadge";
+import LogoSVG from "./ui/Logo";
 
 export const softwareName = "ZEAN";
 export const softwareVersion = "2.0.1";
@@ -153,8 +154,9 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="p-4">
         <NavLink to="/" className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-t gradient-gold">
-            <Crown className="h-5 w-5 text-primary-foreground" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-t- gradient-gold-">
+            <LogoSVG className="" fill="#F5A300" />
+            {/* <Crown className="h-5 w-5 text-primary-foreground" /> */}
           </div>
           {!collapsed && (
             <div>

@@ -23,8 +23,8 @@ export function StatCard({ title, value, change, icon: Icon, iconColor }: StatCa
             <span className="text-muted-foreground">vs last month</span>
           </div>
         </div>
-        <div className={cn("flex h-11 w-11 items-center justify-center rounded-xl", iconColor || "bg-primary/10")}>
-          <Icon className={cn("h-5 w-5", iconColor ? "text-primary-foreground" : "text-primary")} />
+        <div className={cn("flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10")}>
+          <Icon className={cn("h-5 w-5 text-primary/80")} />
         </div>
       </div>
     </div>
